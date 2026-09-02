@@ -12,12 +12,69 @@ must never be flashed (`scripts/deploy_screenshot.sh` refuses one).
 
 | build | md5 | timing | notes |
 |---|---|---|---|
+| `MacQuadra800_20260902.rbf` | `91cf5d727920e387c5cefdf18dc695f4` | met, **+0.420 ns setup / +0.195 ns hold** | **First MacQuadra800 release; Alan Steremberg's CPU/SDRAM speed-ups merged.** BL8 open-page SDRAM, related-clock handoff, retained 16-byte line into the AP040 cache, two-entry store buffer, store-hit cache update. Speedometer 3.23 CPU PR 2.66 → 3.88 on Alan's runs. Verified on hardware against BOTH A/UX 3.1 and Mac OS 8.1. Seed 19; 85 % ALMs. |
 | `wombat33_20260902.rbf` | `70716e92871448d1ff81ebb430902f4a` | met, **+0.130 ns** | **A/UX 3.1 boots to multiuser.** Both NCR53C96 SCSI bugs fixed (control-path phase flip + write-path chunk-flush). First build verified on hardware against BOTH A/UX 3.1 and Mac OS 8.1. Tracer off; seed 13; 85 % ALMs. |
 | `wombat33_20260901_2.rbf` | `d1d785de28439d132333a1c9e3aab5c5` | met, **+0.270 ns setup / +0.241 ns hold** | Related-clock SDRAM handoff: 151 ns reads, 22.0 MB/s simulated sequential RAM, Speedometer 3.23 CPU PR 2.917. |
 | `wombat33_20260831_2.rbf` | `4414e7b3294b3d554a9e43faa16682bd` | met, **+0.062 ns** | **The machine has a serial port.** Ports the Z8530 SCC from MacLC onto the beat bus, plus MIDI-over-SCC and MT32-pi. 85 % ALMs — watch the slack. |
 | `wombat33_20260831_1.rbf` | `3901ef5705f58dba3279c0417412f5f8` | met, +0.243 ns | **Sound works.** Fixes the watch-cursor wedge (ASC FIFOSTAT reported an empty FIFO as full) and hooks up the $806 volume slider. |
 | `wombat33_20260830.rbf` | `64c79dfb93ceefb549200c78671cdc31` | met, +0.248 ns | **ADB actually works** — the mouse button reaches the guest and motion stops inventing input. |
 | `wombat33_20260829.rbf` | `4c46a65c3a48b44ddb6f4fd6808d0422` | met, +0.245 ns | First build that boots Mac OS unattended. |
+
+## `MacQuadra800_20260902.rbf`
+
+md5 `91cf5d727920e387c5cefdf18dc695f4`, seed 19, timing met at **+0.420 ns
+setup / +0.195 ns hold** overall (worst paths are in the HDMI PLL domain; the
+33 MHz `clk_sys` domain closes at +1.138 ns and the 99 MHz SDRAM domain at
++0.916 ns setup). 85 % ALMs, 30,750 registers. Fitter/STA reports next to it as
+`MacQuadra800_20260902.{fit,sta}.summary` (gitignored, local only).
+
+**First release under the MacQuadra800 name, and the first with Alan
+Steremberg's CPU and memory speed-ups** (merged from
+`alanswx/wombat33_MiSTer` branch `cpu-sdram-handoff-seed15` in `e744dde` and
+`e8eebe9`, with the `rtl/ap68040` submodule moved to `alanswx/AP68040`
+`be0a662`). What changed, platform side then CPU side:
+
+- `rtl/sdram_beat32.sv`: the 33 ↔ 99 MHz request/completion toggles cross on
+  the falling edge of `clk_ram` instead of through two-flop synchronisers —
+  the clocks are phase-related outputs of one PLL, and `derive_pll_clocks`
+  times the half-cycle paths. Isolated read 212 → 151 ns.
+- `rtl/sdram.sv`: BL8 open-page controller — rows stay open per {rank, bank}
+  with tRAS/tRP tracking, refresh precharges both ranks explicitly. Every
+  read captures a full 16-byte line that the bridge retains.
+- `rtl/quadra800.sv`: aligned RAM longword reads that hit the retained line
+  (or are the first miss of one) complete through registered pulses without
+  crossing `wombat_bus32`; everything else keeps the service-FSM cadence.
+- `rtl/ap68040` (`ap040_cache`): a line fill takes its remaining three words
+  from the retained line instead of issuing three more bus reads; an aligned
+  cacheable store now updates the resident data-cache word instead of
+  invalidating the whole set.
+- `rtl/wombat_store_buffer.sv` (new, below the cache): a two-entry ordered
+  queue acknowledges non-faulting physical-RAM stores at capture and drains
+  them behind cache hits. Reads, walker cycles and device writes wait for it.
+- `ap040_core`: the exception format is carried in the entry state, removing
+  a 50-level decode path that had stopped seeds 18–20 closing.
+
+Alan's Speedometer 3.23 PR numbers on Mac OS 7.5.5 (his disk, one iteration
+each; see `docs/PERFORMANCE_MEASUREMENTS.md` §8–12): CPU 2.661 → **3.878**,
+Graphics 3.487 → **5.130**, Math 15.841 → **29.395**.
+
+**Verification on this tree:**
+
+| check | result |
+|---|---|
+| `tb_sdram` | 45 checks, 0 failures, 0 chip protocol errors (both ranks modelled), 43.7 MB/s |
+| `tb_wombat_bus32`, `tb_store_buffer` | 6/6; all store-buffer ordering/backpressure tests pass |
+| `tb_memory_path`, `..._registered_first_miss` | 0 failures, 52 MB/s integrated |
+| `tb_ncr53c96`, `tb_easc` | 6556/6556, 18/18 |
+| AP68040 `tb_ap040_cache_snoop` | ALL TESTS PASSED (incl. T10 retained-line fill, T11 store-hit update) |
+| Full-machine Verilator gate (`gate-emu.hda`, fastboot ROM) | cpu 717 rows: 13,585 groups match, the 2 known memory-indirect diffs; fpu 270, saverestore 8, integration 1328 rows clean; mmu_full 24 rows: 13 diffs that the **pre-merge base `f9767d8` reproduces identically** (pre-existing in this harness, not a regression) |
+
+**Hardware result (192.168.99.143, 2026-09-02):**
+
+| guest | result |
+|---|---|
+| A/UX 3.1 (`HD60_512-AUX3.1-Installed.hda`) | multiuser Finder desktop 4 min after `load_core`, no fsck; Apple menu → CommandShell; `uname -a`, `ls`, `uptime`, `sum /unix` all answer; sync writes at idle; `shutdown -h now` → "You may now switch off." |
+| Mac OS 8.1 (`QuadSquad8.hda`) | Finder 2 min after `load_core`; menu-bar clock ticks at idle (2:35 → 2:41); Cmd-W closes a window, pointer tracks; Special → Shut Down → "It is now safe to switch off." |
 
 ## `wombat33_20260902.rbf`
 
