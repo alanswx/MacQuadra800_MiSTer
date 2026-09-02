@@ -114,7 +114,17 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # setup, +0.197 ns hold); the store buffer was not present in the failing path.
 # Seed 18 meets timing at +0.165 ns setup and +0.248 ns hold and passed the full
 # Mac OS 7.5.5 Speedometer 3.23 PR suite in hardware.
-set_global_assignment -name SEED 18
+# The cache store-hit update candidate moved placement enough that its
+# unrelated ir -> exc_fmt instruction-decode path missed setup at seeds 18
+# (-0.610 ns, +0.243 ns hold), 19 (-1.740 ns, +0.206 ns hold), and 20
+# (-2.223 ns, +0.216 ns hold). The exception format is now loaded from a
+# registered entry-state decode, removing that 50-level path. Re-check the
+# refactored netlist at the known-good seed 18. That build removed the CPU
+# path; its only failure was the known seed-sensitive three-level SDRAM
+# open_row -> command[0] crossing (-1.030 ns setup, +0.239 ns hold), with
+# 5.572 ns of routing delay. Seed 19 meets timing at +0.378 ns setup and
+# +0.251 ns hold and passed the full Mac OS 7.5.5 Speedometer 3.23 PR suite.
+set_global_assignment -name SEED 19
 
 #set_global_assignment -name VERILOG_MACRO "MISTER_FB=1"
 
