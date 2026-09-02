@@ -86,9 +86,29 @@ reg [11:0] cursor_line, anim_line;
 
 reg  [7:0] pal_addr;
 reg  [1:0] pal_idx;
-reg  [7:0] pal_r [0:255];
-reg  [7:0] pal_g [0:255];
-reg  [7:0] pal_b [0:255];
+// The CLUT is a true dual-port, dual-clock RAM per plane: port A (clk) is
+// the RAMDAC write and its readback, port B (clk_vid) is the scan-out.  As
+// three plain arrays with a second read port on clk, synthesis kept the M10K
+// for the scan-out and rebuilt the readback from logic — 6.7k LUTs and 3.5k
+// registers for this module.  With explicit ports it is three M10Ks.
+wire [7:0] pal_q_r, pal_q_g, pal_q_b;     // port A readback of pal_addr
+wire [7:0] clut_r, clut_g, clut_b;        // port B scan-out
+wire [7:0] clut_idx;
+reg        pal_rd_pend;                   // readback: one cycle for the RAM
+// RAMDAC data register ($200+$10): the write lands in the access cycle, at
+// the address the RAMDAC currently points at (it auto-increments after B).
+wire       pal_acc  = sel && !ack && (blk == 2'd2) && (rsel == 6'h04);
+wire       pal_rd   = pal_acc && !write;
+wire       pal_wr   = pal_acc &&  write && ce;
+wire       pal_we_r = pal_wr && (pal_idx == 2'd0);
+wire       pal_we_g = pal_wr && (pal_idx == 2'd1);
+wire       pal_we_b = pal_wr && (pal_idx == 2'd2);
+dafb_clut clut_r_i (.clka(clk), .aa(pal_addr), .da(wdata[7:0]), .wea(pal_we_r), .qa(pal_q_r),
+                    .clkb(clk_vid), .ab(clut_idx), .qb(clut_r));
+dafb_clut clut_g_i (.clka(clk), .aa(pal_addr), .da(wdata[7:0]), .wea(pal_we_g), .qa(pal_q_g),
+                    .clkb(clk_vid), .ab(clut_idx), .qb(clut_g));
+dafb_clut clut_b_i (.clka(clk), .aa(pal_addr), .da(wdata[7:0]), .wea(pal_we_b), .qa(pal_q_b),
+                    .clkb(clk_vid), .ab(clut_idx), .qb(clut_b));
 reg  [7:0] pbctrl;
 reg  [2:0] mode;                 // 0=1bpp 1=2bpp 2=4bpp 3=8bpp 4=24bpp
 
@@ -109,6 +129,7 @@ always @(posedge clk) begin
 		int_en <= 0; int_status <= 0;
 		cursor_line <= 0; anim_line <= 0;
 		pal_addr <= 0; pal_idx <= 0; pbctrl <= 0; mode <= 3'd0;
+		pal_rd_pend <= 0;
 	end
 	else if (ce) begin
 		ack <= 0;
@@ -120,9 +141,15 @@ always @(posedge clk) begin
 			int_status[2] <= 1'b1;
 		end
 
-		if (sel && !ack) begin
+		// RAMDAC data readback: cycle 1 lets the RAM present pal_addr, cycle
+		// 2 returns it.  Every other access still completes in one cycle.
+		if (pal_rd && !pal_rd_pend) begin
+			pal_rd_pend <= 1;
+		end
+		else if (sel && !ack) begin
 			ack   <= 1;
 			rdata <= 32'h0;
+			pal_rd_pend <= 0;
 			case (blk)
 			2'd0: begin                                   // DAFB
 				if (write) begin
@@ -201,11 +228,7 @@ always @(posedge clk) begin
 					case (rsel)
 					6'h00: begin pal_addr <= wdata[7:0]; pal_idx <= 0; end
 					6'h04: begin
-						case (pal_idx)
-						2'd0: pal_r[pal_addr] <= wdata[7:0];
-						2'd1: pal_g[pal_addr] <= wdata[7:0];
-						default: pal_b[pal_addr] <= wdata[7:0];
-						endcase
+						// the plane write itself is pal_we_* above
 						if (pal_idx == 2'd2) begin
 							pal_idx  <= 0;
 							pal_addr <= pal_addr + 1'b1;
@@ -229,9 +252,9 @@ always @(posedge clk) begin
 					case (rsel)
 					6'h00: begin rdata <= {24'd0, pal_addr}; pal_idx <= 0; end
 					6'h04: begin
-						rdata <= {24'd0, (pal_idx == 2'd0) ? pal_r[pal_addr] :
-						                 (pal_idx == 2'd1) ? pal_g[pal_addr] :
-						                                     pal_b[pal_addr]};
+						rdata <= {24'd0, (pal_idx == 2'd0) ? pal_q_r :
+						                 (pal_idx == 2'd1) ? pal_q_g :
+						                                     pal_q_b};
 						pal_idx <= (pal_idx == 2'd2) ? 2'd0 : pal_idx + 1'b1;
 					end
 					6'h08: rdata <= {24'd0, pbctrl};
@@ -309,16 +332,16 @@ assign vid_addr = fetch_addr[21:2];
 
 // current word: the freshly fetched one on a refill boundary
 wire [31:0] cur = (shcnt == 0) ? fetch_word : shreg;
-wire [7:0] clut_idx = (mode_v == 3'd3) ? cur[31:24] :
+assign clut_idx = (mode_v == 3'd3) ? cur[31:24] :
                       (mode_v == 3'd0) ? {7'd0, cur[31]} :
                       (mode_v == 3'd1) ? {6'd0, cur[31:30]} :
                                          {4'd0, cur[31:28]};
 
-reg [7:0] out_r, out_g, out_b;
+reg       act_q;                  // active-video, aligned with the CLUT read
 reg       hb_r, vb_r;
-assign vga_r = out_r;
-assign vga_g = out_g;
-assign vga_b = out_b;
+assign vga_r = act_q ? clut_r : 8'd0;
+assign vga_g = act_q ? clut_g : 8'd0;
+assign vga_b = act_q ? clut_b : 8'd0;
 assign vga_hb = hb_r;
 assign vga_vb = vb_r;
 
@@ -332,7 +355,7 @@ always @(posedge clk_vid) begin
 		hb_r <= 1; vb_r <= 1;
 		shreg <= 0; shcnt <= 0;
 		fetch_addr <= 0; fetch_word <= 0; fpipe <= 0;
-		out_r <= 0; out_g <= 0; out_b <= 0;
+		act_q <= 0;
 		line_base_next <= 0;
 	end
 	else begin
@@ -383,15 +406,34 @@ always @(posedge clk_vid) begin
 			end
 		end
 
-		if (hactive && vactive) begin
-			out_r <= pal_r[clut_idx];
-			out_g <= pal_g[clut_idx];
-			out_b <= pal_b[clut_idx];
-		end
-		else begin
-			out_r <= 0; out_g <= 0; out_b <= 0;
-		end
+		act_q <= hactive && vactive;
 	end
 end
 
+endmodule
+
+//============================================================================
+//  dafb_clut — one 256 x 8 CLUT plane as a true dual-port, dual-clock RAM.
+//  Port A (clka): write and registered readback of the same address.
+//  Port B (clkb): registered read for the scan-out.  Read-during-write on
+//  the same address never happens on hardware (the RAMDAC readback follows
+//  a write by at least a bus turnaround), so no bypass logic is asked for.
+//============================================================================
+module dafb_clut
+(
+	input        clka,
+	input  [7:0] aa,
+	input  [7:0] da,
+	input        wea,
+	output reg [7:0] qa,
+	input        clkb,
+	input  [7:0] ab,
+	output reg [7:0] qb
+);
+(* ramstyle = "M10K, no_rw_check" *) reg [7:0] mem [0:255];
+always @(posedge clka) begin
+	if (wea) mem[aa] <= da;
+	qa <= mem[aa];
+end
+always @(posedge clkb) qb <= mem[ab];
 endmodule
