@@ -13,6 +13,7 @@ must never be flashed (`scripts/deploy_screenshot.sh` refuses one).
 | build | md5 | timing | notes |
 |---|---|---|---|
 | `wombat33_20260902.rbf` | `70716e92871448d1ff81ebb430902f4a` | met, **+0.130 ns** | **A/UX 3.1 boots to multiuser.** Both NCR53C96 SCSI bugs fixed (control-path phase flip + write-path chunk-flush). First build verified on hardware against BOTH A/UX 3.1 and Mac OS 8.1. Tracer off; seed 13; 85 % ALMs. |
+| `wombat33_20260901_2.rbf` | `d1d785de28439d132333a1c9e3aab5c5` | met, **+0.270 ns setup / +0.241 ns hold** | Related-clock SDRAM handoff: 151 ns reads, 22.0 MB/s simulated sequential RAM, Speedometer 3.23 CPU PR 2.917. |
 | `wombat33_20260831_2.rbf` | `4414e7b3294b3d554a9e43faa16682bd` | met, **+0.062 ns** | **The machine has a serial port.** Ports the Z8530 SCC from MacLC onto the beat bus, plus MIDI-over-SCC and MT32-pi. 85 % ALMs — watch the slack. |
 | `wombat33_20260831_1.rbf` | `3901ef5705f58dba3279c0417412f5f8` | met, +0.243 ns | **Sound works.** Fixes the watch-cursor wedge (ASC FIFOSTAT reported an empty FIFO as full) and hooks up the $806 volume slider. |
 | `wombat33_20260830.rbf` | `64c79dfb93ceefb549200c78671cdc31` | met, +0.248 ns | **ADB actually works** — the mouse button reaches the guest and motion stops inventing input. |
@@ -58,6 +59,32 @@ Both guests were exercised at idle and shut down cleanly. An apparent Mac OS
 "foreground wedge" seen mid-session was traced to a test-harness bug (a guest
 menu-driver script killed by a timeout left the mouse button held down), not
 the bitstream; it did not reproduce with clean input.
+
+## `wombat33_20260901_2.rbf`
+
+MD5 `d1d785de28439d132333a1c9e3aab5c5`, seed 15. Overall timing closes at
+**+0.270 ns setup and +0.241 ns hold**; the 99 MHz SDRAM domain is +1.353 ns
+setup and +0.431 ns hold. Targeted TimeQuest reports put every new handoff
+path above +1.353 ns setup and +3.191 ns hold.
+
+This build replaces the conservative two-flop request and completion
+synchronisers in `rtl/sdram_beat32.sv`. The 33 and 99 MHz clocks are
+phase-related 1:3 outputs of one PLL, so the handoff is captured on the falling
+edge of the 99 MHz clock and checked as a timed half-cycle path.
+
+Measured against the seed-13 SDRAM-fast-path control:
+
+| | seed 13 | seed 15 |
+|---|---:|---:|
+| isolated RAM read | 212 ns | **151 ns** |
+| sequential RAM | 16.4 MB/s | **22.0 MB/s** |
+| Speedometer 3.23 CPU PR | 2.661 | **2.917 (+9.6%)** |
+
+Verification: `tb_sdram` 33/33 with zero chip-protocol errors, `tb_easc`
+18/18, ten SingleStep rows with 170 matching field groups and zero real
+differences, Mac OS boot, full Speedometer 3.23 PR suite, and clean guest
+shutdown. The complete measurements and screenshots are in
+`docs/PERFORMANCE_MEASUREMENTS.md` §8.
 
 ## `wombat33_20260831_2.rbf`
 

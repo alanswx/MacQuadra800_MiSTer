@@ -1,11 +1,12 @@
-# Resume prompt — CPU speed: SDRAM fast path landed, what is next
+# Resume prompt — CPU speed: related-clock handoff validated, page mode next
 
 Paste this file as the opening message of a new session. Repo on `main`
-through `8c7e424` (**never pushed** — `main` is ahead of `origin/main`).
+through `4a29d6c`; the related-clock handoff is hardware-validated in the
+current worktree but not committed.
 
-This documents work that is **finished, measured and merged**. It is a
-starting point, not a rescue. If you are here to make the machine faster, §5
-is the queue.
+This documents the landed fast path plus a related-clock follow-up that is
+**finished and measured but not yet committed**. It is a starting point, not
+a rescue. If you are here to make the machine faster, §5 is the queue.
 
 **Binding rule:** never load a core while the guest is booting or running. It
 hard-resets the FPGA and yanks a mounted, writable volume out from under the
@@ -47,18 +48,22 @@ End to end, Speedometer 4.02 on hardware
 | Benchmark Mix | 1.897 | 0.200 | **0.231** (+15.5 %) |
 | Color QuickDraw | 1.283 | 0.198 | **0.219** (+10.6 %) |
 
-The emulated machine is still **8.2× slower than the real one** on the CPU
-mix. That gap is the remaining work.
+The follow-up related-clock handoff removes both conservative 2FF crossings by
+capturing on the falling edge of the phase-related 99 MHz clock. It measures
+151 ns per read and 22.0 MB/s sequentially. On the same Speedometer 3.23 disk,
+the PR CPU score rose 2.661 → **2.917** (+9.6%). Do not compare that PR score
+directly with the 4.02 Benchmark Mix above.
 
-## 2. Regression status — all green as of `8c7e424`
+## 2. Regression status — all green for the handoff candidate
 
 | check | result |
 |---|---|
 | `cd verilator && make tb_sdram` | 33 checks, 0 failures, 0 chip protocol errors |
 | `cd verilator && make tb_easc` | 18 checks, 0 failures (pre-existing suite) |
 | GUI sim elaboration (`verilator --lint-only`, full `V_SRC`) | clean; only pre-existing `SIDEEFFECT` warnings in `ap040_fpu.v` and `sim.v` |
-| Quartus, seed 13 | fits, **timing met, +0.132 ns** |
-| Hardware | Mac OS 8.1 boots to desktop and runs the full Speedometer battery |
+| Quartus, seed 15 | fits, **+0.270 ns setup, +0.241 ns hold** |
+| Targeted handoff paths | ≥+1.353 ns setup, ≥+3.191 ns hold |
+| Hardware | Mac OS boots; full Speedometer 3.23 PR suite passes; clean shutdown |
 | `rtl/ap68040` submodule | untouched, `0e767614` |
 
 Re-run the first two before trusting any change to `rtl/sdram*.sv` or the
@@ -69,7 +74,7 @@ read-after-posted-write ordering, all four banks, survival across refresh, and
 a 64-deep sequential stream — then prints the latency table above, which is
 the regression test for a performance change.
 
-## 3. The build to use
+## 3. The builds to use
 
 `releases/wombat33_20260901.rbf`, md5 `abb5ede4f776d20ccd74367813aa1d28`.
 Seed 13, timing met at +0.132 ns, so `scripts/deploy_screenshot.sh` accepts it
@@ -84,6 +89,10 @@ this branch made the design 97 ALMs *smaller* and still sent seed 6 from
 recorded there. **Walk seeds; do not go hunting in your own diff.** Candidate
 bitstreams and their reports live in `scratch/seeds/` (gitignored);
 `scratch/seeds/restore_seed.sh <n>` stages one for deploy.
+
+The faster candidate is `releases/wombat33_20260901_2.rbf`, md5
+`d1d785de28439d132333a1c9e3aab5c5`. It is preserved separately from the
+seed-13 release so both measured configurations remain reproducible.
 
 ## 4. Gotchas that cost real time
 
@@ -108,29 +117,28 @@ bitstreams and their reports live in `scratch/seeds/` (gitignored);
 
 From the original plan, with what the measurements now say about it:
 
-1. **Kill the clock-domain crossings** (plan §1c). A read beat is 212 ns of
-   which the SDRAM row cycle is only ~81 ns — **the two toggle synchronisers
-   are now ~60 % of a read**, a bigger share than the plan assumed. `clk_ram`
-   is exactly 3× `clk_sys` from the same PLL, so a divide-by-3 phase counter
-   and a registered handoff can replace them. Caveat: a testbench with ideal
-   phase-aligned clocks will happily pass a design that fails on silicon, so
-   this needs the fitter and hardware, not simulation. Budget a seed hunt.
-2. **Page-mode scheduler in `sdram.sv`** (plan §1d). The structural fix and
-   the one that reaches real-Quadra *bandwidth*: drop per-access
+1. **Page-mode scheduler in `sdram.sv`** (plan §1d). The structural fix and
+   the prerequisite for real-Quadra *bandwidth*: drop per-access
    auto-precharge, keep rows open per bank, track tRAS/tRC/tRP. Sequential
    beats — line fills and writeback streams — become page hits.
    `docs/sdram-vram-sharing.md` §6(a) has the design and cycle diagrams.
    `tb_sdram.sv`'s chip model already tracks bank/row state and reports the
    timing parameters such a scheduler must respect, which is most of what
-   makes this tractable.
-3. **Line-fill burst hint** (plan §1e) — only worth it after 2, and it needs
-   `fill_active` plumbed out of `ap040_cache`, i.e. the submodule.
-4. **Inside the core** (`rtl/ap68040`, coordinate with whoever owns it): early
+   makes this tractable. An isolated prototype passed those checks and reached
+   26.1 MB/s reads / 32.4 MB/s writes, but it is not ready to merge: cover the
+   copy port and resolve the four-cycle ACT→PRE case against tRAS first.
+2. **Full-line read path** (plan §1e). The prototype shows page mode alone is
+   still limited by the serialized request/ack bridge. A one-beat cache using
+   the unused half of BL=4 reached 37.5 MB/s. Getting to 50–65 MB/s needs the
+   cache's `fill_active` plumbed out of `ap040_cache` plus a controller that
+   pipelines all four beats, or an equivalently coherent 16-byte read-ahead
+   buffer. Do not promise 50–65 MB/s from row-open scheduling alone.
+3. **Inside the core** (`rtl/ap68040`, coordinate with whoever owns it): early
    ack on line fills, then a store buffer, then copyback. `docs/sdram-fast-path.md`
    §3 and the original plan's §2 have the analysis. Copyback needs a real
    snoop — an external write hitting a dirty line would destroy data on
    invalidate, and the MMU walker's U/M-bit updates use exactly that path.
-5. **Perf counters** (plan §4 stage 0) — still not built, because there is no
+4. **Perf counters** (plan §4 stage 0) — still not built, because there is no
    readout path: `debug_status` is the core's bus, `m_debug_status` in
    `wombat33.sv` goes nowhere, and the Verilator GUI sim builds `sim.v`, not
    `wombat33.sv`. Counters would be write-only. **Giving them a home is the

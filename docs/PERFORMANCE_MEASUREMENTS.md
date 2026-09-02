@@ -1,5 +1,13 @@
 # Performance measurements — Speedometer 4.02
 
+> **2026-09-01 follow-up:** a timing-clean related-clock SDRAM handoff now
+> measures 151 ns per isolated read and 22.0 MB/s sequentially in
+> `tb_sdram`. On hardware, Speedometer **3.23 PR Tests** improved from CPU
+> 2.661 on the seed-13 control to **2.917** on seed 15 (+9.6%). Version 3.23's
+> PR score is not the same metric as the 4.02 Benchmark Mix below; see §8.
+> A 2026-09-02 BL8/open-page follow-up raises that same 3.23 CPU score to
+> **3.139** and passes the full suite; see §9.
+
 Three-way comparison of a **real Quadra 800**, the **Wombat33 core before the
 SDRAM fast path**, and the **core with it**. Measured 2026-09-01 on hardware
 (DE10-Nano + MiSTer SDRAM board), same disk image, same ROM, same Mac OS.
@@ -205,11 +213,282 @@ memory path:
   the two clock-domain crossings. Removing them (§1c of the speed plan) is the
   next platform item and is worth more than its position in the running order
   suggested.
-- Page mode (§1d) is the structural fix and the one that reaches real-Quadra
-  *bandwidth*.
+- Page mode (§1d) is the structural prerequisite for real-Quadra bandwidth;
+  the follow-up prototype shows it must be paired with a full-line path.
 - Beyond that the remaining terms are inside the CPU core — the write-through
   cache with no write buffer, and the lack of an early ack on line fills — which
   live in the `rtl/ap68040` submodule.
 
-A useful next measurement would be the same three-way comparison after §1c and
-§1d land, to see how much of the 8.2× is memory and how much is the core.
+A useful next measurement would be the same three-way comparison after the
+page-mode work (§1d) lands, to see how much of the 8.2× is memory and how much
+is the core.
+
+## 8. Related-clock handoff follow-up (Speedometer 3.23)
+
+The current disposable MacAtrium test disk contains Speedometer 3.23, not the
+4.02 copy used above. That prevents a direct update of the real-Q800 comparison,
+but it still gives a controlled before/after measurement on one disk and one
+benchmark version.
+
+| Speedometer 3.23 PR Test | seed-13 control | seed-15 handoff | gain |
+|---|---:|---:|---:|
+| CPU | 2.661 | **2.917** | **+9.6%** |
+| Graphics | 3.487 | **3.903** | **+11.9%** |
+| Disk | 0.671 | **0.679** | +1.2% |
+| Math | 15.841 | **18.446** | **+16.4%** |
+| Old PR | 3.829 | **4.318** | **+12.8%** |
+| New PR | 1.850 | **1.946** | **+5.2%** |
+
+The seed-15 RBF is `releases/wombat33_20260901_2.rbf`, MD5
+`d1d785de28439d132333a1c9e3aab5c5`. Quartus reports +0.270 ns overall
+setup and +0.241 ns overall hold; the 99 MHz domain is +1.353 ns setup and
++0.431 ns hold. The guest booted Mac OS, completed the PR suite, and was shut
+down normally before the disk or core was touched again.
+
+Seed-13 control:
+
+![Speedometer 3.23 PR control](perf/wombat33_seed13_speedometer323_pr.png)
+
+Seed-15 related-clock handoff:
+
+![Speedometer 3.23 PR handoff](perf/wombat33_seed15_cdc_speedometer323_pr.png)
+
+The 4.02 application came from `Quad Squad:Utilities:` on the original 2 GB
+Quad Squad image. The currently mounted `QuadSquad8.hda` is a 90 MB disposable
+clone of the MacAtrium disk, so recovering that original image from the NAS or
+archive is the prerequisite for rerunning the published 4.02 tables.
+
+## 9. BL8/open-page follow-up (Speedometer 3.23)
+
+The next memory-only step keeps the machine's established registered bus
+completion but changes the SDRAM side to an open-page controller and captures
+the complete BL8 read as a retained 16-byte line. The requested longword is
+returned critical-word-first while the burst tail finishes in the background.
+The controller tracks open rows independently for all eight `{rank,bank}`
+combinations and refreshes both ranks.
+
+A fresh run of the seed-15 handoff RBF immediately before the experiment is
+the control below. Both runs used the same pristine `QuadSquad8.hda` image,
+Speedometer 3.23, Mac OS 7.5.5, and one iteration of every PR category.
+
+| Speedometer 3.23 PR Test | seed-15 control | BL8/open-page | gain |
+|---|---:|---:|---:|
+| CPU | 2.917 | **3.139** | **+7.6%** |
+| Graphics | 3.817 | **4.159** | **+9.0%** |
+| Disk | 0.672 | **0.684** | +1.8% |
+| Math | 18.224 | **20.843** | **+14.4%** |
+| Old PR | 4.269 | **4.724** | **+10.7%** |
+| New PR | 1.928 | **2.013** | **+4.4%** |
+
+The hardware RBF is `Wombat33_BL8_stockmachine_seed17_20260902.rbf`, MD5
+`e20f8dfff1d27b4df2195708bcdecc39`. Quartus reports +0.185 ns overall setup
+and +0.244 ns overall hold. The full PR suite completed normally, including
+Disk. The directed SDRAM model reports 43.7 MB/s for sequential bridge reads,
+181 ns for a cold critical word, 121 ns for an open-page read, and 30 ns for a
+retained-line read. The whole stock machine transport remains slower at an
+estimated 19.5 MB/s / 819 ns per 16-byte fill because each longword still
+crosses the registered transaction adapter and service FSM.
+
+Two more aggressive handshakes were rejected on hardware. Both completed CPU
+and Graphics but froze during Disk; one included the full pre-adapter line
+bypass, while the other disabled that bypass and retained only direct memory
+acknowledgement. The passing stock-machine build therefore clears BL8 and the
+open-page controller and isolates the remaining fault to the shortened
+completion path. Future work should shorten RAM completion only, leaving the
+ROM, VRAM, IOSB, DAFB, and open-bus cadence unchanged, and must pass the full
+Disk test before it replaces this baseline.
+
+### Registered retained-line service
+
+The first safe follow-up exposes the retained BL8 line to `quadra800`, but
+serves its words through the existing registered service-FSM acknowledgement.
+It removes three redundant bridge transactions per fill without changing the
+transaction adapter's completion cadence. The integrated model improves from
+19.5 to **25.1 MB/s**, and a 16-byte fill falls from 819 to **636 ns**.
+
+| Speedometer 3.23 PR Test | BL8/open-page | registered line | gain |
+|---|---:|---:|---:|
+| CPU | 3.139 | **3.258** | **+3.8%** |
+| Graphics | 4.159 | **4.373** | **+5.1%** |
+| Disk | 0.684 | 0.679 | -0.7% |
+| Math | 20.843 | **21.694** | **+4.1%** |
+| Old PR | 4.724 | **4.920** | **+4.1%** |
+| New PR | 2.013 | **2.039** | **+1.3%** |
+
+The RBF is `Wombat33_BL8_regline_seed17_20260902.rbf`, MD5
+`628021ac778ef96c45d84d9232e4644a`. Quartus reports +0.289 ns setup and
++0.252 ns hold. It booted Mac OS and completed the full PR suite, including
+Disk. Against the fresh seed-15 control at the start of this section, the
+cumulative CPU gain is **+11.7%** (2.917 to 3.258).
+
+### Registered pre-adapter line hits
+
+The next step bypasses `wombat_bus32` only for aligned longword reads that are
+already present in the retained BL8 line. The completion remains a registered
+one-cycle pulse. The adapter's active state and previous acknowledgement both
+gate the bypass, preventing the just-completed critical word from being
+acknowledged twice. A first miss, byte/word or misaligned access, page-table
+walk, write, and every non-RAM device continue to use the established adapter
+and service-FSM path. A request for the still-arriving tail of the same line
+waits instead of launching a duplicate SDRAM transaction.
+
+The integrated post-cache model improves from 25.1 to **43.7 MB/s** and a
+16-byte fill falls from 636 to **365 ns**. It passes 64 sequential reads and
+2,048 mixed posted-write/read operations in order, while the independent SDRAM
+test remains 45/45 with zero chip-protocol errors and the bus adapter remains
+6/6. The complete Verilator machine also builds successfully.
+
+| Speedometer 3.23 PR Test | registered line | registered bus line | gain |
+|---|---:|---:|---:|
+| CPU | 3.258 | **3.378** | **+3.7%** |
+| Graphics | 4.373 | **4.536** | **+3.7%** |
+| Disk | 0.679 | **0.681** | +0.3% |
+| Math | 21.694 | **22.639** | **+4.4%** |
+| Old PR | 4.920 | **5.112** | **+3.9%** |
+| New PR | 2.039 | **2.072** | **+1.6%** |
+
+The RBF is `Wombat33_BL8_regbusline_seed17_20260902.rbf`, MD5
+`df9e97bfc14612b1221cd10112e9dad3`. Quartus reports +0.139 ns setup and
++0.183 ns hold, with zero setup or hold TNS. It booted Mac OS 7.5.5 and
+completed one iteration of every PR category, including Disk, before a clean
+guest shutdown. The disposable test disk was then restored byte-for-byte from
+the pristine image; both copies had MD5 `9c685af4dd7016cf1e664a908e2d9cbe`.
+
+Against the fresh seed-15 control, the cumulative gains are **+15.8% CPU**,
+**+18.8% Graphics**, and **+24.2% Math**. The bridge itself has now reached
+43.7 MB/s, so the remaining gap to the real Quadra 800's 50--65 MB/s is no
+longer dominated by repeated SDRAM reads within a cache fill. The conservative
+next memory-only target is first-miss latency: shorten only the RAM critical
+word path while retaining a registered CPU-visible acknowledgement and the
+adapter's ownership/order checks. Broad direct memory acknowledgement remains
+rejected because it froze the hardware Disk test even when line bypass was
+disabled.
+
+### Registered direct first miss
+
+Aligned longword reads to decoded RAM now bypass `wombat_bus32` on the first
+miss as well as on retained-line hits. The SDRAM completion still enters a
+dedicated register before it reaches the CPU, so this does not restore the
+combinational direct-ack path that failed the Disk test. Writes, byte/word and
+misaligned accesses, page-table walks, and every non-RAM target retain the
+established adapter and service-FSM path.
+
+The integrated post-cache model improves from 43.7 to **52.4 MB/s**, inside the
+real Quadra 800's 50--65 MB/s sequential-RAM range. A 16-byte fill falls from
+365 to **304 ns**. It passes 64 sequential reads and 2,048 mixed
+posted-write/read operations in order; the independent SDRAM test remains
+45/45 with zero chip-protocol errors, the transaction adapter remains 6/6,
+and the complete Verilator machine builds.
+
+| Speedometer 3.23 PR Test | registered bus line | registered first miss | gain |
+|---|---:|---:|---:|
+| CPU | 3.378 | **3.425** | **+1.4%** |
+| Graphics | 4.536 | **4.542** | +0.1% |
+| Disk | 0.681 | **0.682** | +0.1% |
+| Math | 22.639 | **22.957** | **+1.4%** |
+| Old PR | 5.112 | **5.165** | **+1.0%** |
+| New PR | 2.072 | **2.082** | +0.5% |
+
+The RBF is `Wombat33_BL8_regfirstmiss_seed17_20260902.rbf`, MD5
+`4a92a48e907a3f060e0bdae77905d5ba` and SHA-256
+`677c60e85fcd766c59faa026564b511e5433051cb6690078467b11ed68fd30d8`.
+Quartus reports +0.143 ns setup and +0.250 ns hold with zero setup or hold
+TNS. It booted Mac OS 7.5.5, completed one iteration of every PR category,
+including Disk, and shut down cleanly. Against the fresh seed-15 control, the
+cumulative gains are **+17.4% CPU**, **+19.0% Graphics**, and **+26.0% Math**.
+
+The MiSTer auto-mount file points at
+`games/Wombat33/QuadSquad8.hda`; that is the disposable image. Cleanup after
+this run exposed that the previous 9c685... restore command had treated that
+mounted file as the source and copied it over the unmounted MacAtrium copy, so
+the exact 9c685... snapshot is no longer present. A new cleanly shut-down
+golden was established at
+`games/MacIIvi/MacAtrium-7.5.5-fullcolor_speedtest.hda`, MD5
+`0c4f774b4a2eccd5656e92f16119875f`, with a restore-verified compressed copy at
+`games/Wombat33/backup/MacAtrium-7.5.5-fullcolor_speedtest_golden_20260902.hda.gz`.
+Future runs must copy or decompress that golden **to** `QuadSquad8.hda`; the
+golden must never be used as the restore destination or mounted by the core.
+
+## 10. AP040 retained-line cache fill (Speedometer 3.23)
+
+The first CPU-side optimization reuses the 16-byte line already retained by
+`sdram_beat32`. A normal registered RAM read still starts a cache miss. Once the
+complete physical line is valid, `ap040_cache` copies its remaining words into
+the selected cache way locally, one word per CPU clock, instead of issuing three
+more post-cache bus transactions. The tag is validated after all four words are
+written, and the CPU receives its acknowledgement only in the existing
+`C_TAGW` state. This preserves the completion contract that passed every prior
+hardware gate while removing redundant transaction-adapter and service-FSM
+handshakes.
+
+An earlier critical-word early-ack implementation was rejected despite passing
+the AP68040 suite, SingleStepTests, full-machine simulation, and timing. Two
+independent timing-clean all-cacheable builds and a post-overlay physical-RAM-
+only build all produced a black screen, while the unchanged memory baseline
+booted immediately from the same restored disk. Releasing the CPU before its
+cache line is committed is therefore not part of the accepted design.
+
+The accepted seed-17 line-assist build passed the complete AP68040 suite. Its
+directed cache test checks that exactly one external read is issued, the other
+three words come from the completed-line sideband, the requested word is
+correct, and all four later line hits generate no bus traffic. The complete
+Wombat Verilator model builds, and the first 100 SingleStepTests corpus rows
+match all 1,696 architectural field groups with zero real differences.
+
+| Speedometer 3.23 PR Test | registered first miss | AP040 line assist | gain |
+|---|---:|---:|---:|
+| CPU | 3.425 | **3.494** | **+2.0%** |
+| Graphics | 4.542 | **4.707** | **+3.6%** |
+| Disk | 0.682 | 0.679 | -0.4% |
+| Math | 22.957 | **23.477** | **+2.3%** |
+| Old PR | 5.165 | **5.293** | **+2.5%** |
+| New PR | 2.082 | **2.096** | +0.7% |
+
+The RBF is `Wombat33_CPU_lineassist_seed17_20260902.rbf`, MD5
+`cee04efa7c3db4e0539e757fafa1d645` and SHA-256
+`54cf0f7f6d2c8526d8eab44cfe889f0ff63ce8d629ca40848f155efc2ff715a3`.
+Quartus reports +0.348 ns setup and +0.244 ns hold with zero setup or hold TNS.
+It booted Mac OS 7.5.5 and completed every PR category, including Disk. Mac OS
+was shut down to its safe-to-switch-off screen, the MiSTer returned to its menu,
+and the disposable disk was restored from the pristine golden; both images then
+matched MD5 `0c4f774b4a2eccd5656e92f16119875f`.
+
+## 11. Two-entry CPU RAM store buffer (Speedometer 3.23)
+
+The next CPU-side optimization hides write-through RAM-store latency behind
+later cache hits. A two-entry ordered queue sits below `ap040_cache` and gives a
+registered acknowledgement when it captures a non-faulting physical-RAM write.
+The queued transactions then drain through the unchanged post-cache platform
+bus. Reads, ROM/device writes, and other unqualified transactions wait for all
+older stores; MMU table walks are also held, and retained SDRAM lines are hidden
+while a store is pending so neither path can observe stale memory. The boot
+overlay and all non-RAM address regions retain their previous completion path.
+
+The directed store-buffer test passes direct completion, early store capture,
+read-after-write ordering, two-entry FIFO order, full-queue backpressure,
+host-disabled bypass, and clock-enable freeze. The complete Wombat Verilator
+model builds, and the first 100 SingleStepTests CPU corpus rows match all 1,696
+architectural field groups with zero real differences.
+
+Seed 17 was rejected before deployment at -0.323 ns setup and +0.197 ns hold.
+TimeQuest placed its only setup failure on the already documented seed-sensitive
+SDRAM `open_row` to `command[0]` cross-clock path, not in the CPU or store
+buffer. The identical seed-18 netlist meets timing at **+0.165 ns setup** and
+**+0.248 ns hold**, with zero setup and hold TNS.
+
+| Speedometer 3.23 PR Test | AP040 line assist | two-entry store buffer | gain |
+|---|---:|---:|---:|
+| CPU | 3.494 | **3.626** | **+3.8%** |
+| Graphics | 4.707 | **4.804** | **+2.1%** |
+| Disk | 0.679 | **0.698** | **+2.8%** |
+| Math | 23.477 | **26.744** | **+13.9%** |
+| Old PR | 5.293 | **5.706** | **+7.8%** |
+| New PR | 2.096 | **2.160** | **+3.1%** |
+
+The RBF is `Wombat33_CPU_storebuf_seed18_20260902.rbf`, MD5
+`50b318db7b83bba6e418f15ad4e6085a` and SHA-256
+`2992d426897f089a7401eca95327507707e9fcf1753986bb8bbe9dc93e4dbe1c`.
+It booted Mac OS 7.5.5 and completed one iteration of every PR category. Mac OS
+then reached its safe-to-switch-off screen, the MiSTer returned to its menu, and
+the disposable disk was restored from the pristine golden. Both images matched
+MD5 `0c4f774b4a2eccd5656e92f16119875f` after restoration.

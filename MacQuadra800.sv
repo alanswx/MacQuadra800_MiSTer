@@ -314,6 +314,12 @@ wire [1:0] ram_cfg_osd = (status[4:3] == 2'd3) ? 2'd0 : status[4:3];
 reg [1:0] ram_cfg = 2'd0;
 always @(posedge clk_sys) if (reset) ram_cfg <= ram_cfg_osd;
 
+wire        sdr_line_valid;
+wire [26:4] sdr_line_tag;
+wire [127:0] sdr_line_data;
+wire        sdr_line_pending;
+wire [26:4] sdr_line_pending_tag;
+
 quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS)) machine (
 	.clk(clk_sys),
 	.nreset(~reset),
@@ -330,6 +336,11 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS)) machine (
 	.mem_memsel(mem_memsel),
 	.mem_rdata(mem_rdata),
 	.mem_ack(mem_ack),
+	.mem_line_valid(sdr_line_valid),
+	.mem_line_tag(sdr_line_tag),
+	.mem_line_data(sdr_line_data),
+	.mem_line_pending(sdr_line_pending),
+	.mem_line_pending_tag(sdr_line_pending_tag),
 
 	.vid_addr(vid_addr),
 	.vid_rdata(vid_rdata),
@@ -523,9 +534,9 @@ assign LED_DISK = {1'b1, sd_rd[0] | sd_wr[0]};
 // through the ioctl path and read rarely enough that latency is free).
 //
 // rtl/sdram_beat32.sv owns the 16-bit controller and both clock domains:
-// one beat is one burst read (BURST_LENGTH=4 is already in the mode
-// register, so both halves arrive in a single row cycle) or two 16-bit
-// writes, and writes are acked here and drained behind the machine.  The
+// one read captures a complete BL8/16-byte line, returning its critical
+// longword first; a write uses two 16-bit commands and is acknowledged here
+// before it drains behind the machine.  The
 // controller runs at 99 MHz — three times clk_sys, from the same PLL — and
 // derives SDRAM_CLK itself with an altddio_out, so no phase-shifted clock
 // is needed here.
@@ -553,6 +564,11 @@ sdram_beat32 sdr
 	.ack       (sdr_ack),
 	.rdata     (sdr_rdata),
 	.busy      (),                       // ordering is the bridge's own affair
+	.line_valid_o(sdr_line_valid),
+	.line_tag_o(sdr_line_tag),
+	.line_data_o(sdr_line_data),
+	.line_pending_o(sdr_line_pending),
+	.line_pending_tag_o(sdr_line_pending_tag),
 
 	.SDRAM_DQ  (SDRAM_DQ),
 	.SDRAM_A   (SDRAM_A),

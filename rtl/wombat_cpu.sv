@@ -21,7 +21,8 @@
 module wombat_cpu
 #(
 	parameter AP040_HAS_FPU      = 1,
-	parameter AP040_ENABLE_CACHE = 1
+	parameter AP040_ENABLE_CACHE = 1,
+	parameter AP040_STORE_BUFFER = 1
 )
 (
 	input         clk,
@@ -31,6 +32,13 @@ module wombat_cpu
 	input   [2:0] ipl,            // active low
 	input         ipl_autovector,
 	input         berr,
+
+	// Optional completed physical RAM line retained by the platform.
+	input         cache_line_valid,
+	input  [31:4] cache_line_tag,
+	input [127:0] cache_line_data,
+	// High only when low physical addresses select non-faulting RAM.
+	input         store_buffer_ok,
 
 	// post-cache 32-bit transaction bus (physical addresses)
 	output        bus_req,
@@ -98,6 +106,21 @@ wire [31:0] mm_addr, mm_wdata;
 wire  [2:0] mm_fc;
 wire        mm_ack, mm_nocache;
 wire [31:0] mm_rdata;
+
+// MMU walker requests are held behind older buffered CPU stores. This matters
+// when software writes a page-table entry and immediately incurs an ATC miss:
+// the walker must not observe memory before that store has reached the platform.
+wire        mmu_walker_req, mmu_walker_we;
+wire [31:0] mmu_walker_addr, mmu_walker_wdat;
+
+// Cache/no-cache master side before the ordered write buffer.
+wire        cpu_bus_req, cpu_bus_write, cpu_bus_instr;
+wire  [1:0] cpu_bus_size;
+wire [31:0] cpu_bus_addr, cpu_bus_wdata;
+wire  [2:0] cpu_bus_fc;
+wire        cpu_bus_ack;
+wire [31:0] cpu_bus_rdata;
+wire        buffered_store_pending;
 
 // CINV sideband
 wire        cinv_req, cinv_ic, cinv_dc, cinv_done;
@@ -219,10 +242,10 @@ ap040_mmu mmu (
 	.m_ack(mm_ack),
 	.m_rdata(mm_rdata),
 
-	.walker_req(walker_req),
-	.walker_we(walker_we),
-	.walker_addr(walker_addr),
-	.walker_wdat(walker_wdat),
+	.walker_req(mmu_walker_req),
+	.walker_we(mmu_walker_we),
+	.walker_addr(mmu_walker_addr),
+	.walker_wdat(mmu_walker_wdat),
 	.walker_ack(walker_ack),
 	.walker_data(walker_data),
 	.walker_berr(walker_berr),
@@ -231,6 +254,11 @@ ap040_mmu mmu (
 	.cache_inhibit(),
 	.m_nocache(mm_nocache)
 );
+
+assign walker_req  = mmu_walker_req && !buffered_store_pending;
+assign walker_we   = mmu_walker_we;
+assign walker_addr = mmu_walker_addr;
+assign walker_wdat = mmu_walker_wdat;
 
 // Walker U/M-bit writes invalidate any cached copy of the descriptor —
 // same one-slot pending scheme as ap040_tg68k_compat (audit 5.5 there).
@@ -293,30 +321,64 @@ if (AP040_ENABLE_CACHE != 0) begin : g_cache
 		.c_ack(mm_ack),
 		.c_rdata(mm_rdata),
 
-		.m_req(bus_req),
-		.m_write(bus_write),
-		.m_instr(bus_instr),
-		.m_size(bus_size),
-		.m_addr(bus_addr),
-		.m_wdata(bus_wdata),
-		.m_fc(bus_fc),
-		.m_ack(bus_ack),
-		.m_rdata(bus_rdata),
+		.m_req(cpu_bus_req),
+		.m_write(cpu_bus_write),
+		.m_instr(cpu_bus_instr),
+		.m_size(cpu_bus_size),
+		.m_addr(cpu_bus_addr),
+		.m_wdata(cpu_bus_wdata),
+		.m_fc(cpu_bus_fc),
+		.m_ack(cpu_bus_ack),
+		.m_rdata(cpu_bus_rdata),
+		// A retained line predating a queued store is stale until the
+		// write reaches the platform and invalidates that lower-level line.
+		.m_line_valid(cache_line_valid && !buffered_store_pending),
+		.m_line_tag(cache_line_tag),
+		.m_line_data(cache_line_data),
 		.m_err(berr)
 	);
 end
 else begin : g_nocache
-	assign bus_req   = mm_req;
-	assign bus_write = mm_write;
-	assign bus_instr = mm_instr;
-	assign bus_size  = mm_size;
-	assign bus_addr  = mm_addr;
-	assign bus_wdata = mm_wdata;
-	assign bus_fc    = mm_fc;
-	assign mm_ack    = bus_ack;
-	assign mm_rdata  = bus_rdata;
+	assign cpu_bus_req   = mm_req;
+	assign cpu_bus_write = mm_write;
+	assign cpu_bus_instr = mm_instr;
+	assign cpu_bus_size  = mm_size;
+	assign cpu_bus_addr  = mm_addr;
+	assign cpu_bus_wdata = mm_wdata;
+	assign cpu_bus_fc    = mm_fc;
+	assign mm_ack        = cpu_bus_ack;
+	assign mm_rdata      = cpu_bus_rdata;
 	assign cinv_done = 1'b1;
 end
 endgenerate
+
+wombat_store_buffer #(.ENABLE(AP040_STORE_BUFFER)) store_buffer (
+	.clk(clk),
+	.nreset(nreset),
+	.ce(ce),
+	.buffer_writes(store_buffer_ok),
+
+	.s_req(cpu_bus_req),
+	.s_write(cpu_bus_write),
+	.s_instr(cpu_bus_instr),
+	.s_size(cpu_bus_size),
+	.s_addr(cpu_bus_addr),
+	.s_wdata(cpu_bus_wdata),
+	.s_fc(cpu_bus_fc),
+	.s_ack(cpu_bus_ack),
+	.s_rdata(cpu_bus_rdata),
+
+	.m_req(bus_req),
+	.m_write(bus_write),
+	.m_instr(bus_instr),
+	.m_size(bus_size),
+	.m_addr(bus_addr),
+	.m_wdata(bus_wdata),
+	.m_fc(bus_fc),
+	.m_ack(bus_ack),
+	.m_rdata(bus_rdata),
+	.m_err(berr),
+	.pending(buffered_store_pending)
+);
 
 endmodule

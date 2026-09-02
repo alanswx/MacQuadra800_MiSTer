@@ -29,6 +29,7 @@ module wombat_bus32
 	input             t_berr,
 	output reg        t_ack,
 	output reg [31:0] t_rdata,    // right-aligned by size, valid at t_ack
+	output            t_active,
 
 	// beat side: aligned longwords with byte lanes
 	output reg        b_req,
@@ -65,6 +66,8 @@ reg [31:0] r_stream;    // beat-0 read bytes, left-aligned at the top
 
 wire [31:0] rd_stream0 = b_rdata << {r_off, 3'd0};
 wire  [2:0] r_n0       = 3'd4 - {1'b0, r_off};
+
+assign t_active = active;
 
 always @(posedge clk) begin
 	if (!nreset) begin

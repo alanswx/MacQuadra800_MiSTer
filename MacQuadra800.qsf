@@ -94,7 +94,27 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # Seed 13 has MORE margin than the design had before the change. Candidate
 # bitstreams for every seed above are kept in scratch/seeds/ (gitignored) with
 # their reports; scratch/seeds/restore_seed.sh <n> stages one for deploy.
-set_global_assignment -name SEED 13
+#
+# 2026-09-01, related-clock SDRAM handoff (151 ns reads in tb_sdram): the
+# SDRAM paths had ample margin, but the same unrelated clk_sys CPU path moved
+# again.  Seed 13 -> -0.068 ns, 14 -> -0.669 ns, 15 -> +0.270 ns setup and
+# +0.241 ns hold overall.  The 99 MHz domain at seed 15 is +1.353 ns setup and
+# +0.431 ns hold.  The BL8/open-page netlist could not route at seed 13.  Its
+# hardware-validated stock-machine build at seed 17 routed at +0.185 ns setup
+# and +0.244 ns hold. The hardware-validated registered-line build at the same
+# seed routed at +0.289 ns setup and +0.252 ns hold. The registered pre-adapter
+# line-hit build also passed hardware at seed 17 and routed at +0.139 ns setup
+# and +0.183 ns hold. The registered first-miss build passed the full hardware
+# PR suite at seed 17 and routed at +0.143 ns setup and +0.250 ns hold. The AP040
+# retained-line cache-fill build also passed the full hardware PR suite at seed
+# 17, routing at +0.348 ns setup and +0.244 ns hold. Use seed 17 for this family
+# of netlists and re-check after any RTL change.
+# The two-entry CPU store-buffer netlist moved the critical path to the known
+# seed-sensitive SDRAM open_row -> command[0] crossing at seed 17 (-0.323 ns
+# setup, +0.197 ns hold); the store buffer was not present in the failing path.
+# Seed 18 meets timing at +0.165 ns setup and +0.248 ns hold and passed the full
+# Mac OS 7.5.5 Speedometer 3.23 PR suite in hardware.
+set_global_assignment -name SEED 18
 
 #set_global_assignment -name VERILOG_MACRO "MISTER_FB=1"
 
@@ -295,6 +315,7 @@ set_global_assignment -name SDC_FILE MacQuadra800.sdc
 set_global_assignment -name SYSTEMVERILOG_FILE MacQuadra800.sv
 set_global_assignment -name QIP_FILE rtl/ap68040/rtl/ap040.qip
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/wombat_cpu.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/wombat_store_buffer.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/wombat_bus32.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/quadra800.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/iosb.sv

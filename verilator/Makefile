@@ -46,6 +46,7 @@ V_SRC = \
 	sim_lfsr.v \
 	$(RTL)/quadra800.sv \
 	$(RTL)/wombat_cpu.sv \
+	$(RTL)/wombat_store_buffer.sv \
 	$(RTL)/wombat_bus32.sv \
 	$(RTL)/iosb.sv \
 	$(RTL)/via6522.sv \
@@ -133,5 +134,62 @@ tb_ncr53c96:
 	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME -Wno-CASEINCOMPLETE -Wno-BLKSEQ +define+SIMULATION=1 +define+VERILATOR=1 --top-module tb_ncr53c96 --Mdir ./obj_dir_tb -o tb_ncr53c96 tb_ncr53c96.sv $(RTL)/ncr53c96.sv
 	./obj_dir_tb/tb_ncr53c96
 
+# Directed timing/data test for the transaction-to-beat adapter's registered
+# one-beat completion and its two-beat misalignment path.
+tb_wombat_bus32:
+	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-DECLFILENAME --top-module tb_wombat_bus32 --Mdir ./obj_dir_tb_bus32 -o tb_wombat_bus32 tb_wombat_bus32.sv $(RTL)/wombat_bus32.sv
+	./obj_dir_tb_bus32/tb_wombat_bus32
+
+# Directed ordering/backpressure test for the AP040's two-entry RAM store queue.
+tb_store_buffer:
+	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-DECLFILENAME --top-module tb_wombat_store_buffer --Mdir ./obj_dir_tb_store_buffer -o tb_wombat_store_buffer tb_wombat_store_buffer.sv $(RTL)/wombat_store_buffer.sv
+	./obj_dir_tb_store_buffer/tb_wombat_store_buffer
+
+# Whole post-cache memory transport (transaction adapter + production RAM
+# service handshake + SDRAM bridge/controller/chip model), including the
+# held-request/one-pulse-per-beat contract used by ap040_cache's refill port.
+tb_memory_path:
+	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME +define+SIMULATION=1 --top-module tb_memory_path --Mdir ./obj_dir_tb_mempath -o tb_memory_path tb_memory_path.sv tb_sdram.sv $(RTL)/wombat_bus32.sv $(RTL)/sdram_beat32.sv $(RTL)/sdram.sv altddio_out_stub.v
+	./obj_dir_tb_mempath/tb_memory_path
+
+# Same production path with quadra800's experimental pre-adapter line bypass
+# disabled.  Hits still come from sdram_beat32's retained BL8 line, but every
+# CPU request keeps the established wombat_bus32/service-FSM ordering.
+tb_memory_path_safe:
+	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME +define+SIMULATION=1 --top-module tb_memory_path -GFAST_BYPASS=0 --Mdir ./obj_dir_tb_mempath_safe -o tb_memory_path_safe tb_memory_path.sv tb_sdram.sv $(RTL)/wombat_bus32.sv $(RTL)/sdram_beat32.sv $(RTL)/sdram.sv altddio_out_stub.v
+	./obj_dir_tb_mempath_safe/tb_memory_path_safe
+
+# Intermediate architecture: retain the generic transaction adapter but let
+# its aligned platform beats consume the completed BL8 line directly.
+tb_memory_path_ordered_line:
+	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME +define+SIMULATION=1 --top-module tb_memory_path -GFAST_BYPASS=0 -GADAPTER_LINE_HIT=1 --Mdir ./obj_dir_tb_mempath_ordered_line -o tb_memory_path_ordered_line tb_memory_path.sv tb_sdram.sv $(RTL)/wombat_bus32.sv $(RTL)/sdram_beat32.sv $(RTL)/sdram.sv altddio_out_stub.v
+	./obj_dir_tb_mempath_ordered_line/tb_memory_path_ordered_line
+
+# Exact established quadra800 completion cadence: SDRAM completion is
+# registered by the machine service FSM before wombat_bus32 sees it.
+tb_memory_path_stock_machine:
+	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME +define+SIMULATION=1 --top-module tb_memory_path -GFAST_BYPASS=0 -GADAPTER_LINE_HIT=0 -GDIRECT_MEM_ACK=0 --Mdir ./obj_dir_tb_mempath_stock_machine -o tb_memory_path_stock_machine tb_memory_path.sv tb_sdram.sv $(RTL)/wombat_bus32.sv $(RTL)/sdram_beat32.sv $(RTL)/sdram.sv altddio_out_stub.v
+	./obj_dir_tb_mempath_stock_machine/tb_memory_path_stock_machine
+
+# Serve retained BL8 words inside the machine service FSM while preserving its
+# registered acknowledgement cadence for every transaction-adapter beat.
+tb_memory_path_registered_line:
+	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME +define+SIMULATION=1 --top-module tb_memory_path -GFAST_BYPASS=0 -GADAPTER_LINE_HIT=1 -GDIRECT_MEM_ACK=0 -GREGISTERED_LINE_HIT=1 --Mdir ./obj_dir_tb_mempath_registered_line -o tb_memory_path_registered_line tb_memory_path.sv tb_sdram.sv $(RTL)/wombat_bus32.sv $(RTL)/sdram_beat32.sv $(RTL)/sdram.sv altddio_out_stub.v
+	./obj_dir_tb_mempath_registered_line/tb_memory_path_registered_line
+
+# Bypass wombat_bus32 only for later aligned longwords already retained from
+# the BL8 fetch.  The first miss and all other transaction shapes keep the
+# established adapter/service-FSM path, and line-hit completion stays registered.
+tb_memory_path_registered_bus_line:
+	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME +define+SIMULATION=1 --top-module tb_memory_path -GFAST_BYPASS=1 -GDIRECT_FIRST_MISS=0 -GADAPTER_LINE_HIT=1 -GDIRECT_MEM_ACK=0 -GREGISTERED_LINE_HIT=1 --Mdir ./obj_dir_tb_mempath_registered_bus_line -o tb_memory_path_registered_bus_line tb_memory_path.sv tb_sdram.sv $(RTL)/wombat_bus32.sv $(RTL)/sdram_beat32.sv $(RTL)/sdram.sv altddio_out_stub.v
+	./obj_dir_tb_mempath_registered_bus_line/tb_memory_path_registered_bus_line
+
+# Aligned RAM first misses enter the memory service directly, but completion is
+# captured into dedicated registers before reaching the CPU. Retained tail
+# words use the hardware-validated registered pre-adapter line path.
+tb_memory_path_registered_first_miss:
+	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME +define+SIMULATION=1 --top-module tb_memory_path -GFAST_BYPASS=1 -GDIRECT_FIRST_MISS=1 -GREGISTERED_FIRST_MISS=1 -GADAPTER_LINE_HIT=1 -GDIRECT_MEM_ACK=0 -GREGISTERED_LINE_HIT=1 --Mdir ./obj_dir_tb_mempath_registered_first_miss -o tb_memory_path_registered_first_miss tb_memory_path.sv tb_sdram.sv $(RTL)/wombat_bus32.sv $(RTL)/sdram_beat32.sv $(RTL)/sdram.sv altddio_out_stub.v
+	./obj_dir_tb_mempath_registered_first_miss/tb_memory_path_registered_first_miss
+
 clean:
-	rm -rf obj_dir obj_dir_tb
+	rm -rf obj_dir obj_dir_tb obj_dir_tb_bus32 obj_dir_tb_store_buffer obj_dir_tb_mempath obj_dir_tb_mempath_safe obj_dir_tb_mempath_ordered_line obj_dir_tb_mempath_stock_machine obj_dir_tb_mempath_registered_line obj_dir_tb_mempath_registered_bus_line obj_dir_tb_mempath_registered_first_miss

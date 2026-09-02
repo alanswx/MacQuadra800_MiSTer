@@ -50,6 +50,11 @@ module quadra800
 	output reg  [1:0] mem_memsel,             // 0 RAM, 1 ROM, 2 VRAM
 	input      [31:0] mem_rdata,
 	input             mem_ack,
+	input             mem_line_valid,
+	input      [26:4] mem_line_tag,
+	input     [127:0] mem_line_data,
+	input             mem_line_pending,
+	input      [26:4] mem_line_pending_tag,
 
 	// video: DAFB scanout (VRAM fetch port + VGA)
 	output     [21:2] vid_addr,
@@ -118,6 +123,18 @@ wire [31:0] bus_addr, bus_wdata;
 wire  [2:0] bus_fc;
 wire        bus_ack;
 wire [31:0] bus_rdata;
+wire        bus_ack_adapter;
+wire [31:0] bus_rdata_adapter;
+wire        bus_adapter_active;
+wire        bus_req_adapter;
+reg         bus_line_ack;
+reg  [31:0] bus_line_rdata;
+reg         bus_miss_ack;
+reg  [31:0] bus_miss_rdata;
+
+assign bus_ack   = bus_line_ack || bus_miss_ack || bus_ack_adapter;
+assign bus_rdata = bus_line_ack ? bus_line_rdata :
+	               bus_miss_ack ? bus_miss_rdata : bus_rdata_adapter;
 
 wire        walker_req, walker_we;
 wire [31:0] walker_addr, walker_wdat;
@@ -136,6 +153,12 @@ wombat_cpu cpu (
 	.ipl(ipl_n),
 	.ipl_autovector(1'b1),
 	.berr(cpu_berr),
+	// The retained SDRAM line is physical RAM only.  During boot overlay the
+	// same low CPU addresses select ROM, so keep the sideband disabled there.
+	.cache_line_valid(!overlay && mem_line_valid),
+	.cache_line_tag({5'd0, mem_line_tag}),
+	.cache_line_data(mem_line_data),
+	.store_buffer_ok(!overlay),
 
 	.bus_req(bus_req),
 	.bus_write(bus_write),
@@ -181,14 +204,15 @@ wombat_bus32 bus32 (
 	.nreset(nreset),
 	.ce(ce),
 
-	.t_req(bus_req),
+	.t_req(bus_req_adapter),
 	.t_write(bus_write),
 	.t_size(bus_size),
 	.t_addr(bus_addr),
 	.t_wdata(bus_wdata),
 	.t_berr(cpu_berr),
-	.t_ack(bus_ack),
-	.t_rdata(bus_rdata),
+	.t_ack(bus_ack_adapter),
+	.t_rdata(bus_rdata_adapter),
+	.t_active(bus_adapter_active),
 
 	.b_req(b_req),
 	.b_write(b_write),
@@ -354,10 +378,62 @@ localparam S_IDLE = 3'd0, S_MEM = 3'd1, S_IOSB = 3'd2, S_BERR = 3'd3,
            S_DAFB = 3'd4, S_OPEN = 3'd5;
 reg  [2:0] svc;
 reg        svc_walker;                        // owner of the beat in service
+reg        svc_bus_direct;                    // aligned RAM miss bypassed bus32
 reg [31:2] svc_addr;
 
 wire        walker_pend = walker_req && walker_armed;
 reg         walker_armed;
+
+// A completed BL8 read remains in sdram_beat32 as four longwords. Serve those
+// words through the same registered service-FSM acknowledgement used by every
+// established platform beat. A request for the still-arriving tail waits here
+// instead of launching a redundant SDRAM transaction for the same line.
+wire line_cpu_match = b_req && !b_write && (decode(b_addr) == 3'd0) &&
+	                  mem_line_valid && (b_addr[26:4] == mem_line_tag);
+wire line_cpu_wait  = b_req && !b_write && (decode(b_addr) == 3'd0) &&
+	                  mem_line_pending &&
+	                  (b_addr[26:4] == mem_line_pending_tag);
+wire [31:0] line_cpu_data = (b_addr[3:2] == 2'd0) ? mem_line_data[127:96] :
+	                        (b_addr[3:2] == 2'd1) ? mem_line_data[95:64]  :
+	                        (b_addr[3:2] == 2'd2) ? mem_line_data[63:32]  :
+	                                                        mem_line_data[31:0];
+
+// Aligned RAM longword reads are the cache-fill shape before wombat_bus32.
+// Send a first miss directly into the memory service, which still captures its
+// completion in registers, and return later words from the retained BL8 line
+// through their own registered pulse. Adapter-active/ack and direct-miss-ack
+// guards prevent either word from being launched or acknowledged twice.
+wire bus_ram_eligible = (svc == S_IDLE) && !walker_pend && !cpu_berr &&
+	                    !bus_miss_ack && !bus_adapter_active &&
+	                    !bus_ack_adapter && bus_req && !bus_write &&
+	                    (bus_size == 2'd2) && (bus_addr[1:0] == 2'b00) &&
+	                    (decode(bus_addr[31:2]) == 3'd0);
+wire bus_line_match = bus_ram_eligible && mem_line_valid &&
+	                  (bus_addr[26:4] == mem_line_tag);
+wire bus_line_wait  = bus_ram_eligible && mem_line_pending &&
+	                  (bus_addr[26:4] == mem_line_pending_tag);
+wire bus_first_miss = bus_ram_eligible && !bus_line_match && !bus_line_wait;
+wire [31:0] bus_line_data = (bus_addr[3:2] == 2'd0) ? mem_line_data[127:96] :
+	                        (bus_addr[3:2] == 2'd1) ? mem_line_data[95:64]  :
+	                        (bus_addr[3:2] == 2'd2) ? mem_line_data[63:32]  :
+	                                                          mem_line_data[31:0];
+
+assign bus_req_adapter = bus_req && !bus_line_match && !bus_line_wait &&
+	                     !bus_first_miss && !svc_bus_direct && !bus_miss_ack;
+
+always @(posedge clk) begin
+	if (!nreset) begin
+		bus_line_ack   <= 0;
+		bus_line_rdata <= 0;
+	end
+	else if (ce) begin
+		bus_line_ack <= 0;
+		if (!bus_line_ack && bus_line_match) begin
+			bus_line_ack   <= 1;
+			bus_line_rdata <= bus_line_data;
+		end
+	end
+end
 
 assign dbg_berr      = (svc == S_BERR);
 assign dbg_berr_addr = {svc_addr, 2'b00};
@@ -368,6 +444,7 @@ always @(posedge clk) begin
 		overlay      <= 1;
 		svc          <= S_IDLE;
 		svc_walker   <= 0;
+		svc_bus_direct <= 0;
 		svc_addr     <= 0;
 		walker_armed <= 1;
 		walker_ack   <= 0;
@@ -375,6 +452,8 @@ always @(posedge clk) begin
 		walker_berr  <= 0;
 		b_ack        <= 0;
 		b_rdata      <= 0;
+		bus_miss_ack   <= 0;
+		bus_miss_rdata <= 0;
 		cpu_berr     <= 0;
 		mem_req      <= 0;
 		mem_write    <= 0;
@@ -396,6 +475,7 @@ always @(posedge clk) begin
 		walker_ack  <= 0;
 		walker_berr <= 0;
 		b_ack       <= 0;
+		bus_miss_ack <= 0;
 		cpu_berr    <= 0;
 		if (!walker_req) walker_armed <= 1;
 
@@ -404,17 +484,36 @@ always @(posedge clk) begin
 			// walker first: it only runs mid-translation, never starves the
 			// CPU.  !b_ack/!cpu_berr: the adapter needs a cycle to retire a
 			// just-completed or just-faulted beat before b_req means "next".
-			if (walker_pend || (b_req && !b_ack && !cpu_berr)) begin
+			if (walker_pend || bus_first_miss ||
+			    (b_req && !b_ack && !cpu_berr && !line_cpu_wait)) begin
 				reg [31:2] a;
 				reg        wr;
-				a  = walker_pend ? walker_addr[31:2] : b_addr;
-				wr = walker_pend ? walker_we : b_write;
-				svc_walker <= walker_pend;
-				if (walker_pend) walker_armed <= 0;
-				svc_addr   <= a;
-				// the ROM's own window read ends the boot overlay
-				if (a[31:28] == 4'h4 && !wr) overlay <= 0;
-				case (decode(a))
+				if (bus_first_miss) begin
+					svc_walker     <= 0;
+					svc_bus_direct <= 1;
+					svc_addr       <= bus_addr[31:2];
+					mem_req        <= 1;
+					mem_write      <= 0;
+					mem_addr       <= bus_addr[31:2];
+					mem_be         <= 4'b1111;
+					mem_wdata      <= 0;
+					mem_memsel     <= MSEL_RAM;
+					svc            <= S_MEM;
+				end
+				else if (!walker_pend && line_cpu_match) begin
+					b_ack   <= 1;
+					b_rdata <= line_cpu_data;
+				end
+				else begin
+					a  = walker_pend ? walker_addr[31:2] : b_addr;
+					wr = walker_pend ? walker_we : b_write;
+					svc_walker <= walker_pend;
+					svc_bus_direct <= 0;
+					if (walker_pend) walker_armed <= 0;
+					svc_addr   <= a;
+					// the ROM's own window read ends the boot overlay
+					if (a[31:28] == 4'h4 && !wr) overlay <= 0;
+					case (decode(a))
 				3'd0, 3'd1, 3'd2: begin
 					mem_req    <= 1;
 					mem_write  <= wr;
@@ -443,6 +542,7 @@ always @(posedge clk) begin
 				3'd6: svc <= S_OPEN;
 				default: svc <= S_BERR;
 				endcase
+				end
 			end
 		end
 		S_MEM: if (mem_ack) begin
@@ -451,10 +551,15 @@ always @(posedge clk) begin
 				walker_ack  <= 1;
 				walker_data <= mem_rdata;
 			end
+			else if (svc_bus_direct) begin
+				bus_miss_ack   <= 1;
+				bus_miss_rdata <= mem_rdata;
+			end
 			else begin
 				b_ack   <= 1;
 				b_rdata <= mem_rdata;
 			end
+			svc_bus_direct <= 0;
 			svc <= S_IDLE;
 		end
 		S_IOSB: if (iosb_ack) begin
