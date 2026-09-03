@@ -163,6 +163,19 @@ permission settings; the user adds rules.
   Sonnet operator brief in this session worked well). The install target's
   volume looked sane (HFS 500 MB, driver partition, System Folder from the
   partial installs).
+- **Install #4 (11:43-12:11, tracer `40a09f76` with the disk command set):**
+  FAILED again with the same generic dialog, now mid-copy at "Reading
+  ColorSync Profile" (12:02:01) and, after Try Again, at "Reading Control
+  Panel: Desktop Pictures" (12:09:19); counters moving until each error;
+  the "not an Apple hard disk" warning still appeared. So neither the
+  command set nor a fixed step explains it; it looks like an I/O error on
+  a CD (or disk) transfer. The tracer could not show opcodes/status, so
+  ncr53c96 now has taps and the tracer records D/d (opcode, disk/CD) and
+  Y/y (status byte) per epoch; decoder updated (`scripts/scsi_trace.sh`,
+  local copy `scratch/scsi_decode.py`). Tracer build with the taps
+  launched 12:20 (`scratch/build_trace5.log`). Next: deploy, CD-boot,
+  operator runs install #5 with capture; look for "Y 02"/"y 02" in the
+  failure epoch and which opcode preceded it.
 - **Release candidate #2 `52ca7ee4`** = `work/cd512` @ `bc1769b` (disk
   command set) with the tracer off: 88 % ALMs, hold +0.234 ns worst, open_row
   uninferred; copy `scratch/MacQuadra800_cd512e_52ca7ee4.rbf`. Supersedes
