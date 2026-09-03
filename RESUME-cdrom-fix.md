@@ -43,7 +43,10 @@ permission settings; the user adds rules.
 
 ## 2. Worktree `C:/Temp/mistercore/MacQuadra800_wt` — two branches
 
-- **`work/cd512`** (main + video + docs + block mode, CPU unchanged):
+- **`work/cd512`** (main + video + docs + block mode, CPU unchanged) —
+  **built 06:34: md5 `2c275a61b3ca95384fb97f56b3f9d08a`, +0.244 ns, 87 %,
+  open_row uninferred; copy at `scratch/MacQuadra800_cd512_2c275a61.rbf`.
+  Not yet deployed (the user was in the guest).**
   - `bf371f4` video: "Monitor (on reset)" OSD option, 13" 640x480 or 12"
     512x384. Sense code 2, 640x407 frame at 15.664 MHz via MacLC's
     runtime-reconfigurable `pll_video` + `sys/pll_cfg` (static config stays
@@ -69,8 +72,12 @@ permission settings; the user adds rules.
   the `[HB]` pc parks at `000400FA`, score it per the recipe in
   `RESUME-cpu-merge.md` (`split_allinone_results.py` + `score_vs_oracle.py`;
   expected: cpu 2 known memory-indirect diffs, mmu_full 13 pre-existing).
-  The on-screen bench counter read `trap=3` mid-run; find out whether the
-  baseline shows the same before taking the bump. Alan's seed note: 25.
+  **Scored 06:40: exactly baseline** (cpu 2 known memind diffs, fpu 0,
+  saverestore 0, integration 1328/1328, mmu_full 13 pre-existing); the
+  on-screen `trap=3` is normal. Alan's seed note: 25.
+- **`work/all`** = `work/cd512` + the CPU bump (`fbf2706`), i.e. everything.
+  Full build launched 06:42 in the worktree (`scratch/build_all.log`).
+  Candidate for main once both OSes pass on it.
 
 Merging: `main` ← fast-forward to `work/cd512` once its build passes on
 hardware, then `work/side` on top once the CPU scores clean and builds.
