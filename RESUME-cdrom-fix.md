@@ -124,6 +124,17 @@ permission settings; the user adds rules.
   09:10-09:50: the retail installer, run from the CD-booted system onto the
   fresh disk at ID 1, ran past the earlier stall point (33 MB written and
   climbing) with the tracer capturing (`scratch/scsi_trace*.txt`).
+- **Second install stall (09:48, tracer build fffa1536, CD-booted system,
+  "Writing AppleScript", 35 MB written):** same class as the first; the
+  tracer had gone silent at ~09:39 because DBG_BUDGET (4000 records) is a
+  one-shot -- `66be88a` makes it refill every epoch; a rolling-tracer build
+  was launched 10:07 (`scratch/build_trace3.log`). Bench cases that do NOT
+  reproduce the stall: T16j (512-mode CD reads interleaved with disk
+  writes), T16l (CD READ issued back to back after a disk WRITE with a
+  3000-cycle device latency; `9b...` commit) -- 27704 checks clean.
+- **Release candidate `85ba3d50`** (`work/cd512` @ `4e9bc9e` + tracer-off):
+  timing met +0.183 ns, 88 % ALMs, copy in `scratch/`. Not deployed; needs
+  both-OS regression and the install question answered first.
 - **`work/all`** = `work/cd512` + the CPU bump (`fbf2706`), i.e. everything.
   Full build launched 06:42 in the worktree (`scratch/build_all.log`).
   Candidate for main once both OSes pass on it.
