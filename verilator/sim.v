@@ -120,6 +120,7 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS)) machine (
 	.clk_vid(clk_sys),
 	.nreset_vid(~reset),
 	.ram_cfg(ram_cfg),
+	.mon_12in(1'b0),                     // sim scans out the 13" 640x480 shape
 	.nreset(~reset),
 	.ce(1'b1),
 

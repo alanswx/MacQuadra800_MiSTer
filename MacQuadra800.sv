@@ -80,6 +80,10 @@ localparam CONF_STR = {
 	"SC4,ISOTO*CUEBINCHD,Mount CD-ROM;",
 	"-;",
 	"O[4:3],RAM (on reset),32MB,64MB,128MB;",
+	// The monitor on the DA-15.  The ROM samples the DAFB sense lines once
+	// at boot and QuickDraw lays out for that geometry, so this is latched
+	// under reset like the RAM size (MacLC does the same).
+	"O[5],Monitor (on reset),13in 640x480,12in 512x384;",
 	"O[122:121],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
 	"-;",
 	"T[0],Reset;",
@@ -225,22 +229,100 @@ wire pll_locked;
 // broken HDMI mode from it (the reported screen showing the frame four times
 // across the width).  25.175 MHz gives exactly VGA 640x480 @ 59.94 Hz, which
 // is what the Mac LC core does; see rtl/pll_video.v.
+//
+// The 12" RGB monitor wants 15.664 MHz for its 640x407 frame.  That is a
+// runtime RECONFIG of the one output counter (sys/pll_cfg, the ao486 /
+// MacLC pattern): CLK_VIDEO has to be a raw PLL output, so a clock mux is
+// not an option (Fitter Error 15836).  Only C0 changes, the VCO stays put.
+// The static config is the 13" divider, so a 13" boot performs no reconfig
+// at all -- MacLC's boot-time retarget glitched CLK_VIDEO while the HPS was
+// mounting images and wedged the SCSI path.
 wire clk_vid, pll_video_locked;
+wire [63:0] reconfig_to_pll, reconfig_from_pll;
 pll_video pllv
 (
 	.refclk(CLK_50M),
 	.rst(1'b0),
 	.outclk_0(clk_vid),
 	.locked(pll_video_locked),
-	.reconfig_to_pll(64'd0),
-	.reconfig_from_pll()
+	.reconfig_to_pll(reconfig_to_pll),
+	.reconfig_from_pll(reconfig_from_pll)
 );
 
+wire        pixcfg_waitrequest;
+reg         pixcfg_write = 0;
+reg   [5:0] pixcfg_address = 0;
+reg  [31:0] pixcfg_data = 0;
+pll_cfg pll_video_cfg
+(
+	.mgmt_clk(CLK_50M),
+	.mgmt_reset(0),
+	.mgmt_waitrequest(pixcfg_waitrequest),
+	.mgmt_read(0),
+	.mgmt_readdata(),
+	.mgmt_write(pixcfg_write),
+	.mgmt_address(pixcfg_address),
+	.mgmt_writedata(pixcfg_data),
+	.reconfig_to_pll(reconfig_to_pll),
+	.reconfig_from_pll(reconfig_from_pll)
+);
+
+// C0 counter word per monitor: {[22:18] counter#=0, [17] odd-div, [16]
+// bypass, [15:8] high count, [7:0] low count} (sys/pll_cfg/
+// altera_pll_reconfig_core.v).  VCO 704.9 MHz: /28 = 25.175 MHz, /45 =
+// 15.664 MHz.
+// The monitor is latched under reset like the RAM size (ram_cfg below):
+// the ROM reads the DAFB sense lines once at boot.
+reg mon_12in = 1'b0;
+always @(posedge clk_sys) if (reset) mon_12in <= status[5];
+wire [31:0] pix_c0 = mon_12in ? 32'h00021716 : 32'h00000E0E;
+
+// The retarget never drops PLL lock (the VCO is untouched), so the scanout
+// would step to the new rate mid-frame and Main's vsync_adjust would
+// measure one chimera frame and latch an out-of-spec HDMI mode (MacLC,
+// 2026-08-08).  pix_quiet holds the video reset from retarget-pending
+// until ~84 ms after the FSM has consumed it, so a monitor change presents
+// as a clean blank-and-return.
+reg pix_quiet = 1'b0;
+always @(posedge CLK_50M) begin : pix_reconfig
+	reg [21:0] settle = 22'd0;
+	reg [31:0] c0_cur = 32'h00000E0E;    // = the static 13" config
+	reg [31:0] c0_s1, c0_s2;
+	reg [2:0]  state = 0;
+	c0_s1 <= pix_c0;                     // settle across clk_sys -> CLK_50M
+	c0_s2 <= c0_s1;
+	if (c0_s2 == c0_s1 && c0_s2 != c0_cur) begin
+		settle    <= 22'h3FFFFF;
+		pix_quiet <= 1'b1;
+	end else if (settle != 0) begin
+		settle    <= settle - 1'd1;
+	end else begin
+		pix_quiet <= 1'b0;
+	end
+	if (!pixcfg_waitrequest) begin
+		pixcfg_write <= 0;
+		if (pll_video_locked) begin
+			if (state) state <= state + 1'd1;
+			case (state)
+				0: if (c0_s2 == c0_s1 && c0_s2 != c0_cur) begin
+						c0_cur <= c0_s2;
+						state  <= 1;
+					end
+				1: begin pixcfg_address <= 0; pixcfg_data <= 0;      pixcfg_write <= 1; end // polled mode
+				3: begin pixcfg_address <= 5; pixcfg_data <= c0_cur; pixcfg_write <= 1; end // C0 counter
+				5: begin pixcfg_address <= 2; pixcfg_data <= 0;      pixcfg_write <= 1; end // start
+				default: ;
+			endcase
+		end
+	end
+end
+
 // video-domain reset: released only once the pixel clock is locked AND the
-// machine is out of reset, 2FF-synced into clk_vid
+// machine is out of reset AND no retarget is settling, 2FF-synced into
+// clk_vid (pix_quiet is a multi-ms CLK_50M level; the 2FF is its sync)
 reg vidrst_meta, vidrst_s;
 always @(posedge clk_vid) begin
-	vidrst_meta <= reset | ~pll_video_locked;
+	vidrst_meta <= reset | ~pll_video_locked | pix_quiet;
 	vidrst_s    <= vidrst_meta;
 end
 wire nreset_vid = ~vidrst_s;
@@ -380,6 +462,7 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS)) machine (
 	.clk_vid(clk_vid),
 	.nreset_vid(nreset_vid),
 	.ram_cfg(ram_cfg),
+	.mon_12in(mon_12in),
 
 	.mem_req(mem_req),
 	.mem_write(mem_write),

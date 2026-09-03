@@ -1,28 +1,39 @@
-// pll_video.v — dedicated pixel-clock PLL for the DAFB scanout.
+// pll_video.v — dedicated, runtime-reconfigurable pixel-clock PLL for the
+// DAFB scanout.  Cloned from MacLC_MiSTer/rtl/pll_video.v, whose header
+// records why the shape is what it is; the short version:
 //
-// Ported verbatim from MacLC_MiSTer/rtl/pll_video.v, minus the runtime
-// reconfiguration: wombat33 has one monitor mode (13" 640x480), so the static
-// C0=28 config is the only one it ever needs and the reconfig interface is
-// tied off at the instantiation in MacQuadra800.sv.
+// WHY A SEPARATE PLL. The DAFB used to scan out on clk_sys, so 640x480 in an
+// 800x525 frame refreshed at 33 MHz / (800*525) = 78.6 Hz. Main_MiSTer's
+// vsync_adjust measures the core's frame time and programs the HDMI pixel
+// clock from it (acceptance window 2..300 MHz, refresh guards default OFF),
+// so a mode that far off spec became an out-of-spec HDMI mode that latched
+// until the next video change -- the "frame repeated four times" screen.
 //
-// WHY IT EXISTS. The DAFB used to scan out on clk_sys, so 640x480 in an
-// 800x525 frame refreshed at 33 MHz / (800*525) = 78.6 Hz, with a 33 MHz dot
-// clock. Main_MiSTer's vsync_adjust measures the core's frame time and
-// programs the HDMI pixel clock from it, with an acceptance window of a
-// useless 2..300 MHz and the refresh_min/max guards default OFF — so a mode
-// that far off spec gets turned into an out-of-spec HDMI mode that LATCHES
-// until the next video change. That is the reported "weird screen": the frame
-// repeated four times across the width. MacLC hit the same class of bug from
-// the other direction (mid-frame pixel-rate changes) and its pll_video header
-// documents it at length.
+// WHY RECONFIG, NOT A MUX. sys_top feeds CLK_VIDEO into its own clock-select
+// blocks, which require a raw PLL output (Fitter Error 15836), so a
+// cyclonev_clkselect of two taps is structurally illegal. The MiSTer-native
+// pattern (ao486 CPU presets, sys pll_hdmi vsync_adjust) is ONE output clock
+// reconfigured at runtime through sys/pll_cfg (altera_pll_reconfig). Only
+// the C0 counter changes per monitor -- the VCO stays put:
 //
 //   VCO/2 = 50 MHz x M(14 + 420906795/2^32) = 704.899999 MHz
-//   C0=28 -> 25.175000 MHz  VGA 640x480 -> 59.94 Hz (exact)
+//   C0=28 -> 25.175000 MHz  13" RGB 640x480 -> 59.94 Hz (exact)
+//   C0=45 -> 15.664444 MHz  12" RGB 512x384 -> 60.14 Hz (real DAFB 15.6672)
 //
-// Advanced (explicit-counter) parameter form, cloned from sys/pll_hdmi: it
-// pins the VCO and makes outclk_0 physical counter 0. A frequency-string
-// solve could legally pick a different VCO/counter.
+// STATIC configuration = C0=28 (25.175 MHz). The reconfig FSM in
+// MacQuadra800.sv inits its change-detect to this value, so a 13" boot
+// performs NO runtime reconfig at all: MacLC's first pixel-clock build did a
+// boot-time retarget and the PLL unlock/relock glitched CLK_VIDEO while the
+// HPS was mounting SD images and ascal was locking (BERR storm, hard wedge).
+// The 12" retarget is SLOWER than the 25.175 MHz constraint, so STA stays
+// valid; a faster tap must move the static config to the faster divider.
 //
+// Advanced (explicit-counter) parameter form, cloned from sys/pll_hdmi -- it
+// pins the VCO and makes outclk_0 physical counter 0, so the reconfig
+// C-counter select (bits [22:18] = 0) is deterministic. A frequency-string
+// solve could legally pick a different VCO/counter and silently break the
+// runtime table.
+
 `timescale 1 ps / 1 ps
 module pll_video (
 	input  wire        refclk,

@@ -38,6 +38,13 @@ module dafb
 	// for the same arrangement -- config 2FF-synced in, VBL toggled back.
 	input         clk_vid,
 	input         nreset_vid,
+	// Monitor on the DA-15: 0 = 13" RGB 640x480 (sense code 6), 1 = 12" RGB
+	// 512x384 (sense code 2).  Quasi-static: the platform latches it under
+	// reset, because a real Quadra samples the sense lines only in the ROM's
+	// boot probe and QuickDraw lays out for the boot geometry.  It picks
+	// both the sense-register answer and the scanout timing (clk_vid is
+	// retargeted to the matching dot clock by MacQuadra800.sv).
+	input         mon_12in,
 
 	// register beat slave ($F9800000 block, addr = offset bits [9:2])
 	input         sel,
@@ -178,9 +185,10 @@ always @(posedge clk) begin
 					6'h02: rdata <= {20'd0, stride[13:2]};
 					6'h03: rdata <= {20'd0, timing_ctrl};
 					6'h04: rdata <= {20'd0, config_r};
-					// 13" 640x480 (code 6), QEMU macfb normal-sense formula:
-					// (~code & 7) | (~driven & 7)
-					6'h07: rdata <= {29'd0, 3'b001 | ~sense_drive};
+					// QEMU macfb normal-sense formula (~code & 7) | (~driven & 7):
+					// 13" 640x480 is code 6 (~6 = 001), 12" 512x384 is code 2
+					// (~2 = 101) -- MAME dafb.cpp's table, Apple TN HW26.
+					6'h07: rdata <= {29'd0, (mon_12in ? 3'b101 : 3'b001) | ~sense_drive};
 					6'h0B: rdata <= {20'd0, 3'd3, test_r[8:0]};  // DAFB version 3
 					default: ;
 					endcase
@@ -278,17 +286,31 @@ end
 reg [20:0] fb_base_meta, fb_base_v;
 reg [13:0] stride_meta,  stride_v;
 reg  [2:0] mode_meta,    mode_v;
+reg        mon_meta,     mon_v;
 always @(posedge clk_vid) begin
 	fb_base_meta <= fb_base; fb_base_v <= fb_base_meta;
 	stride_meta  <= stride;  stride_v  <= stride_meta;
 	mode_meta    <= mode;    mode_v    <= mode_meta;
+	mon_meta     <= mon_12in; mon_v    <= mon_meta;
 end
 
 //----------------------------------------------------------------------------
-// scanout: 640x480 active in 800x525, one pixel per clk_vid (25.175 MHz)
+// scanout: one pixel per clk_vid.
+//   13" RGB: 640x480 active in 800x525 at 25.175 MHz -> 59.94 Hz (VGA)
+//   12" RGB: 512x384 active in 640x407 at 15.664 MHz -> 60.14 Hz (the real
+//            Quadra drives 15.6672 MHz; sync 528-576 / 385-388 as MacLC's
+//            12" table, which is MAME's 512-active shape)
+// The platform swaps the dot clock with the monitor, so the counters simply
+// follow mon_v; a change holds the scanout in reset anyway (pix_quiet).
 //----------------------------------------------------------------------------
-localparam H_ACT = 640, H_FP = 16, H_SYNC = 96, H_TOT = 800;
-localparam V_ACT = 480, V_FP = 10, V_SYNC = 2,  V_TOT = 525;
+wire [9:0] H_ACT  = mon_v ? 10'd512 : 10'd640;
+wire [9:0] H_FP   = 10'd16;
+wire [9:0] H_SYNC = mon_v ? 10'd48  : 10'd96;
+wire [9:0] H_TOT  = mon_v ? 10'd640 : 10'd800;
+wire [9:0] V_ACT  = mon_v ? 10'd384 : 10'd480;
+wire [9:0] V_FP   = mon_v ? 10'd1   : 10'd10;
+wire [9:0] V_SYNC = mon_v ? 10'd3   : 10'd2;
+wire [9:0] V_TOT  = mon_v ? 10'd407 : 10'd525;
 
 reg [9:0] hcnt;
 reg [9:0] vcnt;
