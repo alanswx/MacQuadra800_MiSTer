@@ -90,6 +90,18 @@ permission settings; the user adds rules.
   Warning" proceeds). `f0be8d7` on `work/cd512` adds the page to the disk
   targets (MAME hd.cpp layout; Drive Setup needs it too). Build launched
   07:32 (`scratch/build_cd512b.log`).
+- **Installer stall (07:42):** on `2c275a61` the retail install froze at
+  "Writing Text Encodings: Chinese Encodings Supplement" — screen static,
+  no cursor on mouse moves, no HPS I/O. Not reproduced by the bench
+  (T16j: 512-mode CD reads interleaved with disk writes, clean) and the
+  ISO is complete. A `SCSI_TRACE` build of `work/cd512` was launched 08:10
+  (`scratch/build_trace.log`; the qsf edit is local, do not commit it) —
+  deploy it, re-run the install with `bash scripts/scsi_trace.sh
+  --capture-only 600` running, decode.
+- More on `work/cd512`: `bcd755e` CD audio mixed into AUDIO_L/R (build
+  `1dd496a8`, +0.249 ns, 88 %, copy in `scratch/`); `9631e0f` T16j;
+  `0158f55` the `CDROM` parameter / `CDROM_OFF=1` qsf macro that drops the
+  CD target + audio engine (~2,800 ALMs) for Alan's CPU builds.
 - **`work/all`** = `work/cd512` + the CPU bump (`fbf2706`), i.e. everything.
   Full build launched 06:42 in the worktree (`scratch/build_all.log`).
   Candidate for main once both OSes pass on it.
