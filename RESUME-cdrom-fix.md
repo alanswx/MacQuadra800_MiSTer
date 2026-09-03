@@ -1,3 +1,33 @@
+# Resume — installer deadlock fixed; block cache in progress
+
+**2026-09-03 afternoon.** The Mac OS 8.1 CD installer hang is root-caused and
+fixed on branch `work/cd512` (worktree `C:/Temp/mistercore/MacQuadra800_wt`),
+commit `f349e9e`:
+
+- Symptom: installs stalled at "Preparing to install". The opcode/status SCSI
+  tracer (build c18f0c8f) showed the CPU stall watchdog never fired and the
+  LAST bus event was a disk WRITE(10) to ID 1 then a CD READ(10) select to
+  ID 3 that hung in DATA IN (456 s of silence).
+- Cause: the engine reports a write's GOOD status when its last block STARTS
+  flushing; the ROM's SCSI Manager then selects the CD, cur_tgt switches to 2,
+  and `io_ack_i = io_ack[cur_tgt]` stops watching slot 1, so the write flush's
+  ack is lost, `flush_pending` wedges `io_busy`, and the next command
+  deadlocks.
+- Fix: `io_ack_i` follows `flush_tgt` (latched when io_wr rises) while a flush
+  is pending. tb_ncr53c96 T16p reproduces the sequence; the CD read went from
+  0 bytes/hang to completing. A 1-byte-short residual on that exact sequence
+  is a WARN, subsumed by the block cache.
+- Next: build `work/cd512` (queued behind another session's MacIIvi fit) and
+  run install #7 on it. If it completes, cut a release-candidate (tracer off).
+
+Block cache (the user's steer): `work/cache` branch, `ebe1c42`. A per-target
+read-ahead + write-behind cache (`rtl/scsi_cache.sv`) so writes ack from RAM
+and no flush is ever pending across a target switch. Directed tests pass
+(tb_scsi_cache T1-T6b); the random multi-slot interleave (T7) has a coherency
+race to finish; not yet wired into `quadra800.sv`.
+
+---
+
 # Resume — CD-ROM works on hardware; 512-byte block mode, 512x384, Alan's CPU in flight
 
 Session of 2026-09-03 (morning). Read `CLAUDE.md` first. Repo `main` is at
