@@ -103,6 +103,15 @@ reg        r_we;
 // ---- clk_ram side: one burst read, or two 16-bit writes ----------------
 reg        req_seen = 0;
 reg        busy_r   = 0;
+// The request fields the controller consumes, re-registered on clk_ram when
+// the request is taken.  r_addr/r_wdata/r_be/r_we are clk_sys registers and
+// are held for the whole beat, so this costs nothing; it turns every
+// clk_sys -> clk_ram data path into a plain register-to-register hop instead
+// of letting the fitter time them through the controller's page-hit compare.
+reg [26:2] a_ram  = 0;
+reg [31:0] d_ram  = 0;
+reg  [3:0] be_ram = 0;
+reg        we_ram = 0;
 reg        acc      = 0;             // write half: 0 = high word, 1 = low
 reg        rd_burst = 0;
 reg  [2:0] rd_word  = 0;
@@ -221,10 +230,10 @@ end
 // rd_burst drops rd as soon as the first word arrives.  The controller remains
 // in RDWAIT through the BL8 tail, so a held request cannot be recaptured while
 // the remaining seven words are collected.
-wire rd = busy_r && !r_we && !rd_burst;
-wire wr = busy_r &&  r_we;
+wire rd = busy_r && !we_ram && !rd_burst;
+wire wr = busy_r &&  we_ram;
 
-wire [1:0] rd_slot = r_addr[3:2] + rd_word[2:1];
+wire [1:0] rd_slot = a_ram[3:2] + rd_word[2:1];
 
 always @(posedge clk_ram) begin
 	ready_d  <= ready;
@@ -233,7 +242,7 @@ always @(posedge clk_ram) begin
 		if (!rd_word[0]) line_hold[rd_slot][31:16] <= dout;
 		else begin
 			line_hold[rd_slot][15:0] <= dout;
-			if (rd_slot == r_addr[3:2]) begin
+			if (rd_slot == a_ram[3:2]) begin
 				hold    <= {line_hold[rd_slot][31:16], dout};
 				// Release the requested longword immediately.  The rest of the
 				// BL8 transfer continues into line_hold while fill_pending keeps
@@ -255,11 +264,15 @@ always @(posedge clk_ram) begin
 			acc      <= 0;
 			rd_word  <= 0;
 			busy_r   <= 1;
+			a_ram    <= r_addr;
+			d_ram    <= r_wdata;
+			be_ram   <= r_be;
+			we_ram   <= r_we;
 		end
 	end
 	else if (ready && !ready_d) begin
-		if (!r_we) begin
-			line_hold[r_addr[3:2]][31:16] <= dout;
+		if (!we_ram) begin
+			line_hold[a_ram[3:2]][31:16] <= dout;
 			rd_word  <= 1;
 			rd_burst <= 1;
 		end
@@ -290,11 +303,11 @@ sdram sdram
 	.SDRAM_CLK (SDRAM_CLK),
 
 	.sel       (1'b1),
-	.addr      ({r_addr, acc}),          // word address; acc picks the half
+	.addr      ({a_ram, acc}),           // word address; acc picks the half
 	.dout      (dout),
-	.din       (acc ? r_wdata[15:0] : r_wdata[31:16]),
+	.din       (acc ? d_ram[15:0] : d_ram[31:16]),
 	.wr        (wr),
-	.bs        (acc ? r_be[1:0] : r_be[3:2]),
+	.bs        (acc ? be_ram[1:0] : be_ram[3:2]),
 	.rd        (rd),
 	.ready     (ready),
 	.refresh   (refresh),

@@ -156,9 +156,16 @@ reg        refresh_old = 0;
 // A 128 MB MiSTer module has two 64 MB ranks.  SDRAM_nCS selects rank 0
 // directly and is inverted on the module for rank 1, so open-page state is
 // per {rank,bank}, not merely per bank.
-reg  [7:0] row_open = 0;
-reg [12:0] open_row [0:7];
-reg  [2:0] bank_age [0:7];
+// Both arrays are read combinationally every clk_ram cycle from an index
+// that arrives from the request side, so they MUST stay logic registers.
+// Left to itself Quartus infers an M10K for open_row and retimes the
+// request-side address register into it -- a dual-clock RAM whose read port
+// runs on clk_sys with DONT_CARE mixed-port read-during-write, which is not
+// what this RTL (or tb_sdram) describes, and its output reached command[]
+// through the worst path in the design (+0.34 ns at one placement).
+(* ramstyle = "logic" *) reg  [7:0] row_open = 0;
+(* ramstyle = "logic" *) reg [12:0] open_row [0:7];
+(* ramstyle = "logic" *) reg  [2:0] bank_age [0:7];
 integer age_i;
 
 wire  [1:0] req_bank = addr[24:23];
