@@ -455,7 +455,17 @@ wire [127:0] sdr_line_data;
 wire        sdr_line_pending;
 wire [26:4] sdr_line_pending_tag;
 
-quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS)) machine (
+// The CD-ROM target and its audio engine cost ~2,800 ALMs.  A build that
+// needs them back (CPU work) adds to the qsf:
+//   set_global_assignment -name VERILOG_MACRO "CDROM_OFF=1"
+// and gets a machine with two hard disks and no ID 3; the OSD's CD line
+// still exists but the mount goes nowhere.
+`ifdef CDROM_OFF
+localparam CDROM_EN = 0;
+`else
+localparam CDROM_EN = 1;
+`endif
+quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS), .CDROM(CDROM_EN)) machine (
 	.clk(clk_sys),
 	.nreset(~reset),
 	.ce(1'b1),

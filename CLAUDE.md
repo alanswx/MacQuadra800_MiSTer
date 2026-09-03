@@ -62,6 +62,10 @@ bash scripts/build_only.sh --check    # Analysis & Synthesis only (~13 min), no 
   path reports (`docs/sdram-open-row-crossing.md`) before trusting the build.
 - `SCSI_TRACE` in the `.qsf` makes a **debug** build that hijacks the serial
   port. It must stay commented out for anything released.
+- `CDROM_OFF=1` as a `VERILOG_MACRO` in the `.qsf` drops the CD-ROM target and
+  its audio engine (~2,800 ALMs) for CPU work that needs the area; the gate
+  is the `CDROM` parameter on `ncr53c96` (plumbed through `iosb` and
+  `quadra800`). Default on; a release build never sets it.
 
 ## Simulation (WSL)
 

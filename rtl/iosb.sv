@@ -14,6 +14,7 @@
 
 module iosb
 #(
+	parameter CDROM     = 1,        // 0 = no CD-ROM target (see rtl/ncr53c96.sv)
 	parameter E_HALF    = 21,       // clk per E phase: 33 MHz/21 ~ 783.4 kHz VIA timers
 	parameter TICK_HALF = 274314,   // clk per CA1 half-period: 60.15 Hz tick
 	// Escape hatch for a wedged pseudo-DMA beat (A_SDMA).  ce is tied high at
@@ -527,7 +528,7 @@ initial iosb_dbg_cyc = 0;
 always @(posedge clk) if (ce) iosb_dbg_cyc <= iosb_dbg_cyc + 64'd1;
 `endif
 
-ncr53c96 scsi (
+ncr53c96 #(.CDROM(CDROM)) scsi (
 	.clk(clk),
 	.nreset(nreset),
 	.ce(ce),

@@ -24,7 +24,8 @@
 
 module quadra800
 #(
-	parameter RAM_ADDR_BITS = 27              // address space ceiling: 128 MB
+	parameter RAM_ADDR_BITS = 27,             // address space ceiling: 128 MB
+	parameter CDROM         = 1               // 0 = no CD-ROM target (rtl/ncr53c96.sv)
 )
 (
 	input         clk,
@@ -241,7 +242,7 @@ wire        iosb_fault;   // ack released a timed-out PDMA beat -> bus error
 
 wire dafb_vbl;
 
-iosb iosb (
+iosb #(.CDROM(CDROM)) iosb (
 	.clk(clk),
 	.nreset(nreset),
 	.ce(ce),

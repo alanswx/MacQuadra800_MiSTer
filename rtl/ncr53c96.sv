@@ -62,6 +62,14 @@
 //============================================================================
 
 module ncr53c96
+#(
+	// CDROM = 0 drops the CD-ROM target (SCSI ID 3) and its TOC/audio engine:
+	// ID 3 stops answering selection, is_cd is a constant 0 so the CD command
+	// layer synthesizes away, and cd_audio is not instantiated.  For CPU work
+	// that needs the ALMs back; set it from the qsf (CDROM_OFF macro in
+	// MacQuadra800.sv).
+	parameter CDROM = 1
+)
 (
 	input         clk,
 	input         nreset,
@@ -158,14 +166,14 @@ reg        chunk_irq_armed;        // raise I_BUS once per TI command
 reg  [2:0] tgt_mounted;            // per target
 reg [31:0] tgt_blocks [0:2];       // 512-byte blocks per target
 reg  [1:0] cur_tgt;                // target of the current nexus
-wire       is_cd       = (cur_tgt == 2'd2);
+wire       is_cd       = (CDROM != 0) && (cur_tgt == 2'd2);
 wire       mounted     = tgt_mounted[cur_tgt];
 wire [31:0] disk_blocks = tgt_blocks[cur_tgt];
 // selection: ID 0/1 answer only with an image mounted; the CD-ROM drive
 // answers always (the AppleCD driver polls TEST UNIT READY for a disc)
 wire [1:0] sel_tgt = (dest_id == 4'd0) ? 2'd0 : (dest_id == 4'd1) ? 2'd1 :
                      (dest_id == 4'd3) ? 2'd2 : 2'd3;
-wire       sel_ok  = (sel_tgt == 2'd2) ? 1'b1 :
+wire       sel_ok  = (sel_tgt == 2'd2) ? (CDROM != 0) :
                      (sel_tgt != 2'd3) && tgt_mounted[sel_tgt];
 // REQUEST SENSE state per target: latched when a command CHECKs, cleared by
 // the next command that is not REQUEST SENSE (SCSI-1 semantics, scsi.v)
@@ -730,7 +738,7 @@ always @(posedge clk) begin
 `endif
 
 		for (i = 0; i < 3; i = i + 1)
-			if (img_mounted[i]) begin
+			if (img_mounted[i] && (i != 2 || CDROM != 0)) begin
 				tgt_mounted[i] <= (img_size != 0);
 				tgt_blocks[i]  <= img_size[40:9];
 			end
@@ -1540,6 +1548,7 @@ endtask
 //----------------------------------------------------------------------------
 // the CD-ROM target's TOC / audio engine
 //----------------------------------------------------------------------------
+generate if (CDROM != 0) begin : g_cd_audio
 cd_audio #(.CLK_HZ(32'd33_000_000)) cd_audio_i (
 	.clk(clk), .rst(!nreset), .bus_rst(ca_bus_rst),
 	.mounted(tgt_mounted[2]), .img_mounted(ca_mount_d[1]), .img_blocks(tgt_blocks[2]),
@@ -1566,6 +1575,17 @@ cd_audio #(.CLK_HZ(32'd33_000_000)) cd_audio_i (
 	.snd_l(cd_snd_l), .snd_r(cd_snd_r),
 	.dbg_cda0(), .dbg_cdur()
 );
+end else begin : g_no_cd
+	// no engine: the channel is never borrowed, no TOC, silence
+	assign ca_io_active = 1'b0; assign ca_io_rd = 1'b0; assign ca_io_lba = 32'd0;
+	assign ca_ast_code = 8'h00; assign ca_cur_ctrl = 8'h00; assign ca_cur_trk = 8'h00;
+	assign ca_abs_m = 8'h00; assign ca_abs_s = 8'h00; assign ca_abs_f = 8'h00;
+	assign ca_rel_m = 8'h00; assign ca_rel_s = 8'h00; assign ca_rel_f = 8'h00;
+	assign ca_toc_q0 = 8'h00; assign ca_t43_q0 = 8'h00; assign ca_t2_q0 = 8'h00;
+	assign ca_t43_len = 10'd0; assign ca_t2_len = 10'd0;
+	assign ca_toc_ready = 1'b0; assign ca_disc_audio = 1'b0;
+	assign cd_snd_l = 16'sd0; assign cd_snd_r = 16'sd0;
+end endgenerate
 
 endmodule
 

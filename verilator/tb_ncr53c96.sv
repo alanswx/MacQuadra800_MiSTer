@@ -1088,8 +1088,8 @@ initial begin
 	guard = 0;
 	while (!dut.ca_toc_ready && guard < 400000) begin @(negedge clk); guard = guard + 1; end
 	$display("   TOC ready after %0d cycles (mst=%0d toc_valid=%b n=%0d leadout_lba=%0d img_blocks=%0d)", guard,
-	         dut.cd_audio_i.mst, dut.cd_audio_i.toc_valid, dut.cd_audio_i.n_tracks,
-	         dut.cd_audio_i.leadout_lba, dut.cd_audio_i.img_blocks);
+	         dut.g_cd_audio.cd_audio_i.mst, dut.g_cd_audio.cd_audio_i.toc_valid, dut.g_cd_audio.cd_audio_i.n_tracks,
+	         dut.g_cd_audio.cd_audio_i.leadout_lba, dut.g_cd_audio.cd_audio_i.img_blocks);
 	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
 	cdb[0]=8'h25; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0;
 	cdb[6]=0; cdb[7]=0; cdb[8]=0; cdb[9]=0;
