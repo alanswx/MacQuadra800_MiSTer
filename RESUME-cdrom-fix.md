@@ -75,6 +75,14 @@ permission settings; the user adds rules.
   **Scored 06:40: exactly baseline** (cpu 2 known memind diffs, fpu 0,
   saverestore 0, integration 1328/1328, mmu_full 13 pre-existing); the
   on-screen `trap=3` is normal. Alan's seed note: 25.
+- **Hardware on `2c275a61` (07:00-07:30):** Mac OS 8.1 boots from the HD
+  with the Open Transport disc; the retail 8.1 disc mounts in-OS (its
+  window opened); the user booted the ROM from the retail disc, 512x384
+  works, and the installer ran — its "driver cannot be updated, not an
+  Apple hard disk" dialog is the MODE SENSE page $30 check ("Ignore
+  Warning" proceeds). `f0be8d7` on `work/cd512` adds the page to the disk
+  targets (MAME hd.cpp layout; Drive Setup needs it too). Build launched
+  07:32 (`scratch/build_cd512b.log`).
 - **`work/all`** = `work/cd512` + the CPU bump (`fbf2706`), i.e. everything.
   Full build launched 06:42 in the worktree (`scratch/build_all.log`).
   Candidate for main once both OSes pass on it.
