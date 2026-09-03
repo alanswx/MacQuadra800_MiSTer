@@ -1086,8 +1086,9 @@ initial begin
 	// so it synthesizes the single-track TOC) and grinds the M:S:F divider
 	guard = 0;
 	while (!dut.ca_toc_ready && guard < 400000) begin @(negedge clk); guard = guard + 1; end
-	$display("   TOC ready after %0d cycles (mst=%0d toc_valid=%b n=%0d)", guard,
-	         dut.cd_audio_i.mst, dut.cd_audio_i.toc_valid, dut.cd_audio_i.n_tracks);
+	$display("   TOC ready after %0d cycles (mst=%0d toc_valid=%b n=%0d leadout_lba=%0d img_blocks=%0d)", guard,
+	         dut.cd_audio_i.mst, dut.cd_audio_i.toc_valid, dut.cd_audio_i.n_tracks,
+	         dut.cd_audio_i.leadout_lba, dut.cd_audio_i.img_blocks);
 	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
 	cdb[0]=8'h25; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0;
 	cdb[6]=0; cdb[7]=0; cdb[8]=0; cdb[9]=0;
@@ -1225,6 +1226,65 @@ initial begin
 	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
 	reg_rd(R_FIFO, b); expect8("T16g status GOOD", b, 8'h00);
 	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	sel_id = 8'h00;
+
+
+	$display("-- T17 CD-ROM: Apple $C1 READ TOC header / lead-out / track 1, $CC AUDIO STATUS");
+	sel_id = 8'h03;
+	// header: {01, last BCD 01, 00, 00}
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'hC1; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0; cdb[6]=0; cdb[7]=0; cdb[8]=8'd4; cdb[9]=8'h00;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	expect8("T17 hdr phase DATA IN", {5'd0, st[2:0]}, {5'd0, PH_DIN});
+	set_tc(16'd4); reg_wr(R_CMD, 8'h90);
+	pdma_rd(b); expect8("T17 hdr[0]", b, 8'h01);
+	pdma_rd(b); expect8("T17 hdr[1] last=01", b, 8'h01);
+	pdma_rd(b); expect8("T17 hdr[2]", b, 8'h00);
+	pdma_rd(b); expect8("T17 hdr[3]", b, 8'h00);
+	wait_irq(500, ok); reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T17 hdr status GOOD", b, 8'h00); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	// lead-out: the Apple table is disc-LBA MSF (no +150): 16 frames = 00:00:16 BCD
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[9]=8'h40;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	set_tc(16'd4); reg_wr(R_CMD, 8'h90);
+	pdma_rd(b); expect8("T17 leadout M", b, 8'h00);
+	pdma_rd(b); expect8("T17 leadout S", b, 8'h00);
+	pdma_rd(b); expect8("T17 leadout F", b, 8'h16);
+	pdma_rd(b); expect8("T17 leadout pad", b, 8'h00);
+	wait_irq(500, ok); reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	// track 1 descriptor: {ctrl $14, 00, 00, 00} (LBA 0, no +150)
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[5]=8'h01; cdb[9]=8'h80;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	set_tc(16'd4); reg_wr(R_CMD, 8'h90);
+	pdma_rd(b); expect8("T17 trk1 ctrl", b, 8'h14);
+	pdma_rd(b); expect8("T17 trk1 M", b, 8'h00);
+	pdma_rd(b); expect8("T17 trk1 S", b, 8'h00);
+	pdma_rd(b); expect8("T17 trk1 F", b, 8'h00);
+	wait_irq(500, ok); reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	// AUDIO STATUS: idle (5), 0, ctrl, MSF
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'hCC; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0; cdb[6]=0; cdb[7]=0; cdb[8]=8'd6; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	expect8("T17 astat phase DATA IN", {5'd0, st[2:0]}, {5'd0, PH_DIN});
+	set_tc(16'd6); reg_wr(R_CMD, 8'h90);
+	pdma_rd(b); expect8("T17 astat idle", b, 8'h05);
+	pdma_rd(b); expect8("T17 astat[1]", b, 8'h00);
+	pdma_rd(b); expect8("T17 astat ctrl", b, 8'h14);
+	for (k = 0; k < 3; k = k + 1) pdma_rd(b);
+	wait_irq(500, ok); reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T17 astat status GOOD", b, 8'h00); reg_rd(R_FIFO, b);
 	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
 	sel_id = 8'h00;
 

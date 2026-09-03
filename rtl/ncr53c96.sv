@@ -267,9 +267,12 @@ assign rdata = (rs == 4'h0) ? tcounter[7:0]  :
                (rs == 4'hC) ? conf3 : 8'h00;
 
 // CDB length by opcode group
+// CDB length by opcode group: 0 -> 6, 1/2 -> 10, 5 -> 12 (READ(12), SET CD
+// SPEED), 6/7 vendor -> 10 (the Apple CD-ROM set $C0-$CE and the BlueSCSI
+// Toolbox $D0-$D9 are all 10-byte CDBs)
 function [3:0] group_len(input [7:0] op);
-	group_len = (op[7:5] == 3'b001 || op[7:5] == 3'b010) ? 4'd10 :
-	            (op[7:5] == 3'b101) ? 4'd12 : 4'd6;   // group 5: READ(12), SET CD SPEED
+	group_len = (op[7:5] == 3'b000) ? 4'd6 :
+	            (op[7:5] == 3'b101) ? 4'd12 : 4'd10;
 endfunction
 
 integer i;

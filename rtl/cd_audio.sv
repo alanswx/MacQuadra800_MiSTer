@@ -288,16 +288,16 @@ function [7:0] bcd2bin;
 	bcd2bin = {4'd0, b[7:4]} * 8'd10 + {4'd0, b[3:0]};
 endfunction
 function [7:0] bin2bcd;                // 0..99
+	// Was {4'd1, v - 8'd10} etc.: a 12-bit concatenation truncated to the
+	// 8-bit result, which dropped the tens digit for every value >= 10
+	// (16 -> $06).  Found by tb_ncr53c96 T17 against the Apple $C1 lead-out.
 	input [7:0] v;
-	bin2bcd = v >= 8'd90 ? {4'd9, (v - 8'd90)-8'd0} :
-	          v >= 8'd80 ? {4'd8, v - 8'd80} :
-	          v >= 8'd70 ? {4'd7, v - 8'd70} :
-	          v >= 8'd60 ? {4'd6, v - 8'd60} :
-	          v >= 8'd50 ? {4'd5, v - 8'd50} :
-	          v >= 8'd40 ? {4'd4, v - 8'd40} :
-	          v >= 8'd30 ? {4'd3, v - 8'd30} :
-	          v >= 8'd20 ? {4'd2, v - 8'd20} :
-	          v >= 8'd10 ? {4'd1, v - 8'd10} : v;
+	reg   [7:0] t, u;
+	begin
+		t = v / 8'd10;
+		u = v % 8'd10;
+		bin2bcd = {t[3:0], u[3:0]};
+	end
 endfunction
 function [31:0] msf2lba;               // BCD M/S/F -> LBA
 	input [7:0] m, s, f;
