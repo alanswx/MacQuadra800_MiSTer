@@ -146,6 +146,10 @@ permission settings; the user adds rules.
 - **`CDROM_OFF=1` measured (10:49):** 33,794 ALMs (81 %) vs 36,830 (88 %)
   with the CD path -- 3,036 ALMs, +0.250 ns. Alan's CPU (+3,900 on this
   base) fits at ~90 % with the gate on; with the CD in it is 96 %.
+- **Alan's CPU work PAUSED by the user (10:55):** the `work/all2`
+  (= `work/cd512` + bump) CDROM_OFF build was killed mid-fit and nothing
+  more is to be done on it until asked. Branches `work/all` / `work/all2`
+  stay for later.
 - **`work/all`** = `work/cd512` + the CPU bump (`fbf2706`), i.e. everything.
   Full build launched 06:42 in the worktree (`scratch/build_all.log`).
   Candidate for main once both OSes pass on it.
