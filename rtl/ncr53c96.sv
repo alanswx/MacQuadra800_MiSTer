@@ -178,6 +178,8 @@ reg [31:0] io_lba_e;               // the engine's own block address
 reg [11:0] dout_len;               // byte count of a parameter-list DATA OUT
                                    // (MODE SELECT / AUDIO CONTROL); 0 = block write
 reg        msel_pend;              // a CD MODE SELECT list is in the buffer to parse
+reg        io_discard;             // the block transfer in flight belongs to an
+                                   // abandoned nexus: complete it silently
 reg  [2:0] msel_st;
 
 // ---- CD audio / TOC engine (rtl/cd_audio.sv, ported from MacLC) ----------
@@ -643,7 +645,7 @@ always @(posedge clk) begin
 		tgt_skey[0] <= 0; tgt_skey[1] <= 0; tgt_skey[2] <= 0;
 		tgt_asc[0] <= 0; tgt_asc[1] <= 0; tgt_asc[2] <= 0;
 		cur_tgt <= 0; cd_prevent <= 0; dout_len <= 0;
-		msel_pend <= 0; msel_st <= 0;
+		msel_pend <= 0; msel_st <= 0; io_discard <= 0;
 		ca_cmd_stb <= 0; ca_read_stb <= 0; ca_eject_stb <= 0; ca_bus_rst <= 0; ca_mount_d <= 0;
 		ap_ch0 <= 8'h01; ap_vol0 <= 8'hFF; ap_ch1 <= 8'h02; ap_vol1 <= 8'hFF;
 		io_lba_e <= 0; io_rd_i <= 0; io_wr_i <= 0;
@@ -714,12 +716,13 @@ always @(posedge clk) begin
 			io_wr_i <= 0;
 		end
 		if (io_ack_d && !io_ack_i) begin
-			if (!flush_pending) begin
+			if (!flush_pending && !io_discard) begin
 				buf_valid <= 1;
 				sbuf_len <= 10'd512;
 				sbuf_pos <= 0;
 			end
 			flush_pending <= 0;
+			io_discard <= 0;
 		end
 
 		//---------------------------------------------------- block prefetch
@@ -1064,6 +1067,8 @@ task exec_command(input [7:0] c);
 		7'h03: begin                                   // reset SCSI bus
 			if (!conf1[6]) raise(I_RST);               // CONFIG1 DISR gates INT
 			ca_bus_rst <= 1;                           // stops playback; TOC survives
+			abort_nexus;                               // every target goes bus free
+			phase <= PH_DOUT;
 		end
 		// All four select forms.  Two dialects arrive here:
 		//
@@ -1081,6 +1086,7 @@ task exec_command(input [7:0] c);
 		// same case; only the byte counts differ.
 		7'h41, 7'h42, 7'h46: begin
 			if (sel_ok) begin
+				abort_nexus;                       // whatever the last nexus left
 				cur_tgt <= sel_tgt;
 				phase <= PH_CMD;
 				cdb_active <= 1;
@@ -1128,6 +1134,7 @@ task exec_command(input [7:0] c);
 			// the driver demands here — anything else and it resets the
 			// chip (section 2.3 case 1).
 			if (sel_ok) begin
+				abort_nexus;
 				cur_tgt <= sel_tgt;
 				if (fifo_cnt != 0) fifo_shift;     // the IDENTIFY goes out
 				phase          <= PH_MOUT;
@@ -1436,6 +1443,22 @@ task param_out(input [11:0] n);
 		data_dir_in <= 0;
 		phase <= PH_DOUT;
 	end
+endtask
+
+// Drop the current nexus: the target goes bus free and forgets any
+// transfer in progress.  A SCSI bus reset does this to every target, and a
+// new selection does it to whatever the previous nexus left behind -- the
+// ROM's boot scan reads block 0 of the CD-ROM with a 512-byte request,
+// gets a 2048-byte block, times out waiting for STATUS, resets the bus and
+// moves on; without this the stale DATA IN state met its next command.
+task abort_nexus;
+	cdb_active <= 0; exec_pending <= 0; skip_cnt <= 0;
+	xfer_in <= 0; xfer_out <= 0; xfer_pio_in <= 0; xfer_pio_out <= 0;
+	xfer_msg_out <= 0; msg_first_seen <= 0; msgin_reject <= 0;
+	chunk_irq_armed <= 0;
+	buf_valid <= 0; sbuf_pos <= 0; blocks_left <= 0; dout_len <= 0;
+	synth_len <= 0; msel_pend <= 0; msel_st <= 0;
+	if (io_busy && !flush_pending) io_discard <= 1;
 endtask
 
 // CHECK CONDITION with the sense the next REQUEST SENSE will report
