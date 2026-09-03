@@ -180,6 +180,15 @@ wire       sel_ok  = (sel_tgt == 2'd2) ? (CDROM != 0) :
 reg  [3:0] tgt_skey [0:2];
 reg  [7:0] tgt_asc  [0:2];
 reg        cd_prevent;             // PREVENT/ALLOW MEDIUM REMOVAL latch
+// An eject (START/STOP LoEj, Apple $C0) takes the disc away only until the
+// next SCSI bus reset, mount pulse or machine reset.  The ROM's CD boot
+// mounts the disc, reads the System, ejects it, resets the bus and scans
+// again expecting to find it (QEMU's scsi-cd leaves the image readable
+// after an eject and MAME's CD ignores START/STOP; both boot).  Honouring
+// the eject for good left the second pass with no medium and the ROM at
+// the flashing "?".  The Finder's Put Away still sees the disc gone.
+reg        cd_present;             // the platform has an image on slot 4
+reg        cd_ejected;             // ...but the guest ejected it
 // The CD-ROM's logical block size: 2048 (power-on default) or 512, set by
 // the block descriptor of a MODE SELECT(6).  The Mac ROM's CD boot and the
 // Apple CD-ROM driver switch the drive to 512-byte blocks and then read it
@@ -683,6 +692,7 @@ always @(posedge clk) begin
 		tgt_skey[0] <= 0; tgt_skey[1] <= 0; tgt_skey[2] <= 0;
 		tgt_asc[0] <= 0; tgt_asc[1] <= 0; tgt_asc[2] <= 0;
 		cur_tgt <= 0; cd_prevent <= 0; cd_blk512 <= 0; dout_len <= 0;
+		cd_present <= 0; cd_ejected <= 0;
 		msel_pend <= 0; msel_st <= 0; msel_bd <= 0; io_discard <= 0;
 		ca_cmd_stb <= 0; ca_read_stb <= 0; ca_eject_stb <= 0; ca_bus_rst <= 0; ca_mount_d <= 0;
 		ap_ch0 <= 8'h01; ap_vol0 <= 8'hFF; ap_ch1 <= 8'h02; ap_vol1 <= 8'hFF;
@@ -741,6 +751,7 @@ always @(posedge clk) begin
 			if (img_mounted[i] && (i != 2 || CDROM != 0)) begin
 				tgt_mounted[i] <= (img_size != 0);
 				tgt_blocks[i]  <= img_size[40:9];
+				if (i == 2) begin cd_present <= (img_size != 0); cd_ejected <= 0; end
 			end
 		// (the sector arriving from the platform during io_rd service
 		// lands through the RAM's port S above)
@@ -1119,6 +1130,10 @@ task exec_command(input [7:0] c);
 			if (!conf1[6]) raise(I_RST);               // CONFIG1 DISR gates INT
 			ca_bus_rst <= 1;                           // stops playback; TOC survives
 			abort_nexus;                               // every target goes bus free
+			if (cd_ejected && cd_present) begin        // the disc is back in the drive
+				tgt_mounted[2] <= 1;
+				cd_ejected <= 0;
+			end
 			phase <= PH_DOUT;
 		end
 		// All four select forms.  Two dialects arrive here:
@@ -1538,6 +1553,7 @@ task eject;
 	if (cd_prevent) check(4'h5, 8'h80);
 	else begin
 		tgt_mounted[2] <= 0;
+		cd_ejected <= 1;
 		tgt_skey[2] <= 4'h2;
 		tgt_asc[2]  <= 8'h3A;                          // medium not present
 		ca_eject_stb <= 1;
