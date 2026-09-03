@@ -163,6 +163,11 @@ permission settings; the user adds rules.
   Sonnet operator brief in this session worked well). The install target's
   volume looked sane (HFS 500 MB, driver partition, System Folder from the
   partial installs).
+- **Release candidate #2 `52ca7ee4`** = `work/cd512` @ `bc1769b` (disk
+  command set) with the tracer off: 88 % ALMs, hold +0.234 ns worst, open_row
+  uninferred; copy `scratch/MacQuadra800_cd512e_52ca7ee4.rbf`. Supersedes
+  `85ba3d50`. Deploy this one for the regression gate once install #4 (on
+  the tracer twin `40a09f76`) has answered the installer question.
 - **Alan's CPU work PAUSED by the user (10:55):** the `work/all2`
   (= `work/cd512` + bump) CDROM_OFF build was killed mid-fit and nothing
   more is to be done on it until asked. Branches `work/all` / `work/all2`
