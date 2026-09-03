@@ -35,6 +35,13 @@ SCSI transfer to any target hung. The sim never saw it because
   it yet (the user was using Mac OS on the box). Do the A/UX boot + clean
   shutdown, then the `releases/` row + section.
 
+- **CD audio output (`92633ed` on main):** `cd_snd_l/r` were implicit 1-bit
+  nets at the top level (Quartus warning 10236) so the engine's PCM never
+  reached AUDIO_L/R; now declared and summed 1:1 with the ASC like MacLC.
+  Not in any built bitstream yet — cherry-pick onto `work/cd512` after its
+  running build ends, then rebuild. Audio needs a CUE/CHD disc (the Main
+  fork serves the CD-DA frames) and the AppleCD Audio Player in the guest.
+
 Permission note: the project allow-list matches exact command prefixes;
 run `bash scripts/deploy_screenshot.sh` / `bash scripts/grab.sh <file>` bare
 (no `export …;` prefix, no trailing pipe) or the auto-mode classifier gets
