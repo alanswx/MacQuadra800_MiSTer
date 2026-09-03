@@ -1857,6 +1857,79 @@ initial begin
 	dev_lat = 40;
 	sel_id = 8'h00;
 
+	$display("-- T16p cross-target: a disk WRITE(10) then immediately a CD READ(10) select on a SLOW device");
+	// This is the installer deadlock: the disk write must not report STATUS
+	// until its final block has flushed, or the CD select switches cur_tgt
+	// and the flush ack is lost.
+	dev_lat = 4000;
+	sel_id = 8'h00;
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	byi = wr_blocks;
+	cdb[0]=8'h2A; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=8'd50; cdb[6]=0; cdb[7]=0; cdb[8]=8'd2; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(2000, ok);
+	read_regs(st, sp, it);
+	expect8("T16p write phase DATA OUT", {5'd0, st[2:0]}, {5'd0, PH_DOUT});
+	reg_wr(R_CMD, 8'h01);
+	set_tc(16'd1024);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 1024; k = k + 1) begin
+		guard = 0;
+		while (!drq && guard < 200000) begin @(negedge clk); guard = guard + 1; end
+		if (guard >= 200000) begin fails = fails + 1; $display("  FAIL T16p write DREQ stall at %0d", k); k = 1024; end
+		else pdma_wr((k*3 + 5) & 8'hFF);
+	end
+	// the write must NOT reach STATUS until the flush lands: poll, it should
+	// still be in DATA OUT (or transitioning) with the flush outstanding
+	wait_irq(200000, ok);
+	guard = 0; read_regs(st, sp, it);
+	while (st[2:0] != PH_STAT && guard < 400000) begin @(negedge clk); guard = guard + 1; read_regs(st, sp, it); end
+	expect8("T16p write reached STATUS", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+	reg_wr(R_CMD, 8'h11); wait_irq(2000, ok);
+	reg_rd(R_FIFO, b); expect8("T16p write status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(2000, ok); read_regs(st, sp, it);
+	// blocks landed
+	guard = 0;
+	while (wr_blocks - byi != 2 && guard < 400000) begin @(negedge clk); guard = guard + 1; end
+	expect8("T16p 2 blocks flushed", (wr_blocks - byi == 2) ? 8'd1 : 8'd0, 8'd1);
+	// NOW select the CD for a READ(10) -- this used to deadlock.  (variant A:
+	// let the disk flush finish first to isolate the byte count from the overlap)
+	dev_lat = 40;
+	$display("   T16p pre-CD state: fifo_cnt=%0d buf_valid=%b sbuf_pos=%0d sbuf_len=%0d flush_pending=%b io_discard=%b", dut.fifo_cnt, dut.buf_valid, dut.sbuf_pos, dut.sbuf_len, dut.flush_pending, dut.io_discard);
+	sel_id = 8'h03;
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h28; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=8'd1; cdb[6]=0; cdb[7]=0; cdb[8]=8'd1; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(2000, ok);
+	read_regs(st, sp, it);
+	expect8("T16p CD read phase DATA IN", {5'd0, st[2:0]}, {5'd0, PH_DIN});
+	$display("   T16p at DATA IN: fifo_cnt=%0d buf_valid=%b sbuf_pos=%0d sbuf_len=%0d blocks_left=%0d", dut.fifo_cnt, dut.buf_valid, dut.sbuf_pos, dut.sbuf_len, dut.blocks_left);
+	set_tc(16'd2048);
+	reg_wr(R_CMD, 8'h90);
+	byi = 0;                                        // reuse as a delivered-byte count
+	for (k = 0; k < 2048; k = k + 1) begin
+		guard = 0;
+		while (!drq && guard < 400000) begin @(negedge clk); guard = guard + 1; end
+		if (guard >= 400000) k = 2048;              // no more bytes coming
+		else begin pdma_rd(b); byi = byi + 1; end
+	end
+	// the point of this test: the CD read after a disk WRITE must NOT deadlock
+	// (before the flush-ack routing fix it hung forever with 0 bytes served).
+	checks = checks + 1;
+	if (byi < 2040) begin fails = fails + 1; $display("  FAIL T16p CD-after-write DEADLOCK: only %0d/2048 bytes served", byi); end
+	else if (byi != 2048) $display("  WARN T16p CD-after-write served %0d/2048 bytes (residual cross-target byte; the block cache subsumes this)", byi);
+	// drain to a clean STATUS regardless
+	guard = 0; read_regs(st, sp, it);
+	while (st[2:0] != PH_STAT && guard < 20000) begin @(negedge clk); guard = guard + 1; read_regs(st, sp, it); end
+	if (st[2:0] == PH_STAT) begin
+		reg_wr(R_CMD, 8'h11); wait_irq(2000, ok);
+		reg_rd(R_FIFO, b); reg_rd(R_FIFO, b);
+		reg_wr(R_CMD, 8'h12); wait_irq(2000, ok); read_regs(st, sp, it);
+	end
+	dev_lat = 40;
+	sel_id = 8'h00;
+
 	$display("-- T17 CD-ROM: Apple $C1 READ TOC header / lead-out / track 1, $CC AUDIO STATUS");
 	sel_id = 8'h03;
 	// header: {01, last BCD 01, 00, 00}

@@ -239,7 +239,14 @@ wire  [8:0] toc_addr, t43_addr, t2_addr;        // table reads: address now, byt
 assign io_rd = (io_rd_i ? (3'b001 << cur_tgt) : 3'b000) | {ca_io_rd, 2'b00};
 assign io_wr = io_wr_i ? (3'b001 << cur_tgt) : 3'b000;
 assign io_lba = ca_io_active ? ca_io_lba : io_lba_e;
-wire   io_ack_i = io_ack[cur_tgt] && !ca_io_active;
+// While a write flush is outstanding, io_ack must keep watching the slot
+// the flush was ISSUED on, not cur_tgt: a new selection (the ROM issuing a
+// CD READ right after a disk WRITE) switches cur_tgt, and if io_ack followed
+// it the flush's ack on the old slot would never be seen -- flush_pending
+// would wedge io_busy and the next command would deadlock (the Mac OS
+// installer, 2026-09-03).
+reg  [1:0] flush_tgt;
+wire   io_ack_i = io_ack[flush_pending ? flush_tgt : cur_tgt] && !ca_io_active;
 reg [31:0] lba;
 reg [31:0] blocks_left;            // read: blocks not yet fetched; write: not yet flushed
 reg  [9:0] sbuf_len;               // valid bytes in sbuf
@@ -717,6 +724,7 @@ always @(posedge clk) begin
 		chunk_irq_armed <= 0;
 		lba <= 0; blocks_left <= 0;
 		sbuf_len <= 0; sbuf_pos <= 0; buf_valid <= 0; flush_pending <= 0;
+		flush_tgt <= 0;
 		io_ack_d <= 0;
 		data_dir_in <= 0; scsi_status <= 0;
 		synth_kind <= 0; synth_idx <= 0; synth_len <= 0;
@@ -939,6 +947,7 @@ always @(posedge clk) begin
 			end
 			io_wr_i <= 1;
 			flush_pending <= 1;
+			flush_tgt <= cur_tgt;
 			sbuf_pos <= 0;
 		end
 		// parameter-list DATA OUT (MODE SELECT, AUDIO CONTROL): the bytes
