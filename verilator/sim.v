@@ -48,16 +48,18 @@ module emu
 	input  [7:0]  ioctl_index,
 	output reg    ioctl_wait = 1'b0,
 
-	// SCSI disk: MiSTer block-device surface for sim_blkdevice.cpp
+	// SCSI targets: MiSTer block-device surface for sim_blkdevice.cpp.
+	// Bit 0 = SCSI ID 0 disk, bit 1 = ID 1 disk, bit 2 = ID 3 CD-ROM; one
+	// lba / data bus is shared (one nexus at a time).
 	output [31:0] sd_lba0,
-	output        sd_rd,
-	output        sd_wr,
-	input         sd_ack,
+	output  [2:0] sd_rd,
+	output  [2:0] sd_wr,
+	input   [2:0] sd_ack,
 	input   [7:0] sd_buff_addr,
 	input  [15:0] sd_buff_dout,
 	output [15:0] sd_buff_din0,
 	input         sd_buff_wr,
-	input         img_mounted,
+	input   [2:0] img_mounted,
 	input         img_readonly,
 	input  [63:0] img_size,
 
@@ -113,12 +115,6 @@ wire [127:0] m_debug_status2;
 // clock only matters to the HDMI scaler on real hardware, and using it here
 // would change every frame count in the existing sim regressions for no
 // benefit. Frame rate in sim is therefore 78.6 Hz, not the hardware's 59.94.
-// the sim's block device is target 0 (SCSI ID 0); the other two targets
-// are unmounted here
-wire [2:0] sim_io_rd, sim_io_wr;
-assign sd_rd = sim_io_rd[0];
-assign sd_wr = sim_io_wr[0];
-
 quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS)) machine (
 	.clk(clk_sys),
 	.clk_vid(clk_sys),
@@ -154,12 +150,12 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS)) machine (
 	.ps2_key(ps2_key),
 	.ps2_mouse(ps2_mouse),
 
-	.img_mounted({2'b00, img_mounted}),      // target 0 only in this sim
+	.img_mounted(img_mounted),
 	.img_size(img_size),
 	.io_lba(sd_lba0),
-	.io_rd(sim_io_rd),
-	.io_wr(sim_io_wr),
-	.io_ack({2'b00, sd_ack}),
+	.io_rd(sd_rd),
+	.io_wr(sd_wr),
+	.io_ack(sd_ack),
 	.sd_buff_addr({5'd0, sd_buff_addr}),
 	.sd_buff_dout(sd_buff_dout),
 	.sd_buff_din(sd_buff_din0),
