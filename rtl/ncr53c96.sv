@@ -1377,7 +1377,31 @@ task exec_cdb;
 				param_out({4'd0, alloc});
 				msel_pend <= (alloc >= 8'd12);             // header + descriptor at least
 			end
-			else check(4'h5, 8'h20);
+			else param_out({4'd0, alloc});             // disk: accept, change nothing
+		end
+		// The rest of the hard-disk command set Apple's driver and Drive
+		// Setup use, answered the way MAME's nscsi_harddisk_device and QEMU's
+		// scsi-hd answer them: nothing to do on a block image, GOOD.
+		8'h2F: begin                                   // VERIFY(10): nothing to verify on an
+			if (is_cd) check(4'h5, 8'h20);             // image; MAME answers GOOD, BytChk or not
+			else phase <= PH_STAT;
+		end
+		8'h35: begin                                   // SYNCHRONIZE CACHE(10)
+			phase <= PH_STAT;
+		end
+		8'h04: begin                                   // FORMAT UNIT
+			if (is_cd) check(4'h5, 8'h20);
+			else if (cdb[1][4]) param_out(12'd4);      // FmtData: a defect-list header follows
+			else phase <= PH_STAT;
+		end
+		8'h07: begin                                   // REASSIGN BLOCKS: a list follows
+			if (is_cd) check(4'h5, 8'h20);
+			else param_out(12'd12);
+		end
+		8'h1D: begin                                   // SEND DIAGNOSTIC (self-test)
+			if (is_cd) check(4'h5, 8'h20);
+			else if ({cdb[3], cdb[4]} != 16'd0) param_out({4'd0, cdb[4]});
+			else phase <= PH_STAT;
 		end
 		8'h25: begin                                   // READ CAPACITY(10)
 			cap_cd <= cd_x4;

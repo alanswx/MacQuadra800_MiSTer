@@ -1620,6 +1620,87 @@ initial begin
 	dev_lat = 40;
 	sel_id = 8'h00;
 
+	$display("-- T16m disk: MODE SELECT(6) list accepted, VERIFY / SYNCHRONIZE CACHE / FORMAT UNIT GOOD");
+	sel_id = 8'h00;
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h15; cdb[1]=8'h10; cdb[2]=0; cdb[3]=0; cdb[4]=8'd12; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	read_regs(st, sp, it);
+	expect8("T16m msel phase DATA OUT", {5'd0, st[2:0]}, {5'd0, PH_DOUT});
+	reg_wr(R_CMD, 8'h01);
+	set_tc(16'd12);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 12; k = k + 1) begin
+		guard = 0;
+		while (!drq && guard < 100000) begin @(negedge clk); guard = guard + 1; end
+		pdma_wr((k == 3) ? 8'h08 : (k == 10) ? 8'h02 : 8'h00);
+	end
+	wait_irq(2000, ok);
+	read_regs(st, sp, it);
+	expect8("T16m msel phase STATUS", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16m msel status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	// the disk is still a 512-byte device afterwards
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h25; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0; cdb[6]=0; cdb[7]=0; cdb[8]=0; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok);
+	set_tc(16'd8);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 8; k = k + 1) begin
+		pdma_rd(b);
+		if (k == 3) expect8("T16m cap last LBA 63", b, 8'd63);
+		if (k == 6) expect8("T16m blk len 0x02", b, 8'h02);
+	end
+	wait_irq(500, ok);
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16m cap status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	// VERIFY(10) without BytChk, SYNCHRONIZE CACHE, FORMAT UNIT, SEND DIAGNOSTIC: straight to GOOD
+	for (k2 = 0; k2 < 4; k2 = k2 + 1) begin
+		reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+		case (k2)
+		0: begin cdb[0]=8'h2F; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=8'd4; cdb[6]=0; cdb[7]=0; cdb[8]=8'd2; cdb[9]=0; unix_select(8'h42, 10, 1); end
+		1: begin cdb[0]=8'h35; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0; cdb[6]=0; cdb[7]=0; cdb[8]=0; cdb[9]=0; unix_select(8'h42, 10, 1); end
+		2: begin cdb[0]=8'h04; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0; unix_select(8'h42, 6, 1); end
+		3: begin cdb[0]=8'h1D; cdb[1]=8'h04; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0; unix_select(8'h42, 6, 1); end
+		endcase
+		wait_irq(500, ok);
+		read_regs(st, sp, it);
+		expect8("T16m no-op phase STATUS", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+		reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+		reg_rd(R_FIFO, b); expect8("T16m no-op status GOOD", b, 8'h00);
+		reg_rd(R_FIFO, b);
+		reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	end
+	// an unknown opcode still CHECKs (ILLEGAL REQUEST)
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h0E; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16m unknown opcode CHECK", b, 8'h02);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	cdb[0]=8'h03; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=8'd18; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	set_tc(16'd18);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 18; k = k + 1) begin
+		pdma_rd(b);
+		if (k == 2)  expect8("T16m sense ILLEGAL REQUEST", b, 8'h05);
+		if (k == 12) expect8("T16m sense ASC 20", b, 8'h20);
+	end
+	wait_irq(500, ok);
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+
 	$display("-- T17 CD-ROM: Apple $C1 READ TOC header / lead-out / track 1, $CC AUDIO STATUS");
 	sel_id = 8'h03;
 	// header: {01, last BCD 01, 00, 00}
