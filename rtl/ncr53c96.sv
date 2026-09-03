@@ -172,6 +172,13 @@ wire       sel_ok  = (sel_tgt == 2'd2) ? 1'b1 :
 reg  [3:0] tgt_skey [0:2];
 reg  [7:0] tgt_asc  [0:2];
 reg        cd_prevent;             // PREVENT/ALLOW MEDIUM REMOVAL latch
+// The CD-ROM's logical block size: 2048 (power-on default) or 512, set by
+// the block descriptor of a MODE SELECT(6).  The Mac ROM's CD boot and the
+// Apple CD-ROM driver switch the drive to 512-byte blocks and then read it
+// like a disk; MAME's nscsi_cdrom_device::set_block_size is the model.  It
+// survives a bus reset (MAME keeps bytes_per_block through device_reset).
+reg        cd_blk512;
+wire       cd_x4 = is_cd && !cd_blk512;   // logical block = 4 HPS blocks
 reg  [7:0] cdb [0:11];
 reg        io_rd_i, io_wr_i;
 reg [31:0] io_lba_e;               // the engine's own block address
@@ -180,7 +187,8 @@ reg [11:0] dout_len;               // byte count of a parameter-list DATA OUT
 reg        msel_pend;              // a CD MODE SELECT list is in the buffer to parse
 reg        io_discard;             // the block transfer in flight belongs to an
                                    // abandoned nexus: complete it silently
-reg  [2:0] msel_st;
+reg  [3:0] msel_st;
+reg        msel_bd;                // the list carries an 8-byte block descriptor
 
 // ---- CD audio / TOC engine (rtl/cd_audio.sv, ported from MacLC) ----------
 // It owns the real TOC (the Main fork's MCDA blob at HPS block $7FFF0000,
@@ -430,7 +438,7 @@ function [7:0] cd_mode_byte(input [5:0] pg, input [5:0] i);
 		6'd5:  cd_mode_byte = cap_r[23:16];
 		6'd6:  cd_mode_byte = cap_r[15:8];
 		6'd7:  cd_mode_byte = cap_r[7:0];
-		6'd10: cd_mode_byte = 8'h08;
+		6'd10: cd_mode_byte = cd_blk512 ? 8'h02 : 8'h08;
 		default: cd_mode_byte = 8'h00;
 		endcase
 	end
@@ -575,9 +583,15 @@ wire        we_e    = synth_on || arm_drain;
 wire  [7:0] addr_e  = synth_on ? synth_idx[8:1] :
                       (msel_st != 0) ? msel_addr : sbuf_pos[8:1];
 wire  [7:0] wbyte_e = synth_on ? synth_byte(synth_kind, synth_idx) : fifo[0];
-// MODE SELECT page $0E parse reads words 6 (page code) and 10/11 (ports)
-wire  [7:0] msel_addr = (msel_st == 3'd1 || msel_st == 3'd2) ? 8'd6 :
-                        (msel_st == 3'd3 || msel_st == 3'd4) ? 8'd10 : 8'd11;
+// MODE SELECT parse: word 1 (block descriptor length), word 5 (block
+// length), then the page at word 2 or 6 -- its code, and the $0E output
+// ports four and five words further on
+wire  [7:0] msel_base = msel_bd ? 8'd6 : 8'd2;
+wire  [7:0] msel_addr = (msel_st == 4'd1 || msel_st == 4'd2) ? 8'd1 :
+                        (msel_st == 4'd3 || msel_st == 4'd4) ? 8'd5 :
+                        (msel_st == 4'd5 || msel_st == 4'd6) ? msel_base :
+                        (msel_st == 4'd7 || msel_st == 4'd8) ? msel_base + 8'd4 :
+                                                               msel_base + 8'd5;
 wire        wodd_e  = synth_on ? synth_idx[0] : sbuf_pos[0];
 wire [15:0] q_e, q_s;
 
@@ -644,8 +658,8 @@ always @(posedge clk) begin
 		tgt_blocks[0] <= 0; tgt_blocks[1] <= 0; tgt_blocks[2] <= 0;
 		tgt_skey[0] <= 0; tgt_skey[1] <= 0; tgt_skey[2] <= 0;
 		tgt_asc[0] <= 0; tgt_asc[1] <= 0; tgt_asc[2] <= 0;
-		cur_tgt <= 0; cd_prevent <= 0; dout_len <= 0;
-		msel_pend <= 0; msel_st <= 0; io_discard <= 0;
+		cur_tgt <= 0; cd_prevent <= 0; cd_blk512 <= 0; dout_len <= 0;
+		msel_pend <= 0; msel_st <= 0; msel_bd <= 0; io_discard <= 0;
 		ca_cmd_stb <= 0; ca_read_stb <= 0; ca_eject_stb <= 0; ca_bus_rst <= 0; ca_mount_d <= 0;
 		ap_ch0 <= 8'h01; ap_vol0 <= 8'hFF; ap_ch1 <= 8'h02; ap_vol1 <= 8'hFF;
 		io_lba_e <= 0; io_rd_i <= 0; io_wr_i <= 0;
@@ -888,22 +902,35 @@ always @(posedge clk) begin
 			xfer_out <= 0; xfer_pio_out <= 0; chunk_irq_armed <= 0;
 			phase <= PH_STAT;
 			raise(I_BUS);
-			if (msel_pend) msel_st <= 3'd1;
+			if (msel_pend) msel_st <= 4'd1;
 		end
-		// CD MODE SELECT(6) parameter list: header 4, block descriptor 8, then
-		// the page.  Page $0E carries the AppleCD player's volume slider as
-		// {channel, volume} for output ports 0 and 1 at bytes 20..23.  The
-		// buffer is read through port E (registered): address, then data.
+		// CD MODE SELECT(6) parameter list: 4-byte header, an optional
+		// 8-byte block descriptor (byte 3 = its length; bytes 9..11 the
+		// block length, 512 or 2048), then the page.  Page $0E carries the
+		// AppleCD player's volume slider as {channel, volume} for output
+		// ports 0 and 1 at page bytes 8..11.  The buffer is read through
+		// port E (registered): one state addresses, the next consumes.
 		case (msel_st)
-		3'd1: msel_st <= 3'd2;                              // word 6 addressed
-		3'd2: begin                                         // bytes 12,13
-			if (q_e[15:8] != 8'h0E) begin msel_st <= 0; msel_pend <= 0; end
-			else msel_st <= 3'd3;
+		4'd1: msel_st <= 4'd2;                              // word 1 addressed
+		4'd2: begin                                         // byte 3: descriptor length
+			msel_bd <= (q_e[7:0] == 8'd8);
+			msel_st <= (q_e[7:0] == 8'd8) ? 4'd3 : 4'd5;
 		end
-		3'd3: msel_st <= 3'd4;                              // word 10 addressed
-		3'd4: begin ap_ch0 <= q_e[15:8]; ap_vol0 <= q_e[7:0]; msel_st <= 3'd5; end
-		3'd5: msel_st <= 3'd6;                              // word 11 addressed
-		3'd6: begin ap_ch1 <= q_e[15:8]; ap_vol1 <= q_e[7:0]; msel_st <= 0; msel_pend <= 0; end
+		4'd3: msel_st <= 4'd4;                              // word 5 addressed
+		4'd4: begin                                         // bytes 10,11: block length
+			if (q_e == 16'h0200) cd_blk512 <= 1;
+			else if (q_e == 16'h0800) cd_blk512 <= 0;
+			msel_st <= 4'd5;
+		end
+		4'd5: msel_st <= 4'd6;                              // page word addressed
+		4'd6: begin                                         // page code
+			if (q_e[15:8] != 8'h0E) begin msel_st <= 0; msel_pend <= 0; end
+			else msel_st <= 4'd7;
+		end
+		4'd7: msel_st <= 4'd8;                              // page word 4 addressed
+		4'd8: begin ap_ch0 <= q_e[15:8]; ap_vol0 <= q_e[7:0]; msel_st <= 4'd9; end
+		4'd9: msel_st <= 4'd10;                             // page word 5 addressed
+		4'd10: begin ap_ch1 <= q_e[15:8]; ap_vol1 <= q_e[7:0]; msel_st <= 0; msel_pend <= 0; end
 		default: ;
 		endcase
 		// data-out chunk complete: TC expired and the FIFO drained.  A TC
@@ -1295,7 +1322,7 @@ task exec_cdb;
 		8'h1A: begin                                   // MODE SENSE(6)
 			if (is_cd) begin
 				cd_page <= cdb[2][5:0];
-				cap_r   <= {2'b00, disk_blocks[31:2]} - 32'd1;
+				cap_r   <= (cd_blk512 ? disk_blocks : {2'b00, disk_blocks[31:2]}) - 32'd1;
 				synth(SY_CDMODE, clamp((cdb[2][5:0] == 6'h30) ? 10'd36 :
 				                       (cdb[2][5:0] == 6'h0E) ? 10'd28 :
 				                       (cdb[2][5:0] == 6'h2A) ? 10'd38 : 10'd12, alloc));
@@ -1305,13 +1332,13 @@ task exec_cdb;
 		8'h15: begin                                   // MODE SELECT(6)
 			if (is_cd) begin
 				param_out({4'd0, alloc});
-				msel_pend <= (alloc >= 8'd24);
+				msel_pend <= (alloc >= 8'd12);             // header + descriptor at least
 			end
 			else check(4'h5, 8'h20);
 		end
 		8'h25: begin                                   // READ CAPACITY(10)
-			cap_cd <= is_cd;
-			cap_r  <= is_cd ? ({2'b00, disk_blocks[31:2]} - 32'd1) : (disk_blocks - 32'd1);
+			cap_cd <= cd_x4;
+			cap_r  <= cd_x4 ? ({2'b00, disk_blocks[31:2]} - 32'd1) : (disk_blocks - 32'd1);
 			synth(SY_CAP, 10'd8);
 		end
 		8'h08: begin                                   // READ(6)
@@ -1457,7 +1484,7 @@ task abort_nexus;
 	xfer_msg_out <= 0; msg_first_seen <= 0; msgin_reject <= 0;
 	chunk_irq_armed <= 0;
 	buf_valid <= 0; sbuf_pos <= 0; blocks_left <= 0; dout_len <= 0;
-	synth_len <= 0; msel_pend <= 0; msel_st <= 0;
+	synth_len <= 0; msel_pend <= 0; msel_st <= 0; msel_bd <= 0;
 	if (io_busy && !flush_pending) io_discard <= 1;
 endtask
 
@@ -1469,10 +1496,11 @@ task check(input [3:0] key, input [7:0] asc);
 	phase <= PH_STAT;
 endtask
 
-// a READ: CD-ROM logical blocks are 2048 bytes = four HPS blocks
+// a READ: CD-ROM logical blocks are 2048 bytes = four HPS blocks, unless a
+// MODE SELECT put the drive in 512-byte blocks
 task read_blocks(input [31:0] l, input [31:0] n);
-	lba <= is_cd ? {l[29:0], 2'b00} : l;
-	blocks_left <= is_cd ? {n[29:0], 2'b00} : n;
+	lba <= cd_x4 ? {l[29:0], 2'b00} : l;
+	blocks_left <= cd_x4 ? {n[29:0], 2'b00} : n;
 	if (is_cd) ca_read_stb <= 1;                       // a data read stops playback
 	phase <= PH_DIN;
 endtask

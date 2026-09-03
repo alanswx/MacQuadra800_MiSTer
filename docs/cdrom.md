@@ -65,6 +65,31 @@ keeps its acks and sector-buffer writes out of the engine's accounting.
 Its PCM leaves as `cd_snd_l/r` up through `iosb` and `quadra800` and is
 summed with the ASC output at the top (`audio_mix_*`, saturating).
 
+## Block size: 2048 by default, 512 on request
+
+An AppleCD answers READ CAPACITY and MODE SENSE with 2048-byte blocks and
+serves READ in those units (four HPS blocks each).  The Mac ROM's CD boot
+and the Apple CD-ROM driver then send a MODE SELECT(6) whose block
+descriptor asks for 512-byte blocks and read the disc like a hard disk;
+MAME's `nscsi_cdrom_device::set_block_size` is the model.  `cd_blk512` in
+`ncr53c96.sv` latches that request (0x0200 sets it, 0x0800 clears it), and
+while it is set READ addresses HPS blocks directly, READ CAPACITY reports
+`blocks - 1` with a 512-byte length and the MODE SENSE descriptor follows.
+The MODE SELECT parser takes the page $0E ports at either offset (with or
+without the descriptor).  Like MAME, the setting survives a bus reset and
+is dropped only by a machine reset.  `tb_ncr53c96` T16h covers it.
+
+## What only hardware showed (2026-09-03)
+
+The first hardware run hung grey at boot with a disc in slot 4 and wedged
+the Finder on an in-OS mount, while the full-machine sim booted through the
+same scan.  The Main's file positions (`/proc/<pid>/fdinfo`) showed it never
+read a byte of either image: `MacQuadra800.sv` had the CD's `sd_rd` at bit
+5 of the hps_io vector (the CD-changer control slot) while the image, lba,
+data and ack were on slot 4, so every CD read -- the TOC fetch on mount
+first -- was acked on the wrong slot and `io_busy` never dropped.  The sim
+instantiates `quadra800`, not `emu`, and never crosses that wiring.
+
 ## Verification
 
 - `verilator/tb_ncr53c96.sv` T16a–g (8654 checks): CD INQUIRY, no-disc sense,
