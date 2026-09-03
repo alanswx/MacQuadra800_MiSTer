@@ -591,8 +591,12 @@ ncr53c96 #(.CDROM(CDROM)) scsi (
 //   s STEP read      t STATUS read (on change)       g FIFO-flags (on change)
 //   I irq edge       q DREQ edge
 // Bulk PDMA beats are deliberately NOT traced — they would swamp the link and
-// the DREQ edges carry the same information.  DBG_BUDGET stops the stream so
-// the first failure is not pushed out by whatever the driver does next.
+// the DREQ edges carry the same information.  DBG_BUDGET bounds the records
+// per EPOCH (it refills at every epoch boundary, 2026-09-03): the stream
+// used to stop for good after 4000 records, which froze the first failure
+// in place but went silent ten minutes into an install and missed the
+// stall we were after.  The epoch tables clear anyway, so each epoch is a
+// self-contained snapshot.
 //----------------------------------------------------------------------------
 // The SCC's own transmit line.  Which of it and the tracer reaches the pin is
 // decided at the bottom of this block.
@@ -787,6 +791,7 @@ always @(posedge clk) begin
 				dbg_hb_cnt    <= 0;
 				dbg_epoch     <= dbg_epoch + 1'b1;
 				dbg_epoch_clr <= 1'b1;
+				dbg_left      <= DBG_BUDGET[11:0];   // rolling budget: refilled every epoch
 			end
 			else dbg_hb_cnt <= dbg_hb_cnt + 1'b1;
 		end
