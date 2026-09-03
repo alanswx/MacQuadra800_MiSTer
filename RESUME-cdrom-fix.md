@@ -146,6 +146,23 @@ permission settings; the user adds rules.
 - **`CDROM_OFF=1` measured (10:49):** 33,794 ALMs (81 %) vs 36,830 (88 %)
   with the CD path -- 3,036 ALMs, +0.250 ns. Alan's CPU (+3,900 on this
   base) fits at ~90 % with the gate on; with the CD in it is 96 %.
+- **Traced install #3 (10:39-11:12, tracer `f55b6ee0`, CD-booted, target
+  ID 1):** no stall this time; the installer FAILED twice with the generic
+  "An error occurred while trying to complete the installation" right at
+  "Finishing installation" (11:02:24 and 11:10:19 after Try Again), ~9 MB
+  written per pass. Trace: no bus faults, no selection timeouts; the only
+  distinctive record at both failure moments is a read of IOSB register
+  block $50F183xx ("u F1 / n 83"), also seen at the "Updating Apple hard
+  disk drivers" step -- i.e. Apple's disk-driver code runs right there.
+  The tracer cannot show opcodes (CDBs go through PDMA). Hypothesis: the
+  driver code issues hard-disk commands we rejected with ILLEGAL REQUEST
+  (MODE SELECT on a disk, VERIFY, SYNCHRONIZE CACHE, FORMAT UNIT...), which
+  MAME/QEMU disks accept. Added (`work/cd512` top commit, T16m). Tracer
+  build with it launched 11:25 (`scratch/build_trace4.log`); next: deploy,
+  CD-boot, run the installer again (Opus was 529-overloaded twice; the
+  Sonnet operator brief in this session worked well). The install target's
+  volume looked sane (HFS 500 MB, driver partition, System Folder from the
+  partial installs).
 - **Alan's CPU work PAUSED by the user (10:55):** the `work/all2`
   (= `work/cd512` + bump) CDROM_OFF build was killed mid-fit and nothing
   more is to be done on it until asked. Branches `work/all` / `work/all2`
