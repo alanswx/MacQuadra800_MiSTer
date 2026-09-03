@@ -119,7 +119,11 @@ permission settings; the user adds rules.
 - **Hardware 09:07, tracer build `fffa1536` (= `1dd496a8` + CDROM gate +
   eject fix + SCSI_TRACE; timing met +0.245 ns this time):** with no hard
   disk mounted the ROM boots the retail 8.1 disc to the CD's Finder.
-  First ROM CD boot ever on this core.
+  First ROM CD boot ever on this core. The fixed pristine-ROM sim
+  (`sim_cdboot3.log`) also gets the happy Mac at frame 4000 instead of "?".
+  09:10-09:50: the retail installer, run from the CD-booted system onto the
+  fresh disk at ID 1, ran past the earlier stall point (33 MB written and
+  climbing) with the tracer capturing (`scratch/scsi_trace*.txt`).
 - **`work/all`** = `work/cd512` + the CPU bump (`fbf2706`), i.e. everything.
   Full build launched 06:42 in the worktree (`scratch/build_all.log`).
   Candidate for main once both OSes pass on it.
