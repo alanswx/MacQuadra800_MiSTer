@@ -102,6 +102,20 @@ permission settings; the user adds rules.
   `1dd496a8`, +0.249 ns, 88 %, copy in `scratch/`); `9631e0f` T16j;
   `0158f55` the `CDROM` parameter / `CDROM_OFF=1` qsf macro that drops the
   CD target + audio engine (~2,800 ALMs) for Alan's CPU builds.
+- **ROM CD boot found and fixed (`4e9bc9e` on `work/cd512`):** with no HD
+  the tracer build and the pristine-ROM sim both ended at the flashing "?"
+  after ~10 MB of the disc. QEMU booting the same ISO
+  (`~/qemu-src/build/qemu-system-m68k -M q800 -bios quadra800.rom -drive
+  file=cd_retail.iso,format=raw,if=none,id=cd,media=cdrom,snapshot=on
+  -device scsi-cd,drive=cd,scsi-id=3 --trace scsi_req_parsed -D log`)
+  issues the SAME sequence: the ROM's first pass ends with PREVENT/ALLOW
+  (allow) + START/STOP LoEj (eject), a bus reset, then a second pass that
+  reads the disc again and boots. QEMU/MAME keep the medium readable after
+  that eject; we removed it. Now an eject lasts until the next bus reset /
+  mount pulse / machine reset (T16k). The user's earlier "CD boot works"
+  was presumably a HD boot; a real ROM CD boot had never passed.
+  QEMU also rejects the driver's 8-byte MODE SELECT (ILLEGAL REQUEST) and
+  the driver copes; we answer GOOD and ignore it, which is fine.
 - **`work/all`** = `work/cd512` + the CPU bump (`fbf2706`), i.e. everything.
   Full build launched 06:42 in the worktree (`scratch/build_all.log`).
   Candidate for main once both OSes pass on it.
