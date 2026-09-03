@@ -143,6 +143,9 @@ permission settings; the user adds rules.
   screen + `/proc/<pid>/io`, and reports COMPLETED / STALLED. Decode the
   capture with `scratch/scsi_decode.py`, then `scratch/epoch_summary.py
   decoded.txt 3` to see the last busy epochs before the silence.
+- **`CDROM_OFF=1` measured (10:49):** 33,794 ALMs (81 %) vs 36,830 (88 %)
+  with the CD path -- 3,036 ALMs, +0.250 ns. Alan's CPU (+3,900 on this
+  base) fits at ~90 % with the gate on; with the CD in it is 96 %.
 - **`work/all`** = `work/cd512` + the CPU bump (`fbf2706`), i.e. everything.
   Full build launched 06:42 in the worktree (`scratch/build_all.log`).
   Candidate for main once both OSes pass on it.
