@@ -85,7 +85,11 @@ without a word and failed synthesis in a minute. After new RTL passes its
 bench, run `build_only.sh --check` before trusting it; it is cheap.
 
 `tb_memory_path_registered_first_miss` is the variant that matches the shipped
-quadra800 architecture. `tb_sdram` models both SDRAM ranks and reports chip
+quadra800 architecture. **The full-machine sim instantiates `quadra800`
+directly, not `emu`:** nothing in `MacQuadra800.sv` (hps_io slot wiring, the
+mount replay FSM, the VRAM mapper, the video PLL) is covered by it. A bug
+that shows on hardware but not in sim lives there first (the CD strobe on
+the wrong slot, 2026-09-03). `tb_sdram` models both SDRAM ranks and reports chip
 protocol errors; any change to `rtl/sdram*.sv` must keep it at zero.
 
 QEMU (`qemu-system-m68k -M q800`, built from `../qemu` in WSL) boots the exact
