@@ -41,15 +41,24 @@ bash scripts/build_only.sh --check    # Analysis & Synthesis only (~13 min), no 
   WSL's `C:\Windows\System32\bash.exe`; the build needs
   `C:\Program Files\Git\bin\bash.exe`. From PowerShell, launch it detached with
   `Start-Process` so a tool timeout cannot kill Quartus mid-fit.
-- **Never run two builds at once** — they share `db/` and corrupt each other.
-  `build_only.sh` waits for any running `quartus_*`; only pass `--no-wait` when
-  you have verified nothing is running.
+- **Never run two builds of this project at once** — they share `db/` and
+  corrupt each other. Other cores are built on this box by other sessions
+  (sgiindy, MacLC…): `build_only.sh`'s wait-gate blocks on *any* `quartus_*`,
+  so launch with `--no-wait` only after checking that no MacQuadra800 flow is
+  running, and never kill a `quartus_*` process without matching its command
+  line to this project (`Get-CimInstance Win32_Process`).
 - Timing must be **met** (positive worst slack in `output_files/*.sta.summary`).
-  The design sits at ~85 % ALMs with well under a nanosecond of slack; a
+  The design sits at ~79 % ALMs with well under a nanosecond of slack; a
   failing fit usually wants a different seed, not a source change. Walk seeds,
   record the result in the `.qsf` comment block.
 - After any array change, check the RAM Summary in the `.map.rpt` (see BUILD.md):
   an array falling out to registers costs tens of thousands of ALMs.
+- The other direction bites too: a small array read combinationally across
+  clocks can be *inferred* as an M10K with a register from the other domain
+  retimed into it (`sdram.sv` `open_row`, 2026-09-02). Anything read every
+  cycle from a cross-domain index gets `(* ramstyle = "logic" *)`, and after
+  a re-placement (area change, seed walk) re-run the clk_ram / clk_sys↔clk_ram
+  path reports (`docs/sdram-open-row-crossing.md`) before trusting the build.
 - `SCSI_TRACE` in the `.qsf` makes a **debug** build that hijacks the serial
   port. It must stay commented out for anything released.
 
