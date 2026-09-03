@@ -145,8 +145,22 @@ wire [31:0] scsi_lba;
 wire  [2:0] scsi_rd, scsi_wr;
 wire [15:0] scsi_buff_din;
 assign sd_lba[VD_DISK0] = scsi_lba;  assign sd_lba[VD_DISK1] = scsi_lba;  assign sd_lba[VD_CDROM] = scsi_lba;
-assign sd_rd = {scsi_rd[2], 1'b0, 1'b0, 1'b0, scsi_rd[1], scsi_rd[0]};
-assign sd_wr = {1'b0, 1'b0, 1'b0, 1'b0, scsi_wr[1], scsi_wr[0]};   // the CD is read-only
+// Per-slot assigns, not a concatenation: a packed literal put the CD strobe
+// at bit 5 (the CD-changer control slot) once, so every CD read -- the TOC
+// fetch on mount, the ROM's block 0 -- was answered on slot 5 while the core
+// waited on slot 4, and the machine hung with io_busy stuck (2026-09-03).
+assign sd_rd[VD_DISK0]   = scsi_rd[0];
+assign sd_rd[VD_DISK1]   = scsi_rd[1];
+assign sd_rd[VD_CDROM]   = scsi_rd[2];
+assign sd_rd[2]          = 1'b0;
+assign sd_rd[VD_TOOLBOX] = 1'b0;
+assign sd_rd[VD_CDTB]    = 1'b0;
+assign sd_wr[VD_DISK0]   = scsi_wr[0];
+assign sd_wr[VD_DISK1]   = scsi_wr[1];
+assign sd_wr[2]          = 1'b0;
+assign sd_wr[VD_TOOLBOX] = 1'b0;
+assign sd_wr[VD_CDROM]   = 1'b0;                                  // the CD is read-only
+assign sd_wr[VD_CDTB]    = 1'b0;
 assign sd_buff_din[VD_DISK0] = scsi_buff_din;
 assign sd_buff_din[VD_DISK1] = scsi_buff_din;
 assign sd_buff_din[VD_CDROM] = scsi_buff_din;
