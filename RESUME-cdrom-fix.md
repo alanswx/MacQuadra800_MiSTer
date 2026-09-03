@@ -176,6 +176,19 @@ permission settings; the user adds rules.
   launched 12:20 (`scratch/build_trace5.log`). Next: deploy, CD-boot,
   operator runs install #5 with capture; look for "Y 02"/"y 02" in the
   failure epoch and which opcode preceded it.
+- **Install #5 (12:39-13:01, tracer `9d641bc0` with opcode/status records):
+  STALLED at "Preparing to install" right after Ignore Warning. THE TRACE
+  NAMES IT: the last busy epoch (144, ~12:55:29) ends with `D 2A` = a
+  WRITE(10) executed by the DISK target with no status byte ever returned;
+  the CD READ(10) and disk READ(10) just before it completed GOOD; 45
+  silent epochs follow; the Main's counters are flat (no HPS request
+  pending), so the hang is inside the target's DATA OUT handshake, not in
+  the HPS path. Fits stalls #1/#2 (both during "Writing" steps). Working
+  hypothesis: a multi-block WRITE(10) driven as ONE long DMA TI (the Mac
+  OS SCSI Manager style) starves DREQ after the first block's flush --
+  the bench only ever wrote in the ROM's 256-byte TI chunks (T14/T15/
+  T16j/T16l). Files: `scratch/scsi_trace_stall5.decoded.txt`,
+  `scratch/find_check.py`, `scratch/epoch_summary.py`.
 - **Release candidate #2 `52ca7ee4`** = `work/cd512` @ `bc1769b` (disk
   command set) with the tracer off: 88 % ALMs, hold +0.234 ns worst, open_row
   uninferred; copy `scratch/MacQuadra800_cd512e_52ca7ee4.rbf`. Supersedes
