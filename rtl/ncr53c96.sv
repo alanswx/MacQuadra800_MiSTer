@@ -382,7 +382,7 @@ localparam [3:0] SY_SENSE = 4'd0, SY_INQ = 4'd1, SY_MODE = 4'd2, SY_CAP = 4'd3,
                  SY_CDINQ = 4'd4, SY_CDMODE = 4'd5, SY_TOC43 = 4'd6,
                  SY_TOC43F2 = 4'd7, SY_TOC43F1 = 4'd8, SY_TOCC1 = 4'd9,
                  SY_SUBQ = 4'd10, SY_ASTAT = 4'd11, SY_SUBCH = 4'd12,
-                 SY_HDR = 4'd13;
+                 SY_HDR = 4'd13, SY_HDMODE = 4'd14;
 reg  [3:0] synth_kind;
 reg  [9:0] synth_idx;
 reg  [9:0] synth_len;               // != 0 while synthesizing
@@ -562,6 +562,22 @@ function [7:0] synth_byte(input [3:0] kind, input [9:0] idx);
 	          default: synth_byte = 8'h20;
 	          endcase
 	SY_MODE:  synth_byte = (idx == 0) ? 8'h03 : 8'h00;
+	// disk MODE SENSE page $30, the Apple firmware ID page: Apple HD SC
+	// Setup / Drive Setup and the Mac OS installer's driver update accept a
+	// drive only if this page carries "APPLE COMPUTER, INC" (MAME
+	// nscsi_harddisk_device, QEMU q800's quirk_mode_page_apple_vendor).
+	// 4-byte header, 8-byte descriptor (512-byte blocks, not write
+	// protected), page $B0 (PS set) of 22 bytes = the CD's page $30 text.
+	SY_HDMODE: synth_byte = (idx == 0)  ? 8'd35 :
+	                        (idx == 2)  ? 8'h00 :
+	                        (idx == 3)  ? 8'd8 :
+	                        (idx == 5)  ? cap_r[23:16] :
+	                        (idx == 6)  ? cap_r[15:8] :
+	                        (idx == 7)  ? cap_r[7:0] :
+	                        (idx == 10) ? 8'h02 :
+	                        (idx == 12) ? 8'hB0 :
+	                        (idx == 13) ? 8'h16 :
+	                        (idx >= 14 && idx < 36) ? cd_mode_byte(6'h30, idx[5:0]) : 8'h00;
 	default:  case (idx[5:0])                  // SY_CAP: 512 / 2048-byte blocks
 	          6'd0: synth_byte = cap_r[31:24];
 	          6'd1: synth_byte = cap_r[23:16];
@@ -1326,6 +1342,10 @@ task exec_cdb;
 				synth(SY_CDMODE, clamp((cdb[2][5:0] == 6'h30) ? 10'd36 :
 				                       (cdb[2][5:0] == 6'h0E) ? 10'd28 :
 				                       (cdb[2][5:0] == 6'h2A) ? 10'd38 : 10'd12, alloc));
+			end
+			else if (cdb[2][5:0] == 6'h30) begin       // Apple firmware ID page
+				cap_r <= disk_blocks - 32'd1;
+				synth(SY_HDMODE, clamp(10'd36, alloc));
 			end
 			else synth(SY_MODE, 10'd4);
 		end

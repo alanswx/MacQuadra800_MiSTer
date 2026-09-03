@@ -1344,6 +1344,60 @@ initial begin
 	sel_id = 8'h00;
 
 
+	$display("-- T16i disk: MODE SENSE page $30 = Apple firmware ID page (Drive Setup / installer)");
+	sel_id = 8'h00;
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h1A; cdb[1]=0; cdb[2]=8'h30; cdb[3]=0; cdb[4]=8'd36; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	read_regs(st, sp, it);
+	expect8("T16i phase DATA IN", {5'd0, st[2:0]}, {5'd0, PH_DIN});
+	set_tc(16'd36);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 36; k = k + 1) begin
+		pdma_rd(b);
+		case (k)
+		0:  expect8("T16i mode data len 35", b, 8'd35);
+		2:  expect8("T16i not write protected", b, 8'h00);
+		3:  expect8("T16i bd len 8", b, 8'd8);
+		7:  expect8("T16i last LBA 63", b, 8'd63);
+		10: expect8("T16i blk len 0x02", b, 8'h02);
+		12: expect8("T16i page B0", b, 8'hB0);
+		13: expect8("T16i page len 22", b, 8'h16);
+		14: expect8("T16i A", b, "A");
+		19: expect8("T16i space", b, " ");
+		20: expect8("T16i C", b, "C");
+		32: expect8("T16i C of INC", b, "C");
+		35: expect8("T16i trailing space", b, " ");
+		default: ;
+		endcase
+	end
+	wait_irq(500, ok);
+	read_regs(st, sp, it);
+	expect8("T16i phase STATUS after 36", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16i status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	// any other page still answers the 4-byte header
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h1A; cdb[1]=0; cdb[2]=8'h03; cdb[3]=0; cdb[4]=8'd36; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	set_tc(16'd4);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 4; k = k + 1) begin
+		pdma_rd(b);
+		if (k == 0) expect8("T16i page 3 hdr len 3", b, 8'd3);
+	end
+	wait_irq(500, ok);
+	read_regs(st, sp, it);
+	expect8("T16i page 3 STATUS after 4", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16i page 3 status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+
 	$display("-- T17 CD-ROM: Apple $C1 READ TOC header / lead-out / track 1, $CC AUDIO STATUS");
 	sel_id = 8'h03;
 	// header: {01, last BCD 01, 00, 00}
