@@ -189,6 +189,21 @@ permission settings; the user adds rules.
   the bench only ever wrote in the ROM's 256-byte TI chunks (T14/T15/
   T16j/T16l). Files: `scratch/scsi_trace_stall5.decoded.txt`,
   `scratch/find_check.py`, `scratch/epoch_summary.py`.
+- **ROOT-CAUSE CANDIDATE for the installer stalls/errors (13:2x):** the
+  SCSI engine is clean under stress (T16n single-TI 4-block write on a
+  3000-cycle device; T16o 80 random rounds of CD READ / disk READ / disk
+  WRITE with random latencies and pacing -- 475k checks). What no bench
+  models: the CPU's pseudo-DMA beat waits for DREQ while the target waits
+  for the Main, whose O_SYNC 512-byte writes hit SD-card housekeeping
+  stalls of 100s of ms; the IOSB escape (2^18, 7.9 ms) is frozen while a
+  strobe is up but the core-side `ap040_bus_timeout` (2^21 = 63 ms) in
+  `wombat_cpu.sv` is not -> bus error inside the SCSI Manager's DMA loop
+  -> hang or "An error occurred", writes only. Its fault never reached the
+  tracer (B records come from quadra800's S_BERR only). Fix on
+  `work/cd512`: `.req(mem_req && !stall_hold)` with `hps_busy = |io_rd |
+  |io_wr | |io_ack` from quadra800, COUNTER_BITS 24, and a tracer "W"
+  record when it fires. Tracer build launched 13:2x
+  (`scratch/build_trace6.log`); next: deploy, CD-boot, install #6.
 - **Release candidate #2 `52ca7ee4`** = `work/cd512` @ `bc1769b` (disk
   command set) with the tracer off: 88 % ALMs, hold +0.234 ns worst, open_row
   uninferred; copy `scratch/MacQuadra800_cd512e_52ca7ee4.rbf`. Supersedes
