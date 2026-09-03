@@ -84,7 +84,9 @@ hardware, then `work/side` on top once the CPU scores clean and builds.
 
 ## 3. What the ROM sends a bootable CD (sim in flight)
 
-`~/MacQuadra800/verilator/sim_cdboot.log` in WSL: pristine ROM, no disk,
+`~/MacQuadra800/verilator/sim_cdboot2.log` in WSL: pristine ROM,
+`--disk blank.hda` (a file that does not exist, so ID 0 stays unmounted —
+a bare `--cd` run never mounted the disc at all, `sim_cdboot.log`) and
 `--cd cd_retail.iso`. The real ROM spends ~20 min of sim in its memory test
 before the SCSI scan. Grep `[NCR` lines (drop `io_ack`/`INT+`) for the CDB
 sequence at ID 3: look for a `15` (MODE SELECT) before the `08` reads — that
