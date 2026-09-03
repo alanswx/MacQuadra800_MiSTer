@@ -137,6 +137,12 @@ permission settings; the user adds rules.
 - **Release candidate `85ba3d50`** (`work/cd512` @ `4e9bc9e` + tracer-off):
   timing met +0.183 ns, 88 % ALMs, copy in `scratch/`. Not deployed; needs
   both-OS regression and the install question answered first.
+- **10:30 — rolling-tracer build `f55b6ee0` (+0.241 ns) deployed;** CD-booted
+  with the fresh disk on ID 1; capture running (3000 s); an Opus subagent
+  drives the installer via `scripts/guest/click.sh` + `grab.sh`, monitoring
+  screen + `/proc/<pid>/io`, and reports COMPLETED / STALLED. Decode the
+  capture with `scratch/scsi_decode.py`, then `scratch/epoch_summary.py
+  decoded.txt 3` to see the last busy epochs before the silence.
 - **`work/all`** = `work/cd512` + the CPU bump (`fbf2706`), i.e. everything.
   Full build launched 06:42 in the worktree (`scratch/build_all.log`).
   Candidate for main once both OSes pass on it.
