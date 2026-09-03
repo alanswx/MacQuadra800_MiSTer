@@ -55,6 +55,7 @@ TAG = {
  "n":"  ...its addr 15:8",
  "D":"CDB executed by a DISK target", "d":"CDB executed by the CD-ROM target",
  "Y":"STATUS byte from a DISK target", "y":"STATUS byte from the CD-ROM target",
+ "W":"CPU STALL WATCHDOG FIRED -- a bus beat waited past its budget, bus error to the CPU",
 }
 OPC = {0x00:"TEST UNIT READY",0x01:"REZERO",0x03:"REQUEST SENSE",0x04:"FORMAT UNIT",
        0x07:"REASSIGN BLOCKS",0x08:"READ(6)",0x0A:"WRITE(6)",0x0B:"SEEK(6)",0x12:"INQUIRY",
@@ -77,7 +78,7 @@ PHASE = {0:"DATA OUT",1:"DATA IN",2:"COMMAND",3:"STATUS",6:"MSG OUT",7:"MSG IN"}
 INTR = [(0x80,"RST"),(0x40,"ILLEGAL"),(0x20,"DISC"),(0x10,"BS"),(0x08,"FC"),
         (0x04,"RESEL"),(0x02,"SELATN"),(0x01,"SEL")]
 data = open(sys.argv[1],"rb").read().decode("latin-1")
-recs = re.findall(r"([=HECSrtfsUuBbnTPO123KXDdYy])([0-9A-F]{2}) ", data)
+recs = re.findall(r"([=HECSrtfsUuBbnTPO123KXDdYyW])([0-9A-F]{2}) ", data)
 hb = 0
 for tag, hexv in recs:
     v = int(hexv,16)

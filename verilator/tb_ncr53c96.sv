@@ -99,6 +99,7 @@ localparam NBLK = 64;
 reg [7:0] disk [0:NBLK*512-1];
 
 integer k2;
+reg [7:0] it2;
 integer d_state = 0, d_lat = 0, d_i = 0, d_lba = 0;
 integer dev_lat = 40;                        // device round trip, settable per test
 integer wr_blocks = 0;                       // blocks the device has accepted
@@ -1701,6 +1702,161 @@ initial begin
 	reg_rd(R_FIFO, b); reg_rd(R_FIFO, b);
 	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
 
+	$display("-- T16n Mac OS style write: WRITE(10) of 4 blocks as ONE DMA transfer (TC=2048) on a slow device");
+	dev_lat = 3000;
+	sel_id = 8'h00;
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	byi = wr_blocks;
+	cdb[0]=8'h2A; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=8'd44; cdb[6]=0; cdb[7]=0; cdb[8]=8'd4; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok);
+	read_regs(st, sp, it);
+	expect8("T16n phase DATA OUT", {5'd0, st[2:0]}, {5'd0, PH_DOUT});
+	reg_wr(R_CMD, 8'h01);
+	set_tc(16'd2048);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 2048; k = k + 1) begin
+		guard = 0;
+		while (!drq && guard < 200000) begin @(negedge clk); guard = guard + 1; end
+		if (guard >= 200000) begin
+			fails = fails + 1;
+			$display("  FAIL T16n DREQ never returned at byte %0d (block %0d)", k, k/512);
+			k = 2048;
+		end
+		else pdma_wr(((k*5) + 7) & 8'hFF);
+	end
+	wait_irq(200000, ok);
+	read_regs(st, sp, it);
+	$display("   T16n after 2048 bytes: stat=%02X intr=%02X flushed=%0d", st, it, wr_blocks - byi);
+	// the target must reach STATUS on its own once the last block is flushed
+	guard = 0;
+	while (st[2:0] != PH_STAT && guard < 400000) begin @(negedge clk); guard = guard + 1; read_regs(st, sp, it); end
+	expect8("T16n phase STATUS after the write", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16n status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	guard = 0;
+	while (wr_blocks - byi != 4 && guard < 400000) begin @(negedge clk); guard = guard + 1; end
+	checks = checks + 1;
+	if (wr_blocks - byi != 4) begin fails = fails + 1; $display("  FAIL T16n blocks flushed %0d (want 4)", wr_blocks - byi); end
+	for (k = 0; k < 2048; k = k + 1) begin
+		if (disk[44*512 + k] !== (((k*5) + 7) & 8'hFF)) begin
+			fails = fails + 1;
+			if (fails < 20) $display("  FAIL T16n disk byte %0d: got %02X want %02X", k, disk[44*512 + k], ((k*5) + 7) & 8'hFF);
+		end
+		checks = checks + 1;
+	end
+	dev_lat = 40;
+
+	$display("-- T16o stress: 80 rounds of CD READ / disk READ / disk WRITE(10) with random lengths, latencies and pacing");
+	begin : stress
+		integer rnd, it, nb, lb, lat, gap, kk, fails0;
+		reg [7:0] bb;
+		rnd = 32'h5EED1234;
+		fails0 = fails;
+		for (it = 0; it < 80 && fails == fails0; it = it + 1) begin
+			if (it % 10 == 0) $display("   T16o round %0d at %0t", it, $time);
+			// --- CD READ(10), 1..3 logical blocks (2048-byte mode) at lba 3..4
+			rnd = rnd * 1103515245 + 12345; nb = 1 + ((rnd >> 16) % 2);
+			rnd = rnd * 1103515245 + 12345; lb = 3;                        // HPS 12..19, never written by another test
+			rnd = rnd * 1103515245 + 12345; dev_lat = 40 + ((rnd >> 16) % 3000);
+			sel_id = 8'h03;
+			reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+			cdb[0]=8'h28; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=lb[7:0]; cdb[6]=0; cdb[7]=0; cdb[8]=nb[7:0]; cdb[9]=0;
+			unix_select(8'h42, 10, 1);
+			wait_irq(2000, ok);
+			set_tc(nb * 2048);
+			reg_wr(R_CMD, 8'h90);
+			for (kk = 0; kk < nb * 2048; kk = kk + 1) begin
+				pdma_rd(bb);
+				if (bb !== (((lb*4 + kk/512)*7 + (kk%512)) & 8'hFF)) begin
+					fails = fails + 1;
+					if (fails < fails0 + 6) $display("  FAIL T16o it=%0d cd byte %0d: got %02X want %02X", it, kk, bb, ((lb*4 + kk/512)*7 + (kk%512)) & 8'hFF);
+				end
+				checks = checks + 1;
+			end
+			wait_irq(200000, ok);
+			read_regs(st, sp, it2);
+			if (st[2:0] != PH_STAT) begin fails = fails + 1; $display("  FAIL T16o it=%0d cd read did not reach STATUS (stat=%02X)", it, st); end
+			reg_wr(R_CMD, 8'h11); wait_irq(2000, ok);
+			reg_rd(R_FIFO, bb); if (bb !== 8'h00) begin fails = fails + 1; $display("  FAIL T16o it=%0d cd status %02X", it, bb); end
+			reg_rd(R_FIFO, bb);
+			reg_wr(R_CMD, 8'h12); wait_irq(2000, ok); read_regs(st, sp, it2);
+			// --- disk READ(10), 1..4 blocks at lba 56..59
+			rnd = rnd * 1103515245 + 12345; nb = 1 + ((rnd >> 16) % 4);
+			rnd = rnd * 1103515245 + 12345; lb = 56 + ((rnd >> 16) % 4);  // 56..59 never written
+			rnd = rnd * 1103515245 + 12345; dev_lat = 40 + ((rnd >> 16) % 3000);
+			sel_id = 8'h00;
+			reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+			cdb[0]=8'h28; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=lb[7:0]; cdb[6]=0; cdb[7]=0; cdb[8]=nb[7:0]; cdb[9]=0;
+			unix_select(8'h42, 10, 1);
+			wait_irq(2000, ok);
+			set_tc(nb * 512);
+			reg_wr(R_CMD, 8'h90);
+			for (kk = 0; kk < nb * 512; kk = kk + 1) begin
+				pdma_rd(bb);
+				checks = checks + 1;
+			end
+			wait_irq(200000, ok);
+			read_regs(st, sp, it2);
+			if (st[2:0] != PH_STAT) begin fails = fails + 1; $display("  FAIL T16o it=%0d disk read did not reach STATUS (stat=%02X)", it, st); end
+			reg_wr(R_CMD, 8'h11); wait_irq(2000, ok);
+			reg_rd(R_FIFO, bb); reg_rd(R_FIFO, bb);
+			reg_wr(R_CMD, 8'h12); wait_irq(2000, ok); read_regs(st, sp, it2);
+			// --- disk WRITE(10), 1..4 blocks at lba 60, one TI, random inter-byte gaps
+			rnd = rnd * 1103515245 + 12345; nb = 1 + ((rnd >> 16) % 4);
+			rnd = rnd * 1103515245 + 12345; lb = 60;                       // 60..63, rewritten each round
+			rnd = rnd * 1103515245 + 12345; dev_lat = 40 + ((rnd >> 16) % 3000);
+			rnd = rnd * 1103515245 + 12345; gap = (rnd >> 16) % 4;
+			reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+			byi = wr_blocks;
+			cdb[0]=8'h2A; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=lb[7:0]; cdb[6]=0; cdb[7]=0; cdb[8]=nb[7:0]; cdb[9]=0;
+			unix_select(8'h42, 10, 1);
+			wait_irq(2000, ok);
+			read_regs(st, sp, it2);
+			if (st[2:0] != PH_DOUT) begin fails = fails + 1; $display("  FAIL T16o it=%0d write not in DATA OUT (stat=%02X)", it, st); end
+			reg_wr(R_CMD, 8'h01);
+			set_tc(nb * 512);
+			reg_wr(R_CMD, 8'h90);
+			for (kk = 0; kk < nb * 512; kk = kk + 1) begin
+				guard = 0;
+				while (!drq && guard < 200000) begin @(negedge clk); guard = guard + 1; end
+				if (guard >= 200000) begin
+					fails = fails + 1;
+					$display("  FAIL T16o it=%0d WRITE DREQ never returned at byte %0d of %0d (lat=%0d gap=%0d)", it, kk, nb*512, dev_lat, gap);
+					kk = nb * 512;
+				end
+				else begin
+					pdma_wr((kk*3 + it) & 8'hFF);
+					repeat (gap) @(negedge clk);
+				end
+			end
+			wait_irq(200000, ok);
+			guard = 0; read_regs(st, sp, it2);
+			while (st[2:0] != PH_STAT && guard < 400000) begin @(negedge clk); guard = guard + 1; read_regs(st, sp, it2); end
+			if (st[2:0] != PH_STAT) begin fails = fails + 1; $display("  FAIL T16o it=%0d write never reached STATUS (stat=%02X intr=%02X flushed=%0d of %0d)", it, st, it2, wr_blocks - byi, nb); end
+			reg_wr(R_CMD, 8'h11); wait_irq(2000, ok);
+			reg_rd(R_FIFO, bb); if (bb !== 8'h00) begin fails = fails + 1; $display("  FAIL T16o it=%0d write status %02X", it, bb); end
+			reg_rd(R_FIFO, bb);
+			reg_wr(R_CMD, 8'h12); wait_irq(2000, ok); read_regs(st, sp, it2);
+			guard = 0;
+			while (wr_blocks - byi != nb && guard < 400000) begin @(negedge clk); guard = guard + 1; end
+			checks = checks + 1;
+			if (wr_blocks - byi != nb) begin fails = fails + 1; $display("  FAIL T16o it=%0d blocks flushed %0d want %0d", it, wr_blocks - byi, nb); end
+			for (kk = 0; kk < nb * 512; kk = kk + 1) begin
+				if (disk[lb*512 + kk] !== ((kk*3 + it) & 8'hFF)) begin
+					fails = fails + 1;
+					if (fails < fails0 + 6) $display("  FAIL T16o it=%0d disk byte %0d: got %02X want %02X", it, kk, disk[lb*512 + kk], (kk*3 + it) & 8'hFF);
+				end
+				checks = checks + 1;
+			end
+		end
+		$display("   T16o rounds completed: %0d, failures added: %0d", it, fails - fails0);
+	end
+	dev_lat = 40;
+	sel_id = 8'h00;
+
 	$display("-- T17 CD-ROM: Apple $C1 READ TOC header / lead-out / track 1, $CC AUDIO STATUS");
 	sel_id = 8'h03;
 	// header: {01, last BCD 01, 00, 00}
@@ -1767,7 +1923,7 @@ initial begin
 end
 
 initial begin
-	#20_000_000;
+	#400_000_000;
 	$display("== tb_ncr53c96: TIMEOUT ==");
 	$display("RESULT: FAIL");
 	$finish;

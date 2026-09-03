@@ -95,6 +95,7 @@ module iosb
 
 	// DEBUG: the bus adapter's fault channel, so the SCSI trace below can
 	// report WHERE a driver went when it did not reach this chip.
+	input         stall_flt,            // the CPU's stall watchdog fired (tracer "W")
 	input         berr_active,
 	input  [31:2] berr_addr
 );
@@ -670,6 +671,8 @@ reg  [15:0] seen_step;             // sequence-step values read from r6
 // added 2026-09-03 when an installer failure was invisible without them.
 reg [255:0] seen_op_d, seen_op_c;  // opcodes on the disks / the CD-ROM
 reg [255:0] seen_st_d, seen_st_c;  // status bytes from the disks / the CD-ROM
+reg         seen_wd;               // the CPU stall watchdog fired this epoch
+reg         stall_flt_d;
 
 reg   [7:0] dbg_tag, dbg_val;
 reg         dbg_ev;
@@ -679,7 +682,10 @@ always @(*) begin
 	dbg_val = 8'h00;
 	// target-side events first: rarer and worth more than the register
 	// access that might share the cycle
-	if (scsi_dbg_op_stb) begin
+	if (stall_flt && !stall_flt_d) begin
+		dbg_ev = !seen_wd; dbg_tag = "W"; dbg_val = 8'h01;
+	end
+	else if (scsi_dbg_op_stb) begin
 		dbg_val = scsi_dbg_op;
 		if (scsi_dbg_op_cd) begin dbg_ev = !seen_op_c[scsi_dbg_op]; dbg_tag = "d"; end
 		else                 begin dbg_ev = !seen_op_d[scsi_dbg_op]; dbg_tag = "D"; end
@@ -732,6 +738,7 @@ always @(posedge clk) begin
 		seen_selid <= 0; seen_und <= 0; seen_reg <= 0;
 		seen_fifo <= 0; seen_step <= 0;
 		seen_op_d <= 0; seen_op_c <= 0; seen_st_d <= 0; seen_st_c <= 0;
+		seen_wd <= 0;
 	end
 	// End of a dedup epoch.  Cleared HERE rather than in the block that owns
 	// dbg_epoch_clr, so each seen_* net keeps exactly one driver -- Verilator
@@ -742,6 +749,7 @@ always @(posedge clk) begin
 		seen_selid <= 0; seen_und <= 0; seen_reg <= 0;
 		seen_fifo <= 0; seen_step <= 0;
 		seen_op_d <= 0; seen_op_c <= 0; seen_st_d <= 0; seen_st_c <= 0;
+		seen_wd <= 0;
 	end
 	else if (dbg_ev && !dbg_qfull) begin
 		case (dbg_tag)
@@ -756,6 +764,7 @@ always @(posedge clk) begin
 		"d": seen_op_c[dbg_val] <= 1'b1;
 		"Y": seen_st_d[dbg_val] <= 1'b1;
 		"y": seen_st_c[dbg_val] <= 1'b1;
+		"W": seen_wd <= 1'b1;
 		"T": seen_reg[0] <= 1'b1;
 		"P": seen_reg[1] <= 1'b1;
 		"O": seen_reg[2] <= 1'b1;
@@ -825,6 +834,7 @@ always @(posedge clk) begin
 		end
 
 		dbg_be_d <= berr_active;
+		stall_flt_d <= stall_flt;
 		if (berr_active && !dbg_be_d && berr_addr[31:16] != dbg_be_last) begin
 			dbg_be_last <= berr_addr[31:16];
 			dbg_be_p1 <= 1; dbg_be_v1 <= berr_addr[31:24];

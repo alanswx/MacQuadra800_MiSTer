@@ -32,6 +32,12 @@ module wombat_cpu
 	input   [2:0] ipl,            // active low
 	input         ipl_autovector,
 	input         berr,
+	// Hold the core-side stall watchdog while the platform has a block
+	// transfer outstanding: a pseudo-DMA beat legitimately waits for the
+	// HPS then, and a busy SD card (the Main writes images O_SYNC) or an
+	// open OSD stalls it for far longer than any bus-error budget.
+	input         stall_hold,
+	output        dbg_stall_flt, // the watchdog fired (for the SCSI tracer)
 
 	// Optional completed physical RAM line retained by the platform.
 	input         cache_line_valid,
@@ -87,13 +93,21 @@ wire        mem_ack;
 wire [31:0] mem_rdata;
 wire        mem_flt_mmu;
 
-// Core-side stall watchdog, verbatim from ap040_tg68k_compat: a request
-// lost below the core would otherwise hang it with no fault frame.
+// Core-side stall watchdog, from ap040_tg68k_compat: a request lost below
+// the core would otherwise hang it with no fault frame.  Two changes from
+// the verbatim 2^21 (63 ms at 33 MHz), 2026-09-03: the request is hidden
+// from the watchdog while stall_hold says the platform is busy with a block
+// transfer (the Mac OS 8.1 installer's write bursts stalled pseudo-DMA
+// beats past 63 ms on SD-card housekeeping and the resulting bus error
+// inside the SCSI Manager's DMA loop showed up as a hung or failed install),
+// and the budget is 2^24 (0.5 s) so nothing short of a genuine wedge fires
+// it.  The IOSB's own 7.9 ms escape for an idle SDMA beat still fires first.
 wire        core_stall_flt;
-ap040_bus_timeout #(.COUNTER_BITS(21)) core_stall_watchdog (
+assign dbg_stall_flt = core_stall_flt;
+ap040_bus_timeout #(.COUNTER_BITS(24)) core_stall_watchdog (
 	.clk(clk),
 	.nreset(nreset),
-	.req(mem_req),
+	.req(mem_req && !stall_hold),
 	.complete(mem_ack | mem_flt_mmu),
 	.berr(core_stall_flt)
 );

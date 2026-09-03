@@ -150,10 +150,16 @@ reg         walker_berr;
 reg         cpu_berr;
 wire  [2:0] ipl_n;
 
+// any block transfer in flight between the machine and the HPS: a request
+// strobe up, or an ack still streaming.  Holds the CPU's stall watchdog.
+wire hps_busy = (|io_rd) | (|io_wr) | (|io_ack);
+wire cpu_stall_flt;
 wombat_cpu cpu (
 	.clk(clk),
 	.nreset(nreset),
 	.ce(ce),
+	.stall_hold(hps_busy),
+	.dbg_stall_flt(cpu_stall_flt),
 
 	.ipl(ipl_n),
 	.ipl_autovector(1'b1),
@@ -255,6 +261,7 @@ iosb #(.CDROM(CDROM)) iosb (
 	.rdata(iosb_rdata),
 	.ack(iosb_ack),
 	.sdma_fault(iosb_fault),
+	.stall_flt(cpu_stall_flt),
 
 	.vbl_irq(dafb_vbl),
 	.scsi_irq(1'b0),
