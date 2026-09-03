@@ -131,6 +131,10 @@ tb_sdram:
 # driver is the second kind, so this is where widening the model for it is
 # checked against the ROM path that already boots Mac OS.
 #   make tb_ncr53c96
+tb_scsi_cache:
+	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME -Wno-CASEINCOMPLETE -Wno-BLKSEQ +define+SIMULATION=1 +define+VERILATOR=1 -Wno-MULTIDRIVEN -Wno-SYNCASYNCNET -Wno-COMBDLY +incdir+$(RTL) --top-module tb_scsi_cache --Mdir ./obj_dir_tbc -o tb_scsi_cache tb_scsi_cache.sv $(RTL)/scsi_cache.sv
+	./obj_dir_tbc/tb_scsi_cache
+
 tb_ncr53c96:
 	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME -Wno-CASEINCOMPLETE -Wno-BLKSEQ +define+SIMULATION=1 +define+VERILATOR=1 -Wno-MULTIDRIVEN -Wno-SYNCASYNCNET -Wno-COMBDLY +incdir+$(RTL) --top-module tb_ncr53c96 --Mdir ./obj_dir_tb -o tb_ncr53c96 tb_ncr53c96.sv $(RTL)/ncr53c96.sv $(RTL)/cd_audio.sv
 	./obj_dir_tb/tb_ncr53c96
