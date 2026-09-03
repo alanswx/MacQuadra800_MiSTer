@@ -528,6 +528,8 @@ initial iosb_dbg_cyc = 0;
 always @(posedge clk) if (ce) iosb_dbg_cyc <= iosb_dbg_cyc + 64'd1;
 `endif
 
+wire [7:0] scsi_dbg_op, scsi_dbg_st;          // tracer taps (see SCSI_TRACE below)
+wire       scsi_dbg_op_stb, scsi_dbg_op_cd, scsi_dbg_st_stb;
 ncr53c96 #(.CDROM(CDROM)) scsi (
 	.clk(clk),
 	.nreset(nreset),
@@ -558,7 +560,9 @@ ncr53c96 #(.CDROM(CDROM)) scsi (
 	.sd_buff_din(sd_buff_din),
 	.sd_buff_wr(sd_buff_wr),
 	.cd_snd_l(cd_snd_l),
-	.cd_snd_r(cd_snd_r)
+	.cd_snd_r(cd_snd_r),
+	.dbg_op(scsi_dbg_op), .dbg_op_stb(scsi_dbg_op_stb), .dbg_op_cd(scsi_dbg_op_cd),
+	.dbg_st(scsi_dbg_st), .dbg_st_stb(scsi_dbg_st_stb)
 );
 
 //----------------------------------------------------------------------------
@@ -660,6 +664,12 @@ reg [255:0] seen_und;              // 16-byte-strided pages outside the window
 reg  [12:0] seen_reg;              // first write to each of r5..rC
 reg [255:0] seen_fifo;             // FIFO-flags values read from r7
 reg  [15:0] seen_step;             // sequence-step values read from r6
+// what the TARGET did, from ncr53c96's taps: CDB opcodes executed per
+// target class and STATUS bytes returned -- the two things register
+// traffic cannot show (CDBs travel by PDMA, status by FIFO data reads),
+// added 2026-09-03 when an installer failure was invisible without them.
+reg [255:0] seen_op_d, seen_op_c;  // opcodes on the disks / the CD-ROM
+reg [255:0] seen_st_d, seen_st_c;  // status bytes from the disks / the CD-ROM
 
 reg   [7:0] dbg_tag, dbg_val;
 reg         dbg_ev;
@@ -667,7 +677,19 @@ always @(*) begin
 	dbg_ev  = 1'b0;
 	dbg_tag = 8'h00;
 	dbg_val = 8'h00;
-	if (scsi_strobe && write) begin
+	// target-side events first: rarer and worth more than the register
+	// access that might share the cycle
+	if (scsi_dbg_op_stb) begin
+		dbg_val = scsi_dbg_op;
+		if (scsi_dbg_op_cd) begin dbg_ev = !seen_op_c[scsi_dbg_op]; dbg_tag = "d"; end
+		else                 begin dbg_ev = !seen_op_d[scsi_dbg_op]; dbg_tag = "D"; end
+	end
+	else if (scsi_dbg_st_stb) begin
+		dbg_val = scsi_dbg_st;
+		if (scsi_dbg_op_cd) begin dbg_ev = !seen_st_c[scsi_dbg_st]; dbg_tag = "y"; end
+		else                 begin dbg_ev = !seen_st_d[scsi_dbg_st]; dbg_tag = "Y"; end
+	end
+	else if (scsi_strobe && write) begin
 		dbg_val = wbyte;
 		case (addr[7:4])
 		4'h3: begin dbg_ev = !seen_cmd[wbyte];        dbg_tag = "C"; end
@@ -709,6 +731,7 @@ always @(posedge clk) begin
 		seen_cmd <= 0; seen_intr <= 0; seen_stat <= 0;
 		seen_selid <= 0; seen_und <= 0; seen_reg <= 0;
 		seen_fifo <= 0; seen_step <= 0;
+		seen_op_d <= 0; seen_op_c <= 0; seen_st_d <= 0; seen_st_c <= 0;
 	end
 	// End of a dedup epoch.  Cleared HERE rather than in the block that owns
 	// dbg_epoch_clr, so each seen_* net keeps exactly one driver -- Verilator
@@ -718,6 +741,7 @@ always @(posedge clk) begin
 		seen_cmd <= 0; seen_intr <= 0; seen_stat <= 0;
 		seen_selid <= 0; seen_und <= 0; seen_reg <= 0;
 		seen_fifo <= 0; seen_step <= 0;
+		seen_op_d <= 0; seen_op_c <= 0; seen_st_d <= 0; seen_st_c <= 0;
 	end
 	else if (dbg_ev && !dbg_qfull) begin
 		case (dbg_tag)
@@ -728,6 +752,10 @@ always @(posedge clk) begin
 		"f": seen_fifo[dbg_val]    <= 1'b1;
 		"s": seen_step[dbg_val[3:0]] <= 1'b1;
 		"U", "u": seen_und[dbg_val] <= 1'b1;
+		"D": seen_op_d[dbg_val] <= 1'b1;
+		"d": seen_op_c[dbg_val] <= 1'b1;
+		"Y": seen_st_d[dbg_val] <= 1'b1;
+		"y": seen_st_c[dbg_val] <= 1'b1;
 		"T": seen_reg[0] <= 1'b1;
 		"P": seen_reg[1] <= 1'b1;
 		"O": seen_reg[2] <= 1'b1;

@@ -53,7 +53,22 @@ TAG = {
  "u":"16-byte-strided read outside the SCSI window",
  "B":"BUS FAULT addr 31:24", "b":"BUS FAULT addr 23:16",
  "n":"  ...its addr 15:8",
+ "D":"CDB executed by a DISK target", "d":"CDB executed by the CD-ROM target",
+ "Y":"STATUS byte from a DISK target", "y":"STATUS byte from the CD-ROM target",
 }
+OPC = {0x00:"TEST UNIT READY",0x01:"REZERO",0x03:"REQUEST SENSE",0x04:"FORMAT UNIT",
+       0x07:"REASSIGN BLOCKS",0x08:"READ(6)",0x0A:"WRITE(6)",0x0B:"SEEK(6)",0x12:"INQUIRY",
+       0x15:"MODE SELECT(6)",0x16:"RESERVE",0x17:"RELEASE",0x1A:"MODE SENSE(6)",
+       0x1B:"START/STOP",0x1C:"RECEIVE DIAG",0x1D:"SEND DIAG",0x1E:"PREVENT/ALLOW",
+       0x25:"READ CAPACITY",0x28:"READ(10)",0x2A:"WRITE(10)",0x2B:"SEEK(10)",
+       0x2E:"WRITE+VERIFY",0x2F:"VERIFY(10)",0x35:"SYNC CACHE",0x37:"READ DEFECT DATA",
+       0x3B:"WRITE BUFFER",0x3C:"READ BUFFER",0x42:"READ SUB-CHANNEL",0x43:"READ TOC",
+       0x44:"READ HEADER",0x45:"PLAY AUDIO(10)",0x47:"PLAY AUDIO MSF",0x4B:"PAUSE/RESUME",
+       0x55:"MODE SELECT(10)",0x5A:"MODE SENSE(10)",0xA8:"READ(12)",0xBB:"SET CD SPEED",
+       0xBE:"READ CD",0xC0:"Apple EJECT",0xC1:"Apple READ TOC",0xC2:"Apple READ Q SUBCODE",
+       0xC8:"Apple PLAY TRACK",0xC9:"Apple PLAY MSF",0xCB:"Apple PAUSE",0xCC:"Apple AUDIO STATUS",
+       0xCD:"Apple AUDIO SCAN",0xCE:"Apple AUDIO CONTROL"}
+STAT = {0x00:"GOOD",0x02:"CHECK CONDITION",0x08:"BUSY",0x18:"RESERVATION CONFLICT"}
 CMD = {0x00:"NOP",0x01:"FLUSH",0x02:"RESET CHIP",0x03:"RESET BUS",0x10:"TRANSFER INFO",
        0x11:"ICCS",0x12:"MSG ACCEPT",0x18:"PAD",0x1A:"SET ATN",0x1B:"RST ATN",
        0x41:"SEL no-ATN",0x42:"SEL ATN",0x43:"SEL ATN STOP",0x44:"ENSEL",0x45:"DISSEL",
@@ -62,7 +77,7 @@ PHASE = {0:"DATA OUT",1:"DATA IN",2:"COMMAND",3:"STATUS",6:"MSG OUT",7:"MSG IN"}
 INTR = [(0x80,"RST"),(0x40,"ILLEGAL"),(0x20,"DISC"),(0x10,"BS"),(0x08,"FC"),
         (0x04,"RESEL"),(0x02,"SELATN"),(0x01,"SEL")]
 data = open(sys.argv[1],"rb").read().decode("latin-1")
-recs = re.findall(r"([=HECSrtfsUuBbnTPO123KX])([0-9A-F]{2}) ", data)
+recs = re.findall(r"([=HECSrtfsUuBbnTPO123KXDdYy])([0-9A-F]{2}) ", data)
 hb = 0
 for tag, hexv in recs:
     v = int(hexv,16)
@@ -102,6 +117,12 @@ for tag, hexv in recs:
         extra = "  ...$..%02X....  (see the B record above)" % v
     elif tag == "n":
         extra = "  ...$..%02X..  (low half of the U/u address above)" % v
+    elif tag in "Dd":
+        extra = "  %s" % OPC.get(v, "opcode $%02X" % v)
+    elif tag in "Yy":
+        extra = "  %s" % STAT.get(v, "status $%02X" % v)
+        if v == 0x02:
+            extra += "   <<<<<< the target REJECTED a command in this epoch"
     print("%s %02X  %-22s%s" % (tag, v, d, extra))
 if hb:
     print("   ... %d heartbeat(s) (ROM-only activity)" % hb)

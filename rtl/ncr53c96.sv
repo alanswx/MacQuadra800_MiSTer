@@ -111,7 +111,17 @@ module ncr53c96
 
 	// CD audio PCM from the CD-ROM target's playback engine (zero when idle)
 	output signed [15:0] cd_snd_l,
-	output signed [15:0] cd_snd_r
+	output signed [15:0] cd_snd_r,
+
+	// bring-up taps for the SCSI_TRACE tracer in iosb.sv: one pulse per CDB
+	// executed (its opcode, and whether the CD-ROM target took it) and one
+	// per STATUS byte handed to the initiator.  Unused otherwise; a
+	// non-tracing build prunes them.
+	output reg  [7:0] dbg_op,
+	output reg        dbg_op_stb,
+	output reg        dbg_op_cd,
+	output reg  [7:0] dbg_st,
+	output reg        dbg_st_stb
 );
 
 // SCSI phases
@@ -695,6 +705,7 @@ always @(posedge clk) begin
 		cd_present <= 0; cd_ejected <= 0;
 		msel_pend <= 0; msel_st <= 0; msel_bd <= 0; io_discard <= 0;
 		ca_cmd_stb <= 0; ca_read_stb <= 0; ca_eject_stb <= 0; ca_bus_rst <= 0; ca_mount_d <= 0;
+		dbg_op <= 0; dbg_op_stb <= 0; dbg_op_cd <= 0; dbg_st <= 0; dbg_st_stb <= 0;
 		ap_ch0 <= 8'h01; ap_vol0 <= 8'hFF; ap_ch1 <= 8'h02; ap_vol1 <= 8'hFF;
 		io_lba_e <= 0; io_rd_i <= 0; io_wr_i <= 0;
 		dma_active <= 0;
@@ -717,6 +728,7 @@ always @(posedge clk) begin
 		dma_valid <= 0;
 		ca_cmd_stb <= 0; ca_read_stb <= 0; ca_eject_stb <= 0; ca_bus_rst <= 0;
 		ca_mount_d <= {ca_mount_d[0], img_mounted[2]};
+		dbg_op_stb <= 0; dbg_st_stb <= 0;
 
 `ifdef VERILATOR
 		dbg_cyc <= dbg_cyc + 64'd1;
@@ -878,6 +890,7 @@ always @(posedge clk) begin
 		end
 		if (exec_pending) begin
 			exec_pending <= 0;
+			dbg_op <= cdb[0]; dbg_op_cd <= is_cd; dbg_op_stb <= 1;
 			exec_cdb;
 		end
 
@@ -1244,6 +1257,7 @@ task exec_command(input [7:0] c);
 				fifo[1] <= 8'h00;
 				fifo_cnt <= 5'd2;
 				phase <= PH_MIN;
+				dbg_st <= scsi_status; dbg_st_stb <= 1;
 				raise(I_FC);
 			end
 			else if (phase == PH_MIN) begin
@@ -1272,6 +1286,7 @@ task exec_command(input [7:0] c);
 			fifo[1] <= 8'h00;                          // command complete msg
 			fifo_cnt <= 5'd2;
 			phase <= PH_MIN;
+			dbg_st <= scsi_status; dbg_st_stb <= 1;
 			msgin_byte <= 8'h00;
 			msgin_reject <= 0;
 			raise(I_FC);
