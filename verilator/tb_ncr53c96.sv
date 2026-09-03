@@ -119,7 +119,7 @@ always @(posedge clk) begin
 	2: begin
 		if (d_i < 256) begin
 			sd_buff_addr <= d_i[7:0];
-			sd_buff_dout <= {disk[d_lba*512 + d_i*2], disk[d_lba*512 + d_i*2 + 1]};
+			sd_buff_dout <= (d_lba < NBLK) ? {disk[d_lba*512 + d_i*2], disk[d_lba*512 + d_i*2 + 1]} : 16'h0000;
 			sd_buff_wr   <= 1;
 			d_i          <= d_i + 1;
 		end
@@ -1082,7 +1082,12 @@ initial begin
 	$display("-- T16c CD-ROM: mount 16 x 2048 (the 64-block device), READ CAPACITY");
 	img_size = 64*512;
 	cd_mount = 1; @(negedge clk); @(negedge clk); cd_mount = 0;
-	repeat (400) @(negedge clk);                // lead-out M:S:F divider
+	// the audio engine fetches its TOC blob (the device serves zeros there,
+	// so it synthesizes the single-track TOC) and grinds the M:S:F divider
+	guard = 0;
+	while (!dut.ca_toc_ready && guard < 400000) begin @(negedge clk); guard = guard + 1; end
+	$display("   TOC ready after %0d cycles (mst=%0d toc_valid=%b n=%0d)", guard,
+	         dut.cd_audio_i.mst, dut.cd_audio_i.toc_valid, dut.cd_audio_i.n_tracks);
 	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
 	cdb[0]=8'h25; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0;
 	cdb[6]=0; cdb[7]=0; cdb[8]=0; cdb[9]=0;

@@ -334,6 +334,7 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/dafb.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/rtc3430042.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/easc.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/ncr53c96.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/cd_audio.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/adb.sv
 set_global_assignment -name VERILOG_FILE rtl/dpram.v
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram.sv

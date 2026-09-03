@@ -17,7 +17,8 @@ separate codename and are deliberately unchanged.
 | `rtl/wombat_cpu.sv` | AP68040 core + MMU + cache + store buffer wrapper |
 | `rtl/wombat_bus32.sv`, `rtl/wombat_store_buffer.sv` | transaction→beat adapter; two-entry ordered RAM write queue |
 | `rtl/sdram.sv`, `rtl/sdram_beat32.sv` | open-page BL8 SDRAM controller (99 MHz) and the 33↔99 MHz beat bridge with the retained 16-byte line |
-| `rtl/iosb.sv`, `rtl/ncr53c96.sv`, `rtl/scc.v`, `rtl/via6522.sv`, `rtl/asc*.sv` | I/O |
+| `rtl/iosb.sv`, `rtl/scc.v`, `rtl/via6522.sv`, `rtl/asc*.sv` | I/O |
+| `rtl/ncr53c96.sv`, `rtl/cd_audio.sv` | 53C96 with three targets (ID 0/1 disks, ID 3 AppleCD CD-ROM) and the CD TOC/audio engine — `docs/cdrom.md` |
 | `rtl/ap68040/` | **git submodule** — the CPU. Remote is `alanswx/AP68040`. Do not edit in place without committing there first. |
 | `verilator/` | full-machine Verilator sim (`sim.v`, `sim_main.cpp`) plus directed testbenches (`tb_*.sv`, targets in `verilator/Makefile`) |
 | `SingleStepTests/` | CPU corpus benches |
@@ -101,7 +102,9 @@ bash scripts/guest/shutdown_finder.sh   # same, screenshot-verified menu walker
 Disks live in `/media/fat/games/MacQuadra800/`: `QuadSquad8.hda` (Mac OS 8.1),
 `HD60_512-AUX3.1-Installed.hda` (A/UX 3.1), `boot.rom`, and `backup/`.
 Slot 0 is chosen by `/media/fat/config/MacQuadra800.s0` (rewrite it to switch
-guests before a `load_core`).
+guests before a `load_core`); slot 1 is the second disk (`.s1`), slot 4 the
+CD-ROM (`.s4`). CUE/CHD discs and the Toolbox need the Main fork
+(`../Main_MiSTer`, `support/mac/`), which must list `macquadra800`.
 
 ### Binding rules — these have cost real data and whole sessions
 

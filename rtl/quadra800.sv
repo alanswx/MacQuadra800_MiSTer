@@ -74,6 +74,8 @@ module quadra800
 
 	// SCSI disk block device
 	// three SCSI targets (ID 0/1 disks, ID 3 CD-ROM): see rtl/ncr53c96.sv
+	output signed [15:0] cd_snd_l,          // CD audio PCM, from the SCSI CD-ROM
+	output signed [15:0] cd_snd_r,
 	input   [2:0] img_mounted,
 	input  [63:0] img_size,
 	output [31:0] io_lba,
@@ -268,6 +270,8 @@ iosb iosb (
 
 	.audio_l(AUDIO_L),
 	.audio_r(AUDIO_R),
+	.cd_snd_l(cd_snd_l),
+	.cd_snd_r(cd_snd_r),
 
 	.img_mounted(img_mounted),
 	.img_size(img_size),

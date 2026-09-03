@@ -394,6 +394,8 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS)) machine (
 	.CE_PIXEL(CE_PIXEL),
 
 	.AUDIO_L(mac_audio_l),
+	.cd_snd_l(cd_snd_l),
+	.cd_snd_r(cd_snd_r),
 	.AUDIO_R(mac_audio_r),
 
 	.ps2_key(ps2_key),

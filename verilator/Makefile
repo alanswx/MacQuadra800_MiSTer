@@ -54,6 +54,7 @@ V_SRC = \
 	$(RTL)/rtc3430042.sv \
 	$(RTL)/easc.sv \
 	$(RTL)/ncr53c96.sv \
+	$(RTL)/cd_audio.sv \
 	$(RTL)/adb.sv \
 	$(RTL)/scc.v \
 	$(RTL)/uart/txuart.v \
@@ -131,7 +132,7 @@ tb_sdram:
 # checked against the ROM path that already boots Mac OS.
 #   make tb_ncr53c96
 tb_ncr53c96:
-	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME -Wno-CASEINCOMPLETE -Wno-BLKSEQ +define+SIMULATION=1 +define+VERILATOR=1 --top-module tb_ncr53c96 --Mdir ./obj_dir_tb -o tb_ncr53c96 tb_ncr53c96.sv $(RTL)/ncr53c96.sv
+	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME -Wno-CASEINCOMPLETE -Wno-BLKSEQ +define+SIMULATION=1 +define+VERILATOR=1 -Wno-MULTIDRIVEN -Wno-SYNCASYNCNET -Wno-COMBDLY +incdir+$(RTL) --top-module tb_ncr53c96 --Mdir ./obj_dir_tb -o tb_ncr53c96 tb_ncr53c96.sv $(RTL)/ncr53c96.sv $(RTL)/cd_audio.sv
 	./obj_dir_tb/tb_ncr53c96
 
 # Directed timing/data test for the transaction-to-beat adapter's registered

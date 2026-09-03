@@ -68,6 +68,9 @@ module iosb
 
 	output signed [15:0] audio_l,
 	output signed [15:0] audio_r,
+	// CD audio PCM from the SCSI CD-ROM target (mixed at the top level)
+	output signed [15:0] cd_snd_l,
+	output signed [15:0] cd_snd_r,
 
 	// SCSI disk on the MiSTer block-device interface
 	// three SCSI targets (ID 0/1 disks, ID 3 CD-ROM): see rtl/ncr53c96.sv
@@ -552,7 +555,9 @@ ncr53c96 scsi (
 	.sd_buff_addr(sd_buff_addr),
 	.sd_buff_dout(sd_buff_dout),
 	.sd_buff_din(sd_buff_din),
-	.sd_buff_wr(sd_buff_wr)
+	.sd_buff_wr(sd_buff_wr),
+	.cd_snd_l(cd_snd_l),
+	.cd_snd_r(cd_snd_r)
 );
 
 //----------------------------------------------------------------------------
