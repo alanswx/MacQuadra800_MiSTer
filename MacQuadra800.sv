@@ -572,9 +572,16 @@ assign VGA_B = mt32_lcd ? {{2{mt32_lcd_pix}}, mac_vga_b[7:2]} : mac_vga_b;
 // is present AND "Use MT32-pi" is Yes); exact zeros otherwise, so the mix is
 // bit-identical to today with no Pi attached or the device disabled.
 wire signed [15:0] mac_audio_l, mac_audio_r;
+// CD-DA from the SCSI CD-ROM's audio engine (rtl/cd_audio.sv): exact zeros
+// unless the AppleCD player is playing, so the mix is unchanged otherwise.
+// These were left undeclared at the instantiation once (implicit 1-bit
+// nets, never summed): the engine played, the core stayed silent.
+wire signed [15:0] cd_snd_l, cd_snd_r;
 wire signed [17:0] audio_mix_l = {{2{mac_audio_l[15]}}, mac_audio_l}
+                               + {{2{cd_snd_l[15]}}, cd_snd_l}
                                + (mt32_use ? {{2{mt32_i2s_l[15]}}, mt32_i2s_l} : 18'sd0);
 wire signed [17:0] audio_mix_r = {{2{mac_audio_r[15]}}, mac_audio_r}
+                               + {{2{cd_snd_r[15]}}, cd_snd_r}
                                + (mt32_use ? {{2{mt32_i2s_r[15]}}, mt32_i2s_r} : 18'sd0);
 assign AUDIO_L = (audio_mix_l > 18'sd32767)  ?  16'sd32767 :
                  (audio_mix_l < -18'sd32768) ? -16'sd32768 : audio_mix_l[15:0];
