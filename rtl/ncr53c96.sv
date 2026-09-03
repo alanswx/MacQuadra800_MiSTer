@@ -62,9 +62,6 @@
 //============================================================================
 
 module ncr53c96
-#(
-	parameter DISK_ID = 0
-)
 (
 	input         clk,
 	input         nreset,
@@ -86,14 +83,20 @@ module ncr53c96
 	output        drq,
 	output reg    irq,
 
-	// MiSTer block device (512-byte blocks, 16-bit buffer bus)
-	input         img_mounted,
+	// MiSTer block devices (512-byte blocks, 16-bit buffer bus).  Three
+	// targets share one sector buffer, one nexus at a time:
+	//   [0] SCSI ID 0, hard disk, hps_io slot 0
+	//   [1] SCSI ID 1, hard disk, hps_io slot 1
+	//   [2] SCSI ID 3, CD-ROM,    hps_io slot 4 (2048-byte logical blocks,
+	//       served as four consecutive 512-byte HPS blocks)
+	// img_mounted pulses one bit at a time, img_size valid for that bit.
+	input   [2:0] img_mounted,
 	input  [63:0] img_size,
-	output reg [31:0] io_lba,
-	output reg    io_rd,
-	output reg    io_wr,
-	input         io_ack,
-	input   [7:0] sd_buff_addr,
+	output reg [31:0] io_lba,          // for whichever io_rd/io_wr bit is up
+	output  [2:0] io_rd,
+	output  [2:0] io_wr,
+	input   [2:0] io_ack,
+	input  [12:0] sd_buff_addr,        // [7:0] = word within the 512-byte block
 	input  [15:0] sd_buff_dout,
 	output [15:0] sd_buff_din,
 	input         sd_buff_wr
@@ -148,16 +151,38 @@ reg        chunk_irq_armed;        // raise I_BUS once per TI command
 //----------------------------------------------------------------------------
 // target state
 //----------------------------------------------------------------------------
-reg        mounted;
-reg [31:0] disk_blocks;
-reg  [7:0] cdb [0:9];
+reg  [2:0] tgt_mounted;            // per target
+reg [31:0] tgt_blocks [0:2];       // 512-byte blocks per target
+reg  [1:0] cur_tgt;                // target of the current nexus
+wire       is_cd       = (cur_tgt == 2'd2);
+wire       mounted     = tgt_mounted[cur_tgt];
+wire [31:0] disk_blocks = tgt_blocks[cur_tgt];
+// selection: ID 0/1 answer only with an image mounted; the CD-ROM drive
+// answers always (the AppleCD driver polls TEST UNIT READY for a disc)
+wire [1:0] sel_tgt = (dest_id == 4'd0) ? 2'd0 : (dest_id == 4'd1) ? 2'd1 :
+                     (dest_id == 4'd3) ? 2'd2 : 2'd3;
+wire       sel_ok  = (sel_tgt == 2'd2) ? 1'b1 :
+                     (sel_tgt != 2'd3) && tgt_mounted[sel_tgt];
+// REQUEST SENSE state per target: latched when a command CHECKs, cleared by
+// the next command that is not REQUEST SENSE (SCSI-1 semantics, scsi.v)
+reg  [3:0] tgt_skey [0:2];
+reg  [7:0] tgt_asc  [0:2];
+reg        cd_prevent;             // PREVENT/ALLOW MEDIUM REMOVAL latch
+reg  [7:0] cdb [0:11];
+reg        io_rd_i, io_wr_i;
+reg  [1:0] msf_st;                 // lead-out M:S:F divider
+reg [31:0] msf_rem;
+reg [11:0] dout_len;               // byte count of a parameter-list DATA OUT
+                                   // (MODE SELECT / AUDIO CONTROL); 0 = block write
+assign io_rd = io_rd_i ? (3'b001 << cur_tgt) : 3'b000;
+assign io_wr = io_wr_i ? (3'b001 << cur_tgt) : 3'b000;
+wire   io_ack_i = io_ack[cur_tgt];
 reg [31:0] lba;
 reg [31:0] blocks_left;            // read: blocks not yet fetched; write: not yet flushed
 reg  [9:0] sbuf_len;               // valid bytes in sbuf
 reg  [9:0] sbuf_pos;               // next byte index
 reg        data_dir_in;            // 1 = target->initiator
 reg  [7:0] scsi_status;            // 0 good, 2 check condition
-reg  [7:0] sense_key;
 reg        buf_valid;              // sbuf holds data ready to stream
 reg        flush_pending;          // io_wr outstanding, sbuf owned by platform
 reg        io_ack_d;               // for the ack falling edge = transfer done
@@ -172,7 +197,7 @@ reg        io_ack_d;               // for the ack falling edge = transfer done
 // behind, same-cycle writes included.  A registered read loses that race
 // for the first byte (and real hps_io streams far slower than the fill
 // drains, so rising-edge publication was a hardware bug waiting).
-wire io_busy = io_rd || io_wr || io_ack || io_ack_d;
+wire io_busy = io_rd_i || io_wr_i || io_ack_i || io_ack_d;
 
 `ifdef VERILATOR
 // bring-up taps: command writes, CDB executions, interrupt edges — with
@@ -212,7 +237,8 @@ assign rdata = (rs == 4'h0) ? tcounter[7:0]  :
 
 // CDB length by opcode group
 function [3:0] group_len(input [7:0] op);
-	group_len = (op[7:5] == 3'b001 || op[7:5] == 3'b010) ? 4'd10 : 4'd6;
+	group_len = (op[7:5] == 3'b001 || op[7:5] == 3'b010) ? 4'd10 :
+	            (op[7:5] == 3'b101) ? 4'd12 : 4'd6;   // group 5: READ(12), SET CD SPEED
 endfunction
 
 integer i;
@@ -308,19 +334,204 @@ wire arm_msg_out = !fifo_ext && no_dma_arm && !arm_cdb_ff && !arm_drain &&
 // streams one byte per clock into port E, publishing buf_valid with the
 // last byte.  The ROM is still waiting on the select interrupt / phase
 // when it lands, so the extra cycles are invisible.
-localparam [1:0] SY_SENSE = 2'd0, SY_INQ = 2'd1, SY_MODE = 2'd2, SY_CAP = 2'd3;
-reg  [1:0] synth_kind;
+localparam [3:0] SY_SENSE = 4'd0, SY_INQ = 4'd1, SY_MODE = 4'd2, SY_CAP = 4'd3,
+                 SY_CDINQ = 4'd4, SY_CDMODE = 4'd5, SY_TOC43 = 4'd6,
+                 SY_TOC43F2 = 4'd7, SY_TOC43F1 = 4'd8, SY_TOCC1 = 4'd9,
+                 SY_SUBQ = 4'd10, SY_ASTAT = 4'd11, SY_SUBCH = 4'd12,
+                 SY_HDR = 4'd13;
+reg  [3:0] synth_kind;
 reg  [5:0] synth_idx;
 reg  [5:0] synth_len;               // != 0 while synthesizing
 reg  [7:0] sense_r;                 // sense key latched at exec (it clears)
-reg [31:0] cap_r;                   // disk_blocks - 1 latched at exec
+reg  [7:0] asc_r;                   // additional sense code, same
+reg [31:0] cap_r;                   // last LBA latched at exec
+reg        cap_cd;                  // READ CAPACITY block length 2048, not 512
+reg  [5:0] cd_page;                 // MODE SENSE page requested
+reg  [1:0] toc_mode;                // Apple $C1: 0 header, 1 lead-out, 2 descriptors
+reg [31:0] hdr_lba;                 // READ HEADER echo
 wire       synth_on = synth_len != 0;
 
-function [7:0] synth_byte(input [1:0] kind, input [5:0] idx);
+// The one disc this target can describe without the audio engine (phase B
+// brings cd_audio's TOC tables): a single data track from LBA 0 to the
+// image's end.  Lead-out MSF (+150 s) is computed at mount time by
+// repeated subtraction (below), so the serve path holds only constants.
+reg  [6:0] lo_m, lo_s, lo_f;        // lead-out, binary
+function [7:0] bin2bcd(input [6:0] v);
+	bin2bcd = {1'b0, v / 7'd10, v % 7'd10};
+endfunction
+wire [7:0] lo_m_bcd = bin2bcd(lo_m), lo_s_bcd = bin2bcd(lo_s), lo_f_bcd = bin2bcd(lo_f);
+localparam [7:0] CD_CTRL = 8'h14;   // data track, digital copy permitted
+
+// AppleCD identity, byte-exact from MAME nscsi_cdrom_apple_device (via
+// MacLC scsi.v): the stock Apple CD-ROM extension binds only to known
+// Apple-shipped drives, so SONY CD-ROM CDU-8004 is required, not cosmetic.
+function [7:0] cd_inq_byte(input [5:0] i);
+	case (i)
+	6'd0:  cd_inq_byte = 8'h05;  6'd1:  cd_inq_byte = 8'h80;
+	6'd2:  cd_inq_byte = 8'h02;  6'd3:  cd_inq_byte = 8'h02;
+	6'd4:  cd_inq_byte = 8'h31;
+	6'd8:  cd_inq_byte = "S";  6'd9:  cd_inq_byte = "O";
+	6'd10: cd_inq_byte = "N";  6'd11: cd_inq_byte = "Y";
+	6'd16: cd_inq_byte = "C";  6'd17: cd_inq_byte = "D";
+	6'd18: cd_inq_byte = "-";  6'd19: cd_inq_byte = "R";
+	6'd20: cd_inq_byte = "O";  6'd21: cd_inq_byte = "M";
+	6'd23: cd_inq_byte = "C";  6'd24: cd_inq_byte = "D";
+	6'd25: cd_inq_byte = "U";  6'd26: cd_inq_byte = "-";
+	6'd27: cd_inq_byte = "8";  6'd28: cd_inq_byte = "0";
+	6'd29: cd_inq_byte = "0";  6'd30: cd_inq_byte = "4";
+	6'd32: cd_inq_byte = "1";  6'd33: cd_inq_byte = ".";
+	6'd34: cd_inq_byte = "9";  6'd35: cd_inq_byte = "a";
+	6'd39: cd_inq_byte = 8'hd0; 6'd40: cd_inq_byte = 8'h90;
+	6'd41: cd_inq_byte = 8'h27; 6'd42: cd_inq_byte = 8'h3e;
+	6'd43: cd_inq_byte = 8'h01; 6'd44: cd_inq_byte = 8'h04;
+	6'd45: cd_inq_byte = 8'h91; 6'd47: cd_inq_byte = 8'h18;
+	6'd48: cd_inq_byte = 8'h06; 6'd49: cd_inq_byte = 8'hf0;
+	6'd50: cd_inq_byte = 8'hfe;
+	6'd12, 6'd13, 6'd14, 6'd15, 6'd22, 6'd31: cd_inq_byte = " ";
+	default: cd_inq_byte = 8'h00;
+	endcase
+endfunction
+
+// CD MODE SENSE(6): 12-byte header + block descriptor (WP, 2048-byte
+// blocks, capacity), then the page: $30 Apple magic (24), $0E audio
+// control (16, default ports), $2A capabilities (26); other pages
+// header+descriptor only.  Lengths: 36 / 28 / 38 / 12.
+function [7:0] cd_mode_byte(input [5:0] pg, input [5:0] i);
+	if (i < 6'd12) begin
+		case (i)
+		6'd0:  cd_mode_byte = (pg == 6'h30) ? 8'd35 : (pg == 6'h0E) ? 8'd27 :
+		                      (pg == 6'h2A) ? 8'd37 : 8'd11;
+		6'd2:  cd_mode_byte = 8'h80;
+		6'd3:  cd_mode_byte = 8'd8;
+		6'd5:  cd_mode_byte = cap_r[23:16];
+		6'd6:  cd_mode_byte = cap_r[15:8];
+		6'd7:  cd_mode_byte = cap_r[7:0];
+		6'd10: cd_mode_byte = 8'h08;
+		default: cd_mode_byte = 8'h00;
+		endcase
+	end
+	else if (pg == 6'h30) begin
+		case (i)
+		6'd12: cd_mode_byte = 8'h30;
+		6'd14: cd_mode_byte = "A"; 6'd15: cd_mode_byte = "P"; 6'd16: cd_mode_byte = "P";
+		6'd17: cd_mode_byte = "L"; 6'd18: cd_mode_byte = "E"; 6'd19: cd_mode_byte = " ";
+		6'd20: cd_mode_byte = "C"; 6'd21: cd_mode_byte = "O"; 6'd22: cd_mode_byte = "M";
+		6'd23: cd_mode_byte = "P"; 6'd24: cd_mode_byte = "U"; 6'd25: cd_mode_byte = "T";
+		6'd26: cd_mode_byte = "E"; 6'd27: cd_mode_byte = "R"; 6'd28: cd_mode_byte = ",";
+		6'd29: cd_mode_byte = " "; 6'd30: cd_mode_byte = "I"; 6'd31: cd_mode_byte = "N";
+		6'd32: cd_mode_byte = "C"; 6'd33, 6'd34, 6'd35: cd_mode_byte = " ";
+		default: cd_mode_byte = 8'h00;
+		endcase
+	end
+	else if (pg == 6'h0E) begin
+		case (i)
+		6'd12: cd_mode_byte = 8'h0E; 6'd13: cd_mode_byte = 8'h0E;
+		6'd14: cd_mode_byte = 8'h04;
+		6'd18, 6'd19: cd_mode_byte = 8'd75;
+		6'd20: cd_mode_byte = 8'h01; 6'd21: cd_mode_byte = 8'hFF;   // port 0: left, full
+		6'd22: cd_mode_byte = 8'h02; 6'd23: cd_mode_byte = 8'hFF;   // port 1: right, full
+		default: cd_mode_byte = 8'h00;
+		endcase
+	end
+	else if (pg == 6'h2A) begin
+		case (i)
+		6'd12: cd_mode_byte = 8'h2A; 6'd13: cd_mode_byte = 8'h18;
+		6'd16: cd_mode_byte = 8'h71; 6'd18: cd_mode_byte = 8'h28;
+		6'd19: cd_mode_byte = 8'h03; 6'd22: cd_mode_byte = 8'h01;
+		default: cd_mode_byte = 8'h00;
+		endcase
+	end
+	else cd_mode_byte = 8'h00;
+endfunction
+
+// Standard READ TOC, format 0, MSF: header {len=18, first=1, last=1},
+// track 1 {00, ctrl, 01, 00, 00, 00, 02, 00}, lead-out {00, ctrl, AA, 00,
+// 00, M, S, F}.  20 bytes.
+function [7:0] toc43_byte(input [5:0] i);
+	case (i)
+	6'd1:  toc43_byte = 8'd18;  6'd2:  toc43_byte = 8'd1;  6'd3: toc43_byte = 8'd1;
+	6'd5:  toc43_byte = CD_CTRL; 6'd6:  toc43_byte = 8'd1; 6'd10: toc43_byte = 8'd2;
+	6'd13: toc43_byte = CD_CTRL; 6'd14: toc43_byte = 8'hAA;
+	6'd17: toc43_byte = {1'b0, lo_m}; 6'd18: toc43_byte = {1'b0, lo_s};
+	6'd19: toc43_byte = {1'b0, lo_f};
+	default: toc43_byte = 8'h00;
+	endcase
+endfunction
+// Format 2 (old-style FULL TOC, control byte $80 -- the AppleCD driver's
+// dialect on the CDU-8004 identity): {u16be 46, 01, 01} then 11-byte rows
+// A0 {01,ctrl,00,A0,0,0,0,0, 01,00,00}, A1 {..A1.., 01,00,00},
+// A2 {..A2.., bcd M,S,F of lead-out}, track 1 {01,ctrl,00,01,0,0,0,0, 00,02,00}.
+function [7:0] toc2_byte(input [5:0] i);
+	reg [5:0] r; reg [3:0] c;
+	begin
+		if (i < 6'd4) toc2_byte = (i == 6'd1) ? 8'd46 : (i == 6'd0) ? 8'd0 : 8'd1;
+		else begin
+			r = (i - 6'd4) / 6'd11;                // row 0..3
+			c = (i - 6'd4) % 6'd11;                // column
+			case (c)
+			4'd0: toc2_byte = 8'h01;
+			4'd1: toc2_byte = CD_CTRL;
+			4'd3: toc2_byte = (r == 6'd0) ? 8'hA0 : (r == 6'd1) ? 8'hA1 :
+			                  (r == 6'd2) ? 8'hA2 : 8'h01;
+			4'd8: toc2_byte = (r == 6'd2) ? lo_m_bcd : (r == 6'd3) ? 8'h00 : 8'h01;
+			4'd9: toc2_byte = (r == 6'd2) ? lo_s_bcd : (r == 6'd3) ? 8'h02 : 8'h00;
+			4'd10: toc2_byte = (r == 6'd2) ? lo_f_bcd : 8'h00;
+			default: toc2_byte = 8'h00;
+			endcase
+		end
+	end
+endfunction
+// Format 1 session info: {00,0A,01,01, 00,ctrl,01,00, 00,00,02,00}
+function [7:0] toc1_byte(input [5:0] i);
+	case (i)
+	6'd1: toc1_byte = 8'h0A; 6'd2: toc1_byte = 8'h01; 6'd3: toc1_byte = 8'h01;
+	6'd5: toc1_byte = CD_CTRL; 6'd6: toc1_byte = 8'h01; 6'd10: toc1_byte = 8'h02;
+	default: toc1_byte = 8'h00;
+	endcase
+endfunction
+// Apple $C1 READ TOC (MAME nscsi_cdrom_apple): control byte selects
+// 0: header {01, last BCD, 00, 00}; $40: lead-out {M,S,F BCD, 00};
+// $80: 4-byte descriptors {ctrl, M,S,F BCD} from the start track, the
+// last one repeated to fill the allocation.
+function [7:0] tocc1_byte(input [1:0] mode, input [5:0] i);
+	case (mode)
+	2'd0: tocc1_byte = (i == 6'd0) ? 8'h01 : (i == 6'd1) ? 8'h01 : 8'h00;
+	2'd1: tocc1_byte = (i == 6'd0) ? lo_m_bcd : (i == 6'd1) ? lo_s_bcd :
+	                   (i == 6'd2) ? lo_f_bcd : 8'h00;
+	default: case (i[1:0])
+	        2'd0: tocc1_byte = CD_CTRL;
+	        2'd2: tocc1_byte = 8'h02;              // 00:02:00
+	        default: tocc1_byte = 8'h00;
+	        endcase
+	endcase
+endfunction
+
+function [7:0] synth_byte(input [3:0] kind, input [5:0] idx);
 	case (kind)
 	SY_SENSE: synth_byte = (idx == 0) ? 8'h70 :
 	                       (idx == 2) ? sense_r :
-	                       (idx == 7) ? 8'h0A : 8'h00;
+	                       (idx == 7) ? 8'h0A :
+	                       (idx == 12) ? asc_r : 8'h00;
+	SY_CDINQ:   synth_byte = cd_inq_byte(idx);
+	SY_CDMODE:  synth_byte = cd_mode_byte(cd_page, idx);
+	SY_TOC43:   synth_byte = toc43_byte(idx);
+	SY_TOC43F2: synth_byte = toc2_byte(idx);
+	SY_TOC43F1: synth_byte = toc1_byte(idx);
+	SY_TOCC1:   synth_byte = tocc1_byte(toc_mode, idx);
+	// READ Q SUBCODE: {ctrl, trk BCD, idx BCD, abs M,S,F BCD, rel M,S,F BCD}; idle
+	SY_SUBQ:    synth_byte = (idx == 0) ? CD_CTRL : (idx == 1) ? 8'h01 :
+	                         (idx == 2) ? 8'h01 : (idx == 4) ? 8'h02 : 8'h00;
+	// AUDIO STATUS: {status 5 = idle, ctrl, abs M,S,F BCD (4 bytes)}
+	SY_ASTAT:   synth_byte = (idx == 0) ? 8'h05 : (idx == 1) ? CD_CTRL : 8'h00;
+	// READ SUB-CHANNEL, format 1 (position): {00, status $13, len 12, 01,
+	// ctrl, trk, idx, abs 4, rel 4} -- 16 bytes, stopped at 00:02:00
+	SY_SUBCH:   synth_byte = (idx == 1) ? 8'h13 : (idx == 3) ? 8'd12 :
+	                         (idx == 4) ? 8'h01 : (idx == 5) ? CD_CTRL :
+	                         (idx == 6) ? 8'h01 : (idx == 7) ? 8'h01 :
+	                         (idx == 10) ? 8'h02 : 8'h00;
+	SY_HDR:     synth_byte = (idx == 0) ? 8'h01 : (idx == 4) ? hdr_lba[31:24] :
+	                         (idx == 5) ? hdr_lba[23:16] : (idx == 6) ? hdr_lba[15:8] :
+	                         (idx == 7) ? hdr_lba[7:0] : 8'h00;
 	SY_INQ:   case (idx)                       // bytes not listed: $20,
 	          6'd0, 6'd1: synth_byte = 8'h00;  // the old $2020 preset
 	          6'd2, 6'd3: synth_byte = 8'h02;  // SCSI-2
@@ -332,12 +543,12 @@ function [7:0] synth_byte(input [1:0] kind, input [5:0] idx);
 	          default: synth_byte = 8'h20;
 	          endcase
 	SY_MODE:  synth_byte = (idx == 0) ? 8'h03 : 8'h00;
-	default:  case (idx)                       // SY_CAP: 512-byte blocks
+	default:  case (idx)                       // SY_CAP: 512 / 2048-byte blocks
 	          6'd0: synth_byte = cap_r[31:24];
 	          6'd1: synth_byte = cap_r[23:16];
 	          6'd2: synth_byte = cap_r[15:8];
 	          6'd3: synth_byte = cap_r[7:0];
-	          6'd6: synth_byte = 8'd2;
+	          6'd6: synth_byte = cap_cd ? 8'h08 : 8'd2;
 	          default: synth_byte = 8'h00;
 	          endcase
 	endcase
@@ -363,7 +574,7 @@ ncr_sbuf sbuf
 	.be_e   (wodd_e ? 2'b01 : 2'b10),
 	.we_e   (we_e),
 	.q_e    (q_e),
-	.addr_s (sd_buff_addr),
+	.addr_s (sd_buff_addr[7:0]),
 	.din_s  (plat_din_s),
 	.we_s   (sd_buff_wr),
 	.q_s    (q_s)
@@ -414,8 +625,13 @@ always @(posedge clk) begin
 		conf1 <= 0; conf2 <= 0; conf3 <= 0; clkconv <= 0;
 		timeout_r <= 0; syncp <= 0; synco <= 0; testr <= 0;
 		irq <= 0; dma_valid <= 0; dma_rlatch <= 0;
-		mounted <= 0; disk_blocks <= 0;
-		io_lba <= 0; io_rd <= 0; io_wr <= 0;
+		tgt_mounted <= 0;
+		tgt_blocks[0] <= 0; tgt_blocks[1] <= 0; tgt_blocks[2] <= 0;
+		tgt_skey[0] <= 0; tgt_skey[1] <= 0; tgt_skey[2] <= 0;
+		tgt_asc[0] <= 0; tgt_asc[1] <= 0; tgt_asc[2] <= 0;
+		cur_tgt <= 0; cd_prevent <= 0; dout_len <= 0;
+		lo_m <= 0; lo_s <= 0; lo_f <= 0; msf_st <= 0; msf_rem <= 0;
+		io_lba <= 0; io_rd_i <= 0; io_wr_i <= 0;
 		dma_active <= 0;
 		cdb_active <= 0; cdb_pos <= 0; cdb_need <= 0; skip_cnt <= 0;
 		exec_pending <= 0;
@@ -426,9 +642,10 @@ always @(posedge clk) begin
 		lba <= 0; blocks_left <= 0;
 		sbuf_len <= 0; sbuf_pos <= 0; buf_valid <= 0; flush_pending <= 0;
 		io_ack_d <= 0;
-		data_dir_in <= 0; scsi_status <= 0; sense_key <= 0;
+		data_dir_in <= 0; scsi_status <= 0;
 		synth_kind <= 0; synth_idx <= 0; synth_len <= 0;
-		sense_r <= 0; cap_r <= 0;
+		sense_r <= 0; asc_r <= 0; cap_r <= 0; cap_cd <= 0;
+		cd_page <= 0; toc_mode <= 0; hdr_lba <= 0;
 	end
 	else begin
 		i_new = 8'h00;
@@ -448,24 +665,44 @@ always @(posedge clk) begin
 		dbg_irq_d <= irq;
 		if (irq && !dbg_irq_d)
 			$display("[NCR %0d] INT+ ist=%02X ph=%0d", dbg_cyc, istatus, phase);
-		if (io_wr && !dbg_iow_d)
-			$display("[NCR %0d] io_wr+ lba=%0d fp=%b", dbg_cyc, io_lba, flush_pending);
-		if (io_rd && !dbg_ior_d)
-			$display("[NCR %0d] io_rd+ lba=%0d", dbg_cyc, io_lba);
-		if (io_ack && !dbg_ack_d)
+		if (io_wr_i && !dbg_iow_d)
+			$display("[NCR %0d] io_wr+ t%0d lba=%0d fp=%b", dbg_cyc, cur_tgt, io_lba, flush_pending);
+		if (io_rd_i && !dbg_ior_d)
+			$display("[NCR %0d] io_rd+ t%0d lba=%0d", dbg_cyc, cur_tgt, io_lba);
+		if (io_ack_i && !dbg_ack_d)
 			$display("[NCR %0d] io_ack+ rd=%b wr=%b ff=%0d sp=%0d po=%b",
-			         dbg_cyc, io_rd, io_wr, fifo_cnt, sbuf_pos, xfer_pio_out);
-		if (!io_ack && dbg_ack_d)
+			         dbg_cyc, io_rd_i, io_wr_i, fifo_cnt, sbuf_pos, xfer_pio_out);
+		if (!io_ack_i && dbg_ack_d)
 			$display("[NCR %0d] io_ack- fp=%b ff=%0d sp=%0d po=%b",
 			         dbg_cyc, flush_pending, fifo_cnt, sbuf_pos, xfer_pio_out);
-		dbg_iow_d <= io_wr;
-		dbg_ior_d <= io_rd;
-		dbg_ack_d <= io_ack;
+		dbg_iow_d <= io_wr_i;
+		dbg_ior_d <= io_rd_i;
+		dbg_ack_d <= io_ack_i;
 `endif
 
-		if (img_mounted) begin
-			mounted <= (img_size != 0);
-			disk_blocks <= img_size[40:9];
+		for (i = 0; i < 3; i = i + 1)
+			if (img_mounted[i]) begin
+				tgt_mounted[i] <= (img_size != 0);
+				tgt_blocks[i]  <= img_size[40:9];
+			end
+		// CD lead-out = capacity in 2048-byte blocks + 150 (the 2 s pregap),
+		// split into M:S:F by repeated subtraction after every CD mount.
+		if (img_mounted[2] && img_size != 0) begin
+			msf_rem <= img_size[42:11] + 32'd150;
+			lo_m <= 0; lo_s <= 0; lo_f <= 0;
+			msf_st <= 2'd1;
+		end
+		else if (msf_st == 2'd1) begin
+			if (msf_rem >= 32'd4500 && lo_m != 7'd99) begin
+				msf_rem <= msf_rem - 32'd4500; lo_m <= lo_m + 1'b1;
+			end
+			else msf_st <= 2'd2;
+		end
+		else if (msf_st == 2'd2) begin
+			if (msf_rem >= 32'd75) begin
+				msf_rem <= msf_rem - 32'd75; lo_s <= lo_s + 1'b1;
+			end
+			else begin lo_f <= msf_rem[6:0]; msf_st <= 0; end
 		end
 
 		// (the sector arriving from the platform during io_rd service
@@ -474,12 +711,12 @@ always @(posedge clk) begin
 		// ack rising = command accepted: drop the request strobes.
 		// ack falling = transfer complete: only now publish a loaded
 		// sector / release a flushed buffer (see io_busy above).
-		io_ack_d <= io_ack;
-		if (io_ack) begin
-			io_rd <= 0;
-			io_wr <= 0;
+		io_ack_d <= io_ack_i;
+		if (io_ack_i) begin
+			io_rd_i <= 0;
+			io_wr_i <= 0;
 		end
-		if (io_ack_d && !io_ack) begin
+		if (io_ack_d && !io_ack_i) begin
 			if (!flush_pending) begin
 				buf_valid <= 1;
 				sbuf_len <= 10'd512;
@@ -496,7 +733,7 @@ always @(posedge clk) begin
 			io_lba <= lba;
 			lba <= lba + 1'b1;
 			blocks_left <= blocks_left - 1'b1;
-			io_rd <= 1;
+			io_rd_i <= 1;
 		end
 
 		//---------------------------------------------------- FIFO engine
@@ -631,16 +868,26 @@ always @(posedge clk) begin
 		// bits to know when to stop feeding bytes) terminates — without
 		// this a PIO write streams forever, lba marching off the file.
 		if ((xfer_out || xfer_pio_out) && sbuf_pos == 10'd512 &&
-		    !flush_pending && !io_busy) begin
+		    dout_len == 0 && !flush_pending && !io_busy) begin
 			io_lba <= lba;
 			lba <= lba + 1'b1;
 			if (blocks_left != 0) begin
 				blocks_left <= blocks_left - 1'b1;
 				if (blocks_left == 32'd1 && !data_dir_in) phase <= PH_STAT;
 			end
-			io_wr <= 1;
+			io_wr_i <= 1;
 			flush_pending <= 1;
 			sbuf_pos <= 0;
+		end
+		// parameter-list DATA OUT (MODE SELECT, AUDIO CONTROL): the bytes
+		// land in the sector buffer and are not written anywhere; the phase
+		// ends when the CDB's parameter length has arrived.  The DMA chunk
+		// arm below ends it too (blocks_left is 0); this covers the PIO form
+		// and a TC longer than the list.
+		if ((xfer_out || xfer_pio_out) && dout_len != 0 && sbuf_pos >= dout_len) begin
+			xfer_out <= 0; xfer_pio_out <= 0; chunk_irq_armed <= 0;
+			phase <= PH_STAT;
+			raise(I_BUS);
 		end
 		// data-out chunk complete: TC expired and the FIFO drained.  A TC
 		// expiry with a part-filled sector buffer is NOT the end of the
@@ -818,7 +1065,8 @@ task exec_command(input [7:0] c);
 		// The dma bit is masked off by `op`, so $C1/$41 and $C2/$42 are the
 		// same case; only the byte counts differ.
 		7'h41, 7'h42, 7'h46: begin
-			if (dest_id == DISK_ID[3:0] && mounted) begin
+			if (sel_ok) begin
+				cur_tgt <= sel_tgt;
 				phase <= PH_CMD;
 				cdb_active <= 1;
 				cdb_pos <= 0;
@@ -864,7 +1112,8 @@ task exec_command(input [7:0] c);
 			// Sequence step 1 with MESSAGE OUT visible in STATUS is what
 			// the driver demands here — anything else and it resets the
 			// chip (section 2.3 case 1).
-			if (dest_id == DISK_ID[3:0] && mounted) begin
+			if (sel_ok) begin
+				cur_tgt <= sel_tgt;
 				if (fifo_cnt != 0) fifo_shift;     // the IDENTIFY goes out
 				phase          <= PH_MOUT;
 				seq_step       <= 3'd1;
@@ -976,70 +1225,213 @@ endtask
 // byte landed, so cdb[] is settled
 //----------------------------------------------------------------------------
 task exec_cdb;
+	reg [7:0]  alloc;                 // 6-byte CDB allocation length
+	reg [15:0] alloc16;               // 10-byte CDB allocation length
 	begin
 		scsi_status <= 8'h00;
 		buf_valid <= 0;
 		sbuf_pos <= 0;
 		blocks_left <= 0;
 		data_dir_in <= 1;
+		dout_len <= 0;
 		// deferred select interrupt: BS|FC with the command's phase visible
 		raise(I_BUS | I_FC);
+		alloc   = cdb[4];
+		alloc16 = {cdb[7], cdb[8]};
+		// the sense of the previous command clears on any command but
+		// REQUEST SENSE (SCSI-1 semantics); a CHECK below re-latches it
+		if (cdb[0] != 8'h03) begin
+			tgt_skey[cur_tgt] <= 0;
+			tgt_asc[cur_tgt]  <= 0;
+		end
 
-		case (cdb[0])
+		if (is_cd && !mounted && cd_needs_media(cdb[0]))
+			// AppleCD no-disc answer (MAME return_no_cd): NOT READY with the
+			// vendor ASC $B0.  $3A here makes Mac OS nag to format the disc.
+			check(4'h2, 8'hB0);
+		else case (cdb[0])
 		8'h00: begin                                   // TEST UNIT READY
 			phase <= PH_STAT;
 		end
 		8'h03: begin                                   // REQUEST SENSE
-			synth_kind <= SY_SENSE; synth_idx <= 0; synth_len <= 6'd18;
-			sense_r <= sense_key;
-			sense_key <= 0;
-			sbuf_len <= 10'd18;
-			phase <= PH_DIN;
+			sense_r <= {4'd0, tgt_skey[cur_tgt]};
+			asc_r   <= tgt_asc[cur_tgt];
+			tgt_skey[cur_tgt] <= 0;
+			tgt_asc[cur_tgt]  <= 0;
+			synth(SY_SENSE, is_cd ? clamp(6'd18, alloc) : 6'd18);
 		end
 		8'h12: begin                                   // INQUIRY
-			synth_kind <= SY_INQ; synth_idx <= 0; synth_len <= 6'd36;
-			sbuf_len <= 10'd36;
-			phase <= PH_DIN;
+			if (is_cd) synth(SY_CDINQ, clamp(6'd54, alloc));
+			else       synth(SY_INQ, 6'd36);
 		end
 		8'h1A: begin                                   // MODE SENSE(6)
-			synth_kind <= SY_MODE; synth_idx <= 0; synth_len <= 6'd4;
-			sbuf_len <= 10'd4;
-			phase <= PH_DIN;
+			if (is_cd) begin
+				cd_page <= cdb[2][5:0];
+				cap_r   <= {2'b00, disk_blocks[31:2]} - 32'd1;
+				synth(SY_CDMODE, clamp((cdb[2][5:0] == 6'h30) ? 6'd36 :
+				                       (cdb[2][5:0] == 6'h0E) ? 6'd28 :
+				                       (cdb[2][5:0] == 6'h2A) ? 6'd38 : 6'd12, alloc));
+			end
+			else synth(SY_MODE, 6'd4);
+		end
+		8'h15: begin                                   // MODE SELECT(6)
+			if (is_cd) param_out({4'd0, alloc});
+			else check(4'h5, 8'h20);
 		end
 		8'h25: begin                                   // READ CAPACITY(10)
-			synth_kind <= SY_CAP; synth_idx <= 0; synth_len <= 6'd8;
-			cap_r <= disk_blocks - 32'd1;
-			sbuf_len <= 10'd8;
-			phase <= PH_DIN;
+			cap_cd <= is_cd;
+			cap_r  <= is_cd ? ({2'b00, disk_blocks[31:2]} - 32'd1) : (disk_blocks - 32'd1);
+			synth(SY_CAP, 6'd8);
 		end
 		8'h08: begin                                   // READ(6)
-			lba <= {11'd0, cdb[1][4:0], cdb[2], cdb[3]};
-			blocks_left <= (cdb[4] == 0) ? 32'd256 : {24'd0, cdb[4]};
-			phase <= PH_DIN;
+			read_blocks({11'd0, cdb[1][4:0], cdb[2], cdb[3]},
+			            (cdb[4] == 0) ? 32'd256 : {24'd0, cdb[4]});
 		end
 		8'h28: begin                                   // READ(10)
-			lba <= {cdb[2], cdb[3], cdb[4], cdb[5]};
-			blocks_left <= {16'd0, cdb[7], cdb[8]};
-			phase <= PH_DIN;
+			read_blocks({cdb[2], cdb[3], cdb[4], cdb[5]}, {16'd0, cdb[7], cdb[8]});
+		end
+		8'hA8: begin                                   // READ(12)
+			if (is_cd) read_blocks({cdb[2], cdb[3], cdb[4], cdb[5]},
+			                       {cdb[6], cdb[7], cdb[8], cdb[9]});
+			else check(4'h5, 8'h20);
 		end
 		8'h0A: begin                                   // WRITE(6)
-			lba <= {11'd0, cdb[1][4:0], cdb[2], cdb[3]};
-			blocks_left <= (cdb[4] == 0) ? 32'd256 : {24'd0, cdb[4]};
-			data_dir_in <= 0;
-			phase <= PH_DOUT;
+			if (is_cd) check(4'h7, 8'h27);             // DATA PROTECT, write protected
+			else begin
+				lba <= {11'd0, cdb[1][4:0], cdb[2], cdb[3]};
+				blocks_left <= (cdb[4] == 0) ? 32'd256 : {24'd0, cdb[4]};
+				data_dir_in <= 0;
+				phase <= PH_DOUT;
+			end
 		end
 		8'h2A: begin                                   // WRITE(10)
-			lba <= {cdb[2], cdb[3], cdb[4], cdb[5]};
-			blocks_left <= {16'd0, cdb[7], cdb[8]};
-			data_dir_in <= 0;
-			phase <= PH_DOUT;
+			if (is_cd) check(4'h7, 8'h27);
+			else begin
+				lba <= {cdb[2], cdb[3], cdb[4], cdb[5]};
+				blocks_left <= {16'd0, cdb[7], cdb[8]};
+				data_dir_in <= 0;
+				phase <= PH_DOUT;
+			end
 		end
-		default: begin
-			scsi_status <= 8'h02;                      // CHECK CONDITION
-			sense_key <= 8'h05;                        // ILLEGAL REQUEST
+		8'h1B: begin                                   // START/STOP UNIT
+			// LoEj=1 Start=0 is the eject the System 7 / 8 AppleCD driver
+			// actually issues (Put Away); Apple's own $C0 does the same.
+			if (is_cd && cdb[4][1] && !cdb[4][0]) eject;
+			else phase <= PH_STAT;
+		end
+		8'hC0: begin                                   // Apple EJECT
+			if (is_cd) eject; else check(4'h5, 8'h20);
+		end
+		8'h1E: begin                                   // PREVENT/ALLOW MEDIUM REMOVAL
+			if (is_cd) cd_prevent <= cdb[4][0];
 			phase <= PH_STAT;
 		end
+		8'hBB: begin                                   // SET CD SPEED: advisory
+			if (is_cd) phase <= PH_STAT; else check(4'h5, 8'h20);
+		end
+		8'h43: begin                                   // READ TOC
+			if (!is_cd) check(4'h5, 8'h20);
+			else if (cdb[9][7:6] == 2'b10) synth(SY_TOC43F2, clamp(6'd48, alloc16));
+			else if (cdb[9][7:6] == 2'b01) synth(SY_TOC43F1, clamp(6'd12, alloc16));
+			else                            synth(SY_TOC43, clamp(6'd20, alloc16));
+		end
+		8'hC1: begin                                   // Apple READ TOC
+			if (!is_cd) check(4'h5, 8'h20);
+			else begin
+				toc_mode <= cdb[9][7] ? 2'd2 : cdb[9][6] ? 2'd1 : 2'd0;
+				synth(SY_TOCC1, cdb[9][7] ? clamp(6'd4, alloc16) : clamp(6'd4, alloc16));
+			end
+		end
+		8'hC2: begin                                   // Apple READ Q SUBCODE
+			if (is_cd) synth(SY_SUBQ, clamp(6'd9, alloc16)); else check(4'h5, 8'h20);
+		end
+		8'hCC: begin                                   // Apple AUDIO STATUS
+			if (is_cd) synth(SY_ASTAT, clamp(6'd6, alloc16)); else check(4'h5, 8'h20);
+		end
+		8'h42: begin                                   // READ SUB-CHANNEL
+			if (is_cd) synth(SY_SUBCH, clamp(6'd16, alloc16)); else check(4'h5, 8'h20);
+		end
+		8'h44: begin                                   // READ HEADER (LBA form)
+			if (!is_cd) check(4'h5, 8'h20);
+			else if (cdb[1][1]) check(4'h5, 8'h24);    // MSF form: invalid field
+			else begin
+				hdr_lba <= {cdb[2], cdb[3], cdb[4], cdb[5]};
+				synth(SY_HDR, clamp(6'd8, alloc16));
+			end
+		end
+		8'hCE: begin                                   // Apple AUDIO CONTROL: discard
+			if (is_cd) param_out({4'd0, cdb[8]}); else check(4'h5, 8'h20);
+		end
+		// audio transport, accepted as no-ops until the audio engine lands:
+		// Apple $C8-$CB/$CD, standard PLAY/PAUSE/STOP forms, REZERO/SEEK
+		8'hC8, 8'hC9, 8'hCA, 8'hCB, 8'hCD,
+		8'h45, 8'h47, 8'h48, 8'h4B, 8'h4E, 8'hA5,
+		8'h01, 8'h0B, 8'h2B: begin
+			if (is_cd) phase <= PH_STAT; else check(4'h5, 8'h20);
+		end
+		default: check(4'h5, 8'h20);                   // ILLEGAL REQUEST, opcode
 		endcase
+	end
+endtask
+
+// commands that need a disc in the drive (CD-ROM target)
+function cd_needs_media(input [7:0] op);
+	case (op)
+	8'h00, 8'h08, 8'h28, 8'hA8, 8'h25, 8'h43, 8'hC1, 8'hC2, 8'hCC, 8'hCE,
+	8'h42, 8'h44, 8'hC8, 8'hC9, 8'hCA, 8'hCB, 8'hCD, 8'h45, 8'h47, 8'h48,
+	8'h4B, 8'h4E, 8'hA5, 8'h01, 8'h0B, 8'h2B: cd_needs_media = 1'b1;
+	default: cd_needs_media = 1'b0;
+	endcase
+endfunction
+
+// the smaller of a natural response length and the CDB's allocation
+function [5:0] clamp(input [5:0] natural, input [15:0] alloc_len);
+	clamp = (alloc_len < {10'd0, natural}) ? alloc_len[5:0] : natural;
+endfunction
+
+// queue a synthesized DATA IN response (0 bytes: straight to STATUS)
+task synth(input [3:0] kind, input [5:0] len);
+	if (len == 0) phase <= PH_STAT;
+	else begin
+		synth_kind <= kind; synth_idx <= 0; synth_len <= len;
+		sbuf_len <= {4'd0, len};
+		phase <= PH_DIN;
+	end
+endtask
+
+// a parameter-list DATA OUT of n bytes, absorbed into the sector buffer
+task param_out(input [11:0] n);
+	if (n == 0) phase <= PH_STAT;
+	else begin
+		dout_len <= n;
+		data_dir_in <= 0;
+		phase <= PH_DOUT;
+	end
+endtask
+
+// CHECK CONDITION with the sense the next REQUEST SENSE will report
+task check(input [3:0] key, input [7:0] asc);
+	tgt_skey[cur_tgt] <= key;
+	tgt_asc[cur_tgt]  <= asc;
+	scsi_status <= 8'h02;
+	phase <= PH_STAT;
+endtask
+
+// a READ: CD-ROM logical blocks are 2048 bytes = four HPS blocks
+task read_blocks(input [31:0] l, input [31:0] n);
+	lba <= is_cd ? {l[29:0], 2'b00} : l;
+	blocks_left <= is_cd ? {n[29:0], 2'b00} : n;
+	phase <= PH_DIN;
+endtask
+
+// eject the disc: GOOD, media gone, the sense a later ask will see
+task eject;
+	if (cd_prevent) check(4'h5, 8'h80);
+	else begin
+		tgt_mounted[2] <= 0;
+		tgt_skey[2] <= 4'h2;
+		tgt_asc[2]  <= 8'h3A;                          // medium not present
+		phase <= PH_STAT;
 	end
 endtask
 

@@ -70,13 +70,14 @@ module iosb
 	output signed [15:0] audio_r,
 
 	// SCSI disk on the MiSTer block-device interface
-	input         img_mounted,
+	// three SCSI targets (ID 0/1 disks, ID 3 CD-ROM): see rtl/ncr53c96.sv
+	input   [2:0] img_mounted,
 	input  [63:0] img_size,
 	output [31:0] io_lba,
-	output        io_rd,
-	output        io_wr,
-	input         io_ack,
-	input   [7:0] sd_buff_addr,
+	output  [2:0] io_rd,
+	output  [2:0] io_wr,
+	input   [2:0] io_ack,
+	input  [12:0] sd_buff_addr,
 	input  [15:0] sd_buff_dout,
 	output [15:0] sd_buff_din,
 	input         sd_buff_wr,
@@ -523,7 +524,7 @@ initial iosb_dbg_cyc = 0;
 always @(posedge clk) if (ce) iosb_dbg_cyc <= iosb_dbg_cyc + 64'd1;
 `endif
 
-ncr53c96 #(.DISK_ID(0)) scsi (
+ncr53c96 scsi (
 	.clk(clk),
 	.nreset(nreset),
 	.ce(ce),
@@ -1213,7 +1214,7 @@ always @(posedge clk) begin
 		// = vector 2 = bus error, and it moved around between boots exactly as a
 		// latency-dependent fault would. Only idle waiting counts toward the
 		// timeout, which is the condition the escape was actually written for.
-		else if (!io_rd && !io_wr) sdma_watch <= sdma_watch + 1'b1;
+		else if (io_rd == 3'b000 && io_wr == 3'b000) sdma_watch <= sdma_watch + 1'b1;
 		default: astate <= A_IDLE;
 		endcase
 	end

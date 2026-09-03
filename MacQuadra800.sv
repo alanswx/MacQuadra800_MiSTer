@@ -72,7 +72,12 @@ localparam CONF_STR = {
 	// be picked from the OSD by hand each time and the deploy's slot-0 seed was
 	// inert. Every sibling Mac core (MacLC, MacLCII, MacIIvi, MacPlus,
 	// LBMacTwo) uses SC0 for this reason.
-	"SC0,HDAVHD,Mount SCSI disk;",
+	"SC0,HDAVHD,Mount SCSI disk 0;",
+	"SC1,HDAVHD,Mount SCSI disk 1;",
+	// slot 4 is the CD-ROM (SCSI ID 3).  CUE/BIN/CHD need the Main fork's
+	// Mac CD layer (support/mac/mac_cdrom.cpp), which serves them as a flat
+	// 2048-byte-sector disc plus a TOC blob; ISO/TOAST work on a stock Main.
+	"SC4,ISOTO*CUEBINCHD,Mount CD-ROM;",
 	"-;",
 	"O[4:3],RAM (on reset),32MB,64MB,128MB;",
 	"O[122:121],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
@@ -117,19 +122,39 @@ wire [26:0] ioctl_addr;
 wire [15:0] ioctl_dout;
 reg         ioctl_wait;
 
-wire [31:0] sd_lba[1];
-wire  [0:0] sd_rd, sd_wr;
-wire  [0:0] sd_ack;
+// hps_io virtual drives.  The slot numbers follow the Main fork's Mac SCSI
+// family layout (support/mac/mac.cpp) so its Toolbox / CD handlers apply:
+//   0 SCSI disk 0   1 SCSI disk 1   2 (unused; PRAM in MacLC)
+//   3 BlueSCSI Toolbox control   4 CD-ROM image   5 CD changer control
+localparam VDNUM      = 6;
+localparam VD_DISK0   = 0, VD_DISK1 = 1, VD_TOOLBOX = 3, VD_CDROM = 4, VD_CDTB = 5;
+wire [31:0] sd_lba[VDNUM];
+wire  [VDNUM-1:0] sd_rd, sd_wr;
+wire  [VDNUM-1:0] sd_ack;
 wire [12:0] sd_buff_addr;
 wire [15:0] sd_buff_dout;
-wire [15:0] sd_buff_din[1];
+wire [15:0] sd_buff_din[VDNUM];
 wire        sd_buff_wr;
 wire [32:0] TIMESTAMP;                     // Unix seconds from the HPS, for the RTC
-wire  [0:0] img_mounted;
+wire  [VDNUM-1:0] img_mounted;
 wire        img_readonly;
 wire [63:0] img_size;
 
-hps_io #(.CONF_STR(CONF_STR), .WIDE(1), .VDNUM(1), .BLKSZ(2)) hps_io
+// ncr53c96's three targets map onto slots 0, 1 and 4
+wire [31:0] scsi_lba;
+wire  [2:0] scsi_rd, scsi_wr;
+wire [15:0] scsi_buff_din;
+assign sd_lba[VD_DISK0] = scsi_lba;  assign sd_lba[VD_DISK1] = scsi_lba;  assign sd_lba[VD_CDROM] = scsi_lba;
+assign sd_rd = {scsi_rd[2], 1'b0, 1'b0, 1'b0, scsi_rd[1], scsi_rd[0]};
+assign sd_wr = {1'b0, 1'b0, 1'b0, 1'b0, scsi_wr[1], scsi_wr[0]};   // the CD is read-only
+assign sd_buff_din[VD_DISK0] = scsi_buff_din;
+assign sd_buff_din[VD_DISK1] = scsi_buff_din;
+assign sd_buff_din[VD_CDROM] = scsi_buff_din;
+assign sd_lba[2] = 0; assign sd_lba[VD_TOOLBOX] = 0; assign sd_lba[VD_CDTB] = 0;
+assign sd_buff_din[2] = 0; assign sd_buff_din[VD_TOOLBOX] = 0; assign sd_buff_din[VD_CDTB] = 0;
+wire  [2:0] scsi_ack = {sd_ack[VD_CDROM], sd_ack[VD_DISK1], sd_ack[VD_DISK0]};
+
+hps_io #(.CONF_STR(CONF_STR), .WIDE(1), .VDNUM(VDNUM), .BLKSZ(2)) hps_io
 (
 	.clk_sys(clk_sys),
 	.HPS_BUS(HPS_BUS),
@@ -161,7 +186,7 @@ hps_io #(.CONF_STR(CONF_STR), .WIDE(1), .VDNUM(1), .BLKSZ(2)) hps_io
 	.ioctl_wait(ioctl_wait),
 
 	.sd_lba(sd_lba),
-	.sd_blk_cnt('{6'd0}),
+	.sd_blk_cnt('{6'd0, 6'd0, 6'd0, 6'd0, 6'd0, 6'd0}),
 	.sd_rd(sd_rd),
 	.sd_wr(sd_wr),
 	.sd_ack(sd_ack),
@@ -250,26 +275,40 @@ wire reset = RESET | status[0] | buttons[1] | ioctl_download |
 // So the mount is remembered here, outside the machine reset, and replayed on
 // each reset release as well as when it first arrives. Size is captured a cycle
 // ahead of the pulse so it is stable when the target samples it.
-reg        mount_valid  = 0;      // an image is mounted (survives machine reset)
-reg [63:0] mount_size   = 0;
-reg        mount_replay = 0;
+// Three targets, one memory each.  A Main pulse for slot 0/1/4 records the
+// size and schedules a replay; a reset release schedules a replay of every
+// remembered slot.  Replays go out one target per clock pair so the machine
+// sees a single pulse with its own size each time.
+reg  [2:0] mount_valid  = 0;      // an image is mounted (survives machine reset)
+reg [63:0] mount_size [0:2];
+reg  [2:0] mount_replay = 0;
 reg        reset_d      = 1;
-reg        mach_img_mounted = 0;
+reg  [2:0] mach_img_mounted = 0;
+reg [63:0] mach_img_size = 0;
+wire [2:0] main_mount = {img_mounted[VD_CDROM], img_mounted[VD_DISK1], img_mounted[VD_DISK0]};
+integer mi;
 always @(posedge clk_sys) begin
 	mach_img_mounted <= 0;
 	reset_d          <= reset;
 
-	if (img_mounted[0]) begin
-		mount_size   <= img_size;
-		mount_valid  <= (img_size != 0);   // size 0 = eject, replay that too
-		mount_replay <= 1;
-	end
-	else if (reset_d && !reset && mount_valid) begin
-		mount_replay <= 1;                 // reset just released: re-announce
-	end
-	else if (mount_replay && !reset) begin
-		mount_replay     <= 0;
-		mach_img_mounted <= 1;
+	for (mi = 0; mi < 3; mi = mi + 1)
+		if (main_mount[mi]) begin
+			mount_size[mi]   <= img_size;
+			mount_valid[mi]  <= (img_size != 0);   // size 0 = eject, replay that too
+			mount_replay[mi] <= 1;
+		end
+	if (reset_d && !reset) mount_replay <= mount_replay | mount_valid;   // reset just released
+
+	if (!reset && mach_img_mounted == 3'b000) begin
+		if (mount_replay[0]) begin
+			mount_replay[0] <= 0; mach_img_size <= mount_size[0]; mach_img_mounted <= 3'b001;
+		end
+		else if (mount_replay[1]) begin
+			mount_replay[1] <= 0; mach_img_size <= mount_size[1]; mach_img_mounted <= 3'b010;
+		end
+		else if (mount_replay[2]) begin
+			mount_replay[2] <= 0; mach_img_size <= mount_size[2]; mach_img_mounted <= 3'b100;
+		end
 	end
 end
 
@@ -369,14 +408,14 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS)) machine (
 	.scc_txd_b(serialOutB),
 
 	.img_mounted(mach_img_mounted),
-	.img_size(mount_size),
-	.io_lba(sd_lba[0]),
-	.io_rd(sd_rd[0]),
-	.io_wr(sd_wr[0]),
-	.io_ack(sd_ack[0]),
-	.sd_buff_addr(sd_buff_addr[7:0]),
+	.img_size(mach_img_size),
+	.io_lba(scsi_lba),
+	.io_rd(scsi_rd),
+	.io_wr(scsi_wr),
+	.io_ack(scsi_ack),
+	.sd_buff_addr(sd_buff_addr),
 	.sd_buff_dout(sd_buff_dout),
-	.sd_buff_din(sd_buff_din[0]),
+	.sd_buff_din(scsi_buff_din),
 	.sd_buff_wr(sd_buff_wr),
 
 	.dbg_berr(),
@@ -526,8 +565,8 @@ assign AUDIO_L = (audio_mix_l > 18'sd32767)  ?  16'sd32767 :
 assign AUDIO_R = (audio_mix_r > 18'sd32767)  ?  16'sd32767 :
                  (audio_mix_r < -18'sd32768) ? -16'sd32768 : audio_mix_r[15:0];
 
-assign LED_USER = ioctl_download | sd_rd[0] | sd_wr[0];
-assign LED_DISK = {1'b1, sd_rd[0] | sd_wr[0]};
+assign LED_USER = ioctl_download | (|sd_rd) | (|sd_wr);
+assign LED_DISK = {1'b1, (|sd_rd) | (|sd_wr)};
 
 //////////////////////////////////////////////////////////////////
 // SDRAM — the machine's RAM.  ROM stays in DDR3 (it is uploaded once
