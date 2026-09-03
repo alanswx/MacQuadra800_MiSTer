@@ -116,6 +116,10 @@ permission settings; the user adds rules.
   was presumably a HD boot; a real ROM CD boot had never passed.
   QEMU also rejects the driver's 8-byte MODE SELECT (ILLEGAL REQUEST) and
   the driver copes; we answer GOOD and ignore it, which is fine.
+- **Hardware 09:07, tracer build `fffa1536` (= `1dd496a8` + CDROM gate +
+  eject fix + SCSI_TRACE; timing met +0.245 ns this time):** with no hard
+  disk mounted the ROM boots the retail 8.1 disc to the CD's Finder.
+  First ROM CD boot ever on this core.
 - **`work/all`** = `work/cd512` + the CPU bump (`fbf2706`), i.e. everything.
   Full build launched 06:42 in the worktree (`scratch/build_all.log`).
   Candidate for main once both OSes pass on it.
