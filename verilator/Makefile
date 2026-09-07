@@ -55,6 +55,7 @@ V_SRC = \
 	$(RTL)/easc.sv \
 	$(RTL)/ncr53c96.sv \
 	$(RTL)/cd_audio.sv \
+	$(RTL)/scsi_cache.sv \
 	$(RTL)/adb.sv \
 	$(RTL)/scc.v \
 	$(RTL)/uart/txuart.v \

@@ -89,7 +89,7 @@ module scsi_cache
 );
 
 localparam integer NSECT = SECT0 + SECT1 + SECT2;
-localparam integer AW    = 16;                       // NSECT*256 <= 65536 words
+localparam integer AW    = $clog2(NSECT*256);        // NSECT*256 <= 65536 words
 
 // slot geometry
 function [7:0] slot_base(input [1:0] s);
@@ -120,7 +120,8 @@ wire [15:0]   q_a,    q_b;
 // the store behaves like the real ncr_sbuf (a single read register).  During
 // a fetch the platform's incoming word is written; during a flush the word is
 // read out; passthrough does not touch the store.
-wire [AW-1:0] addr_b = {c_sect, p_buff_addr[7:0]};
+wire [15:0]   addr_b_full = {c_sect, p_buff_addr[7:0]};
+wire [AW-1:0] addr_b = addr_b_full[AW-1:0];
 wire [15:0]   din_b  = p_buff_dout;
 wire          we_b   = (cst == C_XFER) && !c_pt && !c_is_wr && p_buff_wr;
 

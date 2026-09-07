@@ -150,9 +150,51 @@ reg         walker_berr;
 reg         cpu_berr;
 wire  [2:0] ipl_n;
 
-// any block transfer in flight between the machine and the HPS: a request
-// strobe up, or an ack still streaming.  Holds the CPU's stall watchdog.
-wire hps_busy = (|io_rd) | (|io_wr) | (|io_ack);
+// SCSI block port.  The engine (ncr53c96, inside iosb) talks to the block
+// cache; the cache talks to hps_io through this module's io_* / sd_buff_*
+// ports.  Reads hit in block RAM and are prefetched behind, writes are
+// acked from RAM and flushed in the background, so the engine never has a
+// write flush outstanding across a target switch (rtl/scsi_cache.sv).
+wire [31:0] e_io_lba;
+wire  [2:0] e_io_rd, e_io_wr, e_io_ack;
+wire [12:0] e_sd_buff_addr;
+wire [15:0] e_sd_buff_dout, e_sd_buff_din;
+wire        e_sd_buff_wr;
+wire [15:0] cache_hits, cache_misses;
+
+scsi_cache #(.SECT0(64), .SECT1(48), .SECT2(16), .PF_DEPTH(8)) scsi_cache (
+	.clk(clk),
+	.nreset(nreset),
+
+	.e_lba(e_io_lba),
+	.e_rd(e_io_rd),
+	.e_wr(e_io_wr),
+	.e_ack(e_io_ack),
+	.e_buff_addr(e_sd_buff_addr),
+	.e_buff_dout(e_sd_buff_dout),
+	.e_buff_din(e_sd_buff_din),
+	.e_buff_wr(e_sd_buff_wr),
+
+	.p_lba(io_lba),
+	.p_rd(io_rd),
+	.p_wr(io_wr),
+	.p_ack(io_ack),
+	.p_buff_addr(sd_buff_addr),
+	.p_buff_dout(sd_buff_dout),
+	.p_buff_din(sd_buff_din),
+	.p_buff_wr(sd_buff_wr),
+
+	.img_mounted(img_mounted),
+	.img_size(img_size),
+
+	.stat_hits(cache_hits),
+	.stat_misses(cache_misses)
+);
+
+// any block transfer in flight between the machine and the HPS -- on either
+// side of the cache: a request strobe up, or an ack still streaming.  Holds
+// the CPU's stall watchdog.
+wire hps_busy = (|e_io_rd) | (|e_io_wr) | (|e_io_ack) | (|io_rd) | (|io_wr) | (|io_ack);
 wire cpu_stall_flt;
 wombat_cpu cpu (
 	.clk(clk),
@@ -284,14 +326,14 @@ iosb #(.CDROM(CDROM)) iosb (
 
 	.img_mounted(img_mounted),
 	.img_size(img_size),
-	.io_lba(io_lba),
-	.io_rd(io_rd),
-	.io_wr(io_wr),
-	.io_ack(io_ack),
-	.sd_buff_addr(sd_buff_addr),
-	.sd_buff_dout(sd_buff_dout),
-	.sd_buff_din(sd_buff_din),
-	.sd_buff_wr(sd_buff_wr),
+	.io_lba(e_io_lba),
+	.io_rd(e_io_rd),
+	.io_wr(e_io_wr),
+	.io_ack(e_io_ack),
+	.sd_buff_addr(e_sd_buff_addr),
+	.sd_buff_dout(e_sd_buff_dout),
+	.sd_buff_din(e_sd_buff_din),
+	.sd_buff_wr(e_sd_buff_wr),
 
 	.ps2_key(ps2_key),
 	.ps2_mouse(ps2_mouse),
