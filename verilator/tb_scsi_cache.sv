@@ -345,6 +345,19 @@ initial begin
 	$display("   fails after T7: %0d", fails);
 	settle;
 
+	$display("-- T8 the installer's pattern: a long sequential write burst on slot 1 crossing the window, then CD reads at once, slow device");
+	dev_lat = 1200;
+	for (k = 0; k < 100; k = k + 1) begin
+		ewrite(1, 10 + k, (k + 3) & 8'h7F);
+		for (n = 0; n < 512; n = n + 1) mir[1*128*512 + ((10 + k) % 128)*512 + n] = (n*3 + ((k + 3) & 8'h7F)) & 8'hFF;
+	end
+	// the CD is selected while slot 1 is still flushing behind the engine
+	for (k = 0; k < 8; k = k + 1) mread(2, 40 + k);
+	mread(1, 60); mread(1, 109);                     // and reads of the burst hit the right data
+	settle;
+	for (k = 0; k < 100; k = k + 1) dcheck(1, 10 + k, (k + 3) & 8'h7F);
+	$display("   fails after T8: %0d", fails);
+
 	$display("== tb_scsi_cache: %0d checks, %0d failures (device reads %0d, writes %0d) ==", checks, fails, dev_reads, dev_writes);
 	if (fails != 0) $display("RESULT: FAIL"); else $display("RESULT: PASS");
 	$finish;

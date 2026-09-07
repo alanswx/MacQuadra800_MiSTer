@@ -93,8 +93,10 @@ full and in order; T3 read-after-write before and after the flush; T4
 re-base with dirty data; T5 per-slot windows and CD passthrough; T6 mount
 invalidation vs. same-size replay; T6b the CD's 16-sector window under
 re-bases; T7 200 random reads/writes across all slots with random device
-latency, checked against a mirror and then a full device sweep.
-183,822 checks, 0 failures.
+latency, checked against a mirror and then a full device sweep; T8 the
+installer's own pattern -- a 100-sector sequential write burst on slot 1
+that crosses the window, then CD reads issued while the burst is still
+flushing, on a slow device. 237,583 checks, 0 failures.
 
 The full-machine sim covers the wiring: `verilator/sim.v` instantiates
 `quadra800`, so a `sim_wsl.sh run --cd cd.iso` boot exercises engine,
