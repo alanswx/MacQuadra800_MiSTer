@@ -307,7 +307,13 @@ initial begin
 
 	$display("   fails so far: %0d", fails);
 	$display("-- T6b CD (slot 2, 16-sector window): sequential reads, then reads that force re-base");
+	m0 = stat_misses;
 	for (k = 0; k < 40; k = k + 1) begin mread(2, k % 32); repeat (200) @(negedge clk); end
+	// the CD slot prefetches too: 40 sequential reads must not all miss
+	// (a 2-bit "mounted" vector once made slot 2 look unmounted -- Verilator
+	// read the out-of-range bit as 0, Quartus refused it)
+	$display("   T6b CD misses over 40 sequential reads: %0d", stat_misses - m0);
+	chk("T6b CD prefetch keeps ahead (misses < 8)", (stat_misses - m0) < 8 ? 1 : 0, 1);
 	// jump around to force re-bases of the small window
 	mread(2, 30); mread(2, 2); mread(2, 20); mread(2, 5); mread(2, 31); mread(2, 0);
 	$display("   fails after T6b: %0d", fails);

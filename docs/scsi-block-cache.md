@@ -40,8 +40,10 @@ Platform-side transactions are serialized, in this priority:
 
 1. **demand** -- an engine miss, or an uncacheable request;
 2. **dirty flushes** -- in LBA order within the slot, then the next slot;
-3. **prefetch** -- up to `PF_DEPTH` (8) sectors beyond the last demand read,
-   only while the channel is otherwise idle.
+3. **prefetch** -- up to `PF_DEPTH` (8) sectors beyond the last read, only
+   while the channel is otherwise idle. Every read (hit or miss) re-arms it
+   just behind itself; it skips over sectors already present and stops at
+   the window edge, so a sequential stream stays 8 sectors ahead.
 
 The CD-ROM's TOC blob and CD-DA frame windows (LBA >= 0x40000000, served
 by the Main fork with its own block sizes and 13-bit buffer addresses)

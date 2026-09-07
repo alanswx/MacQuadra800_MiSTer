@@ -107,7 +107,7 @@ reg        win_ok   [0:2];
 reg [63:0] valid    [0:2];
 reg [63:0] dirty    [0:2];
 reg [63:0] size_r   [0:2];                          // image size the slot was mounted with
-reg  [1:0] mounted;                                  // slot has an image (size != 0)
+reg  [2:0] mounted;                                  // slot has an image (size != 0)
 
 //----------------------------------------------------------------------------
 // the sector store
@@ -311,7 +311,17 @@ always @(posedge clk) begin
 			pf_left <= pf_left - 1'b1;
 			cst <= C_REQ;
 		end
-		else if (pf_left != 0) pf_left <= 0;         // window edge or already valid: stop
+		else if (pf_left != 0) begin
+			// a hit re-arms the prefetcher just behind itself, so the next
+			// sector is usually valid already: skip forward through what is
+			// there and stop only at the window edge (or an unmounted slot)
+			if (win_ok[pf_slot] && mounted[pf_slot] &&
+			    ({2'd0, pf_next} < {2'd0, slot_size(pf_slot)}) && valid[pf_slot][pf_next]) begin
+				pf_next <= pf_next + 1'b1;
+				pf_left <= pf_left - 1'b1;
+			end
+			else pf_left <= 0;
+		end
 	end
 	C_REQ: begin
 		if (p_ack[c_slot]) begin
