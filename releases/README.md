@@ -12,6 +12,7 @@ must never be flashed (`scripts/deploy_screenshot.sh` refuses one).
 
 | build | md5 | timing | notes |
 |---|---|---|---|
+| `MacQuadra800_20260907.rbf` | `03f83c62d92d997e5cdf89efbb99c42f` | met, **+0.250 ns setup** (clk_ram +0.721, clk_sys +0.850) | **Mac OS 8.1 installs from the retail CD end to end; SCSI block cache.** Fixes the installer deadlock (a write flush's ack followed cur_tgt across a target switch), adds a per-target read-ahead / write-behind block cache in front of hps_io (32/24/8 KB), ROM CD boot, 512-byte CD block mode, CD audio in the mix, Drive Setup's MODE SENSE page, the 12" 512x384 monitor option. Verified on hardware against BOTH Mac OS 8.1 and A/UX 3.1. Tracer off; seed 19; 91 % ALMs, 502 RAM blocks. |
 | `MacQuadra800_20260902.rbf` | `91cf5d727920e387c5cefdf18dc695f4` | met, **+0.420 ns setup / +0.195 ns hold** | **First MacQuadra800 release; Alan Steremberg's CPU/SDRAM speed-ups merged.** BL8 open-page SDRAM, related-clock handoff, retained 16-byte line into the AP040 cache, two-entry store buffer, store-hit cache update. Speedometer 3.23 CPU PR 2.66 → 3.88 on Alan's runs. Verified on hardware against BOTH A/UX 3.1 and Mac OS 8.1. Seed 19; 85 % ALMs. |
 | `wombat33_20260902.rbf` | `70716e92871448d1ff81ebb430902f4a` | met, **+0.130 ns** | **A/UX 3.1 boots to multiuser.** Both NCR53C96 SCSI bugs fixed (control-path phase flip + write-path chunk-flush). First build verified on hardware against BOTH A/UX 3.1 and Mac OS 8.1. Tracer off; seed 13; 85 % ALMs. |
 | `wombat33_20260901_2.rbf` | `d1d785de28439d132333a1c9e3aab5c5` | met, **+0.270 ns setup / +0.241 ns hold** | Related-clock SDRAM handoff: 151 ns reads, 22.0 MB/s simulated sequential RAM, Speedometer 3.23 CPU PR 2.917. |
@@ -19,6 +20,60 @@ must never be flashed (`scripts/deploy_screenshot.sh` refuses one).
 | `wombat33_20260831_1.rbf` | `3901ef5705f58dba3279c0417412f5f8` | met, +0.243 ns | **Sound works.** Fixes the watch-cursor wedge (ASC FIFOSTAT reported an empty FIFO as full) and hooks up the $806 volume slider. |
 | `wombat33_20260830.rbf` | `64c79dfb93ceefb549200c78671cdc31` | met, +0.248 ns | **ADB actually works** — the mouse button reaches the guest and motion stops inventing input. |
 | `wombat33_20260829.rbf` | `4c46a65c3a48b44ddb6f4fd6808d0422` | met, +0.245 ns | First build that boots Mac OS unattended. |
+
+## `MacQuadra800_20260907.rbf`
+
+md5 `03f83c62d92d997e5cdf89efbb99c42f`, seed 19, timing met at **+0.250 ns**
+overall (HDMI PLL domain; the 33 MHz `clk_sys` domain closes at +0.850 ns and
+the 99 MHz SDRAM domain at +0.721 ns; hold positive everywhere). 37,939 ALMs
+(91 %), 502 of 553 RAM blocks. Fitter/STA summaries next to it as
+`MacQuadra800_20260907.{fit,sta}.summary` (gitignored, local only). Built from
+`c805300` on `main`; the serial SCSI tracer is compiled out.
+
+**The retail Mac OS 8.1 CD installs end to end on the hardware** (install #9,
+2026-09-07: base system plus every optional package, 177 MB written,
+"The installation process has finished"), which is what the whole CD-ROM
+line of work was for. What changed since `20260902`:
+
+- `rtl/ncr53c96.sv` -- the installer deadlock (`f349e9e`): the engine reports a
+  write's GOOD status when its last block *starts* flushing; when the ROM then
+  selected the CD, `cur_tgt` switched and the flush's ack was lost, wedging
+  `io_busy`. An outstanding flush now follows its own target (`flush_tgt`).
+  Also: the disks accept MODE SELECT / VERIFY / SYNCHRONIZE CACHE / FORMAT
+  UNIT / REASSIGN BLOCKS / SEND DIAGNOSTIC, answer MODE SENSE page $30 with
+  Apple's firmware-ID page (Drive Setup), the CD-ROM honours a MODE SELECT
+  block length of 512, and a CD eject lasts only until the next bus reset, so
+  the ROM's two-pass CD boot finds the disc again.
+- `rtl/scsi_cache.sv` (new, `docs/scsi-block-cache.md`) -- a per-target
+  read-ahead / write-behind block cache between the engine and `hps_io`:
+  64/48/16 sectors (32 KB disk 0, 24 KB disk 1, 8 KB CD) in one 64 KB
+  altsyncram. Reads hit in RAM and prefetch eight sectors ahead; writes ack
+  from RAM in ~25 us and flush in the background, so no platform transfer is
+  ever outstanding across a target switch. Install write bursts peak at
+  11.7 MB/min versus ~9 without it. Bench `tb_scsi_cache` T1-T8, 237,584
+  checks; `tb_ncr53c96` 475,299 checks.
+- `MacQuadra800.sv` -- the CD-ROM's audio is mixed into the speakers; the
+  CD strobe is on slot 4 (it was on the CD-changer slot 5, which is why the
+  first CD builds hung with a disc mounted).
+- `rtl/dafb.sv` / video -- the 12" RGB 512x384 monitor as an OSD option
+  (`docs/video-modes.md`).
+- `rtl/wombat_cpu.sv` -- the core stall watchdog is held while an HPS block
+  transfer is outstanding and widened to 0.5 s, so an SD-card pause under a
+  pseudo-DMA beat is not a bus error.
+- Build switches in the qsf: `SCSI_TRACE=1` (debug tracer on the modem port,
+  never in a release) and `CDROM_OFF=1` (drops the CD target and its audio
+  engine, about 3,000 ALMs, for CPU-area experiments).
+
+Hardware (2026-09-07, `scratch/gate_03f83c62/`): Mac OS 8.1 (QuadSquad8)
+Finder at 150 s, clock ticking 5:47 -> 5:52 over the idle watch, mouse and
+keyboard live, Special -> Shut Down to "safe to switch off" in 25 s. A/UX 3.1
+multiuser desktop at ~4.5 min, `uname -a` = `A/UX localhos 3.1 SUR2
+mc68040`, `shutdown -h now` to "You may now switch off" in 2 min 10 s.
+
+Known and not in this build: Alan Steremberg's next AP68040 step
+(`5aa596f`, about 2x CPU) is on `main` but does not fit alongside the CD
+path (4221 LABs needed of 4191 even with aggressive-area synthesis); it ships
+as a `CDROM_OFF` measurement build for now.
 
 ## `MacQuadra800_20260902.rbf`
 
