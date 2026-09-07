@@ -66,9 +66,17 @@ session's transcript and summarised in memory `opus-operator-for-mister`.
   67627ec) = work/cache + AP68040 5aa596f (Alan's Sep 3 dispatch/decode
   work; the user reports ~2x CPU, "close to a Quadra 605"). The user says
   Alan runs the CPU self-tests himself -- no self-tests, no gate sim:
-  build and put it on the hardware. Build launched 17:10
-  (`../MacQuadra800_wt/scratch/build_cpu.log`), tracer off. Area risk:
-  the cache fit is at 91 %.
+  build and put it on the hardware. **First build (17:10-17:29) did NOT
+  fit**: 42,251 ALMs needed / 41,910 (4264 LABs vs 4191). Map-report
+  logic cells: `wombat_cpu` 31,667 -> **38,138 LC (+6,471, +20 %)** for
+  Alan's 5aa596f; `scsi_cache` is 1,774 LC. Second attempt queued 17:33
+  with area-directed packing in the qsf (QII_AUTO_PACKED_REGISTERS
+  "MINIMIZE AREA", ALM_REGISTER_PACKING_EFFORT HIGH,
+  PHYSICAL_SYNTHESIS_REGISTER_DUPLICATION OFF; uncommitted, in
+  `../MacQuadra800_wt`, log `scratch/build_cpu_area.log`). If that fails
+  too the levers are OPTIMIZATION_TECHNIQUE BALANCED/AREA (timing risk),
+  trimming the cache tags, or CDROM_OFF=1 for a CPU-only measurement
+  build (not a release: the user wants the CD).
 - User's next topic after this: SCSI throughput ("our disks are REALLY
   slow") -- measure with and without the cache once it lands.
 - Next: deploy it (after a clean guest shutdown) and run install #9 with
