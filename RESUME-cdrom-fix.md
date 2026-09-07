@@ -56,10 +56,42 @@ transcript and summarised in memory `opus-operator-for-mister`.
   build before any release. `work/cd512`'s qsf has `SCSI_TRACE=1`
   committed ON; comment it out for release builds.
 
-## Outcome
+## Outcome of install #8 (build 05ca079a, old image): ERROR, not a hang
 
-(in flight when this section was written -- updated below if the session
-got that far)
+Operator report (`scratch/install8/`, trace `scratch/install8_trace.txt`):
+the install ran 15:24-15:57, cleared "Preparing to install", copied at up
+to ~9 MB/min, and at ~83 % of the item bar ("Reading font: Helvetica" was
+the last status) showed **"An error occurred while trying to complete the
+installation. The installation has been stopped."** with a single OK.
+wchar 56.0 MB. The trace has **no CHECK CONDITION at all** (118 disk + 159
+CD statuses, all GOOD), no watchdog, no bus faults beyond the boot-time
+slot probes; the last bus activity is CD READ, disk READ, disk WRITE(10),
+then silence. After the dialog the disk still took ~48 KB of writes, so
+the SCSI path was not wedged: the installer failed at the software level.
+
+Post-mortem of the target (`scratch/install8_result.hda`, pulled while the
+guest sat idle at the dialog; `scratch/hfs_installer_log.py` parses the
+Apple partition map + HFS with machfs): no "Installer Log File"; the
+Installer cleaned up -- `System Folder/ Installer Temp` is empty, free
+space is back to 465 MB, catalog IDs advanced 322 -> 542 (about 220
+files created and deleted). The volume is the same dubious lineage every
+"error occurred" run (#3, #4, #8) used: its MDB "unmounted cleanly" bit
+is CLEAR and the alternate MDB is stale (free 63742 vs 59637), i.e. it
+never had a clean unmount since the yanked installs. NB: machfs reports
+the volume name as "Untitled"; the MDB says "MacOS8-MiSTer".
+
+Two experiments launched to split image-vs-RTL:
+- **QEMU golden install** (Opus subagent, WSL): q800 + our ROM + the same
+  ISO (id 3) + a copy of `fresh_now.hda` as scsi-hd id 1,
+  `--trace scsi_req_parsed`. If QEMU installs, the RTL corrupts or
+  mishandles something silently; if it fails the same way, the image/ISO.
+- **Install #9 on hardware**: a genuinely pristine target
+  (`scratch/pristine_500.hda`, md5 149fb642…, made by
+  `scratch/make_pristine_hda.py`: the old image's driver descriptor,
+  partition map and Apple_Driver43 partition + an empty machfs-formatted
+  500 MB HFS volume named MacOS8-MiSTer) on the **cache build 61c31c4f**.
+  If it succeeds both the lineage theory and the cache are confirmed in
+  one run; if it fails, run #10 = pristine image on 05ca079a to separate.
 
 ---
 
