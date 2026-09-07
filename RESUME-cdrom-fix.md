@@ -31,6 +31,13 @@ transcript and summarised in memory `opus-operator-for-mister`.
   ahead (a hit re-armed it onto an already-valid sector, which stopped
   it) -- now it skips forward (65c75eb). tb_scsi_cache T1-T8: 237,584
   checks, 0 failures (T8 = the installer's write burst then CD reads).
+- The "1-byte-short residual" on T16p was the bench: its read loop waited
+  for DRQ before every single byte, and data-in DRQ needs two bytes in
+  the FIFO (the last odd byte is left for the processor -- the ROM's
+  16-bit PDMA pacing). Reading pairs per DRQ like T9 gives 2048/2048
+  (work/cache 1d8821d, tb_ncr53c96 475,299 checks, 0 failures). The
+  engine has no cross-target byte bug; the cache was never needed to
+  hide one.
 - Wired in `rtl/quadra800.sv` between iosb and the module ports
   (8db486c): 64/48/16 sectors = 64 M10Ks (fit before the cache: 430/553
   RAM blocks). `hps_busy` covers both sides.
