@@ -44,10 +44,13 @@ transcript and summarised in memory `opus-operator-for-mister`.
 - Full-machine Verilator boot was started twice and abandoned: the user
   asked to skip the slow sim and go to hardware. The Vemu build with the
   cache does compile (Verilator lint clean).
-- Quartus full build of work/cache (65c75eb, tracer ON, seed 19) launched
-  15:32 in `../MacQuadra800_wt2` (`scratch/build_cache3.log`). Check the
-  RAM Summary for `scsi_cache` (must be M10K, not registers), timing, and
-  that `open_row` stayed logic (`docs/sdram-open-row-crossing.md`).
+- **Built:** work/cache 65c75eb (+ bench-only 1d8821d), tracer ON, seed 19:
+  `scratch/MacQuadra800_cache_61c31c4f.rbf`, md5 `61c31c4f0bdf96a1…`,
+  22-minute compile. Timing MET, worst +0.277 ns (HDMI PLL), clk_ram
+  +0.745, clk_sys +0.917, hold all positive. 39,803 ALMs (95 %; the cache
+  is 1,108 of them, +1,093 vs the 05ca079a tracer build at 92 %), RAM
+  503/553 (+64 = the store, inferred as one altsyncram of 524,288 bits).
+  No `open_row` RAM in the map report. NOT yet deployed.
 - Next: deploy it (after a clean guest shutdown) and run install #9 with
   the tracer, same procedure; then both-OS regression on a tracer-OFF
   build before any release. `work/cd512`'s qsf has `SCSI_TRACE=1`
