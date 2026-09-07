@@ -60,8 +60,17 @@ session's transcript and summarised in memory `opus-operator-for-mister`.
   `scratch/MacQuadra800_cacherc_03f83c62.rbf`, md5 `03f83c62d92d997e…`,
   built 17:10: 37,939 ALMs (91 %), RAM 502/553, timing met, worst
   +0.250 ns (HDMI PLL), clk_ram +0.721, clk_sys +0.850, open_row
-  uninferred. This is the build for the two-OS regression gate once
-  install #9 passes.
+  uninferred. **Two-OS gate PASSED 18:42-19:23** (`scratch/gate_03f83c62/`):
+  Mac OS 8.1 desktop at 150 s (not visibly faster to boot), clock 5:47 ->
+  5:52 over the idle watch, mouse + keyboard OK, Shut Down in 25 s; A/UX
+  3.1 multiuser desktop at ~4.5 min (no fsck, clean previous halt),
+  `uname -a` = A/UX localhos 3.1 SUR2 mc68040, `shutdown -h now` to "You
+  may now switch off" in 2 min 10 s. **Released as
+  `releases/MacQuadra800_20260907.rbf`** (README row + section). Operator
+  notes: menu driving under A/UX needs a black-inversion row probe and
+  `--delay 0.05` (System 7 acceleration at 0.02);
+  `scratch/gate_03f83c62/inv_probe.py` + `walk7.sh` work -- fold into
+  scripts/guest/ together with the menu.sh right-edge fix.
 - **CPU bump queued**: branch `work/cpu` (worktree ../MacQuadra800_wt,
   67627ec) = work/cache + AP68040 5aa596f (Alan's Sep 3 dispatch/decode
   work; the user reports ~2x CPU, "close to a Quadra 605"). The user says
