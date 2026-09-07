@@ -145,8 +145,21 @@ sockets `/tmp/qmon` and `/tmp/qmon2`; helpers there) -- see memory
 61c31c4f: the base Mac OS 8.1 package completed (where #8 died), then
 every optional package (Internet Access with its ten disk images, MRJ,
 the four-disk archive set...) to "The installation process has
-finished." -- `scratch/install9/43_flat.png`. The operator quit the
-installer and shut the guest down. So: the deadlock fix + the block
+finished." -- `scratch/install9/43_flat.png`. 177 MB written, peak
+11.7 MB/min (vs ~9 on the no-cache build; long read-only stretches
+dominate the average). The operator quit the installer and shut the
+guest down cleanly (`47_shutdown.png`). Two notes: (1) before the driver
+warning the installer said "Problems were found with MacOS8-MiSTer that
+cannot be fixed by this program" -- Disk First Aid does not verify the
+machfs-formatted volume (something in `make_pristine_hda.py`'s output is
+non-canonical; harmless here, but a guest-side Erase Disk is the
+canonical fresh volume). (2) `scripts/guest/menu.sh open` and
+`scripts/mac_shutdown.sh` could not land on Special: `menubar_probe.py`
+prints `OPEN <left> <right>` while its docstring promises a center, so
+`menu.sh` aims at the RIGHT EDGE, and the fixed step never adapts. The
+operator's adaptive opener `scratch/install9/mopen.sh` (right edge 212 =
+Special) + `menu.sh item 172 104` + `release` works; fix menu.sh later.
+Command-Q is ignored by the 8.1 Installer (use the close box). So: the deadlock fix + the block
 cache install Mac OS 8.1 from the retail CD end to end on hardware; the
 earlier "error occurred" failures were the poisoned target image.
 
