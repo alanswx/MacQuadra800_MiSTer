@@ -315,6 +315,9 @@ initial begin
 
 	$display("   fails so far: %0d", fails);
 	$display("-- T7 random mix on all slots, random latency; a mirror of expected device contents is checked");
+	// T2..T6 wrote sectors the mirror never saw: it is clean and settled, so
+	// start T7 from what the device actually holds
+	for (k = 0; k < 3*128*512; k = k + 1) mir[k] = dev[k];
 	seed = 32'h13572468;
 	for (n = 0; n < 200; n = n + 1) begin
 		seed = seed * 1103515245 + 12345; s = (seed >> 16) % 3;

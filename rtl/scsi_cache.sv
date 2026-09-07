@@ -224,7 +224,14 @@ wire  [5:0] r_idx = r_off[5:0];
 wire        r_pt = (r_slot == 2'd2) && (r_lba[31:30] != 2'b00);   // TOC blob / CD-DA windows
 wire        r_hit = r_inwin && valid[r_slot][r_idx];
 wire        r_dirty_any = |dirty[r_slot];
-wire        r_flushing_me = ch_flush && (c_slot == r_slot) && (c_idx == r_idx);
+// Same-sector hazards between the two sides.  Both decisions are taken from
+// registered state so they can never disagree within a cycle: the engine
+// will not write a sector the channel is fetching or flushing, and the
+// channel will not start a flush or a prefetch of a sector the engine is
+// writing (est says so from E_DECIDE until the last word is stored).
+wire        ch_busy_me = (cst != C_IDLE) && !c_pt && (c_slot == r_slot) && (c_idx == r_idx);
+wire        e_writing  = ((est == E_DECIDE) && r_wr && r_inwin && !r_pt) ||
+                         (est == E_WR_A) || (est == E_WR_B) || (est == E_WR_C);
 
 // demand for the channel from the engine side
 reg        dem_req;                  // engine wants a platform transaction now
@@ -274,7 +281,8 @@ always @(posedge clk) begin
 			cst <= C_REQ;
 		end
 		else if (|dirty[fl_slot]) begin              // background flush, in order
-			if (dirty[fl_slot][fl_idx]) begin
+			if (dirty[fl_slot][fl_idx] &&
+			    !(e_writing && (fl_slot == r_slot) && (fl_idx == r_idx))) begin
 				c_slot <= fl_slot; c_is_wr <= 1; c_pt <= 0;
 				c_idx  <= fl_idx;
 				c_base <= win_base[fl_slot];
@@ -290,7 +298,8 @@ always @(posedge clk) begin
 			fl_idx  <= 0;
 		end
 		else if (pf_left != 0 && win_ok[pf_slot] && mounted[pf_slot] &&
-		         ({2'd0, pf_next} < {2'd0, slot_size(pf_slot)}) && !valid[pf_slot][pf_next]) begin
+		         ({2'd0, pf_next} < {2'd0, slot_size(pf_slot)}) && !valid[pf_slot][pf_next] &&
+		         !(e_writing && (pf_slot == r_slot) && (pf_next == r_idx))) begin
 			c_slot <= pf_slot; c_is_wr <= 0; c_pt <= 0;
 			c_idx  <= pf_next;
 			c_base <= win_base[pf_slot];
@@ -315,7 +324,8 @@ always @(posedge clk) begin
 		if (p_ack_fall[c_slot]) begin
 			if (!c_pt) begin
 				if (c_is_wr) dirty[c_slot][c_idx] <= 1'b0;
-				else         valid[c_slot][c_idx] <= 1'b1;
+				else if (win_ok[c_slot] && (c_base == win_base[c_slot]))
+				             valid[c_slot][c_idx] <= 1'b1;   // still the window it was fetched for
 			end
 			cst <= C_IDLE;
 		end
@@ -339,12 +349,13 @@ always @(posedge clk) begin
 			end
 		end
 		else if (!r_inwin) begin
-			// outside the window: settle the dirt, then re-base on this LBA
-			if (r_dirty_any) est <= E_FLUSHALL;
-			else if (ch_idle) est <= E_REBASE;
+			// outside the window: stop prefetching (it was for the old window),
+			// settle the dirt and let the channel drain, then re-base on this LBA
+			pf_left <= 0;
+			est <= E_FLUSHALL;
 		end
 		else if (r_wr) begin
-			if (!r_flushing_me) begin
+			if (!ch_busy_me) begin
 				e_ack[r_slot] <= 1;
 				r_word <= 0;
 				e_buff_addr <= 13'd0;
@@ -366,7 +377,9 @@ always @(posedge clk) begin
 	end
 	E_FLUSHALL: begin
 		// the background flusher does the work; wait until this slot is clean
-		if (!r_dirty_any && ch_idle) est <= E_REBASE;
+		// and the channel has nothing of ours in flight (pf_left is 0, dirty is
+		// 0 and dem_req is 0, so nothing new for this slot can start now)
+		if (!r_dirty_any && ch_idle && !dem_req) est <= E_REBASE;
 	end
 	E_REBASE: begin
 		win_base[r_slot] <= r_lba;
@@ -377,8 +390,11 @@ always @(posedge clk) begin
 	end
 	E_FETCH: begin
 		// the demand fetch is a held level until the channel takes it; when the
-		// sector is valid it is a hit and we serve it
+		// sector is valid it is a hit and we serve it.  If the window was
+		// dropped meanwhile (a mount pulse), go back and re-base once the
+		// channel is quiet.
 		if (r_hit) est <= E_DECIDE;
+		else if (!win_ok[r_slot] && ch_idle && !dem_req) est <= E_DECIDE;
 	end
 	// ---- read hit: three cycles per word -- port A address, the RAM's
 	// registered read, then the word onto the engine's bus
