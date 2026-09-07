@@ -80,7 +80,27 @@ is CLEAR and the alternate MDB is stale (free 63742 vs 59637), i.e. it
 never had a clean unmount since the yanked installs. NB: machfs reports
 the volume name as "Untitled"; the MDB says "MacOS8-MiSTer".
 
-Two experiments launched to split image-vs-RTL:
+**QEMU verdict (16:45): the image is at fault, the RTL and ISO are clean.**
+Same QEMU q800 + our ROM + the same ISO (id 3): a copy of `fresh_now.hda`
+(id 1) fails with the character-for-character identical dialog after
+50.76 MB of writes, 69 s after Start, with NO REQUEST SENSE ever sent
+(so "no CHECK CONDITION" was never evidence against the RTL); the same
+image with the volume erased first (Erase Disk, Mac OS Standard) installs
+to "The installation process has finished" -- 169.65 MB written, LBAs up
+to 1,024,094. `fresh_now.hda` carries a *blessed* partial System Folder
+(drFndrInfo[0] = 18), so the installer takes its merge-into-existing
+path and dies on the leftovers; clicking OK on the FPGA would have shown
+a second dialog naming the item (Try Again / Skip / Stop). Logs:
+`scratch/qemu_install/qemu_at_error.log` (failed, 21,952 lines) and
+`qemu2_success.log` (79,728 lines) -- the byte-for-byte reference for
+any future divergence. NB the QEMU trace prints the opcode in DECIMAL
+(42 = WRITE(10)). The MDB "unmounted cleanly" bit is 0 on every image
+captured while mounted, so it is not a corruption signal (correcting the
+paragraph above). Both VMs are still up in WSL (`~/qemu-work`, monitor
+sockets `/tmp/qmon` and `/tmp/qmon2`; helpers there) -- see memory
+`qemu-golden-reference` for how to drive them.
+
+Two experiments launched to split image-vs-RTL (the first has answered):
 - **QEMU golden install** (Opus subagent, WSL): q800 + our ROM + the same
   ISO (id 3) + a copy of `fresh_now.hda` as scsi-hd id 1,
   `--trace scsi_req_parsed`. If QEMU installs, the RTL corrupts or
