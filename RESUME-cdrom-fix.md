@@ -85,7 +85,10 @@ session's transcript and summarised in memory `opus-operator-for-mister`.
   settings) in `../MacQuadra800_wt` (now a detached checkout of main;
   the CDROM_OFF flip is an uncommitted build-dir edit), log
   `scratch/build_cpu_nocd.log`. Purpose: Speedometer/Queens numbers for
-  Alan's 2x today. Shipping Alan's core WITH the CD needs ~600 more ALMs
+  Alan's 2x today. **Built 18:39: `scratch/MacQuadra800_cpu_nocd_ecd5705e.rbf`**
+  (md5 `ecd5705e67aa9fa6…`): 38,962 ALMs (93 %), RAM 487/553, timing
+  met, worst +0.494 ns. Not deployed yet (the two-OS gate of the cache RC
+  holds the MiSTer); next hardware step after the gate. Shipping Alan's core WITH the CD needs ~600 more ALMs
   freed somewhere (wombat_cpu is 38,138 of ~50,700 logic cells; the
   machine side is 25 %), or a smaller CPU option from Alan. Install #9 meanwhile
   passed the base Mac OS 8.1 package (where #8 died) and was installing
