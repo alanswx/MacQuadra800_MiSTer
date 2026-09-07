@@ -1,3 +1,58 @@
+# Resume -- 2026-09-07: install #8 on the deadlock fix; block cache wired, built
+
+Read `CLAUDE.md` first. Worktrees: `../MacQuadra800_wt` = `work/cd512`
+(f349e9e, the deadlock fix, tracer build 05ca079a deployed);
+`../MacQuadra800_wt2` = `work/cache` = work/cd512 + the block cache.
+Alan's CPU work stays PAUSED. Hardware driving is delegated to an Opus
+operator subagent (user's instruction); the brief is in this session's
+transcript and summarised in memory `opus-operator-for-mister`.
+
+## Install #7 / #8 (the deadlock fix on hardware)
+
+- #7 (previous session, build 05ca079a) was cut off by a MiSTer reboot;
+  the target image held **64 MB** of "System Folder" / "Installer Temp"
+  data -- far past the 6-7 MB where #5/#6 stalled, but not a completion.
+- #8: same build, target `MacQuadra800FreshTest.hda` refreshed from
+  `scratch/fresh_now.hda` (md5 8890a228…, 27 MB of earlier partial
+  installs; there is NO pristine blank image anywhere -- creating one needs
+  Drive Setup from the CD). Tracer capture started before the load_core.
+  Result: see the "Outcome" line below (filled in when the operator
+  reported).
+
+## Block cache (`work/cache`, `docs/scsi-block-cache.md`)
+
+- Rebased onto f349e9e. The T7 random-mix failure was a real race: a
+  prefetch issued in the same cycle the engine decided to re-base completed
+  after the window moved and marked its sector valid in the new window
+  (slot 2 returned LBA 8's data for LBA 25). Fixed 9754dac together with
+  the engine-write vs same-sector flush/prefetch same-cycle start.
+- Quartus caught `mounted[2]` on a 2-bit vector (Verilator read it as 0
+  silently); fixing it exposed the prefetcher collapsing to 1-2 sectors
+  ahead (a hit re-armed it onto an already-valid sector, which stopped
+  it) -- now it skips forward (65c75eb). tb_scsi_cache T1-T8: 237,584
+  checks, 0 failures (T8 = the installer's write burst then CD reads).
+- Wired in `rtl/quadra800.sv` between iosb and the module ports
+  (8db486c): 64/48/16 sectors = 64 M10Ks (fit before the cache: 430/553
+  RAM blocks). `hps_busy` covers both sides.
+- Full-machine Verilator boot was started twice and abandoned: the user
+  asked to skip the slow sim and go to hardware. The Vemu build with the
+  cache does compile (Verilator lint clean).
+- Quartus full build of work/cache (65c75eb, tracer ON, seed 19) launched
+  15:32 in `../MacQuadra800_wt2` (`scratch/build_cache3.log`). Check the
+  RAM Summary for `scsi_cache` (must be M10K, not registers), timing, and
+  that `open_row` stayed logic (`docs/sdram-open-row-crossing.md`).
+- Next: deploy it (after a clean guest shutdown) and run install #9 with
+  the tracer, same procedure; then both-OS regression on a tracer-OFF
+  build before any release. `work/cd512`'s qsf has `SCSI_TRACE=1`
+  committed ON; comment it out for release builds.
+
+## Outcome
+
+(in flight when this section was written -- updated below if the session
+got that far)
+
+---
+
 # Resume — installer deadlock fixed; block cache in progress
 
 **2026-09-03 afternoon.** The Mac OS 8.1 CD installer hang is root-caused and
