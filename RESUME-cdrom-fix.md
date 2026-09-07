@@ -153,7 +153,13 @@ warning the installer said "Problems were found with MacOS8-MiSTer that
 cannot be fixed by this program" -- Disk First Aid does not verify the
 machfs-formatted volume (something in `make_pristine_hda.py`'s output is
 non-canonical; harmless here, but a guest-side Erase Disk is the
-canonical fresh volume). (2) `scripts/guest/menu.sh open` and
+canonical fresh volume). MDB diff vs the Mac-formatted volume: machfs
+writes drCrDate/drLsMod = 0, 8 KB extents/catalog B-trees with 8 KB
+clumps (Mac: 1 MB / 1 MB), and drNmFls = 0 while drFilCnt = 3 (its
+invisible Desktop DB/DF at root are not counted) -- that last one is
+the kind of inconsistency Disk First Aid reports. Fix in
+`make_pristine_hda.py` when the image is next needed: set the dates,
+count the root files, or format in the guest instead. (2) `scripts/guest/menu.sh open` and
 `scripts/mac_shutdown.sh` could not land on Special: `menubar_probe.py`
 prints `OPEN <left> <right>` while its docstring promises a center, so
 `menu.sh` aims at the RIGHT EDGE, and the fixed step never adapts. The
