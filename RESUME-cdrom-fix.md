@@ -141,7 +141,16 @@ paragraph above). Both VMs are still up in WSL (`~/qemu-work`, monitor
 sockets `/tmp/qmon` and `/tmp/qmon2`; helpers there) -- see memory
 `qemu-golden-reference` for how to drive them.
 
-Two experiments launched to split image-vs-RTL (the first has answered):
+**Install #9 (18:33): SUCCESS.** Pristine volume + block-cache build
+61c31c4f: the base Mac OS 8.1 package completed (where #8 died), then
+every optional package (Internet Access with its ten disk images, MRJ,
+the four-disk archive set...) to "The installation process has
+finished." -- `scratch/install9/43_flat.png`. The operator quit the
+installer and shut the guest down. So: the deadlock fix + the block
+cache install Mac OS 8.1 from the retail CD end to end on hardware; the
+earlier "error occurred" failures were the poisoned target image.
+
+Two experiments launched to split image-vs-RTL (both have answered):
 - **QEMU golden install** (Opus subagent, WSL): q800 + our ROM + the same
   ISO (id 3) + a copy of `fresh_now.hda` as scsi-hd id 1,
   `--trace scsi_req_parsed`. If QEMU installs, the RTL corrupts or
