@@ -1908,17 +1908,22 @@ initial begin
 	set_tc(16'd2048);
 	reg_wr(R_CMD, 8'h90);
 	byi = 0;                                        // reuse as a delivered-byte count
-	for (k = 0; k < 2048; k = k + 1) begin
+	// DREQ-paced move.w like the ROM (and T9): one DRQ wait per TWO bytes.
+	// Data-in DRQ needs >= 2 bytes in the FIFO (the 53C96 leaves the last
+	// odd byte for the processor), so a loop that waits for DRQ before every
+	// single byte strands the final one -- that was the "1-byte residual"
+	// this test used to print as a WARN.
+	for (k = 0; k < 1024; k = k + 1) begin
 		guard = 0;
 		while (!drq && guard < 400000) begin @(negedge clk); guard = guard + 1; end
-		if (guard >= 400000) k = 2048;              // no more bytes coming
-		else begin pdma_rd(b); byi = byi + 1; end
+		if (guard >= 400000) k = 1024;              // no more bytes coming
+		else begin pdma_rd(b); pdma_rd(b); byi = byi + 2; end
 	end
 	// the point of this test: the CD read after a disk WRITE must NOT deadlock
 	// (before the flush-ack routing fix it hung forever with 0 bytes served).
 	checks = checks + 1;
 	if (byi < 2040) begin fails = fails + 1; $display("  FAIL T16p CD-after-write DEADLOCK: only %0d/2048 bytes served", byi); end
-	else if (byi != 2048) $display("  WARN T16p CD-after-write served %0d/2048 bytes (residual cross-target byte; the block cache subsumes this)", byi);
+	else if (byi != 2048) begin fails = fails + 1; $display("  FAIL T16p CD-after-write served %0d/2048 bytes", byi); end
 	// drain to a clean STATUS regardless
 	guard = 0; read_regs(st, sp, it);
 	while (st[2:0] != PH_STAT && guard < 20000) begin @(negedge clk); guard = guard + 1; read_regs(st, sp, it); end
