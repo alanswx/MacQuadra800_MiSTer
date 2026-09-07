@@ -1,11 +1,16 @@
 # Resume -- 2026-09-07: install #8 on the deadlock fix; block cache wired, built
 
-Read `CLAUDE.md` first. Worktrees: `../MacQuadra800_wt` = `work/cd512`
-(f349e9e, the deadlock fix, tracer build 05ca079a deployed);
-`../MacQuadra800_wt2` = `work/cache` = work/cd512 + the block cache.
-Alan's CPU work stays PAUSED. Hardware driving is delegated to an Opus
-operator subagent (user's instruction); the brief is in this session's
-transcript and summarised in memory `opus-operator-for-mister`.
+Read `CLAUDE.md` first. **Everything is on `main` now** (user's
+instruction, 17:25: no feature branches, linear commits). The whole
+work/cd512 -> work/cache -> work/cpu chain was replayed onto main
+(`fa4c08d` = AP68040 5aa596f on top of the block cache; `c805300` = the
+tracer-off cache build's source). The branch names below are historical:
+`../MacQuadra800_wt2` is now a detached checkout used as a build
+directory, `../MacQuadra800_wt` still shows `work/cpu` only until its
+Quartus run (the CPU build) finishes, then it gets detached at `fa4c08d`
+and the work/* branches deleted. Hardware driving is delegated to an
+Opus operator subagent (user's instruction); the brief is in this
+session's transcript and summarised in memory `opus-operator-for-mister`.
 
 ## Install #7 / #8 (the deadlock fix on hardware)
 
