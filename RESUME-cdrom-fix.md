@@ -73,10 +73,16 @@ session's transcript and summarised in memory `opus-operator-for-mister`.
   with area-directed packing in the qsf (QII_AUTO_PACKED_REGISTERS
   "MINIMIZE AREA", ALM_REGISTER_PACKING_EFFORT HIGH,
   PHYSICAL_SYNTHESIS_REGISTER_DUPLICATION OFF; uncommitted, in
-  `../MacQuadra800_wt`, log `scratch/build_cpu_area.log`). If that fails
-  too the levers are OPTIMIZATION_TECHNIQUE BALANCED/AREA (timing risk),
-  trimming the cache tags, or CDROM_OFF=1 for a CPU-only measurement
-  build (not a release: the user wants the CD).
+  `../MacQuadra800_wt`, log `scratch/build_cpu_area.log`). Packing changed
+  NOTHING (4265 LABs needed, 17:47-17:58 build): the overrun is LUT logic.
+  Third attempt 17:59: OPTIMIZATION_MODE "AGGRESSIVE AREA" +
+  OPTIMIZATION_TECHNIQUE AREA (`scratch/build_cpu_area2.log`; timing is
+  the risk, seed walk if it fits but fails). Remaining levers after that:
+  trim the cache tags (size_r 64->32 bits, per-slot bitmap widths, maybe
+  -300 ALMs), or CDROM_OFF=1 (-3,036 ALMs) for a CPU-only measurement
+  build (not a release: the user wants the CD). Install #9 meanwhile
+  passed the base Mac OS 8.1 package (where #8 died) and was installing
+  the optional packages at 18:00.
 - User's next topic after this: SCSI throughput ("our disks are REALLY
   slow") -- measure with and without the cache once it lands.
 - Next: deploy it (after a clean guest shutdown) and run install #9 with
