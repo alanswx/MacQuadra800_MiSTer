@@ -77,10 +77,17 @@ session's transcript and summarised in memory `opus-operator-for-mister`.
   NOTHING (4265 LABs needed, 17:47-17:58 build): the overrun is LUT logic.
   Third attempt 17:59: OPTIMIZATION_MODE "AGGRESSIVE AREA" +
   OPTIMIZATION_TECHNIQUE AREA (`scratch/build_cpu_area2.log`; timing is
-  the risk, seed walk if it fits but fails). Remaining levers after that:
-  trim the cache tags (size_r 64->32 bits, per-slot bitmap widths, maybe
-  -300 ALMs), or CDROM_OFF=1 (-3,036 ALMs) for a CPU-only measurement
-  build (not a release: the user wants the CD). Install #9 meanwhile
+  the risk, seed walk if it fits but fails). AGGRESSIVE AREA got to
+  41,777 ALMs (100 %), 4221 LABs vs 4191 -- still no fit, and 100 % would
+  have no routing margin. Cache tags trimmed on main anyway (17767e8,
+  size_r 64->32 bits). **Decision 18:20: CDROM_OFF=1 measurement build**
+  of main HEAD (Alan's CPU + cache, no CD path, tracer off, proven speed
+  settings) in `../MacQuadra800_wt` (now a detached checkout of main;
+  the CDROM_OFF flip is an uncommitted build-dir edit), log
+  `scratch/build_cpu_nocd.log`. Purpose: Speedometer/Queens numbers for
+  Alan's 2x today. Shipping Alan's core WITH the CD needs ~600 more ALMs
+  freed somewhere (wombat_cpu is 38,138 of ~50,700 logic cells; the
+  machine side is 25 %), or a smaller CPU option from Alan. Install #9 meanwhile
   passed the base Mac OS 8.1 package (where #8 died) and was installing
   the optional packages at 18:00.
 - User's next topic after this: SCSI throughput ("our disks are REALLY
