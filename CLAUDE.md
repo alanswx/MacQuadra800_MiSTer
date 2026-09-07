@@ -79,6 +79,11 @@ bash scripts/sim_wsl.sh run [args] ; bash scripts/sim_wsl.sh log [pattern]
 sh rtl/ap68040/tb/run_tests.sh
 ```
 
+Verilator is lenient where Quartus is not: an out-of-range bit-select on a
+too-narrow vector (`mounted[2]` on a 2-bit reg, 2026-09-07) simulated as 0
+without a word and failed synthesis in a minute. After new RTL passes its
+bench, run `build_only.sh --check` before trusting it; it is cheap.
+
 `tb_memory_path_registered_first_miss` is the variant that matches the shipped
 quadra800 architecture. `tb_sdram` models both SDRAM ranks and reports chip
 protocol errors; any change to `rtl/sdram*.sv` must keep it at zero.
