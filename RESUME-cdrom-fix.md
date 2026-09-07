@@ -50,7 +50,22 @@ transcript and summarised in memory `opus-operator-for-mister`.
   +0.745, clk_sys +0.917, hold all positive. 39,803 ALMs (95 %; the cache
   is 1,108 of them, +1,093 vs the 05ca079a tracer build at 92 %), RAM
   503/553 (+64 = the store, inferred as one altsyncram of 524,288 bits).
-  No `open_row` RAM in the map report. NOT yet deployed.
+  No `open_row` RAM in the map report. Deployed for install #9.
+- **Release candidate (tracer OFF)**: work/cache 021de90,
+  `scratch/MacQuadra800_cacherc_03f83c62.rbf`, md5 `03f83c62d92d997e…`,
+  built 17:10: 37,939 ALMs (91 %), RAM 502/553, timing met, worst
+  +0.250 ns (HDMI PLL), clk_ram +0.721, clk_sys +0.850, open_row
+  uninferred. This is the build for the two-OS regression gate once
+  install #9 passes.
+- **CPU bump queued**: branch `work/cpu` (worktree ../MacQuadra800_wt,
+  67627ec) = work/cache + AP68040 5aa596f (Alan's Sep 3 dispatch/decode
+  work; the user reports ~2x CPU, "close to a Quadra 605"). The user says
+  Alan runs the CPU self-tests himself -- no self-tests, no gate sim:
+  build and put it on the hardware. Build launched 17:10
+  (`../MacQuadra800_wt/scratch/build_cpu.log`), tracer off. Area risk:
+  the cache fit is at 91 %.
+- User's next topic after this: SCSI throughput ("our disks are REALLY
+  slow") -- measure with and without the cache once it lands.
 - Next: deploy it (after a clean guest shutdown) and run install #9 with
   the tracer, same procedure; then both-OS regression on a tracer-OFF
   build before any release. `work/cd512`'s qsf has `SCSI_TRACE=1`
