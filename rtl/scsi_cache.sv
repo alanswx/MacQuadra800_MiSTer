@@ -106,7 +106,7 @@ reg [31:0] win_base [0:2];
 reg        win_ok   [0:2];
 reg [63:0] valid    [0:2];
 reg [63:0] dirty    [0:2];
-reg [63:0] size_r   [0:2];                          // image size the slot was mounted with
+reg [31:0] size_r   [0:2];                          // image size (in 512-byte blocks) the slot was mounted with
 reg  [2:0] mounted;                                  // slot has an image (size != 0)
 
 //----------------------------------------------------------------------------
@@ -259,11 +259,11 @@ always @(posedge clk) begin
 	//------------------------------------------------ mounts
 	for (i = 0; i < 3; i = i + 1)
 		if (img_mounted[i]) begin
-			if (img_size != size_r[i]) begin        // a different image: forget everything
+			if (img_size[40:9] != size_r[i]) begin  // a different image: forget everything
 				valid[i]  <= 64'd0;
 				dirty[i]  <= 64'd0;
 				win_ok[i] <= 1'b0;
-				size_r[i] <= img_size;
+				size_r[i] <= img_size[40:9];
 			end
 		end
 
