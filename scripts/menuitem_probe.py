@@ -36,7 +36,10 @@ def inverted_band(y_lo, y_hi):
     inside the light panel, whereas a dark desktop below the panel does not.
     (2026-09-07 gate run: menu.sh wandered under A/UX without this.)"""
     win = rgb[y_lo:y_hi, x0:x0 + 150].mean(axis=2)
-    dark = (win < 100).mean(axis=1) > 0.5
+    # BLACK rows only (< 40): the Mac OS 8 teal desktop between a panel's bottom
+    # and the next window reads 60-90 and was taken for a highlight at < 100
+    # (2026-09-08 gate run)
+    dark = (win < 40).mean(axis=1) > 0.5
     light = (win > 150).mean(axis=1) > 0.5
     best = run = None
     for y, v in enumerate(list(dark) + [False]):
