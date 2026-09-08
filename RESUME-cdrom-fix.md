@@ -847,3 +847,58 @@ needed the rebase. Installing the rebased fork binary (`916829ff`) over ssh
 (`killall MiSTer` + replace + restart) was refused by the tool's permission
 classifier; the user installs it, then: deploy build M from the halt
 screen, count the CD icons, run the gate.
+
+## Build M gate PASSED, released as MacQuadra800_20260908_3 (f47728e); the icon persists
+
+Operator run 11:40-12:42 (`scratch/op*.png`). Mac OS 8.1: Finder at
+11:51:23 from a 11:49 load, clock 12:06 -> 12:09 idle with write_bytes flat,
+input live, Shut Down clean (`op12_buildM_halt.png`). A/UX 3.1: multiuser
+desktop at 12:17:53 with `/` mounted, About This Macintosh = Quadra 800 /
+7.0.1 / 32 MB, CommandShell running, Special -> Shut Down to "You may now
+switch off" (`op23_aux_shutdown_2.png`). Slot 0 restored to QuadSquad8; box
+left at the A/UX halt screen with build M loaded. Note: the old 0902 core
+has no slots 1/4 in its CONF_STR, so it never mounted the ISO (no baseline
+from it). Slot 1 (`MacQuadra800FreshTest.hda`, "MacOS8-MiSTer") is mounted
+on build M.
+
+**The double CD icon is NOT fixed by the MODE SELECT refusal.** Facts:
+- both "Mac OS 8.1" icons are in the FIRST Finder frame
+  (`op2_buildM_boot_3.png`, 11:51:23); two windows, same 17 items; a
+  boot-time double mount, not a later re-insert;
+- A/UX's System 7.0.1 environment on the same core mounts the disc once
+  (`op13_aux_boot_4.png`);
+- the Main does not matter (seen under the pre-rebase fork and the rebased
+  one); the boot repulse never arms for a flat ISO (`mac_cdrom_attach`:
+  HANDLED mounts only) and the log has no repulse line;
+- the ISO carries two Apple partition maps (host inspection).
+
+Released anyway (both gates pass; the icon is cosmetic) with the item
+logged as open in `releases/README.md`. The Main binary shipped as
+`releases/MiSTer_20260908` (fork 4857af1 on upstream 20260907, md5
+916829ff); the fork branch is NOT pushed (rebase => `--force-with-lease`).
+
+### Next: a request-level trace, no more theories
+
+- `scratch/MiSTer_cdtrace_d92a9304` = the release Main + one printf in
+  `user_io.cpp`'s generic SD path: `CDIO t=<ms> op=<op> lba=<512-lba>
+  sz=<bytes>` for slot 4 (uncommitted change in `../Main_MiSTer`; revert
+  it before committing anything there). Install it at the halt screen; the
+  Main restart auto-loads build M and boots Quad Squad; after ~3 min pull
+  `/tmp/mister.log`, render with `python scratch/cdio_seq.py <log>`.
+- QEMU golden sequence for target 3: `scratch/qemu_cd_seq.txt` (opcode,
+  lba, length per command; from `~/qemu-work/qemu4.log`). Its shape: the
+  disc's own ROM-loaded driver initializes twice with READ(6) (partition
+  map @0/1/2/16, the driver partition @113/234/235/238/49), then the Apple
+  CD-ROM extension's driver with READ(10) (INQUIRY, MODE SENSE page 30 x3,
+  MODE SELECT PF=0 8 bytes -> refused, READ TOC, READ CAPACITY, READ(10)
+  @0/16/1/2, MODE SENSE page 0E, MODE SELECT PF=1 28 bytes -> refused by
+  QEMU, then the HFS reads @241...). Compare pass structure and read
+  patterns: how many mount passes on hardware, and whether the extension's
+  pass follows a completed disc-driver mount.
+- Candidate difference to test after the trace: INQUIRY identity (ours:
+  SONY CD-ROM CDU-8004, the drive the stock AppleCD extension binds to;
+  QEMU: "QEMU CD-ROM"). Another: what QEMU returns for MODE SENSE page 30
+  (its q800 quirk answers "APPLE COMPUTER, INC   " in 0x1e bytes).
+- Cheap guest-side experiments for the operator: boot with the Apple
+  CD-ROM extension disabled (Extensions Manager), and boot with a disc that
+  has no driver partition.
