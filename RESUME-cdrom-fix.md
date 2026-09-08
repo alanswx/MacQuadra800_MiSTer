@@ -831,4 +831,4 @@ no exclusion). Verified: `git diff 2d23324 4857af1` is exactly upstream's
 five commits. New tip **`4857af1`** (the multi-block CD fill; the hash
 `2d23324` no longer exists). The branch is published on `origin`, so
 pushing it now needs `--force-with-lease` — the user's call, not done.
-Rebuilt in WSL; binary staged as `scratch/MiSTer_4857af1_<md5>`.
+Rebuilt in WSL (`make rc=0`), binary md5 `916829ff…`, staged as `scratch/MiSTer_4857af1_916829ff`. Install it at the halt screen before build M is deployed (backup the installed one as `/media/fat/MiSTer.bak-<date>`); the multi-block fill is inert under an MB_CD=0 core, and flat ISOs use the generic path anyway.
