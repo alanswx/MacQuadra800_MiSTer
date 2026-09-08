@@ -88,3 +88,5 @@ __pycache__/
 
 # Claude Code local permissions (machine-specific: deploy target lives in scripts/local.env)
 .claude/settings.local.json
+verilator/obj_dir_*/
+scripts/guest/*.png

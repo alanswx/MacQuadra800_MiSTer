@@ -293,6 +293,24 @@ The next real step down would be architectural: pre-build the AppleCD
 TOC/subcode responses in the Main fork and drop the t2/t43/resp plane
 builders (~800 LC) -- the user's call. These three commits are NOT in
 build L (43e5d09); they ride in the next build.
+**CD multi-block (user asked why not, 08:50):** the core is ready
+(`MB_CD` parameter; bench passes with it on) but the Main fork's
+`mac_cdrom_fill` zero-fills any request that is not exactly 512 or 2352
+bytes, so CUE/CHD discs would read zeros in 4 KB groups (flat ISOs use
+the generic path and are fine). Fork change written up in
+`scratch/main_fork_cd_multiblock.patch.md` (loop the data-window fill
+over the request's blocks); `MB_CD` stays 0 until it lands (847421e).
+The ARM-side AppleCD response building the user conditioned on
+precedent: the Main's `ide_cdrom.cpp` (read_toc, read_subchannel...)
+serves ao486/Archie/CD32/CDTV, and the fork's Toolbox round-trip
+(`mac_sd_service` op 2 = CDB in, op 1 = DataIn) is the transport to
+reuse -- a legitimate ~800-1,200 LC move, awaiting the user's go.
+**Double CD icon, corrected theory (08:45):** two DRIVER instances on
+one target: since the ROM CD-boot fix (4e9bc9e, Sep 3) the ROM loads
+the disc's own driver partition on a hard-disk boot and mounts the CD;
+the System's Apple CD-ROM extension then mounts it again. Experiment
+running (`scratch/cdicon/`): Quad Squad + Open Transport ISO (no driver
+partition) on build L, and the retail ISO on the 20260902 release.
 Other savings still on the table: the printer port's UART pair (~390 LC,
 if unused), the framework's IIR audio filter (798 LC, no switch -- a
 framework edit, which the user is wary of), and a leaner core option from
