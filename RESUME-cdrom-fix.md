@@ -264,10 +264,18 @@ CACHE_CD_OFF). Not gated. **User (07:10): keep Y/C, ALSA off is fine
 the Linux-side audio mix), and look for more savings.** Build L launched
 07:17 (wt): K + Y/C ON + MISTER_DOWNSCALE_NN + MISTER_DISABLE_ADAPTIVE
 (`scratchpad/recipe_target.py`) -- the user's target configuration.
-Other savings still on the table: cd_audio's constant multiplies
-(~300 LC), the printer port's UART pair (~390 LC, if unused), the
-framework's IIR audio filter (798 LC, no switch -- would need a framework
-edit, which the user is wary of), and a leaner core option from Alan. Build D queued (wt2): the qsf's
+Other savings still on the table: the printer port's UART pair (~390 LC,
+if unused), the framework's IIR audio filter (798 LC, no switch -- a
+framework edit, which the user is wary of), and a leaner core option from
+Alan. **CD audio diet (user, 07:25: "shrink the CD Audio engine a
+bunch")**: the fitter says cd_audio = 1,679 ALMs, 2,983 ALUTs, 938 regs,
+8 DSP blocks -- the MSF->LBA multiplies and the audio multiplies are
+already in DSPs (55 spare), so the LUT fat is (a) the LBA->M/S/F divider
+STEP written out in six states (~600 ALUTs) -> one shared step
+(patch applied 07:22, bench running); (b) thirteen 32-bit LBA registers
+and their input muxes where a CD needs 20 bits (~450 ALUTs + 156 regs)
+-> next. Build J (512x384-off data point) was killed at 07:23 after 67
+min stuck in placement; wt2 is free for `--check` measurements. Build D queued (wt2): the qsf's
 proven speed settings globally + `set_instance_assignment -name
 OPTIMIZATION_TECHNIQUE AREA -to "emu:emu|quadra800:machine"` (area
 synthesis only for our machine, the framework untouched) + the trims. Install #9 meanwhile
