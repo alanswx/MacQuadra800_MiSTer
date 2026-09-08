@@ -78,9 +78,10 @@ at +118 s with a command sequence identical to QEMU's, and QEMU itself,
 with its own `scsi-cd`, shows the same two icons when it boots a copy of
 the Quad Squad disk, while a fresh Mac OS 8.1 install shows one icon on
 QEMU and on the FPGA alike. So it is the Quad Squad system folder's
-extension set (its Apple CD-ROM extension is a different version from
-8.1's own), not the core: both the disc's ROM-loaded driver and the
-extension's driver keep a drive-queue entry there. Cosmetic; the install
+extension set, not the core: its Apple CD-ROM extension is the same 5.4.2
+as Mac OS 8.1's own but a different, 2.4 KB larger copy (the shape of the
+common patch that makes it accept any drive), and with it both the disc's
+ROM-loaded driver and the extension's driver keep a drive-queue entry. Cosmetic; the install
 from the disc works.
 
 ## `MacQuadra800_20260908_2.rbf`

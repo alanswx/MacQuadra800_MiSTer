@@ -948,8 +948,10 @@ MODE SELECT refusal (4f859b3) stays because it is QEMU parity and correct.
 The Quad Squad volume is a multi-system disk (System 7.1.2 ... System
 Folder 8.1, System Picker); the active "System Folder 8.1" has the stock
 CD set (Apple CD-ROM INIT rsrc 96,692 vs 94,268 on the fresh install --
-a different version; Foreign File Access, Audio CD Access, ISO 9660 File
-Access) plus "FWB CD-ROM ToolKit Prefs" in Preferences and Norton/DiskLight.
+BOTH report vers 5.4.2 / Mac OS 8.1, so the Quad Squad copy is a
+different build of the same version, 2,424 bytes larger: the shape of the
+well-known patch that makes the extension accept non-Apple drives; Foreign
+File Access 5.2, Audio CD Access 5.1, ISO 9660 File Access 5.2 identical) plus "FWB CD-ROM ToolKit Prefs" in Preferences and Norton/DiskLight.
 Experiment C (running): `qs8_swap.hda` = the copy with 8.1's own Apple
 CD-ROM extension swapped in, to confirm the fix for the user.
 
