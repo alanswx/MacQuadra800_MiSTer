@@ -181,9 +181,19 @@ BALANCED, technique BALANCED, register duplication off, CACHE_CD_OFF=1,
 MISTER_DISABLE_YC=1, MISTER_DISABLE_ALSA=1; the trimmed PLL reconfig core
 is in the source). 41,108 ALMs (98 %), 499 RAM, worst +0.343 ns (HDMI),
 clk_sys +0.415, clk_ram +0.609, hold +0.158, open_row uninferred. NOT yet
-on hardware: needs the two-OS gate + a CD boot/install check. Build D
-(machine-only AREA) still running for comparison; build E (D's recipe on
-the multi-block cache) queued behind it. Build D queued (wt2): the qsf's
+on hardware: needs the two-OS gate + a CD boot/install check. **Build D (21:29-22:01, speed settings globally + OPTIMIZATION_TECHNIQUE
+AREA on `emu:emu|quadra800:machine` only, same trims): also fits and
+meets timing** -- 41,164 ALMs (98 %), 499 RAM, HDMI +0.214, clk_sys
++0.252, clk_ram +0.843; md5 `2d083f18…` (wt2 output_files). C has the
+better worst-case slack, so C is the candidate. **Build E (22:01-22:21,
+D's recipe on the multi-block cache f878a6e): does NOT fit** -- 41,481
+ALMs (99 %), Fitter Error 170012. The multi-block groups cost ~320 ALMs;
+to ride with Alan's CPU + CD they need a trim (the size-clamp compares,
+the pf_first encoder, `idle_ctr`) or VIDEO_512_OFF for that build. The
+session's Claude process died ~22:30 while the gate operator for C was
+still shutting the old guest down (it never deployed C; the MiSTer stayed
+on ecd5705e with the Special menu open and the button held). Resumed
+2026-09-08 05:00; the operator was resumed with a button release. Build D queued (wt2): the qsf's
 proven speed settings globally + `set_instance_assignment -name
 OPTIMIZATION_TECHNIQUE AREA -to "emu:emu|quadra800:machine"` (area
 synthesis only for our machine, the framework untouched) + the trims. Install #9 meanwhile
