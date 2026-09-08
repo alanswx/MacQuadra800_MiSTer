@@ -288,7 +288,11 @@ HDMI -0.117 ns** (clk_ram +0.655, clk_sys +0.748) -- the HDMI-domain
 slack swings +-0.15 ns with any netlist change at this density (L +0.171,
 K +0.009, F -0.105, M -0.117). L stays the release. Seed walk of main
 HEAD (dc9eebb: L's source + the engine diet + the group-flush fix)
-launched 09:00: seed 20 in wt, seed 21 in wt2, default qsf otherwise.
+launched 09:00: seed 20 in wt, seed 21 in wt2, default qsf otherwise. **Seed walk result (09:21): seed 21 FITS AND MEETS
+TIMING -- 40,973 ALMs, HDMI +0.335, clk_ram +0.344, clk_sys +0.893**
+(`scratch/MacQuadra800_S21_c81b1edc.rbf`, head 244b625: L + diet +
+group-flush fix; no CD-icon fix yet); seed 20 fails HDMI by 0.148.
+Seed 21 is the seed to use for the fixed head.
 **CD audio diet, final (07:50): 2,936 -> 2,566 LC (-12.6 %), regs 938
 -> 852** -- divider share -34 (79d3e9b), 20-bit LBAs -297 (5f52240),
 shared volume LUT -38 (3098ee3); all on main, engine suite 475,299
