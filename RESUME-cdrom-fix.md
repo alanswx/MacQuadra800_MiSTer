@@ -832,3 +832,18 @@ five commits. New tip **`4857af1`** (the multi-block CD fill; the hash
 `2d23324` no longer exists). The branch is published on `origin`, so
 pushing it now needs `--force-with-lease` — the user's call, not done.
 Rebuilt in WSL (`make rc=0`), binary md5 `916829ff…`, staged as `scratch/MiSTer_4857af1_916829ff`. Install it at the halt screen before build M is deployed (backup the installed one as `/media/fat/MiSTer.bak-<date>`); the multi-block fill is inert under an MB_CD=0 core, and flat ISOs use the generic path anyway.
+
+### Build M result (4f859b3, seed 21): FITS, TIMING MET
+
+`MacQuadra800_wt2/output_files/MacQuadra800.rbf`, md5 `71102b39…`, copy in
+`scratch/MacQuadra800_M_71102b39.rbf`. 41,014 / 41,910 ALMs (98 %), 26,005
+registers, 476 / 553 RAM blocks. Worst setup slack **+0.444 ns** (HDMI PLL
+domain; build L had +0.171), clk_sys +0.797, clk_ram +0.927, all TNS 0.
+No `open_row` altsyncram in the map report. Flow took 21 min.
+
+The MiSTer's `/media/fat/MiSTer` was found to be upstream's **20260907
+release** (md5 `74b59a34`, installed 05:11 today), which is why the fork
+needed the rebase. Installing the rebased fork binary (`916829ff`) over ssh
+(`killall MiSTer` + replace + restart) was refused by the tool's permission
+classifier; the user installs it, then: deploy build M from the halt
+screen, count the CD icons, run the gate.
