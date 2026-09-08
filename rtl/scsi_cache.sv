@@ -318,7 +318,11 @@ reg [12:0] idle_ctr;
 wire       eng_quiet = (idle_ctr == 13'd4095) || (est == E_FLUSHALL);
 reg  [1:0] fl_slot;
 reg  [5:0] fl_idx;
-wire       fl_grp = slot_mb(fl_slot) && grp_in(fl_slot, fl_idx[5:3]) && (fl_idx[2:0] == 3'd0) &&
+// a wholly dirty group goes out as one write from its base wherever the
+// scan pointer happens to stand inside it (a pointer left mid-group turned
+// such a group into eight singles, tb "small" + CD groups, 2026-09-08)
+wire [5:0] fl_gbase = {fl_idx[5:3], 3'd0};
+wire       fl_grp = slot_mb(fl_slot) && grp_in(fl_slot, fl_idx[5:3]) &&
                     (slice(ext(dirty[fl_slot]), fl_idx[5:3]) == 8'hFF) &&
                     !(e_writing && (fl_slot == r_slot) && (r_idx[5:3] == fl_idx[5:3]));
 
@@ -359,12 +363,12 @@ always @(posedge clk) begin
 			cst <= C_REQ;
 		end
 		else if (|dirty[fl_slot]) begin              // background flush, in order
-			if (fl_grp) begin                        // a whole dirty group: one 8-block write
+			if (fl_grp) begin                        // a whole dirty group: one 8-block write from its base
 				c_slot <= fl_slot; c_is_wr <= 1; c_pt <= 0; c_grp <= 1;
-				c_idx  <= fl_idx;
+				c_idx  <= fl_gbase;
 				c_base <= win_base[fl_slot];
-				c_sect <= slot_base(fl_slot) + {2'd0, fl_idx};
-				p_lba  <= win_base[fl_slot] + {26'd0, fl_idx};
+				c_sect <= slot_base(fl_slot) + {2'd0, fl_gbase};
+				p_lba  <= win_base[fl_slot] + {26'd0, fl_gbase};
 				p_blk_cnt <= 6'd7;
 				p_wr[fl_slot] <= 1;
 				cst <= C_REQ;
