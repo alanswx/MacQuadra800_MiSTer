@@ -28,11 +28,13 @@ codename and stay.
 - **Gate before a release:** Mac OS 8.1 to a responsive Finder with a
   ticking clock and a clean Shut Down, and A/UX 3.1 to the multiuser desktop
   and a clean `shutdown -h now`, both on the candidate bitstream.
-- **Known open item:** with the retail Mac OS 8.1 CD in the drive, Mac OS
-  8.1 can show the disc twice on the desktop. It is cosmetic (both icons are
-  the same volume; the install works). The MODE SELECT handling was made to
-  match QEMU's for it and that was not the cause; a request-level trace is
-  in progress (`RESUME-cdrom-fix.md`).
+- **Known, and not the core:** with the retail Mac OS 8.1 CD in the drive,
+  the *Quad Squad* system disk shows the disc twice on the desktop. QEMU
+  reproduces it with its own CD emulation from the same disk image, and a
+  fresh Mac OS 8.1 install shows one icon on both QEMU and the FPGA, so it
+  is that system folder's extension set (its Apple CD-ROM extension is a
+  different version from Mac OS 8.1's own); cosmetic, both icons are the
+  same volume (`RESUME-cdrom-fix.md`).
 
 ## Layout
 

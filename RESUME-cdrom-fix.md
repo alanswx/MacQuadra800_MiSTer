@@ -928,3 +928,35 @@ state. Cheapest decisive test: QEMU's scsi-cd with OUR identity strings
 the identity is the trigger. Second test: our target with QEMU's identity
 (a build). Guest-side: boot with the extension off (Shift) -- one icon means
 the extension's entry is the second one.
+
+## RESOLVED (13:05): the double CD icon is the Quad Squad system folder, not the core
+
+QEMU experiments (headless q800, `~/qemu-work`, screenshots
+`scratch/qemu_install/A_0*.png`, `B_0*.png`):
+
+- **A**: fresh 8.1 install (`hd2.hda` at ID 6) + retail ISO at ID 3 with
+  QEMU's scsi-cd reporting OUR identity (`vendor=SONY product="CD-ROM
+  CDU-8004" ver=1.9a`): **one** icon. The drive identity is not the trigger.
+- **B**: the Quad Squad disk itself (`backup/QuadSquad8.hda.gz` of 08-31,
+  unpacked to `qs8.hda`, at ID 6) + the ISO, stock QEMU identity, QEMU's
+  own CD emulation: **two** "Mac OS 8.1" icons (`B_02.png`, 5:00 PM guest).
+
+So the same guest software double-mounts the disc on QEMU as on the FPGA,
+and a fresh 8.1 install single-mounts on both. The core is exonerated; the
+MODE SELECT refusal (4f859b3) stays because it is QEMU parity and correct.
+
+The Quad Squad volume is a multi-system disk (System 7.1.2 ... System
+Folder 8.1, System Picker); the active "System Folder 8.1" has the stock
+CD set (Apple CD-ROM INIT rsrc 96,692 vs 94,268 on the fresh install --
+a different version; Foreign File Access, Audio CD Access, ISO 9660 File
+Access) plus "FWB CD-ROM ToolKit Prefs" in Preferences and Norton/DiskLight.
+Experiment C (running): `qs8_swap.hda` = the copy with 8.1's own Apple
+CD-ROM extension swapped in, to confirm the fix for the user.
+
+Hardware trace tooling kept: `scratch/MiSTer_cdtrace_d92a9304` (Main +
+"CDIO" printf), `scratch/cdio_seq.py`, `scratch/qemu_reads.py`,
+`scratch/qemu_cd_seq.txt`. The fork's working tree still carries the
+uncommitted printf in `user_io.cpp`: revert it (`git checkout user_io.cpp`
+in `../Main_MiSTer`) before committing anything there. The box: release
+Main 916829ff back on disk, the debug Main process runs until the next
+Main restart (harmless: one printf); build M loaded; halt screen.
