@@ -193,7 +193,11 @@ the pf_first encoder, `idle_ctr`) or VIDEO_512_OFF for that build. The
 session's Claude process died ~22:30 while the gate operator for C was
 still shutting the old guest down (it never deployed C; the MiSTer stayed
 on ecd5705e with the Special menu open and the button held). Resumed
-2026-09-08 05:00; the operator was resumed with a button release. Build D queued (wt2): the qsf's
+2026-09-08 05:00; the operator was resumed with a button release.
+**Build F (05:05, wt2)**: main 9f6e528 (multi-block cache with the
+group-limit trim) on C's recipe (BALANCED/BALANCED, duplication off,
+CACHE_CD_OFF, YC + ALSA off) -- CD target ON. If it fits with timing it
+supersedes C as the candidate (same features + multi-block SCSI). Build D queued (wt2): the qsf's
 proven speed settings globally + `set_instance_assignment -name
 OPTIMIZATION_TECHNIQUE AREA -to "emu:emu|quadra800:machine"` (area
 synthesis only for our machine, the framework untouched) + the trims. Install #9 meanwhile
