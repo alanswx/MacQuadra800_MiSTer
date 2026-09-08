@@ -213,6 +213,8 @@ reg [31:0] io_lba_e;               // the engine's own block address
 reg [11:0] dout_len;               // byte count of a parameter-list DATA OUT
                                    // (MODE SELECT / AUDIO CONTROL); 0 = block write
 reg        msel_pend;              // a CD MODE SELECT list is in the buffer to parse
+reg        iccs_pend;              // an ICCS arrived while that list was still being judged
+reg        msel_fin;               // one-cycle pulse: the list's verdict is in
 reg        io_discard;             // the block transfer in flight belongs to an
                                    // abandoned nexus: complete it silently
 reg  [3:0] msel_st;
@@ -711,7 +713,7 @@ always @(posedge clk) begin
 		tgt_asc[0] <= 0; tgt_asc[1] <= 0; tgt_asc[2] <= 0;
 		cur_tgt <= 0; cd_prevent <= 0; cd_blk512 <= 0; dout_len <= 0;
 		cd_present <= 0; cd_ejected <= 0;
-		msel_pend <= 0; msel_st <= 0; msel_bd <= 0; io_discard <= 0;
+		msel_pend <= 0; msel_st <= 0; msel_bd <= 0; iccs_pend <= 0; msel_fin <= 0; io_discard <= 0;
 		ca_cmd_stb <= 0; ca_read_stb <= 0; ca_eject_stb <= 0; ca_bus_rst <= 0; ca_mount_d <= 0;
 		dbg_op <= 0; dbg_op_stb <= 0; dbg_op_cd <= 0; dbg_st <= 0; dbg_st_stb <= 0;
 		ap_ch0 <= 8'h01; ap_vol0 <= 8'hFF; ap_ch1 <= 8'h02; ap_vol1 <= 8'hFF;
@@ -737,6 +739,28 @@ always @(posedge clk) begin
 		dma_valid <= 0;
 		ca_cmd_stb <= 0; ca_read_stb <= 0; ca_eject_stb <= 0; ca_bus_rst <= 0;
 		ca_mount_d <= {ca_mount_d[0], img_mounted[2] && !cd_same_disc};
+		// the cycle after a MODE SELECT verdict: run the ICCS the initiator
+		// already sent (status + COMMAND COMPLETE, FC), or tell an initiator
+		// that has not sent it yet that the phase moved (BS)
+		msel_fin <= 0;
+		if (msel_fin && !iccs_pend) begin
+`ifdef TB_DEBUG
+			$display("[MSEL] verdict, no ICCS held: BS");
+`endif
+			raise(I_BUS);
+		end
+		if (msel_fin && iccs_pend) begin
+`ifdef TB_DEBUG
+			$display("[ICCS] deferred push status=%02x fifo_cnt=%0d", scsi_status, fifo_cnt);
+`endif
+			iccs_pend <= 0;
+			fifo[0] <= scsi_status;
+			fifo[1] <= 8'h00;
+			fifo_cnt <= 5'd2;
+			phase <= PH_MIN;
+			dbg_st <= scsi_status; dbg_st_stb <= 1;
+			raise(I_FC);
+		end
 		dbg_op_stb <= 0; dbg_st_stb <= 0;
 
 `ifdef VERILATOR
@@ -962,9 +986,14 @@ always @(posedge clk) begin
 		// and a TC longer than the list.
 		if ((xfer_out || xfer_pio_out) && dout_len != 0 && sbuf_pos >= dout_len) begin
 			xfer_out <= 0; xfer_pio_out <= 0; chunk_irq_armed <= 0;
-			phase <= PH_STAT;
-			raise(I_BUS);
+			// a CD MODE SELECT list is judged first: STATUS (GOOD or CHECK)
+			// only once the parse below has decided, so the initiator can
+			// never fetch a status the parse is about to overturn
 			if (msel_pend) msel_st <= 4'd1;
+			else begin phase <= PH_STAT; raise(I_BUS); end
+`ifdef TB_DEBUG
+			$display("[MSEL] list done: msel_pend=%0d dout_len=%0d sbuf_pos=%0d", msel_pend, dout_len, sbuf_pos);
+`endif
 		end
 		// CD MODE SELECT(6) parameter list: 4-byte header, an optional
 		// 8-byte block descriptor (byte 3 = its length; bytes 9..11 the
@@ -974,25 +1003,49 @@ always @(posedge clk) begin
 		// port E (registered): one state addresses, the next consumes.
 		case (msel_st)
 		4'd1: msel_st <= 4'd2;                              // word 1 addressed
+		// A block descriptor that does not fit the list (the Mac ROM's boot
+		// scan sends an 8-byte list whose byte 3 still says "8-byte
+		// descriptor": bytes 10..11 were stale buffer content, once read as
+		// $0200), or one asking for any block length but 2048, is refused
+		// with ILLEGAL REQUEST / invalid field in parameter list (05/26/00)
+		// -- exactly QEMU's scsi-cd, against which the ROM and the Apple
+		// CD-ROM extension both cope.  Honouring 512-byte blocks made the
+		// ROM re-walk the retail disc's dual partition map at 512-byte
+		// granularity and register the one HFS volume twice: the second
+		// desktop icon (2026-09-08, QEMU golden run scratch/qemu_hdboot).
 		4'd2: begin                                         // byte 3: descriptor length
-			msel_bd <= (q_e[7:0] == 8'd8);
-			msel_st <= (q_e[7:0] == 8'd8) ? 4'd3 : 4'd5;
+`ifdef TB_DEBUG
+			$display("[MSEL] st2 q_e=%04x dout_len=%0d", q_e, dout_len);
+`endif
+			if (q_e[7:0] != 8'd0 && {2'd0, q_e[7:0]} + 10'd4 > dout_len) begin
+				// a descriptor the list does not contain (the ROM's 8-byte list)
+				check(4'h5, 8'h26); msel_fin <= 1; msel_st <= 0; msel_pend <= 0;
+			end else begin
+				msel_bd <= (q_e[7:0] != 8'd0);
+				msel_st <= (q_e[7:0] != 8'd0) ? 4'd3 : 4'd5;
+			end
 		end
 		4'd3: msel_st <= 4'd4;                              // word 5 addressed
 		4'd4: begin                                         // bytes 10,11: block length
-			if (q_e == 16'h0200) cd_blk512 <= 1;
-			else if (q_e == 16'h0800) cd_blk512 <= 0;
-			msel_st <= 4'd5;
+`ifdef TB_DEBUG
+			$display("[MSEL] st4 q_e=%04x", q_e);
+`endif
+			if (q_e != 16'h0800) begin                       // anything but 2048: refused
+				check(4'h5, 8'h26); msel_fin <= 1; msel_st <= 0; msel_pend <= 0;
+			end else msel_st <= 4'd5;
 		end
 		4'd5: msel_st <= 4'd6;                              // page word addressed
-		4'd6: begin                                         // page code
-			if (q_e[15:8] != 8'h0E) begin msel_st <= 0; msel_pend <= 0; end
+		4'd6: begin                                         // page code (only if the list reaches it)
+			if ({2'd0, msel_base} + 10'd2 > dout_len || q_e[15:8] != 8'h0E) begin
+				phase <= PH_STAT; msel_fin <= 1; msel_st <= 0; msel_pend <= 0;
+			end
 			else msel_st <= 4'd7;
 		end
 		4'd7: msel_st <= 4'd8;                              // page word 4 addressed
 		4'd8: begin ap_ch0 <= q_e[15:8]; ap_vol0 <= q_e[7:0]; msel_st <= 4'd9; end
 		4'd9: msel_st <= 4'd10;                             // page word 5 addressed
-		4'd10: begin ap_ch1 <= q_e[15:8]; ap_vol1 <= q_e[7:0]; msel_st <= 0; msel_pend <= 0; end
+		4'd10: begin ap_ch1 <= q_e[15:8]; ap_vol1 <= q_e[7:0]; msel_st <= 0; msel_pend <= 0;
+		       phase <= PH_STAT; msel_fin <= 1; end
 		default: ;
 		endcase
 		// data-out chunk complete: TC expired and the FIFO drained.  A TC
@@ -1295,7 +1348,14 @@ task exec_command(input [7:0] c);
 			end
 			else raise(I_ILL);
 		end
-		7'h11: begin                                   // initiator cmd complete
+		7'h11: if (msel_pend) begin iccs_pend <= 1;
+`ifdef TB_DEBUG
+			$display("[ICCS] HELD");
+`endif
+		end else begin      // initiator cmd complete (held while a list is judged)
+`ifdef TB_DEBUG
+			$display("[ICCS] status=%02x msel_st=%0d msel_pend=%0d iccs_pend=%0d", scsi_status, msel_st, msel_pend, iccs_pend);
+`endif
 			fifo[0] <= scsi_status;
 			fifo[1] <= 8'h00;                          // command complete msg
 			fifo_cnt <= 5'd2;
@@ -1404,7 +1464,7 @@ task exec_cdb;
 		8'h15: begin                                   // MODE SELECT(6)
 			if (is_cd) begin
 				param_out({4'd0, alloc});
-				msel_pend <= (alloc >= 8'd12);             // header + descriptor at least
+				msel_pend <= (alloc >= 8'd4);              // any list with a header is parsed (and judged)
 			end
 			else param_out({4'd0, alloc});             // disk: accept, change nothing
 		end
