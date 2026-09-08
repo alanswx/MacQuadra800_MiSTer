@@ -283,7 +283,12 @@ Operator notes: modifier chords work at the DEFAULT 0.35 s pacing, not
 at --delay 0.05; menu.sh item landed first time on Mac OS 8; A/UX's
 Apple menu still needs hand-walking (click.sh lands on the separator).
 Build M launched 08:45 (wt): main HEAD (engine diet + everything) with
-the default qsf -- the reproducibility check and the next candidate.
+the default qsf -- the reproducibility check and the next candidate. **M (08:58): fits at 41,085 ALMs (-96 vs L) but
+HDMI -0.117 ns** (clk_ram +0.655, clk_sys +0.748) -- the HDMI-domain
+slack swings +-0.15 ns with any netlist change at this density (L +0.171,
+K +0.009, F -0.105, M -0.117). L stays the release. Seed walk of main
+HEAD (dc9eebb: L's source + the engine diet + the group-flush fix)
+launched 09:00: seed 20 in wt, seed 21 in wt2, default qsf otherwise.
 **CD audio diet, final (07:50): 2,936 -> 2,566 LC (-12.6 %), regs 938
 -> 852** -- divider share -34 (79d3e9b), 20-bit LBAs -297 (5f52240),
 shared volume LUT -38 (3098ee3); all on main, engine suite 475,299
