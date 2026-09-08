@@ -96,8 +96,17 @@ session's transcript and summarised in memory `opus-operator-for-mister`.
   `scratch/build_cpu_nocd.log`. Purpose: Speedometer/Queens numbers for
   Alan's 2x today. **Built 18:39: `scratch/MacQuadra800_cpu_nocd_ecd5705e.rbf`**
   (md5 `ecd5705e67aa9fa6…`): 38,962 ALMs (93 %), RAM 487/553, timing
-  met, worst +0.494 ns. Not deployed yet (the two-OS gate of the cache RC
-  holds the MiSTer); next hardware step after the gate. Shipping Alan's core WITH the CD needs ~600 more ALMs
+  met, worst +0.494 ns. **Measured 19:26-20:06** (operator; the user then
+  took the controls and ran Speedometer too): Benchmark Mix average
+  **0.361** (runs 2/3 identical; 09-01 baseline 0.231 = +56 %), CQD 0.317,
+  FPU 0.250; boot to desktop 136 s. BUT vs the 09-02 release's only two
+  recorded numbers it is ~3 % faster (Queens 1.534 vs 1.574, Bubble 2.648
+  vs 2.754) -- the full table on `MacQuadra800_20260907` (same be0a662
+  core + cache) is OWED to say what 5aa596f itself buys. First-run
+  anomaly again: Sieve 0.494 s on run 1 only (like the −17,482 s Queens
+  before) -- a first-pass timing bug to chase. Full write-up:
+  docs/PERFORMANCE_MEASUREMENTS.md §9. The MiSTer was left LIVE at the
+  Finder on ecd5705e with the user driving; shut it down before any deploy. Shipping Alan's core WITH the CD needs ~600 more ALMs
   freed somewhere (wombat_cpu is 38,138 of ~50,700 logic cells; the
   machine side is 25 %), or a smaller CPU option from Alan. Install #9 meanwhile
   passed the base Mac OS 8.1 package (where #8 died) and was installing
