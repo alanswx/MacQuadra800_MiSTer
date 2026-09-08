@@ -348,7 +348,21 @@ resets the bus, scans again; on ours the disc stays at 512 for the
 extension too. Whether that is the doubling depends on the ROM/extension
 sequence -- see the QEMU trace. If reverting is right, the ROM must
 re-send MODE SELECT after the reset (QEMU refuses 512 mode entirely and
-still boots the CD, so the ROM copes with 2048).
+still boots the CD, so the ROM copes with 2048). **QEMU VERDICT (09:25, `scratch/qemu_hdboot/`, WSL
+`~/qemu-work/qemu3.log`/`qemu4.log`): ONE icon.** Same HD image (8.1
+installed) at id 6 + the retail ISO at id 3: the ROM runs its full
+driver-load twice (two 1..8 map walks) and the OS driver once more, ALL
+reads are 2048-byte multiples, and QEMU REJECTS every MODE SELECT to
+the CD (two 8-byte, one 28-byte: CHECK CONDITION 05/26/00) -- the block
+size never leaves 2048, the HFS partition is found at one block number,
+one drive registered. Ours honours the MODE SELECT as the 512-byte
+switch (9ff8a77); the ROM's post-MODE-SELECT reads then re-parse the
+disc's second (512-granularity) map, find "Macintosh HD" at a different
+block number, and register a second drive = two icons. The OT disc has
+one map -> one icon. **Fix: refuse a block-length change (05/26/00)
+like QEMU, keep 2048 always, still apply page 0x0E (audio control).**
+T16h/T16j (512-mode tests) invert. The ROM CD boot never needed 512
+(QEMU boots the CD at 2048); the eject fix was the real one.
 Other savings still on the table: the printer port's UART pair (~390 LC,
 if unused), the framework's IIR audio filter (798 LC, no switch -- a
 framework edit, which the user is wary of), and a leaner core option from
