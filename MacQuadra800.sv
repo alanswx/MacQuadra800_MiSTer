@@ -83,7 +83,9 @@ localparam CONF_STR = {
 	// The monitor on the DA-15.  The ROM samples the DAFB sense lines once
 	// at boot and QuickDraw lays out for that geometry, so this is latched
 	// under reset like the RAM size (MacLC does the same).
+`ifndef VIDEO_512_OFF
 	"O[5],Monitor (on reset),13in 640x480,12in 512x384;",
+`endif
 	"O[122:121],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
 	"-;",
 	"T[0],Reset;",
@@ -249,6 +251,14 @@ pll_video pllv
 	.reconfig_from_pll(reconfig_from_pll)
 );
 
+`ifdef VIDEO_512_OFF
+// VIDEO_512_OFF=1 (qsf): no runtime PLL reconfiguration -- the 13" 640x480
+// divider is the static config and stays.  Saves the pll_cfg block (~360
+// ALMs), the area lever for CPU builds that keep the CD-ROM target.
+assign reconfig_to_pll = 64'd0;
+wire   pix_quiet = 1'b0;
+wire   mon_12in  = 1'b0;
+`else
 wire        pixcfg_waitrequest;
 reg         pixcfg_write = 0;
 reg   [5:0] pixcfg_address = 0;
@@ -316,6 +326,7 @@ always @(posedge CLK_50M) begin : pix_reconfig
 		end
 	end
 end
+`endif
 
 // video-domain reset: released only once the pixel clock is locked AND the
 // machine is out of reset AND no retarget is settling, 2FF-synced into
