@@ -110,7 +110,23 @@ session's transcript and summarised in memory `opus-operator-for-mister`.
   docs/PERFORMANCE_MEASUREMENTS.md §9. The MiSTer was left LIVE at the
   Finder on ecd5705e with the user driving; shut it down before any deploy. Shipping Alan's core WITH the CD needs ~600 more ALMs
   freed somewhere (wombat_cpu is 38,138 of ~50,700 logic cells; the
-  machine side is 25 %), or a smaller CPU option from Alan. Install #9 meanwhile
+  machine side is 25 %), or a smaller CPU option from Alan.
+
+**Getting Alan's CPU to fit WITH the CD (user, 20:15: "WE NEED CD ON so
+users can install").** Logic cells per block in the CD-on cache build
+(c805300 map report): ap040_core 29,772 (old core; +6.5k with 5aa596f),
+ap040_fpu 8,559, ncr53c96 6,086 of which cd_audio 2,936, scsi_cache
+1,774, ap040_mmu 1,206, scc 1,112, ap040_muldiv 732, **pll_cfg (the
+512x384 monitor option's PLL reconfig) 715**, sdram_beat32 613, dafb
+561, easc 481, ap040_cache 588. Gap: ~30 LABs (~300 ALMs) with
+aggressive-area synthesis, plus margin. Levers, cheapest first:
+(1) all-area qsf settings incl. physical synthesis OFF -- build launched
+20:18 in ../MacQuadra800_wt (`scratch/build_cpu_cd_area3.log`);
+(2) `CACHE_CD=0` parameter on scsi_cache (the CD slot passes through,
+its tags and mux leg vanish, ~250 ALMs; bench in flight);
+(3) drop the 512x384 PLL reconfig (~360 ALMs) -- user decision;
+(4) cd_audio ~1,500 ALMs -- the user wants CD audio, last resort. The
+cache's disk write-behind is what made the install fast; keep it. Install #9 meanwhile
   passed the base Mac OS 8.1 package (where #8 died) and was installing
   the optional packages at 18:00.
 - User's next topic after this: SCSI throughput ("our disks are REALLY
