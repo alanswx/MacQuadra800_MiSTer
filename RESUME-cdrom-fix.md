@@ -126,7 +126,21 @@ aggressive-area synthesis, plus margin. Levers, cheapest first:
 its tags and mux leg vanish, ~250 ALMs; bench in flight);
 (3) drop the 512x384 PLL reconfig (~360 ALMs) -- user decision;
 (4) cd_audio ~1,500 ALMs -- the user wants CD audio, last resort. The
-cache's disk write-behind is what made the install fast; keep it. Install #9 meanwhile
+cache's disk write-behind is what made the install fast; keep it.
+**(0) Framework switches, no core feature lost** (found 20:30, all
+commented in the qsf): MISTER_DISABLE_YC (yc_out 458 LC, composite/
+S-Video encoder) and MISTER_DISABLE_ALSA (alsa 400 LC, audio-over-HPS
+for USB/Bluetooth) -- together ~450 ALMs, i.e. the whole gap; also
+MISTER_DOWNSCALE_NN / MISTER_DISABLE_ADAPTIVE trim the scaler (ascal
+2,873 LC + 4,369 regs) at cosmetic cost. Full per-entity table in the
+transcript (c805300 map): ap040_core 17,608 own + FPU 8,559 + ALU 2,461
++ MMU 1,206 + muldiv 732 + cache 588 + regfile 412; iosb own 1,172;
+ncr53c96 own 2,472; cd_audio 2,526; scsi_cache 1,755; ascal 2,861;
+audio_out 1,629 (IIR 798, alsa 400); hdmi_osd 916; vga_osd 884;
+pll_hdmi_adj 779; pll_cfg 715; sdram_beat32 613; dafb 561; easc 481;
+yc_out 458; video_calc 416; scc 1,112 (4 UARTs ~780). The queued wt2
+build (all-area + CACHE_CD_OFF) had YC + ALSA off added before it
+started (20:33). Install #9 meanwhile
   passed the base Mac OS 8.1 package (where #8 died) and was installing
   the optional packages at 18:00.
 - User's next topic after this: SCSI throughput ("our disks are REALLY
