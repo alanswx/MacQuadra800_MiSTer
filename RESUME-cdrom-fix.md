@@ -69,8 +69,10 @@ session's transcript and summarised in memory `opus-operator-for-mister`.
   `releases/MacQuadra800_20260907.rbf`** (README row + section). Operator
   notes: menu driving under A/UX needs a black-inversion row probe and
   `--delay 0.05` (System 7 acceleration at 0.02);
-  `scratch/gate_03f83c62/inv_probe.py` + `walk7.sh` work -- fold into
-  scripts/guest/ together with the menu.sh right-edge fix.
+  `scratch/gate_03f83c62/inv_probe.py` + `walk7.sh` work. **Folded in**
+  (menu.sh centre + measured scale + MENU_DELAY, menuitem_probe inversion
+  fallback, mac_shutdown measured scale); probe verified on captured
+  frames of both guests, the drivers still owe a live run.
 - **CPU bump queued**: branch `work/cpu` (worktree ../MacQuadra800_wt,
   67627ec) = work/cache + AP68040 5aa596f (Alan's Sep 3 dispatch/decode
   work; the user reports ~2x CPU, "close to a Quadra 605"). The user says
