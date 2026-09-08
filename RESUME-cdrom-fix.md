@@ -153,7 +153,16 @@ no trims): FITS at 41,430 ALMs (99 %), 500 RAM blocks, but timing FAILS
 too dense for timing. Build B (wt2, trims + all-area) running from
 20:46; build C (wt, same trims, OPTIMIZATION_MODE BALANCED / technique
 BALANCED, duplication off) queued behind it -- pick whichever fits AND
-meets timing with the most slack. Install #9 meanwhile
+meets timing with the most slack.
+**Build B (20:46-21:11): FITS at 40,457 ALMs (97 %), 499 RAM, but HDMI
+PLL domain -0.720 ns** (clk_sys +0.774, clk_ram +0.605, holds fine) --
+worse than A despite 2 % less logic, so the all-area synthesis itself
+hurts the framework's HDMI paths. Kept as
+`scratch/MacQuadra800_cpu_cd_B_798ea37d_TIMINGFAIL.rbf` (never deploy).
+Build C (BALANCED) running 21:05; **build D queued (wt2)**: the qsf's
+proven speed settings globally + `set_instance_assignment -name
+OPTIMIZATION_TECHNIQUE AREA -to "emu:emu|quadra800:machine"` (area
+synthesis only for our machine, the framework untouched) + the trims. Install #9 meanwhile
   passed the base Mac OS 8.1 package (where #8 died) and was installing
   the optional packages at 18:00.
 - User's next topic after this: SCSI throughput ("our disks are REALLY
