@@ -233,7 +233,20 @@ release and land multi-block later. **H (seed 21) did not fit at all**
 (41,556 ALMs, "requires 4191 LABs"): the multi-block source is at the
 device edge; seed variance is +-100 ALMs. **G (seed 20) did not fit
 either** (41,627 ALMs, 4200 LABs). Decision 06:08: **gate C (b882d3fc)
-now** as the CPU+CD candidate (operator launched, scratch/gate2_b882d3fc/);
+now** as the CPU+CD candidate (operator launched, scratch/gate2_b882d3fc/).
+**GATE PASSED 06:09-07:02 on all three checks** -- Mac OS 8.1 from disk
+(desktop 151 s, CD mounted + readable, clock 5:25 -> 5:30, Speedometer
+Benchmark Mix 0.360, clean Shut Down; TWO CD icons as predicted), A/UX
+3.1 (desktop <= 263 s, uname = A/UX localhos 3.1 SUR2 mc68040, clean
+halt), ROM CD boot (desktop <= 146 s, ONE CD icon, clean halt).
+**Released as `releases/MacQuadra800_20260908.rbf`** (README row +
+section, 1682d56). The MiSTer had been in the DiskIOTest core (the
+user's benchmark) when the operator arrived; it sits at the CD halt
+screen now with .s0 restored to QuadSquad8 (07:05). Operator notes:
+menuitem_probe's inversion fallback read the teal desktop strip under
+the Special panel as a highlight (threshold tightened to < 40, verified
+on the frames); modifier keys need `down:56 sleep:0.3 raw:NN sleep:0.3
+up:56`; `n` does not press "No" in Speedometer's save alert.
 the multi-block cache is the next increment once ~400 ALMs are found.
 Data-point build J launched 06:08 (wt2): multi-block source + C's recipe
 + VIDEO_512_OFF=1, seed 19 -- tells whether "multi-block instead of the
