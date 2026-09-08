@@ -263,13 +263,15 @@ wire        pixcfg_waitrequest;
 reg         pixcfg_write = 0;
 reg   [5:0] pixcfg_address = 0;
 reg  [31:0] pixcfg_data = 0;
-pll_cfg pll_video_cfg
+// The framework's trimmed reconfiguration core (sys/pll_cfg/pll_cfg_hdmi.v,
+// Altera's altera_pll_reconfig_core with the unused features cut out) has
+// the same management interface and the MODE / C-counter / START registers
+// this path writes, at ~300 logic cells instead of the generic IP's 715.
+pll_cfg_hdmi pll_video_cfg
 (
 	.mgmt_clk(CLK_50M),
 	.mgmt_reset(0),
 	.mgmt_waitrequest(pixcfg_waitrequest),
-	.mgmt_read(0),
-	.mgmt_readdata(),
 	.mgmt_write(pixcfg_write),
 	.mgmt_address(pixcfg_address),
 	.mgmt_writedata(pixcfg_data),
