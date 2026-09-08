@@ -326,7 +326,21 @@ change: the ROM's scan now keeps the disc, reads its driver map and
 installs the disc's driver on a hard-disk boot, and the Apple CD-ROM
 extension mounts it again. Fix direction then: make the ROM-installed
 driver and the extension see one drive (what a real Quadra does), or
-keep the scan-time eject for non-boot passes.
+keep the scan-time eject for non-boot passes. **Test B (09:05): the 20260902 bitstream shows ZERO CD
+icons -- it predates the CD-slot strobe fix, the CD never mounted on it,
+so it cannot date the doubling.** The operator's own finding is the
+lead: `MAC_OS_8-1_RETAIL.ISO` is an Apple hybrid with TWO complete,
+overlapping partition maps (512-byte and 2048-byte granularity) naming
+the same HFS volume, plus Apple_Driver43, Apple_Driver43_CD,
+Apple_Driver_ATAPI and Apple_Patches; the OT disc has one map and no
+drivers. Our target serves the disc in both block sizes (the ROM scan
+switches it to 512, the extension uses 2048), so two enumerations can
+each discover that volume. QEMU golden run launched 09:12
+(`scratch/qemu_hdboot/`, WSL `~/qemu-work/vm3`, log `~/qemu-work/qemu3.log`):
+Mac OS 8.1 hard disk (hd2 copy, id 6) + the retail ISO (id 3): icon
+count + the ROM/extension command sequence to id 3. The MiSTer was left
+with the 0902 core loaded (halt screen); reload from the halt screen
+before any hardware work.
 Other savings still on the table: the printer port's UART pair (~390 LC,
 if unused), the framework's IIR audio filter (798 LC, no switch -- a
 framework edit, which the user is wary of), and a leaner core option from
