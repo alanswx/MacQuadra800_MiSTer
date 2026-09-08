@@ -43,7 +43,7 @@ cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" || exit 1
 DRY=0
 [ "${1:-}" = "--dry-run" ] && DRY=1
 
-WS="python scripts/mister_ws.py --host $MISTER_HOST --delay 0.008"
+WS="python scripts/mister_ws.py --host $MISTER_HOST --delay ${MENU_DELAY:-0.02}"
 
 # Menu-bar geometry as MOTION EVENTS at 0.02 s (see STATUS above), measured
 # 2026-08-30 against the Mac OS 8 Finder at 640x480: 100 events lands on View,
