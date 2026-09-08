@@ -313,7 +313,15 @@ one target: since the ROM CD-boot fix (4e9bc9e, Sep 3) the ROM loads
 the disc's own driver partition on a hard-disk boot and mounts the CD;
 the System's Apple CD-ROM extension then mounts it again. Experiment
 running (`scratch/cdicon/`): Quad Squad + Open Transport ISO (no driver
-partition) on build L, and the retail ISO on the 20260902 release.
+partition) on build L, and the retail ISO on the 20260902 release. **Test A result (08:55): ONE icon** with the Open
+Transport disc on build L (`scratch/cdicon/05b_otdisc.png`) -- the
+doubling needs the retail disc's own driver partition. Test B pending.
+If B shows one icon on 20260902, the trigger is the eject-until-bus-reset
+change: the ROM's scan now keeps the disc, reads its driver map and
+installs the disc's driver on a hard-disk boot, and the Apple CD-ROM
+extension mounts it again. Fix direction then: make the ROM-installed
+driver and the extension see one drive (what a real Quadra does), or
+keep the scan-time eject for non-boot passes.
 Other savings still on the table: the printer port's UART pair (~390 LC,
 if unused), the framework's IIR audio filter (798 LC, no switch -- a
 framework edit, which the user is wary of), and a leaner core option from
