@@ -174,7 +174,16 @@ PLL domain -0.720 ns** (clk_sys +0.774, clk_ram +0.605, holds fine) --
 worse than A despite 2 % less logic, so the all-area synthesis itself
 hurts the framework's HDMI paths. Kept as
 `scratch/MacQuadra800_cpu_cd_B_798ea37d_TIMINGFAIL.rbf` (never deploy).
-Build C (BALANCED) running 21:05; **build D queued (wt2)**: the qsf's
+**BUILD C (21:05-21:27) FITS AND MEETS TIMING: Alan's CPU + CD on.**
+`scratch/MacQuadra800_cpu_cd_C_b882d3fc.rbf` (md5 `b882d3fce60b63fa…`,
+source ff7f4b0 = main before the multi-block cache; qsf: OPTIMIZATION_MODE
+BALANCED, technique BALANCED, register duplication off, CACHE_CD_OFF=1,
+MISTER_DISABLE_YC=1, MISTER_DISABLE_ALSA=1; the trimmed PLL reconfig core
+is in the source). 41,108 ALMs (98 %), 499 RAM, worst +0.343 ns (HDMI),
+clk_sys +0.415, clk_ram +0.609, hold +0.158, open_row uninferred. NOT yet
+on hardware: needs the two-OS gate + a CD boot/install check. Build D
+(machine-only AREA) still running for comparison; build E (D's recipe on
+the multi-block cache) queued behind it. Build D queued (wt2): the qsf's
 proven speed settings globally + `set_instance_assignment -name
 OPTIMIZATION_TECHNIQUE AREA -to "emu:emu|quadra800:machine"` (area
 synthesis only for our machine, the framework untouched) + the trims. Install #9 meanwhile
