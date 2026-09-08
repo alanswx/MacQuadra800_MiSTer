@@ -229,7 +229,9 @@ wt) in parallel, both = main 344a7cf (multi-block cache + trim + the
 same-disc CD guard) on C's recipe (`scratchpad/recipe_c.py`). Whichever
 meets timing is the gate candidate; if neither, VIDEO_512_OFF (-360 ALMs)
 is the next lever, or gate C (b882d3fc, no multi-block) as the CPU+CD
-release and land multi-block later. Build D queued (wt2): the qsf's
+release and land multi-block later. **H (seed 21) did not fit at all**
+(41,556 ALMs, "requires 4191 LABs"): the multi-block source is at the
+device edge; seed variance is +-100 ALMs. Build D queued (wt2): the qsf's
 proven speed settings globally + `set_instance_assignment -name
 OPTIMIZATION_TECHNIQUE AREA -to "emu:emu|quadra800:machine"` (area
 synthesis only for our machine, the framework untouched) + the trims. Install #9 meanwhile
