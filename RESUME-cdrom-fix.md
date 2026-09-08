@@ -264,6 +264,17 @@ CACHE_CD_OFF). Not gated. **User (07:10): keep Y/C, ALSA off is fine
 the Linux-side audio mix), and look for more savings.** Build L launched
 07:17 (wt): K + Y/C ON + MISTER_DOWNSCALE_NN + MISTER_DISABLE_ADAPTIVE
 (`scratchpad/recipe_target.py`) -- the user's target configuration.
+**L (07:38) FITS AND MEETS TIMING: 41,181 ALMs (98 %), HDMI +0.171,
+clk_sys +0.358, clk_ram +1.008** -- `scratch/MacQuadra800_target_L.rbf`
+(main 43e5d09: Alan's CPU + CD + multi-block cache CACHE_SMALL + the
+same-disc CD guard + 512x384; Y/C ON, ALSA off, scaler NN + no
+adaptive, CACHE_CD_OFF, BALANCED, seed 19). Gate operator launched
+07:43 (`scratch/gate_L/`) with a Finder-Duplicate throughput
+observation and a CD-icon count. If it passes it is the next release
+and the recipe should be committed to the qsf as the default.
+CD audio diet so far: 2,936 -> 2,604 LC (divider share -34, 20-bit
+LBAs -297, regs 938 -> 819); remaining small cuts: shared volume LUT
+(~80), BCD conversions registered once (~75).
 Other savings still on the table: the printer port's UART pair (~390 LC,
 if unused), the framework's IIR audio filter (798 LC, no switch -- a
 framework edit, which the user is wary of), and a leaner core option from
