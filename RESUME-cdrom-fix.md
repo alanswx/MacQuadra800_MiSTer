@@ -272,9 +272,15 @@ adaptive, CACHE_CD_OFF, BALANCED, seed 19). Gate operator launched
 07:43 (`scratch/gate_L/`) with a Finder-Duplicate throughput
 observation and a CD-icon count. If it passes it is the next release
 and the recipe should be committed to the qsf as the default.
-CD audio diet so far: 2,936 -> 2,604 LC (divider share -34, 20-bit
-LBAs -297, regs 938 -> 819); remaining small cuts: shared volume LUT
-(~80), BCD conversions registered once (~75).
+**CD audio diet, final (07:50): 2,936 -> 2,566 LC (-12.6 %), regs 938
+-> 852** -- divider share -34 (79d3e9b), 20-bit LBAs -297 (5f52240),
+shared volume LUT -38 (3098ee3); all on main, engine suite 475,299
+checks each time. Not worth doing: registering the BCD conversions
+(CSE already shares them); nothing in the debug probes (unconnected).
+The next real step down would be architectural: pre-build the AppleCD
+TOC/subcode responses in the Main fork and drop the t2/t43/resp plane
+builders (~800 LC) -- the user's call. These three commits are NOT in
+build L (43e5d09); they ride in the next build.
 Other savings still on the table: the printer port's UART pair (~390 LC,
 if unused), the framework's IIR audio filter (798 LC, no switch -- a
 framework edit, which the user is wary of), and a leaner core option from
