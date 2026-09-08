@@ -198,6 +198,7 @@ reg        cd_prevent;             // PREVENT/ALLOW MEDIUM REMOVAL latch
 // the eject for good left the second pass with no medium and the ROM at
 // the flashing "?".  The Finder's Put Away still sees the disc gone.
 reg        cd_present;             // the platform has an image on slot 4
+wire       cd_same_disc = cd_present && !cd_ejected && (img_size != 0) && (img_size[40:9] == tgt_blocks[2]);
 reg        cd_ejected;             // ...but the guest ejected it
 // The CD-ROM's logical block size: 2048 (power-on default) or 512, set by
 // the block descriptor of a MODE SELECT(6).  The Mac ROM's CD boot and the
@@ -735,7 +736,7 @@ always @(posedge clk) begin
 		i_new = 8'h00;
 		dma_valid <= 0;
 		ca_cmd_stb <= 0; ca_read_stb <= 0; ca_eject_stb <= 0; ca_bus_rst <= 0;
-		ca_mount_d <= {ca_mount_d[0], img_mounted[2]};
+		ca_mount_d <= {ca_mount_d[0], img_mounted[2] && !cd_same_disc};
 		dbg_op_stb <= 0; dbg_st_stb <= 0;
 
 `ifdef VERILATOR
@@ -767,8 +768,12 @@ always @(posedge clk) begin
 		dbg_ack_d <= io_ack_i;
 `endif
 
+		// A mount pulse for the CD that names a disc of the same size while
+		// that disc is present and not ejected is the platform re-inserting
+		// what is already there (the Main fork's 60 s "boot repulse"); acting
+		// on it made Mac OS 8.1 mount the disc a second time (2026-09-08).
 		for (i = 0; i < 3; i = i + 1)
-			if (img_mounted[i] && (i != 2 || CDROM != 0)) begin
+			if (img_mounted[i] && (i != 2 || (CDROM != 0 && !cd_same_disc))) begin
 				tgt_mounted[i] <= (img_size != 0);
 				tgt_blocks[i]  <= img_size[40:9];
 				if (i == 2) begin cd_present <= (img_size != 0); cd_ejected <= 0; end
