@@ -12,6 +12,7 @@ must never be flashed (`scripts/deploy_screenshot.sh` refuses one).
 
 | build | md5 | timing | notes |
 |---|---|---|---|
+| `MacQuadra800_20260908.rbf` | `b882d3fce60b63fac4ab1284755031d6` | met, **+0.343 ns setup** (clk_sys +0.415, clk_ram +0.609, hold +0.158) | **Alan Steremberg's next AP68040 (`5aa596f`) with the CD-ROM still in.** Speedometer 4.02 Benchmark Mix 0.360 (Q605 = 1.0; 0.231 on 20260901), Color QuickDraw 0.317, FPU 0.250. Fits at 98 % with balanced synthesis, the framework's trimmed PLL reconfig core for 512x384, the CD passed through the block cache, and composite Y/C + ALSA compiled out. Both OSes and a CD boot pass the gate. Known cosmetic: the CD can appear twice on the Mac OS 8.1 desktop (the Main's 60 s re-insert; fixed in source after this build). Seed 19. |
 | `MacQuadra800_20260907.rbf` | `03f83c62d92d997e5cdf89efbb99c42f` | met, **+0.250 ns setup** (clk_ram +0.721, clk_sys +0.850) | **Mac OS 8.1 installs from the retail CD end to end; SCSI block cache.** Fixes the installer deadlock (a write flush's ack followed cur_tgt across a target switch), adds a per-target read-ahead / write-behind block cache in front of hps_io (32/24/8 KB), ROM CD boot, 512-byte CD block mode, CD audio in the mix, Drive Setup's MODE SENSE page, the 12" 512x384 monitor option. Verified on hardware against BOTH Mac OS 8.1 and A/UX 3.1. Tracer off; seed 19; 91 % ALMs, 502 RAM blocks. |
 | `MacQuadra800_20260902.rbf` | `91cf5d727920e387c5cefdf18dc695f4` | met, **+0.420 ns setup / +0.195 ns hold** | **First MacQuadra800 release; Alan Steremberg's CPU/SDRAM speed-ups merged.** BL8 open-page SDRAM, related-clock handoff, retained 16-byte line into the AP040 cache, two-entry store buffer, store-hit cache update. Speedometer 3.23 CPU PR 2.66 → 3.88 on Alan's runs. Verified on hardware against BOTH A/UX 3.1 and Mac OS 8.1. Seed 19; 85 % ALMs. |
 | `wombat33_20260902.rbf` | `70716e92871448d1ff81ebb430902f4a` | met, **+0.130 ns** | **A/UX 3.1 boots to multiuser.** Both NCR53C96 SCSI bugs fixed (control-path phase flip + write-path chunk-flush). First build verified on hardware against BOTH A/UX 3.1 and Mac OS 8.1. Tracer off; seed 13; 85 % ALMs. |
@@ -20,6 +21,52 @@ must never be flashed (`scripts/deploy_screenshot.sh` refuses one).
 | `wombat33_20260831_1.rbf` | `3901ef5705f58dba3279c0417412f5f8` | met, +0.243 ns | **Sound works.** Fixes the watch-cursor wedge (ASC FIFOSTAT reported an empty FIFO as full) and hooks up the $806 volume slider. |
 | `wombat33_20260830.rbf` | `64c79dfb93ceefb549200c78671cdc31` | met, +0.248 ns | **ADB actually works** — the mouse button reaches the guest and motion stops inventing input. |
 | `wombat33_20260829.rbf` | `4c46a65c3a48b44ddb6f4fd6808d0422` | met, +0.245 ns | First build that boots Mac OS unattended. |
+
+## `MacQuadra800_20260908.rbf`
+
+md5 `b882d3fce60b63fac4ab1284755031d6`, seed 19, timing met at **+0.343 ns**
+overall (HDMI PLL domain; `clk_sys` +0.415 ns, the 99 MHz SDRAM domain
++0.609 ns, hold +0.158 ns). 41,108 ALMs (98 %), 499 of 553 RAM blocks.
+Built from `ff7f4b0` on `main` with the release recipe in the qsf notes:
+`OPTIMIZATION_MODE BALANCED`, `OPTIMIZATION_TECHNIQUE BALANCED`, register
+duplication off, `CACHE_CD_OFF=1`, `MISTER_DISABLE_YC=1`,
+`MISTER_DISABLE_ALSA=1`. Tracer off.
+
+**Alan Steremberg's next AP68040 step is in** (`5aa596f`: retained
+instruction fetches across branches, memory operands retired on read
+acknowledge, DBcc collapse, simple An effective addresses and source-EA
+dispatch bypassed, register ADD operands preselected in decode). Against the
+20260901 numbers in `docs/PERFORMANCE_MEASUREMENTS.md` the Benchmark Mix
+average goes 0.231 -> **0.360** (+56 %), Color QuickDraw 0.219 -> 0.317, FPU
+0.161 -> 0.250; Permutations 1.97x, Towers 1.78x, Dhrystones 1.75x. The core
+is +20 % logic, which is why this build needed:
+
+- the framework's trimmed PLL reconfiguration core (`pll_cfg_hdmi`) behind
+  the 12" 512x384 option instead of the generic IP (715 -> ~300 cells);
+- the CD-ROM passed straight through the SCSI block cache (`CACHE_CD_OFF`):
+  the disks keep their read-ahead and write-behind, the CD loses its 8 KB
+  read-ahead;
+- the composite/S-Video encoder and the ALSA (audio-over-HPS) path compiled
+  out; HDMI and VGA video and HDMI/analog audio are unaffected;
+- balanced rather than speed-directed synthesis. Speed synthesis does not
+  fit; area synthesis fits but breaks HDMI-domain timing.
+
+Hardware (2026-09-08, `scratch/gate2_b882d3fc/`): Mac OS 8.1 (QuadSquad8)
+Finder at 151 s with the retail CD mounted and its window readable, clock
+5:25 -> 5:30 over the idle watch, mouse and keyboard live, Speedometer
+average 0.360, Special -> Shut Down clean. A/UX 3.1 multiuser desktop in
+under 263 s (the CD readable there too), `uname -a` = `A/UX localhos 3.1
+SUR2 mc68040`, `shutdown -h now` clean. ROM boot from the retail CD to its
+Finder desktop in under 146 s, clean shutdown.
+
+Known and cosmetic: with the CD in the slot at boot the disc can show up
+twice on the Mac OS 8.1 desktop. The Main fork re-inserts the disc 60 s
+after attach when the guest has read eight or fewer data blocks, which the
+pass-through CD makes likely, and the driver mounts it again. The target
+now ignores a re-mount of the disc already present (`2631967`); that fix is
+not in this bitstream. The multi-block SCSI cache (`f878a6e`) is not in it
+either: with this CPU and the CD it sits a seed's worth of variance over
+the device; see the resume doc for the geometry option being built.
 
 ## `MacQuadra800_20260907.rbf`
 
