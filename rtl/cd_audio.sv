@@ -388,6 +388,16 @@ reg [31:0] t_start;
 reg  [7:0] t_ctrl;
 reg [31:0] div_v;                       // shared iterative M/S/F divider
 reg  [6:0] div_m, div_s;
+// One step of the LBA -> M/S/F divider, computed ONCE: every state that
+// divides loads div_v/div_m/div_s, then repeats "if (!div_done) step" until
+// done.  The step used to be written out in six states, which synthesised
+// six pairs of 32-bit comparators and subtractors (2026-09-08).
+wire        div_ge4500 = (div_v >= 32'd4500) && (div_m != 7'd99);
+wire        div_ge75   = (div_v >= 32'd75);
+wire        div_done   = !div_ge4500 && !div_ge75;
+wire [31:0] div_v_next = div_ge4500 ? div_v - 32'd4500 : div_v - 32'd75;
+wire  [6:0] div_m_next = div_m + {6'd0, div_ge4500};
+wire  [6:0] div_s_next = div_s + {6'd0, !div_ge4500};
 reg  [2:0] emit_k;   // widened for the 8-byte 0x43 descriptors
 
 reg        toc_valid;
@@ -594,11 +604,8 @@ always @(posedge clk) begin
 			endcase
 		end
 		M_LO_DIV: begin
-			if ((div_v >= 32'd4500) && (div_m != 7'd99)) begin
-				div_v <= div_v - 32'd4500; div_m <= div_m + 7'd1;
-			end
-			else if (div_v >= 32'd75) begin
-				div_v <= div_v - 32'd75; div_s <= div_s + 7'd1;
+			if (!div_done) begin
+				div_v <= div_v_next; div_m <= div_m_next; div_s <= div_s_next;
 			end
 			else begin emit_k <= 0; mst <= M_EMIT_LO; end
 		end
@@ -642,11 +649,8 @@ always @(posedge clk) begin
 			end
 		end
 		M_TRK_DIV: begin
-			if ((div_v >= 32'd4500) && (div_m != 7'd99)) begin
-				div_v <= div_v - 32'd4500; div_m <= div_m + 7'd1;
-			end
-			else if (div_v >= 32'd75) begin
-				div_v <= div_v - 32'd75; div_s <= div_s + 7'd1;
+			if (!div_done) begin
+				div_v <= div_v_next; div_m <= div_m_next; div_s <= div_s_next;
 			end
 			else begin emit_k <= 0; mst <= M_EMIT_TRK; end
 		end
@@ -710,11 +714,8 @@ always @(posedge clk) begin
 			end
 		end
 		M_T43_DIV: begin
-			if ((div_v >= 32'd4500) && (div_m != 7'd99)) begin
-				div_v <= div_v - 32'd4500; div_m <= div_m + 7'd1;
-			end
-			else if (div_v >= 32'd75) begin
-				div_v <= div_v - 32'd75; div_s <= div_s + 7'd1;
+			if (!div_done) begin
+				div_v <= div_v_next; div_m <= div_m_next; div_s <= div_s_next;
 			end
 			else begin emit_k <= 0; mst <= M_T43_EMIT; end
 		end
@@ -791,11 +792,8 @@ always @(posedge clk) begin
 			end
 		end
 		M_T2_DIV: begin
-			if ((div_v >= 32'd4500) && (div_m != 7'd99)) begin
-				div_v <= div_v - 32'd4500; div_m <= div_m + 7'd1;
-			end
-			else if (div_v >= 32'd75) begin
-				div_v <= div_v - 32'd75; div_s <= div_s + 7'd1;
+			if (!div_done) begin
+				div_v <= div_v_next; div_m <= div_m_next; div_s <= div_s_next;
 			end
 			else begin
 				t2_ek <= 0;
@@ -1115,11 +1113,8 @@ always @(posedge clk) begin
 				div_v <= ref_abs; div_m <= 0; div_s <= 0;
 				step <= 3'd1;
 			end
-			else if ((div_v >= 32'd4500) && (div_m != 7'd99)) begin
-				div_v <= div_v - 32'd4500; div_m <= div_m + 7'd1;
-			end
-			else if (div_v >= 32'd75) begin
-				div_v <= div_v - 32'd75; div_s <= div_s + 7'd1;
+			else if (!div_done) begin
+				div_v <= div_v_next; div_m <= div_m_next; div_s <= div_s_next;
 			end
 			else begin
 				refm_hold <= div_m; refs_hold <= div_s;
@@ -1131,11 +1126,8 @@ always @(posedge clk) begin
 			end
 		end
 		M_REF_DIVR: begin
-			if ((div_v >= 32'd4500) && (div_m != 7'd99)) begin
-				div_v <= div_v - 32'd4500; div_m <= div_m + 7'd1;
-			end
-			else if (div_v >= 32'd75) begin
-				div_v <= div_v - 32'd75; div_s <= div_s + 7'd1;
+			if (!div_done) begin
+				div_v <= div_v_next; div_m <= div_m_next; div_s <= div_s_next;
 			end
 			else begin
 				abs_m <= {1'b0, refm_hold};
