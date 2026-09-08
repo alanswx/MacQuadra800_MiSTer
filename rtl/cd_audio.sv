@@ -1333,8 +1333,16 @@ wire signed [15:0] ap_src_l = (ap_ch0 == 8'h01) ? sum_l[15:0] :
 wire signed [15:0] ap_src_r = (ap_ch1 == 8'h02) ? sum_r[15:0] :
                               (ap_ch1 == 8'h01) ? sum_l[15:0] : 16'sd0;
 `include "cd_vol_lut.vh"
-wire [15:0] ap_gain_l = cd_vol_gain(ap_vol0);
-wire [15:0] ap_gain_r = cd_vol_gain(ap_vol1);
+// One instance of the 256-entry volume law serves both channels on
+// alternate clocks (the gains change only on a MODE SELECT); it was two
+// LUT-built ROMs (2026-09-08).
+reg         vol_sel = 1'b0;
+reg  [15:0] ap_gain_l = 16'h8000, ap_gain_r = 16'h8000;
+wire [15:0] vol_gain  = cd_vol_gain(vol_sel ? ap_vol1 : ap_vol0);
+always @(posedge clk) begin
+	vol_sel <= ~vol_sel;
+	if (vol_sel) ap_gain_r <= vol_gain; else ap_gain_l <= vol_gain;
+end
 wire signed [31:0] ap_scl_l = ap_src_l * $signed({1'b0, ap_gain_l});
 wire signed [31:0] ap_scl_r = ap_src_r * $signed({1'b0, ap_gain_r});
 reg  [2:0] odiv;
