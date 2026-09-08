@@ -299,7 +299,10 @@ build L (43e5d09); they ride in the next build.
 bytes, so CUE/CHD discs would read zeros in 4 KB groups (flat ISOs use
 the generic path and are fine). Fork change written up in
 `scratch/main_fork_cd_multiblock.patch.md` (loop the data-window fill
-over the request's blocks); `MB_CD` stays 0 until it lands (847421e).
+over the request's blocks); `MB_CD` stays 0 until it lands (847421e). The cache side is benched with MB_CD on in all
+geometries. Found on the way (dc9eebb): a wholly dirty group whose scan
+pointer sat mid-group was flushed as eight singles; it now flushes from
+its base -- 64 sequential writes = 8 transactions in every geometry.
 The ARM-side AppleCD response building the user conditioned on
 precedent: the Main's `ide_cdrom.cpp` (read_toc, read_subchannel...)
 serves ao486/Archie/CD32/CDTV, and the fork's Toolbox round-trip
