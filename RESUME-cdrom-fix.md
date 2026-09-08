@@ -800,3 +800,19 @@ three-check gate (Mac OS 8.1 desktop + clock + Shut Down; A/UX to the
 multiuser desktop + `shutdown -h now`) before a release
 `MacQuadra800_20260908_3.rbf` with a README row. Drive the box through an
 Opus operator.
+
+### CD multi-block: the Main-fork half is built (2026-09-08 evening)
+
+`../Main_MiSTer` commit `2d23324` ("Mac: serve multi-block reads of the
+CD-ROM data window"): `mac_cdrom_fill` accepts any multiple of 512 up to the
+4 KB service buffer for the data window and loops the per-block read; the
+TOC-blob and raw-audio windows keep their single-block contract. The caller
+(`user_io.cpp`) sizes the request as `blks * 512`, so the core's 8-sector
+groups arrive as 4,096 bytes. Cross-built in WSL (`rsync` the Windows tree
+to `~/Main_MiSTer`, `PATH=/opt/gcc-arm-10.2-2020.11-x86_64-arm-none-linux-gnueabihf/bin
+make -j8`), binary md5 `c9ac590b…`, staged as
+`scratch/MiSTer_2d23324_c9ac590b`. **Not installed**: one change at a time —
+build M's gate runs on the installed Main first. Then: install it at the
+halt screen (`killall MiSTer`, copy, `setsid nohup /media/fat/MiSTer …`),
+set `MB_CD` to 1 in `rtl/scsi_cache.sv`, rebuild, and a CUE/CHD disc as
+well as the flat ISO must still mount and install.
