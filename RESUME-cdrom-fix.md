@@ -112,6 +112,21 @@ session's transcript and summarised in memory `opus-operator-for-mister`.
   freed somewhere (wombat_cpu is 38,138 of ~50,700 logic cells; the
   machine side is 25 %), or a smaller CPU option from Alan.
 
+**SCSI throughput (user's analysis, 21:15; work landed 21:40, f878a6e):**
+every hps_io transaction costs a Main_MiSTer main-loop pass and the core
+paid it per 512-byte sector (`sd_blk_cnt` hard-wired 0). The cache's
+platform side now works in aligned 8-sector groups: group fetch on a
+miss into an absent group, two groups of read-ahead as 8-block reads,
+fully dirty groups flushed as one 8-block write, per-sector valid as the
+words land, quiet-gated single flushes for partial groups, and a miss into
+a group in flight waits instead of refetching. CD slot single-sector
+until the fork's CD path is confirmed (MB_CD). `io_blk_cnt` ->
+`sd_blk_cnt` for slots 0/1/4 in MacQuadra800.sv (not sim-covered:
+verify in the next build). Bench T9: 64 writes -> 8 transactions,
+32 reads -> 7. NOT yet built or on hardware; the next cache build should
+show a large install-throughput gain (the 9-12 MB/min bursts were
+round-trip bound).
+
 **Getting Alan's CPU to fit WITH the CD (user, 20:15: "WE NEED CD ON so
 users can install").** Logic cells per block in the CD-on cache build
 (c805300 map report): ap040_core 29,772 (old core; +6.5k with 5aa596f),
