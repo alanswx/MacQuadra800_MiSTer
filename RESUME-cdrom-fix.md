@@ -210,6 +210,14 @@ Operator notes: the live shutdown pattern that works first time is
 `menu.sh item 172 104`, verify, `release`; mac_shutdown.sh's 0.008 s
 event spacing dropped moves (fixed to 0.02, 0e6e135); mopen.sh's
 give-up path leaves the button down (scratch script, avoid).
+**Two CD icons on build C (user, 05:20):** the same disc mounted twice --
+the Main fork's 60 s boot repulse re-inserts the CD when the guest has
+read <= 8 data blocks (true with CACHE_CD_OFF: no read-ahead during the
+ROM scan); the driver then mounts it again. Core-side fix: a mount pulse
+for a same-size disc that is present and not ejected is ignored
+(`cd_same_disc`, ncr53c96.sv). Not in build C/F; goes into the next
+build. The fork's heuristic could also be retired now that the eject-
+until-bus-reset fix makes the ROM CD boot work.
 **Build F (05:05, wt2)**: main 9f6e528 (multi-block cache with the
 group-limit trim) on C's recipe (BALANCED/BALANCED, duplication off,
 CACHE_CD_OFF, YC + ALSA off) -- CD target ON. If it fits with timing it
