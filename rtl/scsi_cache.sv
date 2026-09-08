@@ -93,6 +93,8 @@ module scsi_cache
 
 localparam integer NSECT = SECT0 + SECT1 + SECT2;
 localparam integer NS    = CACHE_CD ? 3 : 2;         // cached slots; the rest pass through
+localparam integer MAXS  = (SECT0 > SECT1) ? ((SECT0 > SECT2) ? SECT0 : SECT2) : ((SECT1 > SECT2) ? SECT1 : SECT2);
+                                                     // tag bitmap width: the largest slot (8..64)
 localparam integer AW    = $clog2(NSECT*256);        // NSECT*256 <= 65536 words
 
 // slot geometry
@@ -109,8 +111,8 @@ endfunction
 reg [31:0] win_base [0:2];
 reg        win_ok   [0:2];
 reg  [3:0] grp_lim  [0:2];                          // groups of the window that lie inside the image (0..8)
-reg [63:0] valid    [0:2];
-reg [63:0] dirty    [0:2];
+reg [MAXS-1:0] valid [0:2];
+reg [MAXS-1:0] dirty [0:2];
 reg [31:0] size_r   [0:2];                          // image size (in 512-byte blocks) the slot was mounted with
 reg  [2:0] mounted;                                  // slot has an image (size != 0)
 
@@ -256,6 +258,9 @@ wire        e_writing  = ((est == E_DECIDE) && r_wr && r_inwin && !r_pt) ||
 function [7:0] slice(input [63:0] bm, input [2:0] g);
 	slice = bm[g*8 +: 8];
 endfunction
+function [63:0] ext(input [MAXS-1:0] bm);              // zero-extend a bitmap for slice()
+	ext = {{(64-MAXS){1'b0}}, bm};
+endfunction
 function slot_mb(input [1:0] sl);           // may this slot use multi-block?
 	slot_mb = (sl != 2'd2) || (MB_CD != 0);
 endfunction
@@ -263,7 +268,7 @@ function grp_in(input [1:0] sl, input [2:0] g);   // whole group inside the wind
 	grp_in = ({g, 3'b111} < slot_size(sl));
 endfunction
 wire [2:0] r_grp = r_idx[5:3];
-wire       r_grp_absent = (slice(valid[r_slot], r_grp) == 8'd0) && (slice(dirty[r_slot], r_grp) == 8'd0);
+wire       r_grp_absent = (slice(ext(valid[r_slot]), r_grp) == 8'd0) && (slice(ext(dirty[r_slot]), r_grp) == 8'd0);
 wire       dem_grp = slot_mb(r_slot) && grp_in(r_slot, r_grp) && r_grp_absent &&
                      ({1'b0, r_grp} < grp_lim[r_slot]);                // stays inside the image
 // groups that fit between the new window base and the end of the image,
@@ -287,12 +292,12 @@ reg  [1:0] pf_slot;
 reg  [2:0] pf_grp;
 reg  [1:0] pf_left;
 wire       pf_ok = win_ok[pf_slot] && mounted[pf_slot] && grp_in(pf_slot, pf_grp) &&
-                   (slice(valid[pf_slot], pf_grp) == 8'd0) && (slice(dirty[pf_slot], pf_grp) == 8'd0) &&
+                   (slice(ext(valid[pf_slot]), pf_grp) == 8'd0) && (slice(ext(dirty[pf_slot]), pf_grp) == 8'd0) &&
                    ({1'b0, pf_grp} < grp_lim[pf_slot]) &&
                    !(e_writing && (pf_slot == r_slot));
 // single-sector prefetch for a slot without multi-block: the first sector of
 // the group that is neither valid nor dirty
-wire [7:0] pf_present = slice(valid[pf_slot], pf_grp) | slice(dirty[pf_slot], pf_grp);
+wire [7:0] pf_present = slice(ext(valid[pf_slot]), pf_grp) | slice(ext(dirty[pf_slot]), pf_grp);
 reg  [2:0] pf_first; reg pf_any;
 integer pfi;
 always @(*) begin
@@ -314,7 +319,7 @@ wire       eng_quiet = (idle_ctr == 13'd4095) || (est == E_FLUSHALL);
 reg  [1:0] fl_slot;
 reg  [5:0] fl_idx;
 wire       fl_grp = slot_mb(fl_slot) && grp_in(fl_slot, fl_idx[5:3]) && (fl_idx[2:0] == 3'd0) &&
-                    (slice(dirty[fl_slot], fl_idx[5:3]) == 8'hFF) &&
+                    (slice(ext(dirty[fl_slot]), fl_idx[5:3]) == 8'hFF) &&
                     !(e_writing && (fl_slot == r_slot) && (r_idx[5:3] == fl_idx[5:3]));
 
 integer i;
@@ -330,8 +335,8 @@ always @(posedge clk) begin
 	for (i = 0; i < NS; i = i + 1)
 		if (img_mounted[i]) begin
 			if (img_size[40:9] != size_r[i]) begin  // a different image: forget everything
-				valid[i]  <= 64'd0;
-				dirty[i]  <= 64'd0;
+				valid[i]  <= {MAXS{1'b0}};
+				dirty[i]  <= {MAXS{1'b0}};
 				win_ok[i] <= 1'b0;
 				size_r[i] <= img_size[40:9];
 			end
@@ -375,7 +380,10 @@ always @(posedge clk) begin
 				p_wr[fl_slot] <= 1;
 				cst <= C_REQ;
 			end
-			else fl_idx <= fl_idx + 1'b1;            // scan on (wraps inside the window)
+			else fl_idx <= (fl_idx + 1'b1 == slot_size(fl_slot)) ? 6'd0 : fl_idx + 1'b1;   // scan on, wrapping at the slot's size
+			// (a 6-bit index running past a smaller bitmap aliases onto its low
+			// bits: with 32-sector slots index 46 read bit 14 and flushed the
+			// wrong store sector to the wrong LBA, tb_scsi_cache "small" 2026-09-08)
 		end
 		else if (|dirty[0] | |dirty[1] | (CACHE_CD && |dirty[2])) begin
 			fl_slot <= (fl_slot + 1'b1 == NS[1:0]) ? 2'd0 : fl_slot + 1'b1;   // another slot has the dirt
@@ -495,8 +503,8 @@ always @(posedge clk) begin
 			win_base[r_slot] <= r_lba;
 			grp_lim[r_slot]  <= new_lim;
 			win_ok[r_slot]   <= 1'b1;
-			valid[r_slot]    <= 64'd0;
-			dirty[r_slot]    <= 64'd0;
+			valid[r_slot]    <= {MAXS{1'b0}};
+			dirty[r_slot]    <= {MAXS{1'b0}};
 		end
 		est <= E_DECIDE;
 	end

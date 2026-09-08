@@ -36,7 +36,11 @@ wire [15:0] stat_hits, stat_misses;
 `ifndef CACHE_CD_TB
 `define CACHE_CD_TB 1
 `endif
-scsi_cache #(.SECT0(64), .SECT1(64), .SECT2(16), .PF_DEPTH(8), .CACHE_CD(`CACHE_CD_TB)) dut (
+`ifndef CACHE_S0_TB
+`define CACHE_S0_TB 64
+`define CACHE_S1_TB 64
+`endif
+scsi_cache #(.SECT0(`CACHE_S0_TB), .SECT1(`CACHE_S1_TB), .SECT2(16), .PF_DEPTH(8), .CACHE_CD(`CACHE_CD_TB)) dut (
 	.clk(clk), .nreset(nreset),
 	.e_lba(e_lba), .e_rd(e_rd), .e_wr(e_wr), .e_ack(e_ack),
 	.e_buff_addr(e_buff_addr), .e_buff_dout(e_buff_dout), .e_buff_din(e_buff_din), .e_buff_wr(e_buff_wr),
@@ -105,7 +109,11 @@ always @(posedge clk) begin
 	end
 	3: begin
 		if (d_lat != 0) d_lat <= d_lat - 1;
-		else begin p_ack[d_slot] <= 1; d_i <= 0; d_state <= 4; dev_writes <= dev_writes + 1; end
+		else begin p_ack[d_slot] <= 1; d_i <= 0; d_state <= 4; dev_writes <= dev_writes + 1;
+`ifdef TB_DEBUG
+			$display("      dev WRITE slot %0d lba %0d blocks %0d", d_slot, d_lba, d_n);
+`endif
+		end
 	end
 	4: begin
 		// two-cycle round trip: address this cycle, data reflects the address two cycles ago
@@ -280,8 +288,21 @@ initial begin
 
 	$display("   fails so far: %0d", fails);
 	$display("-- T4 window re-base with dirty data: writes at 20.., then a read far away flushes first");
-	ewrite(0, 24, 7); ewrite(0, 25, 8);
+`ifdef TB_DEBUG
+	$display("   T4 before: base=%0d lim=%0d valid=%h dirty=%h cst=%0d est=%0d", dut.win_base[0], dut.grp_lim[0], dut.valid[0], dut.dirty[0], dut.cst, dut.est);
+`endif
+	ewrite(0, 24, 7);
+`ifdef TB_DEBUG
+	$display("   T4 store sector 14 word0=%04x word255=%04x (want 0007/...)", dut.mem[14*256], dut.mem[14*256+255]);
+`endif
+	ewrite(0, 25, 8);
+`ifdef TB_DEBUG
+	$display("   T4 after writes: base=%0d valid=%h dirty=%h cst=%0d c_idx=%0d c_grp=%0d c_is_wr=%0d", dut.win_base[0], dut.valid[0], dut.dirty[0], dut.cst, dut.c_idx, dut.c_grp, dut.c_is_wr);
+`endif
 	eread(0, 100, 0);                                // outside [10,74): forces flush + re-base
+`ifdef TB_DEBUG
+	$display("   T4 after re-base read: base=%0d valid=%h dirty=%h dev_writes=%0d", dut.win_base[0], dut.valid[0], dut.dirty[0], dev_writes);
+`endif
 	settle;
 	dcheck(0, 24, 7); dcheck(0, 25, 8);
 	eread(0, 101, 0); eread(0, 102, 0);

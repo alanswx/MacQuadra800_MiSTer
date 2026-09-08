@@ -171,7 +171,14 @@ localparam CACHE_CD_SLOT = 0;
 `else
 localparam CACHE_CD_SLOT = 1;
 `endif
-scsi_cache #(.SECT0(64), .SECT1(48), .SECT2(16), .PF_DEPTH(8), .CACHE_CD(CACHE_CD_SLOT)) scsi_cache (
+// CACHE_SMALL=1 in the qsf halves the disk windows (32/32/16 sectors): the tag
+// bitmaps and their muxes shrink with them -- the area lever for CPU builds.
+`ifdef CACHE_SMALL
+localparam CACHE_SECT0 = 32, CACHE_SECT1 = 32;
+`else
+localparam CACHE_SECT0 = 64, CACHE_SECT1 = 48;
+`endif
+scsi_cache #(.SECT0(CACHE_SECT0), .SECT1(CACHE_SECT1), .SECT2(16), .PF_DEPTH(8), .CACHE_CD(CACHE_CD_SLOT)) scsi_cache (
 	.clk(clk),
 	.nreset(nreset),
 
