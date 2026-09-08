@@ -237,7 +237,12 @@ now** as the CPU+CD candidate (operator launched, scratch/gate2_b882d3fc/);
 the multi-block cache is the next increment once ~400 ALMs are found.
 Data-point build J launched 06:08 (wt2): multi-block source + C's recipe
 + VIDEO_512_OFF=1, seed 19 -- tells whether "multi-block instead of the
-12-inch monitor mode" fits with timing. Build D queued (wt2): the qsf's
+12-inch monitor mode" fits with timing. **06:50: the cache's tag bitmaps
+are now sized to the largest slot and `CACHE_SMALL=1` gives 32/32/16
+sectors** (halves the tag logic; found and fixed a flush-scan index
+aliasing bug on the way, see the commit). Build K launched 06:50 (wt):
+multi-block + CACHE_SMALL + C's recipe, 512x384 kept, seed 19 -- the
+"everything" candidate. Build D queued (wt2): the qsf's
 proven speed settings globally + `set_instance_assignment -name
 OPTIMIZATION_TECHNIQUE AREA -to "emu:emu|quadra800:machine"` (area
 synthesis only for our machine, the framework untouched) + the trims. Install #9 meanwhile
