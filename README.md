@@ -32,10 +32,10 @@ codename and stay.
   the *Quad Squad* system disk shows the disc twice on the desktop. QEMU
   reproduces it with its own CD emulation from the same disk image, and a
   fresh Mac OS 8.1 install shows one icon on both QEMU and the FPGA, so it
-  is that system folder's extension set: its Apple CD-ROM extension is the
-  same 5.4.2 as Mac OS 8.1's own but a different, 2.4 KB larger copy, the
-  shape of the common patch that makes it accept any drive. Cosmetic, both
-  icons are the same volume (`RESUME-cdrom-fix.md`).
+  is something in that system folder (its Apple CD-ROM 5.4.2 copy is
+  excluded: swapping in Mac OS 8.1's own changed nothing; the rest is not
+  yet bisected). Cosmetic, both icons are the same volume
+  (`RESUME-cdrom-fix.md`).
 
 ## Layout
 

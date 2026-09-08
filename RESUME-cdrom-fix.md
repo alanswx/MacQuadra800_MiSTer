@@ -962,3 +962,19 @@ uncommitted printf in `user_io.cpp`: revert it (`git checkout user_io.cpp`
 in `../Main_MiSTer`) before committing anything there. The box: release
 Main 916829ff back on disk, the debug Main process runs until the next
 Main restart (harmless: one printf); build M loaded; halt screen.
+
+### Experiment C (13:25): the Apple CD-ROM extension copy is NOT it
+
+Swapping Mac OS 8.1's own Apple CD-ROM 5.4.2 (94,268-byte rsrc, from
+`hd2.hda`) into the Quad Squad copy IN PLACE (`~/qemu-work/qs8_swap2.hda`:
+the fork's three 32 KB allocation blocks overwritten, `filRLgLen` patched
+in the catalog record at the `filRExtRec` offset 86; machfs re-read shows
+the fork byte-identical to stock, volume otherwise untouched) still shows
+TWO icons in QEMU (`scratch/qemu_install/C4_02.png`). A full machfs
+rewrite of the volume is unusable for this (`C_02`/`C2_02`: the Finder
+loses the startup disk, "cannot be found"), so bisection of the rest of
+"System Folder 8.1" needs another method: boot the copy with Shift held
+(`sendkey shift 40000` on the HMP monitor right after the ROM's memory
+test) to show whether it is an extension at all, then an Extensions
+Manager set, or one-at-a-time in-place edits. Not done; the core is
+exonerated either way.
