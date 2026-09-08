@@ -902,3 +902,29 @@ logged as open in `releases/README.md`. The Main binary shipped as
 - Cheap guest-side experiments for the operator: boot with the Apple
   CD-ROM extension disabled (Extensions Manager), and boot with a disc that
   has no driver partition.
+
+### Hardware request trace (debug Main d92a9304, 12:46-12:50): the volume is MOUNTED TWICE at +118 s
+
+`scratch/cdio_trace_full.log` (944 requests, 157 s; rendered by 2048-block
+in `scratch/cdio_trace_full.txt`). The pass structure equals QEMU's
+(`scratch/qemu_cd_seq.txt`, `python scratch/qemu_reads.py`):
+
+- +26.5 s pass 1, the disc's own driver via the ROM: 0 16-20 1-4 1 2 1 2-8
+  113 238-240 235-237 234 0 16 49-70 1 (then INQUIRY etc.) 0 16 0 16 0 1 2;
+- +34.7 s pass 2: identical (QEMU has it too);
+- +58.4 s pass 3, the Apple CD-ROM extension's driver: 0 16 1 2 (QEMU: the
+  same reads between its INQUIRY/MODE SENSE/TOC and PREVENT);
+- +118.2 s the HFS mount reads 241 245 756 785 931 785 911 -- **twice in a
+  row** -- then at +133.9 s the file/desktop reads 911 785 931 785 913 759
+  899 901 903 898 757 756 184663 890 923 921 -- **twice**. QEMU mounts once
+  (241x4 245 756 785 931 785 911 241, then the file reads once).
+
+So both drive-queue entries for ID 3 (the ROM-loaded disc driver's and the
+extension's) survive to the mount stage on hardware; in QEMU only one does.
+Everything the guest asks for is the same; what differs is what the target
+answers (INQUIRY identity, MODE SENSE page 30, TOC, capacity) or guest
+state. Cheapest decisive test: QEMU's scsi-cd with OUR identity strings
+(`-device scsi-cd,...,vendor=,product=,ver=`); if QEMU then shows two icons
+the identity is the trigger. Second test: our target with QEMU's identity
+(a build). Guest-side: boot with the extension off (Shift) -- one icon means
+the extension's entry is the second one.
