@@ -223,6 +223,70 @@ A useful next measurement would be the same three-way comparison after the
 page-mode work (§1d) lands, to see how much of the 8.2× is memory and how much
 is the core.
 
+## 9. Alan's AP68040 `5aa596f` on the block-cache core (2026-09-07)
+
+Build `scratch/MacQuadra800_cpu_nocd_ecd5705e.rbf` (md5 `ecd5705e…`): `main`
+`17767e8` -- the SCSI block cache release source plus the `rtl/ap68040`
+submodule at Alan Steremberg's `5aa596f` (retained instruction fetches across
+branches, memory operands retired on read acknowledge, DBcc collapse, simple
+An effective addresses and source-EA dispatch bypassed, register ADD operands
+preselected in decode) -- with `CDROM_OFF=1`, because that core is +20 %
+logic cells and no longer fits next to the CD-ROM target (4221 LABs of 4191
+even with aggressive-area synthesis). 93 % ALMs, timing met at +0.494 ns.
+Same disk (Quad Squad), Speedometer 4.02, one iteration, driven by the
+operator subagent; screenshots in `scratch/perf_ecd5705e/`.
+
+Boot to the Finder desktop: 136 s (150 s on the 03f83c62 cache release the
+same evening), 78.65 MB read.
+
+### Benchmark Mix (Quadra 605 = 1.0), three clean runs
+
+| Test | Run 1 | Run 2 | Run 3 | 2026-09-01 (§2 "After") | vs 09-01 |
+|---|---|---|---|---|---|
+| KWhetstones/sec | 325.239 | 326.340 | 326.166 | 190.895 | 1.71× |
+| Dhrystones/sec | 4173.212 | 4173.257 | 4172.981 | 2378.625 | 1.75× |
+| Towers (sec) | 2.387 | 2.387 | 2.386 | 4.250 | 1.78× |
+| Quick Sort (sec) | 1.961 | 1.959 | 1.959 | 3.016 | 1.54× |
+| Bubble Sort (sec) | 2.648 | 2.648 | 2.648 | 3.569 | 1.35× |
+| Queens (sec) | 1.534 | 1.533 | 1.534 | 2.622 | 1.71× |
+| Puzzle (sec) | 4.144 | 4.121 | 4.127 | 5.366 | 1.30× |
+| Permutations (sec) | 3.574 | 3.574 | 3.574 | 7.051 | 1.97× |
+| Int. Matrix (sec) | 2.823 | 2.812 | 2.808 | 4.335 | 1.54× |
+| Sieve (sec) | **0.494** (bogus, see below) | 4.592 | 4.593 | 5.187 | 1.13× |
+| **Average ratio** | (0.608) | **0.361** | **0.361** | 0.231 | **+56 %** |
+
+Runs 2 and 3 agree to 0.3 % on every line. Color QuickDraw (⌘G, four depths):
+mono 21.989 s, 2-bit 24.806, 4-bit 27.610, 8-bit 32.540, **average 0.317**
+(0.219 on 09-01, +45 %). FPU (⌘F, Quadra 650 = 1.0): KWhetstones 1382.456,
+Matrix Mult. 2.735 s, Fast Fourier 1.260 s, **average 0.250** (0.161, +55 %).
+
+**Against the 2026-09-02 release** (`MacQuadra800_20260902`, submodule
+`be0a662`, Alan's previous step) only two numbers were ever recorded, in
+`docs/sdram-open-row-crossing.md`: Queens 1.574 s and Bubble Sort 2.754 s.
+This build: 1.534 s and 2.648 s, i.e. **−2.5 % and −3.8 %**. So on those two
+tests most of the gain over 09-01 was already in the 09-02 core; whether
+`5aa596f` moves the branch-heavy tests (Permutations, Towers, Dhrystones)
+as much as its description suggests needs the full Benchmark Mix on the
+09-02 release or on `MacQuadra800_20260907` (same `be0a662` core plus the
+cache), same disk, same method. That run is owed.
+
+### First-run anomaly, again
+
+Run 1 reported **Sieve = 0.494 s (ratio 2.780)** -- twice as fast as a real
+Quadra 800 (0.974 s), impossible -- against 4.59 s on every later run, and it
+alone lifted run 1's average to 0.608. This is the same signature as the
+`Queens = −17,482 s` first run in `docs/sdram-open-row-crossing.md`: the
+first pass through one test after a fresh launch times wrongly and never
+reproduces. Sieve is the last test of the set, so it is not a warm-up of the
+first test executed. Worth chasing on its own (timer/VIA or Time Manager
+side, or the first cold miss path in the core): anyone reading only the
+first run reports a number that is not real.
+
+Method notes from this run: Speedometer's splash is modal and needs a mouse
+click (⌘B does nothing until the splash and the registration nag are
+cleared); ⌘B/⌘G/⌘F open a setup dialog whose default button starts the run,
+so Return suffices. Source `scripts/local.env` before `mister_ws.py`.
+
 ## 8. Related-clock handoff follow-up (Speedometer 3.23)
 
 The current disposable MacAtrium test disk contains Speedometer 3.23, not the
