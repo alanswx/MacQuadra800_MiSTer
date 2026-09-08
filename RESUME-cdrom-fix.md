@@ -340,7 +340,15 @@ each discover that volume. QEMU golden run launched 09:12
 Mac OS 8.1 hard disk (hd2 copy, id 6) + the retail ISO (id 3): icon
 count + the ROM/extension command sequence to id 3. The MiSTer was left
 with the 0902 core loaded (halt screen); reload from the halt screen
-before any hardware work.
+before any hardware work. **RTL fact (09:15):** `cd_blk512` (the CD's 512-byte
+block mode set by MODE SELECT) is cleared only by machine reset, not by
+a SCSI bus reset (ncr53c96.sv ~1158 clears cd_ejected only). A real
+drive reverts mode parameters on a hard reset. The ROM's scan sets 512,
+resets the bus, scans again; on ours the disc stays at 512 for the
+extension too. Whether that is the doubling depends on the ROM/extension
+sequence -- see the QEMU trace. If reverting is right, the ROM must
+re-send MODE SELECT after the reset (QEMU refuses 512 mode entirely and
+still boots the CD, so the ROM copes with 2048).
 Other savings still on the table: the printer port's UART pair (~390 LC,
 if unused), the framework's IIR audio filter (798 LC, no switch -- a
 framework edit, which the user is wary of), and a leaner core option from
