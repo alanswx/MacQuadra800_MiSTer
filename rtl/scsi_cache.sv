@@ -53,7 +53,8 @@ module scsi_cache
 	parameter SECT0    = 64,             // hard disk 0: 32 KB
 	parameter SECT1    = 64,             // hard disk 1: 32 KB
 	parameter SECT2    = 16,             // CD-ROM: 8 KB (2048-byte blocks = 4 sectors)
-	parameter PF_DEPTH = 8               // sectors prefetched beyond a demand read
+	parameter PF_DEPTH = 8,              // sectors prefetched beyond a demand read
+	parameter CACHE_CD = 1               // 0: the CD-ROM slot passes straight through (saves its tags)
 )
 (
 	input         clk,
@@ -89,6 +90,7 @@ module scsi_cache
 );
 
 localparam integer NSECT = SECT0 + SECT1 + SECT2;
+localparam integer NS    = CACHE_CD ? 3 : 2;         // cached slots; the rest pass through
 localparam integer AW    = $clog2(NSECT*256);        // NSECT*256 <= 65536 words
 
 // slot geometry
@@ -222,7 +224,7 @@ reg        r_word_done;
 wire [31:0] r_off = r_lba - win_base[r_slot];
 wire        r_inwin = win_ok[r_slot] && (r_off < {24'd0, slot_size(r_slot)});
 wire  [5:0] r_idx = r_off[5:0];
-wire        r_pt = (r_slot == 2'd2) && (r_lba[31:30] != 2'b00);   // TOC blob / CD-DA windows
+wire        r_pt = (r_slot == 2'd2) && (!CACHE_CD || r_lba[31:30] != 2'b00);   // TOC blob / CD-DA windows, or the whole CD
 wire        r_hit = r_inwin && valid[r_slot][r_idx];
 wire        r_dirty_any = |dirty[r_slot];
 // Same-sector hazards between the two sides.  Both decisions are taken from
@@ -257,7 +259,7 @@ always @(posedge clk) begin
 	e_buff_wr <= 0;
 
 	//------------------------------------------------ mounts
-	for (i = 0; i < 3; i = i + 1)
+	for (i = 0; i < NS; i = i + 1)
 		if (img_mounted[i]) begin
 			if (img_size[40:9] != size_r[i]) begin  // a different image: forget everything
 				valid[i]  <= 64'd0;
@@ -294,8 +296,8 @@ always @(posedge clk) begin
 			end
 			else fl_idx <= fl_idx + 1'b1;            // scan on (wraps inside the window)
 		end
-		else if (|dirty[0] | |dirty[1] | |dirty[2]) begin
-			fl_slot <= fl_slot + 1'b1;               // another slot has the dirt
+		else if (|dirty[0] | |dirty[1] | (CACHE_CD && |dirty[2])) begin
+			fl_slot <= (fl_slot + 1'b1 == NS[1:0]) ? 2'd0 : fl_slot + 1'b1;   // another slot has the dirt
 			fl_idx  <= 0;
 		end
 		else if (pf_left != 0 && win_ok[pf_slot] && mounted[pf_slot] &&
@@ -333,7 +335,7 @@ always @(posedge clk) begin
 		// port B (addr_b/din_b/we_b) is driven combinationally above; a fetch
 		// writes the incoming word, a flush reads q_b out to p_buff_din
 		if (p_ack_fall[c_slot]) begin
-			if (!c_pt) begin
+			if (!c_pt && c_slot < NS) begin
 				if (c_is_wr) dirty[c_slot][c_idx] <= 1'b0;
 				else if (win_ok[c_slot] && (c_base == win_base[c_slot]))
 				             valid[c_slot][c_idx] <= 1'b1;   // still the window it was fetched for
@@ -393,10 +395,12 @@ always @(posedge clk) begin
 		if (!r_dirty_any && ch_idle && !dem_req) est <= E_REBASE;
 	end
 	E_REBASE: begin
-		win_base[r_slot] <= r_lba;
-		win_ok[r_slot]   <= 1'b1;
-		valid[r_slot]    <= 64'd0;
-		dirty[r_slot]    <= 64'd0;
+		if (r_slot < NS) begin
+			win_base[r_slot] <= r_lba;
+			win_ok[r_slot]   <= 1'b1;
+			valid[r_slot]    <= 64'd0;
+			dirty[r_slot]    <= 64'd0;
+		end
 		est <= E_DECIDE;
 	end
 	E_FETCH: begin
@@ -432,8 +436,10 @@ always @(posedge clk) begin
 		din_a  <= e_buff_din;
 		we_a   <= 1;
 		if (r_word == 8'd255) begin
-			valid[r_slot][r_idx] <= 1'b1;
-			dirty[r_slot][r_idx] <= 1'b1;
+			if (r_slot < NS) begin
+				valid[r_slot][r_idx] <= 1'b1;
+				dirty[r_slot][r_idx] <= 1'b1;
+			end
 			est <= E_DONE;
 		end
 		else begin r_word <= r_word + 1'b1; est <= E_WR_A; end

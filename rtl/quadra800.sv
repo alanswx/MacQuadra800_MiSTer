@@ -162,7 +162,15 @@ wire [15:0] e_sd_buff_dout, e_sd_buff_din;
 wire        e_sd_buff_wr;
 wire [15:0] cache_hits, cache_misses;
 
-scsi_cache #(.SECT0(64), .SECT1(48), .SECT2(16), .PF_DEPTH(8)) scsi_cache (
+// CACHE_CD_OFF=1 in the qsf passes the CD-ROM slot straight through (its tags
+// and mux leg go away, ~250 ALMs) -- the area lever for CPU builds that keep
+// the CD target; the disks' write-behind is untouched.
+`ifdef CACHE_CD_OFF
+localparam CACHE_CD_SLOT = 0;
+`else
+localparam CACHE_CD_SLOT = 1;
+`endif
+scsi_cache #(.SECT0(64), .SECT1(48), .SECT2(16), .PF_DEPTH(8), .CACHE_CD(CACHE_CD_SLOT)) scsi_cache (
 	.clk(clk),
 	.nreset(nreset),
 

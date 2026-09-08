@@ -154,6 +154,7 @@ set_global_assignment -name SEED 19
 # ============================================================================
 #set_global_assignment -name VERILOG_MACRO "SCSI_TRACE=1"
 #set_global_assignment -name VERILOG_MACRO "CDROM_OFF=1"
+#set_global_assignment -name VERILOG_MACRO "CACHE_CD_OFF=1"
 
 #use only 1MB per frame for scaler to free ~21MB DDR3 RAM
 #set_global_assignment -name VERILOG_MACRO "MISTER_SMALL_VBUF=1"

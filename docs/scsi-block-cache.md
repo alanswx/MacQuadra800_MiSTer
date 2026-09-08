@@ -104,6 +104,15 @@ The full-machine sim covers the wiring: `verilator/sim.v` instantiates
 `quadra800`, so a `sim_wsl.sh run --cd cd.iso` boot exercises engine,
 cache and block-device model together.
 
+## The CD slot is optional
+
+`CACHE_CD = 0` (qsf macro `CACHE_CD_OFF=1` in `quadra800.sv`) makes every
+CD-ROM request pass straight through, and the slot's tags and mux leg
+disappear: about 250 ALMs and 16 M10Ks. The disks' read-ahead and
+write-behind are unchanged. It exists because Alan's 2026-09 AP68040
+(+20 % logic) does not fit next to the CD target without it. The bench
+runs both ways (`+define+CACHE_CD_TB=0`).
+
 ## Cost
 
 64 M10K blocks for the store (the fit before the cache used 430 of 553),

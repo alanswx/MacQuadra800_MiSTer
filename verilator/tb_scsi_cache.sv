@@ -32,7 +32,10 @@ reg   [2:0] img_mounted = 0;
 reg  [63:0] img_size = 0;
 wire [15:0] stat_hits, stat_misses;
 
-scsi_cache #(.SECT0(64), .SECT1(64), .SECT2(16), .PF_DEPTH(8)) dut (
+`ifndef CACHE_CD_TB
+`define CACHE_CD_TB 1
+`endif
+scsi_cache #(.SECT0(64), .SECT1(64), .SECT2(16), .PF_DEPTH(8), .CACHE_CD(`CACHE_CD_TB)) dut (
 	.clk(clk), .nreset(nreset),
 	.e_lba(e_lba), .e_rd(e_rd), .e_wr(e_wr), .e_ack(e_ack),
 	.e_buff_addr(e_buff_addr), .e_buff_dout(e_buff_dout), .e_buff_din(e_buff_din), .e_buff_wr(e_buff_wr),
