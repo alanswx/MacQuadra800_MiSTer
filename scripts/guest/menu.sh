@@ -19,7 +19,9 @@
 set -u
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)" || exit 1
 . scripts/local.env
-WS="python scripts/mister_ws.py --host $MISTER_HOST --delay 0.02"
+# System 7 (A/UX) accelerates 0.02 s-spaced events into ~12 px jumps; 0.05 s
+# gives ~1 px per event there.  MENU_DELAY=0.05 for System 7 guests.
+WS="python scripts/mister_ws.py --host $MISTER_HOST --delay ${MENU_DELAY:-0.02}"
 
 steps() { local n=$1 dx=$2 dy=$3 out=""; while [ "$n" -gt 0 ]; do out="$out mouse:$dx,$dy"; n=$((n-1)); done; echo "$out"; }
 log()   { echo "[$(date +%H:%M:%S)] $*"; }
@@ -33,17 +35,27 @@ open)
     $WS $(steps 4 0 1) >/dev/null 2>&1               # down onto the bar
     $WS $(steps 12 1 0) >/dev/null 2>&1              # a little right of apple
     $WS mousebtn:left_down sleep:0.4 >/dev/null 2>&1
-    for attempt in $(seq 1 16); do
+    # The px-per-event scale is MEASURED from what each move actually did
+    # (start pessimistic at 4 px/event): a fixed damping oscillated View <->
+    # Help for minutes on 2026-09-07 because the scale was nowhere near 2.
+    scale=400; prev=-1; sent=0
+    for attempt in $(seq 1 20); do
         bash scripts/grab_fresh.sh "$SHOT" >/dev/null 2>&1
         read -r st a b <<<"$(python scripts/menubar_probe.py "$SHOT")"
         if [ "$st" != "OPEN" ]; then
-            log "no menu open ($st) — stepping right 6"
-            $WS $(steps 6 1 0) >/dev/null 2>&1
+            log "no menu open ($st) — stepping right 2"
+            prev=-1; sent=0
+            $WS $(steps 2 1 0) >/dev/null 2>&1
             continue
         fi
-        # menubar_probe prints: OPEN x=[l,r] center=C
-        C=${b#center=}
-        L=${a#x=[}; L=${L%%,*}
+        # menubar_probe prints: OPEN <left> <right>  (the title's column span)
+        L=$a; R=$b
+        C=$(( (L + R) / 2 ))
+        if [ "$prev" -ge 0 ] && [ "$sent" -gt 1 ]; then
+            moved=$(( C - prev )); am=${moved#-}
+            [ "$am" -gt 0 ] && scale=$(( am * 100 / sent ))
+            [ "$scale" -lt 50 ] && scale=50; [ "$scale" -gt 900 ] && scale=900
+        fi
         err=$(( TARGET - C ))
         aerr=${err#-}
         if [ "$aerr" -le "$TOL" ]; then
@@ -51,11 +63,12 @@ open)
             echo "TITLE_LEFT=$L"
             exit 0
         fi
-        n=$(( aerr / 2 )); [ "$n" -lt 2 ] && n=2; [ "$n" -gt 40 ] && n=40
+        n=$(( aerr * 100 / scale / 2 )); [ "$n" -lt 1 ] && n=1; [ "$n" -gt 40 ] && n=40
+        prev=$C; sent=$n
         if [ "$err" -gt 0 ]; then
-            log "center=$C target=$TARGET — stepping right $n"; $WS $(steps "$n" 1 0) >/dev/null 2>&1
+            log "center=$C target=$TARGET scale=$scale — stepping right $n"; $WS $(steps "$n" 1 0) >/dev/null 2>&1
         else
-            log "center=$C target=$TARGET — stepping left $n";  $WS $(steps "$n" -1 0) >/dev/null 2>&1
+            log "center=$C target=$TARGET scale=$scale — stepping left $n";  $WS $(steps "$n" -1 0) >/dev/null 2>&1
         fi
     done
     log "could not land on target — cancelling"

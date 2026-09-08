@@ -104,18 +104,27 @@ for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
         found=1
         break
     fi
-    # the event-to-pixel scale is unstable (measured between ~1.3 and ~2.7 px
-    # per event on the same machine minutes apart), so step by half the pixel
-    # error and re-probe rather than trusting any conversion.
+    # the event-to-pixel scale is unstable (measured between ~1.3 and ~12 px
+    # per event depending on guest and coalescing), so MEASURE it from what
+    # the previous move actually did and step by half the remaining error;
+    # a fixed divisor oscillated View <-> Help for minutes on 2026-09-07.
+    if [ "${prev_x0:--1}" -ge 0 ] && [ "${sent:-0}" -gt 1 ]; then
+        moved=$(( x0 - prev_x0 )); am=${moved#-}
+        [ "$am" -gt 0 ] && scale=$(( am * 100 / sent ))
+        [ "$scale" -lt 50 ] && scale=50; [ "$scale" -gt 900 ] && scale=900
+    fi
+    scale=${scale:-400}
     err=$(( SPECIAL_MID - x0 ))
-    n=$(( err > 0 ? err / 2 : -err / 2 ))
-    [ "$n" -lt 2 ] && n=2
+    aerr=${err#-}
+    n=$(( aerr * 100 / scale / 2 ))
+    [ "$n" -lt 1 ] && n=1
     [ "$n" -gt 40 ] && n=40
+    prev_x0=$x0; sent=$n
     if [ "$err" -gt 0 ]; then
-        log "open title at x=$x0 — stepping right $n"
+        log "open title at x=$x0 scale=$scale — stepping right $n"
         $WS $(steps "$n" 1 0) >/dev/null 2>&1
     else
-        log "open title at x=$x0 — stepping left $n"
+        log "open title at x=$x0 scale=$scale — stepping left $n"
         $WS $(steps "$n" -1 0) >/dev/null 2>&1
     fi
 done

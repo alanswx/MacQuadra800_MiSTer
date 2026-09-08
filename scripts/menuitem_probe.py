@@ -26,6 +26,29 @@ from PIL import Image
 
 rgb = np.array(Image.open(sys.argv[1]).convert("RGB")).astype(int)
 x0 = int(sys.argv[2])
+
+
+def inverted_band(y_lo, y_hi):
+    """System 7 (A/UX 3.1) inverts the highlighted row to BLACK, and its panel
+    top is not the platinum grey the blue logic expects.  Return the longest
+    run (>= 8 rows) of dark rows in the panel column between y_lo and y_hi
+    that has a light row directly above and below it -- a highlighted row sits
+    inside the light panel, whereas a dark desktop below the panel does not.
+    (2026-09-07 gate run: menu.sh wandered under A/UX without this.)"""
+    win = rgb[y_lo:y_hi, x0:x0 + 150].mean(axis=2)
+    dark = (win < 100).mean(axis=1) > 0.5
+    light = (win > 150).mean(axis=1) > 0.5
+    best = run = None
+    for y, v in enumerate(list(dark) + [False]):
+        if v and run is None:
+            run = y
+        elif not v and run is not None:
+            if (y - run) >= 8 and run > 0 and y < len(light) and light[run - 1] and light[y]:
+                if best is None or (y - run) > (best[1] - best[0] + 1):
+                    best = (run, y - 1)
+            run = None
+    return None if best is None else (best[0] + y_lo, best[1] + y_lo)
+
 # start a little left of the title: the panel is left-aligned with it, but the
 # title's detected left edge can be a few px off when its glyphs are wide.
 win = rgb[20:220, max(0, x0 - 2):x0 + 70]
@@ -46,6 +69,10 @@ for y in range(win.shape[0]):
             break
 
 if bottom is None:
+    inv = inverted_band(20, 240)
+    if inv:
+        print("ITEM band=[%d,%d] panel_bottom=%d gap=99 inverted" % (inv[0], inv[1], inv[1]))
+        sys.exit(0)
     print("NOPANEL")
     sys.exit(0)
 
@@ -54,4 +81,10 @@ if band:
     print("ITEM band=[%d,%d] panel_bottom=%d gap=%d"
           % (band[0] + 20, band[-1] + 20, bottom + 20, bottom - band[-1]))
 else:
+    # the grey-panel bottom found above stops at a black System 7 highlight,
+    # so search the whole panel height, not just above that bottom
+    inv = inverted_band(20, 240)
+    if inv:
+        print("ITEM band=[%d,%d] panel_bottom=%d gap=99 inverted" % (inv[0], inv[1], inv[1]))
+        sys.exit(0)
     print("NOITEM panel_bottom=%d" % (bottom + 20))
