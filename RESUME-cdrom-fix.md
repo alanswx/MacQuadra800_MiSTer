@@ -753,3 +753,50 @@ Transport ISO on slot 4 (`config/MacQuadra800.s4`; the old `.s4.off` copy
 is still there). Mac OS 8.1 was at the Finder with the user driving it.
 Main fork is installed (md5 `0783ef1a…`), started with nohup, log at
 `/media/fat/nohup.out`.
+
+## 2026-09-08 (evening): the double CD icon — root cause and fix (`4f859b3`)
+
+The user saw the retail Mac OS 8.1 CD appear **twice** on the Quad Squad
+desktop. Not a disk-side driver, not a Main re-insert: a QEMU golden run
+(`scratch/qemu_hdboot`, same ROM, same disk, same ISO) shows one icon and
+refuses every MODE SELECT to the CD with ILLEGAL REQUEST 05/26/00.
+
+- **Root cause.** The retail ISO carries two Apple partition maps naming the
+  same HFS volume, one at 512-byte and one at 2048-byte granularity. Since
+  `9ff8a77` our CD target *honoured* a MODE SELECT asking for 512-byte
+  blocks, so the ROM / Apple CD-ROM extension re-walked the map at 512-byte
+  granularity and registered the volume a second time.
+- **Fix (`rtl/ncr53c96.sv`).** The CD target parses every MODE SELECT list
+  that has a header, refuses a block descriptor the list does not contain
+  (the ROM's boot-scan 8-byte list, byte 3 still claiming an 8-byte
+  descriptor) or one asking for any block length but 2048 — CHECK
+  CONDITION 05/26/00 like QEMU — and still applies page 0Eh (audio control)
+  of a well-formed list. The block length is 2048 always; `cd_blk512` is
+  never set (the register and its read paths remain; a follow-up can strip
+  them for area). STATUS is delivered only once the parse has decided: an
+  ICCS arriving while the verdict is pending is held (`iccs_pend`) and
+  executed the cycle after the verdict pulse (`msel_fin`).
+- **Bench lesson.** The last two failures were the bench, not the engine:
+  the new cases issued ICCS without reading the interrupt register after
+  the transfer-complete interrupt, so `wait_irq` returned on the stale
+  interrupt and popped an empty FIFO one cycle before the held ICCS pushed
+  the CHECK. A 53C96 driver always reads INTR first; the cases now do.
+  `tb_ncr53c96`: 476,837 checks, 0 failures. `TB_DEBUG` `$display`s stay
+  under `ifdef` (`[MSEL]`, `[ICCS]`).
+- **Build M** = `4f859b3` + seed 21 (the release recipe is the qsf default
+  since `966d0cd`), launched in `MacQuadra800_wt2`, log
+  `wt2/scratch/build_M_seed21_4f859b3.log`. Launching from PowerShell:
+  `Start-Process bash.exe -ArgumentList ('-lc "' + $cmd + '"')` — the
+  arguments are joined unquoted, so an unquoted `-lc` command runs only
+  its first word (the first launch did exactly that and exited).
+
+### Hardware check owed on build M
+
+MiSTer: build `0902` loaded, **halt screen** ("It is now safe to switch off"),
+`.s0` = `QuadSquad8.hda`, `.s4` = `MAC_OS_8-1_RETAIL.ISO`. Deploy build M
+from that screen, boot Quad Squad, count the CD icons on the desktop
+(expect **one**, named after the retail volume), open it, eject; then the
+three-check gate (Mac OS 8.1 desktop + clock + Shut Down; A/UX to the
+multiuser desktop + `shutdown -h now`) before a release
+`MacQuadra800_20260908_3.rbf` with a README row. Drive the box through an
+Opus operator.
