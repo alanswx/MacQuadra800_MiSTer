@@ -108,6 +108,7 @@ endfunction
 //----------------------------------------------------------------------------
 reg [31:0] win_base [0:2];
 reg        win_ok   [0:2];
+reg  [3:0] grp_lim  [0:2];                          // groups of the window that lie inside the image (0..8)
 reg [63:0] valid    [0:2];
 reg [63:0] dirty    [0:2];
 reg [31:0] size_r   [0:2];                          // image size (in 512-byte blocks) the slot was mounted with
@@ -264,7 +265,15 @@ endfunction
 wire [2:0] r_grp = r_idx[5:3];
 wire       r_grp_absent = (slice(valid[r_slot], r_grp) == 8'd0) && (slice(dirty[r_slot], r_grp) == 8'd0);
 wire       dem_grp = slot_mb(r_slot) && grp_in(r_slot, r_grp) && r_grp_absent &&
-                     ({26'd0, r_grp, 3'b111} + win_base[r_slot] < size_r[r_slot]);   // stays inside the image
+                     ({1'b0, r_grp} < grp_lim[r_slot]);                // stays inside the image
+// groups that fit between the new window base and the end of the image,
+// capped at the window's own size: one 32-bit subtraction, at re-base only
+wire [31:0] room      = size_r[r_slot] - r_lba;
+wire [3:0]  room_grps = (size_r[r_slot] < r_lba) ? 4'd0 :
+                        (room[31:6] != 0)        ? 4'd8 : room[5:3];   // >= 64 sectors: all 8 groups
+wire [7:0]  r_size    = slot_size(r_slot);
+wire [3:0]  win_grps  = {1'b0, r_size[6:3]};                          // 8, 6 or 2
+wire [3:0]  new_lim   = (room_grps < win_grps) ? room_grps : win_grps;
 
 // demand for the channel from the engine side
 reg        dem_req;                  // engine wants a platform transaction now
@@ -279,7 +288,7 @@ reg  [2:0] pf_grp;
 reg  [1:0] pf_left;
 wire       pf_ok = win_ok[pf_slot] && mounted[pf_slot] && grp_in(pf_slot, pf_grp) &&
                    (slice(valid[pf_slot], pf_grp) == 8'd0) && (slice(dirty[pf_slot], pf_grp) == 8'd0) &&
-                   ({26'd0, pf_grp, 3'b111} + win_base[pf_slot] < size_r[pf_slot]) &&
+                   ({1'b0, pf_grp} < grp_lim[pf_slot]) &&
                    !(e_writing && (pf_slot == r_slot));
 // single-sector prefetch for a slot without multi-block: the first sector of
 // the group that is neither valid nor dirty
@@ -292,7 +301,7 @@ always @(*) begin
 		if (!pf_present[pfi]) begin pf_first = pfi[2:0]; pf_any = 1'b1; end
 end
 wire       pf1_ok = win_ok[pf_slot] && mounted[pf_slot] && grp_in(pf_slot, pf_grp) && pf_any &&
-                    ({26'd0, pf_grp, pf_first} + win_base[pf_slot] < size_r[pf_slot]) &&
+                    ({1'b0, pf_grp} < grp_lim[pf_slot]) &&
                     !(e_writing && (pf_slot == r_slot) && (r_idx == {pf_grp, pf_first}));
 
 // flush scan.  A whole dirty group goes out as one 8-block write at once; a
@@ -484,6 +493,7 @@ always @(posedge clk) begin
 	E_REBASE: begin
 		if (r_slot < NS) begin
 			win_base[r_slot] <= r_lba;
+			grp_lim[r_slot]  <= new_lim;
 			win_ok[r_slot]   <= 1'b1;
 			valid[r_slot]    <= 64'd0;
 			dirty[r_slot]    <= 64'd0;
