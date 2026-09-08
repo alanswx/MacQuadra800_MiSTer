@@ -255,7 +255,19 @@ are now sized to the largest slot and `CACHE_SMALL=1` gives 32/32/16
 sectors** (halves the tag logic; found and fixed a flush-scan index
 aliasing bug on the way, see the commit). Build K launched 06:50 (wt):
 multi-block + CACHE_SMALL + C's recipe, 512x384 kept, seed 19 -- the
-"everything" candidate. Build D queued (wt2): the qsf's
+"everything" candidate. **K (07:07) FITS AND MEETS TIMING**: 41,124 ALMs
+(98 %), HDMI +0.009 ns (met, razor-thin), clk_ram +0.697, clk_sys +0.824;
+`scratch/MacQuadra800_cpu_cd_K_f8fc0806.rbf` (main 90cfa95 = multi-block
++ trim + CACHE_SMALL + the same-disc CD guard; Y/C + ALSA off,
+CACHE_CD_OFF). Not gated. **User (07:10): keep Y/C, ALSA off is fine
+(MT32-pi is unaffected: it is the user-port I2S `mt32pi` module; ALSA is
+the Linux-side audio mix), and look for more savings.** Build L launched
+07:17 (wt): K + Y/C ON + MISTER_DOWNSCALE_NN + MISTER_DISABLE_ADAPTIVE
+(`scratchpad/recipe_target.py`) -- the user's target configuration.
+Other savings still on the table: cd_audio's constant multiplies
+(~300 LC), the printer port's UART pair (~390 LC, if unused), the
+framework's IIR audio filter (798 LC, no switch -- would need a framework
+edit, which the user is wary of), and a leaner core option from Alan. Build D queued (wt2): the qsf's
 proven speed settings globally + `set_instance_assignment -name
 OPTIMIZATION_TECHNIQUE AREA -to "emu:emu|quadra800:machine"` (area
 synthesis only for our machine, the framework untouched) + the trims. Install #9 meanwhile
