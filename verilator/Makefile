@@ -136,6 +136,11 @@ tb_scsi_cache:
 	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME -Wno-CASEINCOMPLETE -Wno-BLKSEQ +define+SIMULATION=1 +define+VERILATOR=1 -Wno-MULTIDRIVEN -Wno-SYNCASYNCNET -Wno-COMBDLY +incdir+$(RTL) --top-module tb_scsi_cache --Mdir ./obj_dir_tbc -o tb_scsi_cache tb_scsi_cache.sv $(RTL)/scsi_cache.sv
 	./obj_dir_tbc/tb_scsi_cache
 
+# the CD slot on multi-block groups as well (MB_CD=1, the shipped setting)
+tb_scsi_cache_mbcd:
+	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME -Wno-CASEINCOMPLETE -Wno-BLKSEQ +define+SIMULATION=1 +define+VERILATOR=1 -Wno-MULTIDRIVEN -Wno-SYNCASYNCNET -Wno-COMBDLY +incdir+$(RTL) --top-module tb_scsi_cache +define+MB_CD_TB=1 --Mdir ./obj_dir_tbc_mbcd -o tb_scsi_cache_mbcd tb_scsi_cache.sv $(RTL)/scsi_cache.sv
+	./obj_dir_tbc_mbcd/tb_scsi_cache_mbcd
+
 tb_ncr53c96:
 	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME -Wno-CASEINCOMPLETE -Wno-BLKSEQ +define+SIMULATION=1 +define+VERILATOR=1 -Wno-MULTIDRIVEN -Wno-SYNCASYNCNET -Wno-COMBDLY +incdir+$(RTL) --top-module tb_ncr53c96 --Mdir ./obj_dir_tb -o tb_ncr53c96 tb_ncr53c96.sv $(RTL)/ncr53c96.sv $(RTL)/cd_audio.sv
 	./obj_dir_tb/tb_ncr53c96

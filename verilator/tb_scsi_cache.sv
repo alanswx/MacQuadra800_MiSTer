@@ -36,11 +36,14 @@ wire [15:0] stat_hits, stat_misses;
 `ifndef CACHE_CD_TB
 `define CACHE_CD_TB 1
 `endif
+`ifndef MB_CD_TB
+`define MB_CD_TB 0
+`endif
 `ifndef CACHE_S0_TB
 `define CACHE_S0_TB 64
 `define CACHE_S1_TB 64
 `endif
-scsi_cache #(.SECT0(`CACHE_S0_TB), .SECT1(`CACHE_S1_TB), .SECT2(16), .PF_DEPTH(8), .CACHE_CD(`CACHE_CD_TB)) dut (
+scsi_cache #(.SECT0(`CACHE_S0_TB), .SECT1(`CACHE_S1_TB), .SECT2(16), .PF_DEPTH(8), .CACHE_CD(`CACHE_CD_TB), .MB_CD(`MB_CD_TB)) dut (
 	.clk(clk), .nreset(nreset),
 	.e_lba(e_lba), .e_rd(e_rd), .e_wr(e_wr), .e_ack(e_ack),
 	.e_buff_addr(e_buff_addr), .e_buff_dout(e_buff_dout), .e_buff_din(e_buff_din), .e_buff_wr(e_buff_wr),
