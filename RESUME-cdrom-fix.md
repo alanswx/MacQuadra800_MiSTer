@@ -194,6 +194,22 @@ session's Claude process died ~22:30 while the gate operator for C was
 still shutting the old guest down (it never deployed C; the MiSTer stayed
 on ecd5705e with the Special menu open and the button held). Resumed
 2026-09-08 05:00; the operator was resumed with a button release.
+**Gate on build C, partial (05:03-05:15, operator resumed then stopped
+for the user's power-down):** old guest shut down cleanly (it had run
+7.5 h unattended on ecd5705e, clock ticking); b882d3fc deployed and
+md5-verified; Mac OS 8.1 from Quad Squad booted (menu bar ~135 s, full
+desktop ~180 s with the CD auto-mounting); **the retail CD mounted and
+its window opened with the correct 17 items -- the CD target reads
+through the new CPU**; no bombs, no garbling. NOT done: the 5-minute
+clock watch, Speedometer, A/UX, the CD boot. Slots left as found (.s0
+QuadSquad8, .s1 FreshTest, .s4 retail ISO), one load_core used. The
+user then took the guest (Apple System Profiler open at 05:16) and is
+about to power the MiSTer down; a clean Shut Down first was requested.
+Operator notes: the live shutdown pattern that works first time is
+`click.sh 181 8 move` (Special's title centre), `mousebtn:left_down`,
+`menu.sh item 172 104`, verify, `release`; mac_shutdown.sh's 0.008 s
+event spacing dropped moves (fixed to 0.02, 0e6e135); mopen.sh's
+give-up path leaves the button down (scratch script, avoid).
 **Build F (05:05, wt2)**: main 9f6e528 (multi-block cache with the
 group-limit trim) on C's recipe (BALANCED/BALANCED, duplication off,
 CACHE_CD_OFF, YC + ALSA off) -- CD target ON. If it fits with timing it
