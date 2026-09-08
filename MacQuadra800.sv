@@ -150,6 +150,7 @@ wire [63:0] img_size;
 wire [31:0] scsi_lba;
 wire  [2:0] scsi_rd, scsi_wr;
 wire [15:0] scsi_buff_din;
+wire  [5:0] scsi_blk_cnt;               // blocks - 1 of the machine's current transaction (one at a time)
 assign sd_lba[VD_DISK0] = scsi_lba;  assign sd_lba[VD_DISK1] = scsi_lba;  assign sd_lba[VD_CDROM] = scsi_lba;
 // Per-slot assigns, not a concatenation: a packed literal put the CD strobe
 // at bit 5 (the CD-changer control slot) once, so every CD read -- the TOC
@@ -206,7 +207,7 @@ hps_io #(.CONF_STR(CONF_STR), .WIDE(1), .VDNUM(VDNUM), .BLKSZ(2)) hps_io
 	.ioctl_wait(ioctl_wait),
 
 	.sd_lba(sd_lba),
-	.sd_blk_cnt('{6'd0, 6'd0, 6'd0, 6'd0, 6'd0, 6'd0}),
+	.sd_blk_cnt('{scsi_blk_cnt, scsi_blk_cnt, 6'd0, 6'd0, scsi_blk_cnt, 6'd0}),   // the machine's three slots; the rest never transfer
 	.sd_rd(sd_rd),
 	.sd_wr(sd_wr),
 	.sd_ack(sd_ack),
@@ -532,6 +533,7 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS), .CDROM(CDROM_EN)) machine (
 	.img_mounted(mach_img_mounted),
 	.img_size(mach_img_size),
 	.io_lba(scsi_lba),
+	.io_blk_cnt(scsi_blk_cnt),
 	.io_rd(scsi_rd),
 	.io_wr(scsi_wr),
 	.io_ack(scsi_ack),

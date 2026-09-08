@@ -81,6 +81,7 @@ module quadra800
 	input   [2:0] img_mounted,
 	input  [63:0] img_size,
 	output [31:0] io_lba,
+	output  [5:0] io_blk_cnt,               // hps_io sd_blk_cnt: blocks - 1 per transaction
 	output  [2:0] io_rd,
 	output  [2:0] io_wr,
 	input   [2:0] io_ack,
@@ -184,6 +185,7 @@ scsi_cache #(.SECT0(64), .SECT1(48), .SECT2(16), .PF_DEPTH(8), .CACHE_CD(CACHE_C
 	.e_buff_wr(e_sd_buff_wr),
 
 	.p_lba(io_lba),
+	.p_blk_cnt(io_blk_cnt),
 	.p_rd(io_rd),
 	.p_wr(io_wr),
 	.p_ack(io_ack),

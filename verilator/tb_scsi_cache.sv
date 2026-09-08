@@ -22,6 +22,7 @@ wire [15:0] e_buff_dout;
 wire        e_buff_wr;
 reg  [15:0] e_buff_din;
 wire [31:0] p_lba;
+wire  [5:0] p_blk_cnt;
 wire  [2:0] p_rd, p_wr;
 reg   [2:0] p_ack = 0;
 reg  [12:0] p_buff_addr = 0;
@@ -39,7 +40,7 @@ scsi_cache #(.SECT0(64), .SECT1(64), .SECT2(16), .PF_DEPTH(8), .CACHE_CD(`CACHE_
 	.clk(clk), .nreset(nreset),
 	.e_lba(e_lba), .e_rd(e_rd), .e_wr(e_wr), .e_ack(e_ack),
 	.e_buff_addr(e_buff_addr), .e_buff_dout(e_buff_dout), .e_buff_din(e_buff_din), .e_buff_wr(e_buff_wr),
-	.p_lba(p_lba), .p_rd(p_rd), .p_wr(p_wr), .p_ack(p_ack),
+	.p_lba(p_lba), .p_blk_cnt(p_blk_cnt), .p_rd(p_rd), .p_wr(p_wr), .p_ack(p_ack),
 	.p_buff_addr(p_buff_addr), .p_buff_dout(p_buff_dout), .p_buff_din(p_buff_din), .p_buff_wr(p_buff_wr),
 	.img_mounted(img_mounted), .img_size(img_size),
 	.stat_hits(stat_hits), .stat_misses(stat_misses)
@@ -65,7 +66,7 @@ reg [7:0] dev [0:3*128*512-1];
 reg [7:0] mir [0:3*128*512-1];
 integer dev_lat = 40;
 integer d_state = 0, d_lat = 0, d_i = 0, d_slot = 0;
-integer d_lba = 0;
+integer d_lba = 0, d_n = 1;
 integer dev_reads = 0, dev_writes = 0, pt_reads = 0;
 integer i;
 initial for (i = 0; i < 3*128*512; i = i + 1) dev[i] = (((i/512)%128)*7 + (i%512) + (i/(128*512))*3) & 8'hFF;
@@ -81,6 +82,7 @@ always @(posedge clk) begin
 		if (p_rd != 0 || p_wr != 0) begin
 			d_slot <= (p_rd[0] | p_wr[0]) ? 0 : (p_rd[1] | p_wr[1]) ? 1 : 2;
 			d_lba  <= p_lba;
+			d_n    <= p_blk_cnt + 1;
 			d_lat  <= dev_lat;
 			d_state <= (p_rd != 0) ? 1 : 3;
 			if (p_rd != 0 && p_lba >= 32'h40000000) pt_reads <= pt_reads + 1;
@@ -91,11 +93,11 @@ always @(posedge clk) begin
 		else begin p_ack[d_slot] <= 1; d_i <= 0; d_state <= 2; dev_reads <= dev_reads + 1; end
 	end
 	2: begin
-		if (d_i < 256) begin
+		if (d_i < 256*d_n) begin
 			p_buff_addr <= d_i[12:0];
 			// passthrough windows return a marker pattern
 			p_buff_dout <= (d_lba >= 32'h40000000) ? {8'hA5, d_i[7:0]} :
-			               {dev[dbase(d_slot, d_lba) + d_i*2], dev[dbase(d_slot, d_lba) + d_i*2 + 1]};
+			               {dev[dbase(d_slot, d_lba + d_i/256) + (d_i%256)*2], dev[dbase(d_slot, d_lba + d_i/256) + (d_i%256)*2 + 1]};
 			p_buff_wr   <= 1;
 			d_i         <= d_i + 1;
 		end
@@ -107,12 +109,12 @@ always @(posedge clk) begin
 	end
 	4: begin
 		// two-cycle round trip: address this cycle, data reflects the address two cycles ago
-		if (d_i >= 2 && d_i < 258) begin
-			dev[dbase(d_slot, d_lba) + (d_i-2)*2]     <= p_buff_din[15:8];
-			dev[dbase(d_slot, d_lba) + (d_i-2)*2 + 1] <= p_buff_din[7:0];
+		if (d_i >= 2 && d_i < 256*d_n + 2) begin
+			dev[dbase(d_slot, d_lba + (d_i-2)/256) + ((d_i-2)%256)*2]     <= p_buff_din[15:8];
+			dev[dbase(d_slot, d_lba + (d_i-2)/256) + ((d_i-2)%256)*2 + 1] <= p_buff_din[7:0];
 		end
-		if (d_i < 258) begin
-			if (d_i < 256) p_buff_addr <= d_i[12:0];
+		if (d_i < 256*d_n + 2) begin
+			if (d_i < 256*d_n) p_buff_addr <= d_i[12:0];
 			d_i <= d_i + 1;
 		end
 		else begin p_ack[d_slot] <= 0; d_state <= 0; end
@@ -366,6 +368,24 @@ initial begin
 	settle;
 	for (k = 0; k < 100; k = k + 1) dcheck(1, 10 + k, (k + 3) & 8'h7F);
 	$display("   fails after T8: %0d", fails);
+
+	$display("-- T9 multi-block: 32 sequential reads and a 64-sector write burst take few platform transactions");
+	dev_lat = 40;
+	rd0 = dev_reads;
+	for (k = 0; k < 32; k = k + 1) begin mread(0, 60 + k); repeat (300) @(negedge clk); end
+	$display("   T9 device read transactions for 32 sequential reads: %0d", dev_reads - rd0);
+	chk("T9 reads <= 8 transactions (4 groups + 2 ahead)", (dev_reads - rd0) <= 8 ? 1 : 0, 1);
+	m0 = dev_writes;
+	for (k = 0; k < 64; k = k + 1) begin
+		ewrite(1, 30 + k, (k * 5 + 1) & 8'h7F);
+		for (n = 0; n < 512; n = n + 1) mir[1*128*512 + ((30 + k) % 128)*512 + n] = (n*3 + ((k * 5 + 1) & 8'h7F)) & 8'hFF;
+	end
+	settle;
+	$display("   T9 device write transactions for 64 sequential writes: %0d", dev_writes - m0);
+	chk("T9 writes <= 12 transactions", (dev_writes - m0) <= 12 ? 1 : 0, 1);
+	for (k = 0; k < 64; k = k + 1) dcheck(1, 30 + k, (k * 5 + 1) & 8'h7F);
+	mread(1, 45); mread(1, 93); mread(0, 75);
+	$display("   fails after T9: %0d", fails);
 
 	$display("== tb_scsi_cache: %0d checks, %0d failures (device reads %0d, writes %0d) ==", checks, fails, dev_reads, dev_writes);
 	if (fails != 0) $display("RESULT: FAIL"); else $display("RESULT: PASS");

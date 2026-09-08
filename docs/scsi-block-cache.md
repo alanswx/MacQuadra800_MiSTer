@@ -104,6 +104,26 @@ The full-machine sim covers the wiring: `verilator/sim.v` instantiates
 `quadra800`, so a `sim_wsl.sh run --cd cd.iso` boot exercises engine,
 cache and block-device model together.
 
+## Multi-block transactions (2026-09-07 evening)
+
+Every platform transaction used to move exactly one 512-byte sector
+(`sd_blk_cnt` was hard-wired to 0), and each one costs a full Main_MiSTer
+main-loop pass, which is the real per-sector price -- the SPI transfer is
+the small term. The platform side now works in **aligned 8-sector groups**
+(relative to the window base): a demand miss fetches its whole group when
+none of it is present, the prefetcher brings the next two absent groups as
+8-block reads, and a fully dirty group is flushed as one 8-block write. A
+fetched sector becomes valid the moment its last word lands, so the
+engine's first sector is served while the rest of the group streams. Partly
+dirty groups are flushed sector by sector only once the engine has been
+quiet for ~120 us (or at a re-base), so a burst is not chopped up before
+its groups fill; a read that misses into a group already on its way waits
+for it instead of fetching twice. Slots without multi-block (the CD, until
+the Main fork's CD path is confirmed to honour `sd_blk_cnt`; parameter
+`MB_CD`) keep a single-sector prefetch. `p_blk_cnt` reaches `hps_io` as
+`sd_blk_cnt` for the three real slots. Bench T9: 32 sequential reads in
+7 transactions (4 groups + read-ahead), 64 sequential writes in 8.
+
 ## The CD slot is optional
 
 `CACHE_CD = 0` (qsf macro `CACHE_CD_OFF=1` in `quadra800.sv`) makes every

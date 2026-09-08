@@ -53,8 +53,9 @@ module scsi_cache
 	parameter SECT0    = 64,             // hard disk 0: 32 KB
 	parameter SECT1    = 64,             // hard disk 1: 32 KB
 	parameter SECT2    = 16,             // CD-ROM: 8 KB (2048-byte blocks = 4 sectors)
-	parameter PF_DEPTH = 8,              // sectors prefetched beyond a demand read
-	parameter CACHE_CD = 1               // 0: the CD-ROM slot passes straight through (saves its tags)
+	parameter PF_DEPTH = 8,              // (kept for the bench; the prefetcher now works in groups)
+	parameter CACHE_CD = 1,              // 0: the CD-ROM slot passes straight through (saves its tags)
+	parameter MB_CD    = 0               // 1: the CD slot may use multi-block transactions too
 )
 (
 	input         clk,
@@ -72,6 +73,7 @@ module scsi_cache
 
 	// ---- platform side (hps_io)
 	output reg [31:0] p_lba,
+	output reg  [5:0] p_blk_cnt,         // hps_io sd_blk_cnt: blocks - 1 for this transaction
 	output reg  [2:0] p_rd,
 	output reg  [2:0] p_wr,
 	input   [2:0] p_ack,
@@ -122,7 +124,9 @@ wire [15:0]   q_a,    q_b;
 // the store behaves like the real ncr_sbuf (a single read register).  During
 // a fetch the platform's incoming word is written; during a flush the word is
 // read out; passthrough does not touch the store.
-wire [15:0]   addr_b_full = {c_sect, p_buff_addr[7:0]};
+// a multi-block transaction streams p_buff_addr 0..N*256-1: block index in
+// [12:8], word in [7:0]; the group's sectors are consecutive in the store
+wire [15:0]   addr_b_full = {c_sect + {3'd0, p_buff_addr[12:8]}, p_buff_addr[7:0]};
 wire [AW-1:0] addr_b = addr_b_full[AW-1:0];
 wire [15:0]   din_b  = p_buff_dout;
 wire          we_b   = (cst == C_XFER) && !c_pt && !c_is_wr && p_buff_wr;
@@ -197,8 +201,14 @@ reg        c_is_wr;                  // FLUSH (or passthrough write)
 reg        c_pt;                     // passthrough: buses forwarded to the engine
 reg  [1:0] c_slot;
 reg  [7:0] c_sect;                   // store sector index (slot base + window index)
-reg  [5:0] c_idx;                    // window index
+reg  [5:0] c_idx;                    // window index of the first sector
+reg        c_grp;                    // 1: an aligned 8-sector group, 0: a single sector
 reg [31:0] c_base;                   // window base this transaction was issued for
+// per-sector completion of a fetch: the last word of block k lands -> sector
+// c_idx+k is valid at once, so the engine's first sector is served while the
+// rest of the group is still streaming
+wire       blk_last_word = we_b && (p_buff_addr[7:0] == 8'hFF);
+wire [5:0] blk_idx       = c_idx + {3'd0, p_buff_addr[12:8]};
 reg  [2:0] p_ack_d;
 wire [2:0] p_ack_fall = p_ack_d & ~p_ack;
 wire       ch_idle  = (cst == C_IDLE);
@@ -232,24 +242,71 @@ wire        r_dirty_any = |dirty[r_slot];
 // will not write a sector the channel is fetching or flushing, and the
 // channel will not start a flush or a prefetch of a sector the engine is
 // writing (est says so from E_DECIDE until the last word is stored).
-wire        ch_busy_me = (cst != C_IDLE) && !c_pt && (c_slot == r_slot) && (c_idx == r_idx);
+wire        ch_busy_me = (cst != C_IDLE) && !c_pt && (c_slot == r_slot) &&
+                         (c_grp ? (c_idx[5:3] == r_idx[5:3]) : (c_idx == r_idx));
+wire        ch_fetching_me = ch_busy_me && !c_is_wr;    // my sector is on its way already
 wire        e_writing  = ((est == E_DECIDE) && r_wr && r_inwin && !r_pt) ||
                          (est == E_WR_A) || (est == E_WR_B) || (est == E_WR_C);
+
+// Aligned 8-sector groups (relative to the window base) are the unit of a
+// multi-block transaction: a fetch takes a whole group when none of it is
+// present, a flush takes a whole group when all of it is dirty; anything
+// partial goes sector by sector.  8-bit slices keep the logic small.
+function [7:0] slice(input [63:0] bm, input [2:0] g);
+	slice = bm[g*8 +: 8];
+endfunction
+function slot_mb(input [1:0] sl);           // may this slot use multi-block?
+	slot_mb = (sl != 2'd2) || (MB_CD != 0);
+endfunction
+function grp_in(input [1:0] sl, input [2:0] g);   // whole group inside the window?
+	grp_in = ({g, 3'b111} < slot_size(sl));
+endfunction
+wire [2:0] r_grp = r_idx[5:3];
+wire       r_grp_absent = (slice(valid[r_slot], r_grp) == 8'd0) && (slice(dirty[r_slot], r_grp) == 8'd0);
+wire       dem_grp = slot_mb(r_slot) && grp_in(r_slot, r_grp) && r_grp_absent &&
+                     ({26'd0, r_grp, 3'b111} + win_base[r_slot] < size_r[r_slot]);   // stays inside the image
 
 // demand for the channel from the engine side
 reg        dem_req;                  // engine wants a platform transaction now
 reg        dem_wr;                   // ...a flush-all step is a write
 reg        dem_pt;
 reg  [5:0] dem_idx;
+reg        dem_grp_r;
 
-// prefetch bookkeeping
+// prefetch bookkeeping: whole groups, two ahead
 reg  [1:0] pf_slot;
-reg  [5:0] pf_next;
-reg  [3:0] pf_left;
+reg  [2:0] pf_grp;
+reg  [1:0] pf_left;
+wire       pf_ok = win_ok[pf_slot] && mounted[pf_slot] && grp_in(pf_slot, pf_grp) &&
+                   (slice(valid[pf_slot], pf_grp) == 8'd0) && (slice(dirty[pf_slot], pf_grp) == 8'd0) &&
+                   ({26'd0, pf_grp, 3'b111} + win_base[pf_slot] < size_r[pf_slot]) &&
+                   !(e_writing && (pf_slot == r_slot));
+// single-sector prefetch for a slot without multi-block: the first sector of
+// the group that is neither valid nor dirty
+wire [7:0] pf_present = slice(valid[pf_slot], pf_grp) | slice(dirty[pf_slot], pf_grp);
+reg  [2:0] pf_first; reg pf_any;
+integer pfi;
+always @(*) begin
+	pf_first = 3'd0; pf_any = 1'b0;
+	for (pfi = 7; pfi >= 0; pfi = pfi - 1)
+		if (!pf_present[pfi]) begin pf_first = pfi[2:0]; pf_any = 1'b1; end
+end
+wire       pf1_ok = win_ok[pf_slot] && mounted[pf_slot] && grp_in(pf_slot, pf_grp) && pf_any &&
+                    ({26'd0, pf_grp, pf_first} + win_base[pf_slot] < size_r[pf_slot]) &&
+                    !(e_writing && (pf_slot == r_slot) && (r_idx == {pf_grp, pf_first}));
 
-// flush scan
+// flush scan.  A whole dirty group goes out as one 8-block write at once; a
+// partly dirty group waits for the engine to go quiet (no write accepted for
+// FLUSH_IDLE cycles) or for a re-base, so a sequential burst is not chopped
+// into single-sector writes before its groups can fill.
+localparam integer FLUSH_IDLE = 4096;                    // ~120 us at 33 MHz
+reg [12:0] idle_ctr;
+wire       eng_quiet = (idle_ctr == 13'd4095) || (est == E_FLUSHALL);
 reg  [1:0] fl_slot;
 reg  [5:0] fl_idx;
+wire       fl_grp = slot_mb(fl_slot) && grp_in(fl_slot, fl_idx[5:3]) && (fl_idx[2:0] == 3'd0) &&
+                    (slice(dirty[fl_slot], fl_idx[5:3]) == 8'hFF) &&
+                    !(e_writing && (fl_slot == r_slot) && (r_idx[5:3] == fl_idx[5:3]));
 
 integer i;
 
@@ -257,6 +314,8 @@ always @(posedge clk) begin
 	p_ack_d <= p_ack;
 	we_a <= 0;
 	e_buff_wr <= 0;
+	if (est == E_WR_A || est == E_WR_B || est == E_WR_C) idle_ctr <= 0;
+	else if (idle_ctr != 13'd4095) idle_ctr <= idle_ctr + 1'b1;
 
 	//------------------------------------------------ mounts
 	for (i = 0; i < NS; i = i + 1)
@@ -276,21 +335,34 @@ always @(posedge clk) begin
 		if (dem_req) begin
 			dem_req <= 0;                            // accepted: drop the level
 			c_slot <= r_slot; c_is_wr <= dem_wr; c_pt <= dem_pt;
-			c_idx  <= dem_idx;
+			c_grp  <= dem_grp_r;
+			c_idx  <= dem_grp_r ? {dem_idx[5:3], 3'd0} : dem_idx;
 			c_base <= win_base[r_slot];
-			c_sect <= slot_base(r_slot) + {2'd0, dem_idx};
-			p_lba  <= dem_pt ? r_lba : (win_base[r_slot] + {26'd0, dem_idx});
+			c_sect <= slot_base(r_slot) + {2'd0, (dem_grp_r ? {dem_idx[5:3], 3'd0} : dem_idx)};
+			p_lba  <= dem_pt ? r_lba : (win_base[r_slot] + {26'd0, (dem_grp_r ? {dem_idx[5:3], 3'd0} : dem_idx)});
+			p_blk_cnt <= dem_grp_r ? 6'd7 : 6'd0;
 			if (dem_wr) p_wr[r_slot] <= 1; else p_rd[r_slot] <= 1;
 			cst <= C_REQ;
 		end
 		else if (|dirty[fl_slot]) begin              // background flush, in order
-			if (dirty[fl_slot][fl_idx] &&
-			    !(e_writing && (fl_slot == r_slot) && (fl_idx == r_idx))) begin
-				c_slot <= fl_slot; c_is_wr <= 1; c_pt <= 0;
+			if (fl_grp) begin                        // a whole dirty group: one 8-block write
+				c_slot <= fl_slot; c_is_wr <= 1; c_pt <= 0; c_grp <= 1;
 				c_idx  <= fl_idx;
 				c_base <= win_base[fl_slot];
 				c_sect <= slot_base(fl_slot) + {2'd0, fl_idx};
 				p_lba  <= win_base[fl_slot] + {26'd0, fl_idx};
+				p_blk_cnt <= 6'd7;
+				p_wr[fl_slot] <= 1;
+				cst <= C_REQ;
+			end
+			else if (dirty[fl_slot][fl_idx] && (eng_quiet || !slot_mb(fl_slot)) &&
+			    !(e_writing && (fl_slot == r_slot) && (fl_idx == r_idx))) begin
+				c_slot <= fl_slot; c_is_wr <= 1; c_pt <= 0; c_grp <= 0;
+				c_idx  <= fl_idx;
+				c_base <= win_base[fl_slot];
+				c_sect <= slot_base(fl_slot) + {2'd0, fl_idx};
+				p_lba  <= win_base[fl_slot] + {26'd0, fl_idx};
+				p_blk_cnt <= 6'd0;
 				p_wr[fl_slot] <= 1;
 				cst <= C_REQ;
 			end
@@ -300,26 +372,36 @@ always @(posedge clk) begin
 			fl_slot <= (fl_slot + 1'b1 == NS[1:0]) ? 2'd0 : fl_slot + 1'b1;   // another slot has the dirt
 			fl_idx  <= 0;
 		end
-		else if (pf_left != 0 && win_ok[pf_slot] && mounted[pf_slot] &&
-		         ({2'd0, pf_next} < {2'd0, slot_size(pf_slot)}) && !valid[pf_slot][pf_next] &&
-		         !(e_writing && (pf_slot == r_slot) && (pf_next == r_idx))) begin
-			c_slot <= pf_slot; c_is_wr <= 0; c_pt <= 0;
-			c_idx  <= pf_next;
+		else if (pf_left != 0 && pf_ok && slot_mb(pf_slot)) begin
+			// prefetch: the next wholly absent group, as one 8-block read
+			c_slot <= pf_slot; c_is_wr <= 0; c_pt <= 0; c_grp <= 1;
+			c_idx  <= {pf_grp, 3'd0};
 			c_base <= win_base[pf_slot];
-			c_sect <= slot_base(pf_slot) + {2'd0, pf_next};
-			p_lba  <= win_base[pf_slot] + {26'd0, pf_next};
+			c_sect <= slot_base(pf_slot) + {2'd0, pf_grp, 3'd0};
+			p_lba  <= win_base[pf_slot] + {26'd0, pf_grp, 3'd0};
+			p_blk_cnt <= 6'd7;
 			p_rd[pf_slot] <= 1;
-			pf_next <= pf_next + 1'b1;
+			pf_grp  <= pf_grp + 1'b1;
 			pf_left <= pf_left - 1'b1;
 			cst <= C_REQ;
 		end
+		else if (pf_left != 0 && !slot_mb(pf_slot) && pf1_ok) begin
+			// no multi-block on this slot: one absent sector of the group
+			c_slot <= pf_slot; c_is_wr <= 0; c_pt <= 0; c_grp <= 0;
+			c_idx  <= {pf_grp, pf_first};
+			c_base <= win_base[pf_slot];
+			c_sect <= slot_base(pf_slot) + {2'd0, pf_grp, pf_first};
+			p_lba  <= win_base[pf_slot] + {26'd0, pf_grp, pf_first};
+			p_blk_cnt <= 6'd0;
+			p_rd[pf_slot] <= 1;
+			cst <= C_REQ;
+		end
 		else if (pf_left != 0) begin
-			// a hit re-arms the prefetcher just behind itself, so the next
-			// sector is usually valid already: skip forward through what is
-			// there and stop only at the window edge (or an unmounted slot)
-			if (win_ok[pf_slot] && mounted[pf_slot] &&
-			    ({2'd0, pf_next} < {2'd0, slot_size(pf_slot)}) && valid[pf_slot][pf_next]) begin
-				pf_next <= pf_next + 1'b1;
+			// the group is already (partly) present, outside the window, or
+			// not prefetchable: step over it, stop at the window edge
+			if (win_ok[pf_slot] && mounted[pf_slot] && grp_in(pf_slot, pf_grp) &&
+			    !(e_writing && (pf_slot == r_slot))) begin
+				pf_grp  <= pf_grp + 1'b1;
 				pf_left <= pf_left - 1'b1;
 			end
 			else pf_left <= 0;
@@ -333,12 +415,15 @@ always @(posedge clk) begin
 	end
 	C_XFER: begin
 		// port B (addr_b/din_b/we_b) is driven combinationally above; a fetch
-		// writes the incoming word, a flush reads q_b out to p_buff_din
+		// writes the incoming word, a flush reads q_b out to p_buff_din.
+		// A fetched sector becomes valid the moment its last word lands.
+		if (!c_pt && !c_is_wr && blk_last_word && c_slot < NS &&
+		    win_ok[c_slot] && (c_base == win_base[c_slot]))
+			valid[c_slot][blk_idx] <= 1'b1;           // still the window it was fetched for
 		if (p_ack_fall[c_slot]) begin
-			if (!c_pt && c_slot < NS) begin
-				if (c_is_wr) dirty[c_slot][c_idx] <= 1'b0;
-				else if (win_ok[c_slot] && (c_base == win_base[c_slot]))
-				             valid[c_slot][c_idx] <= 1'b1;   // still the window it was fetched for
+			if (!c_pt && c_slot < NS && c_is_wr) begin
+				if (c_grp) dirty[c_slot][c_idx[5:3]*8 +: 8] <= 8'd0;
+				else       dirty[c_slot][c_idx] <= 1'b0;
 			end
 			cst <= C_IDLE;
 		end
@@ -357,7 +442,7 @@ always @(posedge clk) begin
 	E_DECIDE: begin
 		if (r_pt) begin                              // uncacheable: hand the buses over
 			if (!dem_req) begin
-				dem_req <= 1; dem_wr <= r_wr; dem_pt <= 1; dem_idx <= 0;
+				dem_req <= 1; dem_wr <= r_wr; dem_pt <= 1; dem_idx <= 0; dem_grp_r <= 0;
 				est <= E_PT;
 			end
 		end
@@ -382,9 +467,11 @@ always @(posedge clk) begin
 			addr_a <= {slot_base(r_slot) + {2'd0, r_idx}, 8'd0};
 			est <= E_RD_A;
 		end
+		else if (ch_fetching_me) ;                   // a prefetch is bringing it: wait for the hit
 		else if (!dem_req) begin                     // miss: fetch on demand, then serve
 			stat_misses <= stat_misses + 1'b1;
 			dem_req <= 1; dem_wr <= 0; dem_pt <= 0; dem_idx <= r_idx;
+			dem_grp_r <= dem_grp;                    // the whole group when none of it is here
 			est <= E_FETCH;
 		end
 	end
@@ -446,10 +533,10 @@ always @(posedge clk) begin
 	end
 	E_DONE: begin
 		e_ack <= 3'b000;
-		if (!r_wr) begin                             // arm the prefetcher behind a read
+		if (!r_wr) begin                             // arm the prefetcher: this group's rest, then two more
 			pf_slot <= r_slot;
-			pf_next <= r_idx + 1'b1;
-			pf_left <= PF_DEPTH[3:0];
+			pf_grp  <= r_grp;
+			pf_left <= 2'd3;
 		end
 		est <= E_IDLE;
 	end
@@ -479,8 +566,8 @@ end
 
 // mount state and power-up values
 initial begin
-	cst = C_IDLE; est = E_IDLE; e_ack = 0; p_rd = 0; p_wr = 0; c_pt = 0;
-	dem_req = 0; pf_left = 0; pf_slot = 0; pf_next = 0; fl_slot = 0; fl_idx = 0;
+	cst = C_IDLE; est = E_IDLE; e_ack = 0; p_rd = 0; p_wr = 0; c_pt = 0; c_grp = 0; p_blk_cnt = 0;
+	dem_req = 0; dem_grp_r = 0; pf_left = 0; pf_slot = 0; pf_grp = 0; fl_slot = 0; fl_idx = 0; idle_ctr = 0;
 	stat_hits = 0; stat_misses = 0; mounted = 0; e_buff_wr = 0; we_a = 0;
 	for (i = 0; i < 3; i = i + 1) begin
 		win_base[i] = 0; win_ok[i] = 0; valid[i] = 0; dirty[i] = 0; size_r[i] = 0;
