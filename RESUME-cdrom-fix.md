@@ -272,9 +272,13 @@ bunch")**: the fitter says cd_audio = 1,679 ALMs, 2,983 ALUTs, 938 regs,
 8 DSP blocks -- the MSF->LBA multiplies and the audio multiplies are
 already in DSPs (55 spare), so the LUT fat is (a) the LBA->M/S/F divider
 STEP written out in six states (~600 ALUTs) -> one shared step
-(patch applied 07:22, bench running); (b) thirteen 32-bit LBA registers
+(79d3e9b; measured 07:30: only 2,936 -> 2,901 LC -- Quartus had already
+merged the six copies, so the divider was NOT the fat); (b) thirteen
+32-bit LBA registers
 and their input muxes where a CD needs 20 bits (~450 ALUTs + 156 regs)
--> next. Build J (512x384-off data point) was killed at 07:23 after 67
+-> done (5f52240, 20 bits, measuring 07:39); (c) the three TOC/response
+planes are MLABs (RAM made of logic cells, ~410 LC of the module's
+children) -> M10K candidates. Build J (512x384-off data point) was killed at 07:23 after 67
 min stuck in placement; wt2 is free for `--check` measurements. Build D queued (wt2): the qsf's
 proven speed settings globally + `set_instance_assignment -name
 OPTIMIZATION_TECHNIQUE AREA -to "emu:emu|quadra800:machine"` (area
