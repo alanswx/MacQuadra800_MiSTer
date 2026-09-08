@@ -268,10 +268,22 @@ the Linux-side audio mix), and look for more savings.** Build L launched
 clk_sys +0.358, clk_ram +1.008** -- `scratch/MacQuadra800_target_L.rbf`
 (main 43e5d09: Alan's CPU + CD + multi-block cache CACHE_SMALL + the
 same-disc CD guard + 512x384; Y/C ON, ALSA off, scaler NN + no
-adaptive, CACHE_CD_OFF, BALANCED, seed 19). Gate operator launched
-07:43 (`scratch/gate_L/`) with a Finder-Duplicate throughput
-observation and a CD-icon count. If it passes it is the next release
-and the recipe should be committed to the qsf as the default.
+adaptive, CACHE_CD_OFF, BALANCED, seed 19). **GATE PASSED 07:43-08:34** (`scratch/gate_L/`): Mac OS 8.1 desktop
+<= 136 s, CD readable, clock 6:55 -> 7:00, 5.5 MB Finder Duplicate in
+~29 s (~195 KB/s guest write; block-layer writes 4.5x the guest's), clean
+Shut Down; A/UX desktop <= 282 s, uname OK, halt 188 s; ROM CD boot
+<= 107 s, one CD icon, clean halt. **Released as
+`releases/MacQuadra800_20260908_2.rbf`** (29b26aa) and **the recipe is
+now the qsf default on main** (966d0cd) -- a plain `build_only.sh` from
+main reproduces it. **The double CD icon is NOT the re-insert**: it
+persists on the Quad Squad boot with the guard in (2 icons, Get Info
+identical, SCSI ID 3), and is absent on the CD boot and under A/UX -- the
+Quad Squad disk's extension set (a second CD driver?) is the variable.
+Operator notes: modifier chords work at the DEFAULT 0.35 s pacing, not
+at --delay 0.05; menu.sh item landed first time on Mac OS 8; A/UX's
+Apple menu still needs hand-walking (click.sh lands on the separator).
+Build M launched 08:45 (wt): main HEAD (engine diet + everything) with
+the default qsf -- the reproducibility check and the next candidate.
 **CD audio diet, final (07:50): 2,936 -> 2,566 LC (-12.6 %), regs 938
 -> 852** -- divider share -34 (79d3e9b), 20-bit LBAs -297 (5f52240),
 shared volume LUT -38 (3098ee3); all on main, engine suite 475,299

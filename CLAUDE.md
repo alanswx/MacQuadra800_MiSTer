@@ -62,6 +62,16 @@ bash scripts/build_only.sh --check    # Analysis & Synthesis only (~13 min), no 
   path reports (`docs/sdram-open-row-crossing.md`) before trusting the build.
 - `SCSI_TRACE` in the `.qsf` makes a **debug** build that hijacks the serial
   port. It must stay commented out for anything released.
+- **The qsf's default settings ARE the release recipe (2026-09-08):**
+  balanced synthesis, register duplication off, and the switches
+  `CACHE_CD_OFF` (the CD passes through the block cache), `CACHE_SMALL`
+  (32/32/16-sector cache), `MISTER_DISABLE_ALSA`, `MISTER_DOWNSCALE_NN`,
+  `MISTER_DISABLE_ADAPTIVE`. Alan's 2026-09 AP68040 is +20 % logic and the
+  chip sits at 98 %; speed synthesis does not fit, all-area synthesis fits
+  but fails HDMI-domain timing. Composite Y/C stays in (the user uses it);
+  `VIDEO_512_OFF` and the two switches above are the spare levers. The
+  per-block sizes and what each switch saves are in `RESUME-cdrom-fix.md`
+  and the `area-levers` memory.
 - `CDROM_OFF=1` as a `VERILOG_MACRO` in the `.qsf` drops the CD-ROM target and
   its audio engine (measured 3,036 ALMs: 36,830 -> 33,794 at seed 19, 2026-09-03)
   for CPU work that needs the area; the gate
