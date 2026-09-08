@@ -129,6 +129,11 @@ module cd_audio #(
 );
 
 // HPS window contract (Main_MiSTer support/maclc/maclc_cd.h)
+// Disc LBAs are 20 bits: 99:59:74 is 449,999 sectors, a 700 MB data disc
+// 358,400 blocks.  Only the two platform-window addresses (TOC_BLK /
+// AUDIO_BLK + lba) are 32 bits.  Thirteen 32-bit registers and their input
+// muxes were the second-largest LUT cost of this module (2026-09-08).
+localparam integer LBW = 20;
 localparam [31:0] TOC_BLK   = 32'h7FFF_0000;
 localparam [31:0] AUDIO_BLK = 32'h4000_0000;
 
@@ -334,7 +339,7 @@ wire ack_fall = old_ack & ~io_ack;
 // ============================================================================
 localparam ST_IDLE = 2'd0, ST_PLAY = 2'd1, ST_PAUSE = 2'd2, ST_END = 2'd3;
 reg  [1:0]  pstate;
-reg [31:0]  cur_lba, stop_lba;
+reg [LBW-1:0]  cur_lba, stop_lba;
 reg         flush;                     // 1-clk: position changed, requeue audio
 wire        frame_done;                // sample engine finished a frame
 
@@ -384,9 +389,9 @@ reg        scan_dir;                        // 1 = rewind
 
 reg  [2:0] step;                        // word-stream step within a state
 reg  [6:0] t_idx;
-reg [31:0] t_start;
+reg [LBW-1:0] t_start;
 reg  [7:0] t_ctrl;
-reg [31:0] div_v;                       // shared iterative M/S/F divider
+reg [LBW-1:0] div_v;                       // shared iterative M/S/F divider
 reg  [6:0] div_m, div_s;
 // One step of the LBA -> M/S/F divider, computed ONCE: every state that
 // divides loads div_v/div_m/div_s, then repeats "if (!div_done) step" until
@@ -395,7 +400,7 @@ reg  [6:0] div_m, div_s;
 wire        div_ge4500 = (div_v >= 32'd4500) && (div_m != 7'd99);
 wire        div_ge75   = (div_v >= 32'd75);
 wire        div_done   = !div_ge4500 && !div_ge75;
-wire [31:0] div_v_next = div_ge4500 ? div_v - 32'd4500 : div_v - 32'd75;
+wire [LBW-1:0] div_v_next = div_ge4500 ? div_v - 32'd4500 : div_v - 32'd75;
 wire  [6:0] div_m_next = div_m + {6'd0, div_ge4500};
 wire  [6:0] div_s_next = div_s + {6'd0, !div_ge4500};
 reg  [2:0] emit_k;   // widened for the 8-byte 0x43 descriptors
@@ -423,12 +428,15 @@ wire [9:0] w_t2_dlen = {w_t2_rows[6:0], 3'b000} + {w_t2_rows[8:0], 1'b0}
                      + w_t2_rows + 10'd2;   // rows*11 + 2
 reg  [7:0] dbg_toc_fetch_cnt = 8'd0;
 reg  [4:0] dbg_fr_fetch_cnt  = 5'd0;
-reg [31:0] leadout_lba;
+reg [LBW-1:0] leadout_lba;
 
 reg  [7:0] c_op, c_1, c_2, c_3, c_4, c_5, c_6, c_7, c_8, c_9;
 reg        cmd_pend;
-reg [31:0] c_addr;                      // resolved target address
-reg [31:0] c_next;                      // start of following track (track mode)
+reg [LBW-1:0] c_addr;                      // resolved target address
+// the CDB's 32-bit LBA form, clamped: anything past 20 bits is beyond any
+// disc, and lands in the beyond-lead-out handling like a real drive's
+wire [LBW-1:0] cdb_lba = (|{c_2, c_3[7:4]}) ? {LBW{1'b1}} : {c_3[3:0], c_4, c_5};
+reg [LBW-1:0] c_next;                      // start of following track (track mode)
 // PLAY AUDIO(10)/(12) "from current position" sentinel (BlueSCSI 2551)
 wire       play_lba_ff = (c_2 == 8'hFF) && (c_3 == 8'hFF) &&
                          (c_4 == 8'hFF) && (c_5 == 8'hFF);
@@ -436,11 +444,11 @@ reg  [6:0] c_trk;                       // 0-based requested track
 reg  [6:0] c_trk2;                      // 0-based index whose START bounds the play
                                         // (vendor: c_trk+1; 0x48: end-track+1)
 
-reg [31:0] ref_abs, ref_rel;
-reg [31:0] scan_start;
+reg [LBW-1:0] ref_abs, ref_rel;
+reg [LBW-1:0] scan_start;
 reg  [6:0] scan_idx, scan_best_trk;
 reg  [7:0] scan_ctrl_c, scan_best_ctrl;
-reg [31:0] scan_best_start;
+reg [LBW-1:0] scan_best_start;
 reg  [6:0] refm_hold, refs_hold;
 reg [15:0] ref_cnt;
 
@@ -576,10 +584,10 @@ always @(posedge clk) begin
 			end
 			3'd5: if (toc_valid) leadout_lba[15:0]  <= blob_q;             // word4
 			3'd6: begin                                                    // word5
-				if (toc_valid) leadout_lba[31:16] <= blob_q;
+				if (toc_valid) leadout_lba[LBW-1:16] <= blob_q[LBW-17:0];
 				else begin
 					n_tracks    <= 7'd1;
-					leadout_lba <= {2'd0, img_blocks[31:2]};               // 2048-blocks
+					leadout_lba <= img_blocks[LBW+1:2];                    // 2048-blocks
 				end
 				step <= 0; emit_k <= 0;
 				mst <= M_EMIT_H;
@@ -640,8 +648,8 @@ always @(posedge clk) begin
 				3'd2: begin t_ctrl        <= blob_b0; blob_ra <= blob_ra + 9'd1; end
 				3'd3: t_start[15:0]  <= blob_q;
 				default: begin
-					t_start[31:16] <= blob_q;
-					div_v <= {blob_q, t_start[15:0]};
+					t_start[LBW-1:16] <= blob_q[LBW-17:0];
+					div_v <= {blob_q[LBW-17:0], t_start[15:0]};
 					div_m <= 0; div_s <= 0; step <= 0;
 					mst <= M_TRK_DIV;
 				end
@@ -705,8 +713,8 @@ always @(posedge clk) begin
 				3'd2: begin t_ctrl <= blob_b0; blob_ra <= blob_ra + 9'd1; end
 				3'd3: t_start[15:0] <= blob_q;
 				default: begin
-					t_start[31:16] <= blob_q;
-					div_v <= {blob_q, t_start[15:0]} + 32'd150;
+					t_start[LBW-1:16] <= blob_q[LBW-17:0];
+					div_v <= {blob_q[LBW-17:0], t_start[15:0]} + 32'd150;
 					div_m <= 0; div_s <= 0; step <= 0;
 					mst <= M_T43_DIV;
 				end
@@ -783,8 +791,8 @@ always @(posedge clk) begin
 				3'd2: begin t_ctrl <= blob_b0; blob_ra <= blob_ra + 9'd1; end
 				3'd3: t_start[15:0] <= blob_q;
 				default: begin
-					t_start[31:16] <= blob_q;
-					div_v <= {blob_q, t_start[15:0]} + 32'd150;
+					t_start[LBW-1:16] <= blob_q[LBW-17:0];
+					div_v <= {blob_q[LBW-17:0], t_start[15:0]} + 32'd150;
 					div_m <= 0; div_s <= 0; step <= 0;
 					mst <= M_T2_DIV;
 				end
@@ -922,7 +930,7 @@ always @(posedge clk) begin
 				// 4's scan {MSF 18,14,19}@3-5 became BCD 19:00:00@5-7 =
 				// seek into track 2 = the "random track" FF/RW (run 4).
 				case (c_9[7:6])
-				2'b00:   c_addr <= {c_2, c_3, c_4, c_5};       // LBA form
+				2'b00:   c_addr <= cdb_lba;       // LBA form
 				2'b01:   c_addr <= msf2lba_std(c_3, c_4, c_5); // MSF form
 				default: c_addr <= cur_lba;  // track form unobserved: v1 =
 				                             // scan from current position
@@ -949,7 +957,7 @@ always @(posedge clk) begin
 					end
 				end
 				default: begin                             // LBA (big-endian 2..5)
-					c_addr <= {c_2, c_3, c_4, c_5};
+					c_addr <= cdb_lba;
 					mst <= M_APPLY;
 				end
 				endcase
@@ -981,8 +989,8 @@ always @(posedge clk) begin
 				// the 47/48 zero-length arm below via c_addr == c_next. Length
 				// is in frames: (10) = cdb7..8, (12) = cdb6..9. The LBA is
 				// already in the engine's sector domain (same as cur_lba).
-				c_addr <= play_lba_ff ? cur_lba : {c_2, c_3, c_4, c_5};
-				c_next <= (play_lba_ff ? cur_lba : {c_2, c_3, c_4, c_5}) +
+				c_addr <= play_lba_ff ? cur_lba : cdb_lba;
+				c_next <= (play_lba_ff ? cur_lba : cdb_lba) +
 				          ((c_op == 8'h45) ? {16'd0, c_7, c_8}
 				                           : {c_6, c_7, c_8, c_9});
 				mst <= M_APPLY;
@@ -1011,12 +1019,12 @@ always @(posedge clk) begin
 				blob_ra <= 9'd9 + {(c_trk2 < n_tracks ? c_trk2 : n_tracks - 7'd1), 2'b00};
 			end
 			3'd3: begin
-				c_addr[31:16] <= blob_q;                   // start(k) hi
+				c_addr[LBW-1:16] <= blob_q[LBW-17:0];                   // start(k) hi
 				blob_ra <= blob_ra + 9'd1;
 			end
 			3'd4: c_next[15:0] <= blob_q;                  // start(k+1) lo
 			default: begin
-				c_next[31:16] <= blob_q;                   // start(k+1) hi
+				c_next[LBW-1:16] <= blob_q[LBW-17:0];                   // start(k+1) hi
 				if (c_trk2 >= n_tracks) c_next <= leadout_lba;
 				step <= 0;
 				mst <= M_APPLY;
@@ -1092,8 +1100,8 @@ always @(posedge clk) begin
 			3'd2: begin scan_ctrl_c <= blob_b0; blob_ra <= blob_ra + 9'd1; end
 			3'd3: scan_start[15:0] <= blob_q;
 			default: begin
-				if ({blob_q, scan_start[15:0]} <= ref_abs) begin
-					scan_best_start <= {blob_q, scan_start[15:0]};
+				if ({blob_q[LBW-17:0], scan_start[15:0]} <= ref_abs) begin
+					scan_best_start <= {blob_q[LBW-17:0], scan_start[15:0]};
 					scan_best_trk   <= scan_idx;
 					scan_best_ctrl  <= scan_ctrl_c;
 				end
@@ -1155,7 +1163,7 @@ reg  [1:0] fst;
 // CDA0 probe word (all fields declared above by here; layout in the port list)
 assign dbg_cda0 = { dbg_fr_fetch_cnt, dbg_toc_fetch_cnt,
                     fst, pstate, mst, n_tracks, toc_valid, toc_ready, mounted };
-reg [31:0] fetch_lba;
+reg [LBW-1:0] fetch_lba;
 reg        fetch_sync;                 // reload fetch_lba from cur_lba
 localparam F_IDLE = 2'd0, F_REQ = 2'd1, F_WAIT = 2'd2;
 
