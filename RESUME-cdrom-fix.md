@@ -140,7 +140,13 @@ audio_out 1,629 (IIR 798, alsa 400); hdmi_osd 916; vga_osd 884;
 pll_hdmi_adj 779; pll_cfg 715; sdram_beat32 613; dafb 561; easc 481;
 yc_out 458; video_calc 416; scc 1,112 (4 UARTs ~780). The queued wt2
 build (all-area + CACHE_CD_OFF) had YC + ALSA off added before it
-started (20:33). Install #9 meanwhile
+started (20:33), and was moved to ff7f4b0 (20:52): **the 512x384 PLL
+retarget now uses the framework's trimmed reconfig core
+`sys/pll_cfg/pll_cfg_hdmi.v`** (Altera's core with unused features cut
+out, same MODE/C-counter/START registers) instead of the generic
+`pll_cfg` IP -- 715 -> ~300 logic cells for the same function (the HDMI
+instance of the same module is 296). VIDEO_512_OFF stays available but
+should no longer be needed. Install #9 meanwhile
   passed the base Mac OS 8.1 package (where #8 died) and was installing
   the optional packages at 18:00.
 - User's next topic after this: SCSI throughput ("our disks are REALLY
