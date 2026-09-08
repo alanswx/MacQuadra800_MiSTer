@@ -816,3 +816,19 @@ build M's gate runs on the installed Main first. Then: install it at the
 halt screen (`killall MiSTer`, copy, `setsid nohup /media/fat/MiSTer …`),
 set `MB_CD` to 1 in `rtl/scsi_cache.sv`, rebuild, and a CUE/CHD disc as
 well as the flat ISO must still mount and install.
+
+### Main fork rebased onto upstream 20260907 (user's request, 2026-09-08 evening)
+
+`../Main_MiSTer` branch `mac-ethernet-pr` rebased from `0a8fb44` onto
+`upstream/master` `f8dc68e` (Release 20260907). Three trivial conflicts in
+`support/mac/mac.cpp`, all against upstream `9b193ea` (MacPlus joins the
+family; the slot predicate split into `mac_cd_ok` / `mac_toolbox_ok`; the
+boot repulse gated on the CD slot instead of the changer): kept upstream's
+repulse gate plus our `mac_eth_poll()`, kept our corrected Ethernet
+comment, and listed `macquadra800` beside `macplus` in
+`is_mac_scsi_family()` (the Quadra has Toolbox + changer slots, so it needs
+no exclusion). Verified: `git diff 2d23324 4857af1` is exactly upstream's
+five commits. New tip **`4857af1`** (the multi-block CD fill; the hash
+`2d23324` no longer exists). The branch is published on `origin`, so
+pushing it now needs `--force-with-lease` — the user's call, not done.
+Rebuilt in WSL; binary staged as `scratch/MiSTer_4857af1_<md5>`.

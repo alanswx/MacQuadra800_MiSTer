@@ -55,7 +55,7 @@ module scsi_cache
 	parameter SECT2    = 16,             // CD-ROM: 8 KB (2048-byte blocks = 4 sectors)
 	parameter PF_DEPTH = 8,              // (kept for the bench; the prefetcher now works in groups)
 	parameter CACHE_CD = 1,              // 0: the CD-ROM slot passes straight through (saves its tags)
-	parameter MB_CD    = 1               // 1: the CD slot fetches its data window in 8-sector groups too. Needs the Main fork from 2d23324 (mac_cdrom_fill serves a 4 KB run; the older fork zero-fills anything but 512/2352 bytes, so CUE/CHD discs would read as zeros on it); flat ISOs go through the generic sd_image path either way
+	parameter MB_CD    = 1               // 1: the CD slot fetches its data window in 8-sector groups too. Needs the Main fork from 4857af1 (mac_cdrom_fill serves a 4 KB run; the older fork zero-fills anything but 512/2352 bytes, so CUE/CHD discs would read as zeros on it); flat ISOs go through the generic sd_image path either way
 )
 (
 	input         clk,
