@@ -220,8 +220,16 @@ build. The fork's heuristic could also be retired now that the eject-
 until-bus-reset fix makes the ROM CD boot work.
 **Build F (05:05, wt2)**: main 9f6e528 (multi-block cache with the
 group-limit trim) on C's recipe (BALANCED/BALANCED, duplication off,
-CACHE_CD_OFF, YC + ALSA off) -- CD target ON. If it fits with timing it
-supersedes C as the candidate (same features + multi-block SCSI). Build D queued (wt2): the qsf's
+CACHE_CD_OFF, YC + ALSA off) -- CD target ON. **Result (05:28): fits at 41,447 ALMs
+(99 %), 499 RAM, but HDMI PLL domain -0.105 ns** (clk_sys +0.219, clk_ram
++0.756); the trimmed multi-block cache is +339 ALMs over C. Kept as
+`scratch/MacQuadra800_cpu_cd_F_a8046eee_TIMINGFAIL.rbf` (never deploy).
+**Seed walk launched 05:35**: builds G (seed 20, wt2) and H (seed 21,
+wt) in parallel, both = main 344a7cf (multi-block cache + trim + the
+same-disc CD guard) on C's recipe (`scratchpad/recipe_c.py`). Whichever
+meets timing is the gate candidate; if neither, VIDEO_512_OFF (-360 ALMs)
+is the next lever, or gate C (b882d3fc, no multi-block) as the CPU+CD
+release and land multi-block later. Build D queued (wt2): the qsf's
 proven speed settings globally + `set_instance_assignment -name
 OPTIMIZATION_TECHNIQUE AREA -to "emu:emu|quadra800:machine"` (area
 synthesis only for our machine, the framework untouched) + the trims. Install #9 meanwhile
