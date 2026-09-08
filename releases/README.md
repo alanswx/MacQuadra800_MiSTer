@@ -12,6 +12,7 @@ must never be flashed (`scripts/deploy_screenshot.sh` refuses one).
 
 | build | md5 | timing | notes |
 |---|---|---|---|
+| `MacQuadra800_20260908_3.rbf` | `71102b391b375ebc9614d80432136611` | met, **+0.444 ns setup** (clk_sys +0.797, clk_ram +0.927) | **The CD-ROM refuses MODE SELECT block-length changes like QEMU; ships with the rebased Main fork binary (`MiSTer_20260908`, upstream 20260907 + Mac SCSI family + multi-block CD fill).** Same CPU, CD and multi-block cache as 20260908_2. Both OSes pass the gate. The retail CD still shows twice on the Mac OS 8.1 desktop (cosmetic; boot-time double mount, once under A/UX; trace in progress). Seed 21; 98 % ALMs, 476 RAM blocks. |
 | `MacQuadra800_20260908_2.rbf` | `61da22443a3a66ac385eaa3ddc53e3de` | met, **+0.171 ns setup** (clk_sys +0.358, clk_ram +1.008, hold +0.243) | **The same CPU and CD, plus the multi-block SCSI cache, with composite Y/C back in.** Every hps_io transaction moves an aligned 8-sector group instead of one sector; the cache's tag bitmaps are sized to the slot (32/32/16 sectors here); the framework's ALSA path and two scaler refinements are compiled out, Y/C stays. Mac OS 8.1 desktop in 136 s (151), ROM CD boot in 107 s (146). Both OSes and the CD boot pass the gate. Seed 19; 98 % ALMs, 476 RAM blocks. |
 | `MacQuadra800_20260908.rbf` | `b882d3fce60b63fac4ab1284755031d6` | met, **+0.343 ns setup** (clk_sys +0.415, clk_ram +0.609, hold +0.158) | **Alan Steremberg's next AP68040 (`5aa596f`) with the CD-ROM still in.** Speedometer 4.02 Benchmark Mix 0.360 (Q605 = 1.0; 0.231 on 20260901), Color QuickDraw 0.317, FPU 0.250. Fits at 98 % with balanced synthesis, the framework's trimmed PLL reconfig core for 512x384, the CD passed through the block cache, and composite Y/C + ALSA compiled out. Both OSes and a CD boot pass the gate. Known cosmetic: the CD can appear twice on the Mac OS 8.1 desktop (the Main's 60 s re-insert; fixed in source after this build). Seed 19. |
 | `MacQuadra800_20260907.rbf` | `03f83c62d92d997e5cdf89efbb99c42f` | met, **+0.250 ns setup** (clk_ram +0.721, clk_sys +0.850) | **Mac OS 8.1 installs from the retail CD end to end; SCSI block cache.** Fixes the installer deadlock (a write flush's ack followed cur_tgt across a target switch), adds a per-target read-ahead / write-behind block cache in front of hps_io (32/24/8 KB), ROM CD boot, 512-byte CD block mode, CD audio in the mix, Drive Setup's MODE SENSE page, the 12" 512x384 monitor option. Verified on hardware against BOTH Mac OS 8.1 and A/UX 3.1. Tracer off; seed 19; 91 % ALMs, 502 RAM blocks. |
@@ -22,6 +23,63 @@ must never be flashed (`scripts/deploy_screenshot.sh` refuses one).
 | `wombat33_20260831_1.rbf` | `3901ef5705f58dba3279c0417412f5f8` | met, +0.243 ns | **Sound works.** Fixes the watch-cursor wedge (ASC FIFOSTAT reported an empty FIFO as full) and hooks up the $806 volume slider. |
 | `wombat33_20260830.rbf` | `64c79dfb93ceefb549200c78671cdc31` | met, +0.248 ns | **ADB actually works** — the mouse button reaches the guest and motion stops inventing input. |
 | `wombat33_20260829.rbf` | `4c46a65c3a48b44ddb6f4fd6808d0422` | met, +0.245 ns | First build that boots Mac OS unattended. |
+
+## `MacQuadra800_20260908_3.rbf`
+
+md5 `71102b391b375ebc9614d80432136611`, seed 21, timing met at **+0.444 ns**
+overall (HDMI PLL domain; `clk_sys` +0.797 ns, the 99 MHz SDRAM domain
++0.927 ns), the widest margin since the release recipe. 41,014 ALMs (98 %),
+26,005 registers, 476 of 553 RAM blocks. Built from `4f859b3` on `main`
+with the qsf-default recipe (balanced synthesis, register duplication off,
+`CACHE_CD_OFF`, `CACHE_SMALL`, `MISTER_DISABLE_ALSA`, `MISTER_DOWNSCALE_NN`,
+`MISTER_DISABLE_ADAPTIVE`; composite Y/C kept; tracer off). The qsf now
+records seed 21.
+
+**Ships with a Main binary:** `releases/MiSTer_20260908` (md5
+`916829ffe37e778ac3e7bf41fb5a8eaa`) is the Main fork
+(`danifunker/Main_MiSTer`, branch `mac-ethernet-pr`, commit `4857af1`)
+rebased onto upstream's `20260907` release. It carries the Mac SCSI family
+support this core needs for CUE/CHD discs, CD audio, the BlueSCSI Toolbox
+and the CD changer, plus a new multi-block CD data-window fill (a 4 KB run
+per hps_io transaction) that a later core build will use (`MB_CD=1`,
+`13d7fea`, not in this bitstream). Install it as `/media/fat/MiSTer`; a
+flat `.iso` also works on upstream's own Main.
+
+What changed since `20260908_2`:
+
+- `rtl/ncr53c96.sv` -- **the CD-ROM refuses a MODE SELECT block-length
+  change** the way QEMU's `scsi-cd` does: a block descriptor the list does
+  not contain (the ROM's boot-scan 8-byte list) or any block length but
+  2048 gets CHECK CONDITION 05/26/00; the audio control page (0Eh) of a
+  well-formed list is still applied; the block length is 2048 always. STATUS
+  is delivered only once the list has been judged, so an initiator can
+  never fetch a GOOD the parse is about to overturn (an ICCS that arrives
+  early is held one cycle). `tb_ncr53c96` 476,837 checks, 0 failures; the
+  bench's new cases read the interrupt register before their next command,
+  as a 53C96 driver must.
+- `rtl/scsi_cache.sv` -- unchanged from `20260908_2` in this bitstream (the
+  CD slot still moves single sectors; the multi-block CD path lands with the
+  Main above in the next build).
+
+Hardware (2026-09-08, operator run, screenshots `scratch/op*.png`): Mac OS
+8.1 (QuadSquad8) Finder desktop at about 2 min 15 s from `load_core`, the
+retail CD's window readable, clock 12:06 -> 12:09 over an idle watch with
+`write_bytes` flat, mouse and keyboard live, Special -> Shut Down clean.
+A/UX 3.1 multiuser Finder desktop in about 3 min 30 s with the UNIX root
+volume mounted, About This Macintosh = Quadra 800 / System 7.0.1 / 32 MB
+with CommandShell running, Special -> Shut Down to "You may now switch off
+your Macintosh safely". Both gates pass.
+
+Known and still open: on the Quad Squad boot the retail Mac OS 8.1 CD shows
+up twice on the desktop, two windows of the same volume. The MODE SELECT
+change above matched QEMU's behaviour and **did not remove it**, so the
+earlier explanation (the ROM re-walking the disc's second partition map at
+512-byte granularity) is not the cause. New facts from this run: both icons
+are present in the very first Finder frame, so it is a boot-time double
+mount, not a later re-insert; under A/UX's System 7.0.1 the same disc on
+the same core mounts once; the Main's boot repulse never arms for a flat
+ISO. It is cosmetic (the install from the disc works). A request-level
+trace against the QEMU golden run is the next step (`RESUME-cdrom-fix.md`).
 
 ## `MacQuadra800_20260908_2.rbf`
 

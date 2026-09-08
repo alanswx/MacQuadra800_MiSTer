@@ -124,7 +124,11 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # open_row -> command[0] crossing (-1.030 ns setup, +0.239 ns hold), with
 # 5.572 ns of routing delay. Seed 19 meets timing at +0.378 ns setup and
 # +0.251 ns hold and passed the full Mac OS 7.5.5 Speedometer 3.23 PR suite.
-set_global_assignment -name SEED 19
+# 2026-09-08 (build M, MacQuadra800_20260908_3): seed 21 on the release recipe
+# fits at 98 % and meets timing at +0.444 ns setup (HDMI PLL domain; clk_sys
+# +0.797, clk_ram +0.927), the best margin since the recipe; seed 19 gave
+# +0.171 on the previous head.
+set_global_assignment -name SEED 21
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
 # the design no longer fits with speed-directed synthesis; all-area
