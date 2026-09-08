@@ -36,14 +36,14 @@ set_global_assignment -name FITTER_EFFORT "STANDARD FIT"
 # needed: it fit at 81% but missed setup by 0.947 ns (Fmax 32.0 vs the
 # 33.0 MHz clock).  Do not re-apply the area knobs without a fit that
 # actually needs them.
-set_global_assignment -name OPTIMIZATION_MODE "HIGH PERFORMANCE EFFORT"
+set_global_assignment -name OPTIMIZATION_MODE "BALANCED"
 set_global_assignment -name ALLOW_POWER_UP_DONT_CARE ON
 set_global_assignment -name QII_AUTO_PACKED_REGISTERS NORMAL
 set_global_assignment -name ROUTER_LCELL_INSERTION_AND_LOGIC_DUPLICATION ON
 set_global_assignment -name PHYSICAL_SYNTHESIS_COMBO_LOGIC ON
-set_global_assignment -name PHYSICAL_SYNTHESIS_REGISTER_DUPLICATION ON
+set_global_assignment -name PHYSICAL_SYNTHESIS_REGISTER_DUPLICATION OFF
 set_global_assignment -name PHYSICAL_SYNTHESIS_REGISTER_RETIMING ON
-set_global_assignment -name OPTIMIZATION_TECHNIQUE SPEED
+set_global_assignment -name OPTIMIZATION_TECHNIQUE BALANCED
 set_global_assignment -name MUX_RESTRUCTURE ON
 set_global_assignment -name REMOVE_REDUNDANT_LOGIC_CELLS ON
 set_global_assignment -name AUTO_DELAY_CHAINS_FOR_HIGH_FANOUT_INPUT_PINS ON
@@ -125,6 +125,18 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # 5.572 ns of routing delay. Seed 19 meets timing at +0.378 ns setup and
 # +0.251 ns hold and passed the full Mac OS 7.5.5 Speedometer 3.23 PR suite.
 set_global_assignment -name SEED 19
+#
+# 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
+# the design no longer fits with speed-directed synthesis; all-area
+# synthesis fits but breaks HDMI-domain timing.  What fits with timing
+# (build L, MacQuadra800_20260908_2, +0.171 ns): OPTIMIZATION_MODE BALANCED,
+# OPTIMIZATION_TECHNIQUE BALANCED, register duplication off, plus the
+# switches below -- CACHE_CD_OFF (the CD passes through the block cache),
+# CACHE_SMALL (32/32/16-sector cache), MISTER_DISABLE_ALSA (Linux-side audio
+# mix; MT32-pi is a separate module), MISTER_DOWNSCALE_NN and
+# MISTER_DISABLE_ADAPTIVE (scaler refinements).  Composite Y/C stays in.
+# Re-enable any of them only with a matching cut elsewhere
+# (docs: area-levers in the resume doc; releases/README.md).
 
 #set_global_assignment -name VERILOG_MACRO "MISTER_FB=1"
 
@@ -135,10 +147,10 @@ set_global_assignment -name SEED 19
 #set_global_assignment -name VERILOG_MACRO "MISTER_DEBUG_NOHDMI=1"
 
 # disable bilinear filtering when downscaling
-#set_global_assignment -name VERILOG_MACRO "MISTER_DOWNSCALE_NN=1"
+set_global_assignment -name VERILOG_MACRO "MISTER_DOWNSCALE_NN=1"
 
 # disable adaptive scanline filtering
-#set_global_assignment -name VERILOG_MACRO "MISTER_DISABLE_ADAPTIVE=1"
+set_global_assignment -name VERILOG_MACRO "MISTER_DISABLE_ADAPTIVE=1"
 
 # ============================================================================
 # DEBUG ONLY -- SCSI protocol tracer in rtl/iosb.sv.
@@ -154,9 +166,9 @@ set_global_assignment -name SEED 19
 # ============================================================================
 #set_global_assignment -name VERILOG_MACRO "SCSI_TRACE=1"
 #set_global_assignment -name VERILOG_MACRO "CDROM_OFF=1"
-#set_global_assignment -name VERILOG_MACRO "CACHE_CD_OFF=1"
+set_global_assignment -name VERILOG_MACRO "CACHE_CD_OFF=1"
 #set_global_assignment -name VERILOG_MACRO "VIDEO_512_OFF=1"
-#set_global_assignment -name VERILOG_MACRO "CACHE_SMALL=1"
+set_global_assignment -name VERILOG_MACRO "CACHE_SMALL=1"
 
 #use only 1MB per frame for scaler to free ~21MB DDR3 RAM
 #set_global_assignment -name VERILOG_MACRO "MISTER_SMALL_VBUF=1"
@@ -165,7 +177,7 @@ set_global_assignment -name SEED 19
 #set_global_assignment -name VERILOG_MACRO "MISTER_DISABLE_YC=1"
 
 # Disable ALSA audio output to save some resources
-#set_global_assignment -name VERILOG_MACRO "MISTER_DISABLE_ALSA=1"
+set_global_assignment -name VERILOG_MACRO "MISTER_DISABLE_ALSA=1"
 
 source sys/sys.tcl
 source sys/sys_analog.tcl
