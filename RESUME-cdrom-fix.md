@@ -146,7 +146,14 @@ retarget now uses the framework's trimmed reconfig core
 out, same MODE/C-counter/START registers) instead of the generic
 `pll_cfg` IP -- 715 -> ~300 logic cells for the same function (the HDMI
 instance of the same module is 296). VIDEO_512_OFF stays available but
-should no longer be needed. Install #9 meanwhile
+should no longer be needed.
+**Build A result (20:18-20:45, all-area + physical synthesis off, CD on,
+no trims): FITS at 41,430 ALMs (99 %), 500 RAM blocks, but timing FAILS
+-0.348 ns (HDMI PLL domain).** So area synthesis alone gets there but
+too dense for timing. Build B (wt2, trims + all-area) running from
+20:46; build C (wt, same trims, OPTIMIZATION_MODE BALANCED / technique
+BALANCED, duplication off) queued behind it -- pick whichever fits AND
+meets timing with the most slack. Install #9 meanwhile
   passed the base Mac OS 8.1 package (where #8 died) and was installing
   the optional packages at 18:00.
 - User's next topic after this: SCSI throughput ("our disks are REALLY
