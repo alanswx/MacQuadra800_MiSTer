@@ -231,7 +231,13 @@ meets timing is the gate candidate; if neither, VIDEO_512_OFF (-360 ALMs)
 is the next lever, or gate C (b882d3fc, no multi-block) as the CPU+CD
 release and land multi-block later. **H (seed 21) did not fit at all**
 (41,556 ALMs, "requires 4191 LABs"): the multi-block source is at the
-device edge; seed variance is +-100 ALMs. Build D queued (wt2): the qsf's
+device edge; seed variance is +-100 ALMs. **G (seed 20) did not fit
+either** (41,627 ALMs, 4200 LABs). Decision 06:08: **gate C (b882d3fc)
+now** as the CPU+CD candidate (operator launched, scratch/gate2_b882d3fc/);
+the multi-block cache is the next increment once ~400 ALMs are found.
+Data-point build J launched 06:08 (wt2): multi-block source + C's recipe
++ VIDEO_512_OFF=1, seed 19 -- tells whether "multi-block instead of the
+12-inch monitor mode" fits with timing. Build D queued (wt2): the qsf's
 proven speed settings globally + `set_instance_assignment -name
 OPTIMIZATION_TECHNIQUE AREA -to "emu:emu|quadra800:machine"` (area
 synthesis only for our machine, the framework untouched) + the trims. Install #9 meanwhile
