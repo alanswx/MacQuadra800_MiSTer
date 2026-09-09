@@ -128,6 +128,11 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # fits at 98 % and meets timing at +0.444 ns setup (HDMI PLL domain; clk_sys
 # +0.797, clk_ram +0.927), the best margin since the recipe; seed 19 gave
 # +0.171 on the previous head.
+# 2026-09-08 (branch alan-perf-20260908, bffbd3b): the same recipe with the AP68040
+# submodule at Alan's 299cb36 (wombat-upstream-fixes: I-cache lookahead, queued-
+# opcode retire, resident immediates, DBcc refill dispatch, FPU regbank in MLABs)
+# fits at seed 21 first try: 41,060 ALMs (98 %), setup +0.579 (HDMI), clk_sys
+# +0.753, clk_ram +0.943, hold +0.225; 20-minute flow. md5 512cd4f8.
 set_global_assignment -name SEED 21
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
