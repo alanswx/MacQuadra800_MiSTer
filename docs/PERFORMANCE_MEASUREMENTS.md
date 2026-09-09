@@ -1997,3 +1997,80 @@ Preserved artifacts:
 
 After the run MiSTer returned to `MENU`, and the disposable disk was restored
 to golden MD5 `16790b0577e13b45782214433d34954b`.
+
+## 36. Early aligned RAM destination writes (rejected)
+
+The 68040 memory-design paper says writes are handed to the data-memory
+controller and stored in a write buffer so the integer unit can proceed. This
+core already implements that architecture below `ap040_cache`: the two-entry
+`wombat_store_buffer` accepted in section 11 acknowledges non-faulting physical
+RAM writes on capture, drains them in order, and blocks later reads and device
+transactions behind older stores. The bounded follow-up here removed the
+remaining AP68040 request-setup cycle. An aligned byte, word, or longword write
+from `S_EXEC` claimed an idle port while entering `S_MWR`; completion and bus
+fault handling still occurred in `S_MWR`, so no instruction retired early.
+MMIO, page-crossing transfers, exception frames, and specialized multi-write
+helpers retained their old cadence.
+
+The candidate passes the complete AP integer, exception, MMU, cache, FPU,
+reset, double-fault, cache-snoop, walker-CDC, 16-bit-gap, and timeout suites,
+and the full-machine Verilator model compiles and links. The focused cached
+phase improves only from 147,852 to 147,790 cycles (-0.042%), but the immutable
+first-100 CPU corpus falls from 32,841,589 to 31,904,074 cycles (-937,515,
+-2.85%). All 1,696 architectural field groups match the hardware oracle with
+zero real differences (204 payload-layout differences only).
+
+The exact seed-21 hardware image fits with zero setup and hold TNS:
+
+| metric | accepted early-read seed 21 | early-write seed 21 | change |
+|---|---:|---:|---:|
+| fitted ALMs | 40,873 | 41,044 | +171 |
+| LABs used | 4,181 | 4,188 | +7 (3 free) |
+| fitted registers | 25,279 | 25,280 | +1 |
+| RAM blocks | 477 | 477 | 0 |
+| DSP blocks | 54 | 54 | 0 |
+| worst setup | +0.088 ns | +0.162 ns | pass |
+| CPU setup | +0.899 ns | +1.044 ns | pass |
+| SDRAM setup | +0.918 ns | +0.162 ns | pass |
+| worst hold | +0.245 ns | +0.244 ns | pass |
+
+Mac OS 7.5.5 booted normally in full color. Two Speedometer 4.02 CPU Benchmark
+Mix runs, each with no remote input or capture during the timed interval,
+reported 0.405 and 0.406 versus the accepted core's two 0.399 runs. The repeat
+is shown below against the accepted reference:
+
+| CPU Benchmark Mix test | accepted early read | early write run 2 | change |
+|---|---:|---:|---:|
+| KWhetstones/sec | 344.598 | 349.433 | +1.40% |
+| Dhrystones/sec | 4509.069 | 4667.178 | +3.51% |
+| Towers (s) | 2.146 | 2.083 | +3.02% |
+| Quick Sort (s) | 1.725 | 1.701 | +1.41% |
+| Bubble Sort (s) | 2.263 | 2.240 | +1.03% |
+| Queens (s) | 1.347 | 1.305 | +3.22% |
+| Puzzle (s) | 3.676 | 3.664 | +0.33% |
+| Permutations (s) | 3.287 | 3.250 | +1.14% |
+| Integer Matrix (s) | 2.519 | 2.477 | +1.70% |
+| Sieve (s) | 3.948 | 3.870 | +2.02% |
+| **average ratio** | **0.399** | **0.406** | **+1.75%** |
+
+The two-run average is 0.4055 (+1.63%). That is reproducible but below the 2%
+gate for an area-consuming CPU change, and the fit sacrifices seven of the ten
+free LABs. A broader `ret == S_NEXT` variant saved only one additional corpus
+cycle. A longword-only variant retained just 141,989 cycles (0.43%), showing
+that a narrow width restriction cannot preserve the gain. The candidate is
+therefore rejected from the parent but preserved for future area-reclaim work.
+
+![Rejected early-write Speedometer 4.02 repeat](perf/macquadra800_cpu_earlywrite_seed21_speedo402.png)
+
+Preserved artifacts:
+
+- AP68040 branch/commit: `cpu-early-store-20260909` / `164a376`;
+- MiSTer RBF:
+  `/media/fat/_Unstable/MacQuadra800_CPU_earlywrite_seed21_20260909.rbf`;
+- RBF SHA-256:
+  `843d87c12bf53a34fed199364eb91046a0057788a7919857d402a4eb36a40402`;
+- repeat screenshot SHA-256:
+  `b072af67e308595f453dd3fe06df41ac84c1ae0260238227ae12747b15066e94`.
+
+After the repeat, MiSTer returned to `MENU` and the disposable disk was restored
+to golden MD5 `16790b0577e13b45782214433d34954b`.

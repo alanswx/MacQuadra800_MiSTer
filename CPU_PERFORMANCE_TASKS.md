@@ -650,10 +650,11 @@ optimization is not confused with already-adequate SDRAM bandwidth.
   from address generation. The focused cached phase improved 8.52%, but the
   hardware average remained 0.399 while the fit cost 264 ALMs and 8 LABs,
   leaving only two LABs free. Rejected; see measurement section 35.
-- [ ] Measure whether write-through cache stores can retire into a small ordered
-  store buffer while the external write completes. Do this only after the hit
-  breakdown above, and require load-after-store forwarding, I/D snoop ordering,
-  fault precision, DMA visibility, and a clean drain at serializing operations.
+- [x] The two-entry ordered RAM store buffer is already accepted in measurement
+  section 11. A follow-up that issues aligned `S_EXEC` writes one AP state
+  earlier passes every gate and improves the first-100 corpus 2.85%, but its two
+  hardware runs average only +1.63% while costing 171 ALMs and 7 LABs. Rejected
+  until equivalent area is reclaimed; see measurement section 36.
 - [ ] Consider copyback only with a real dirty-line snoop/writeback design.
   External DMA and the MMU walker's U/M-bit writes must not invalidate and lose
   dirty CPU data.

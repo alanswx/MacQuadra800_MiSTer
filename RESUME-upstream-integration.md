@@ -113,3 +113,16 @@ parent remains on AP68040 `cbac732`, seed 21. Section 35 of
 `docs/PERFORMANCE_MEASUREMENTS.md` has the full measurements and artifact
 hashes. MiSTer is at Menu and the disposable disk is restored to golden MD5
 `16790b0577e13b45782214433d34954b`.
+
+### 2026-09-09 early-write follow-up
+
+The paper-motivated write path was tested at AP68040 `164a376`. Issuing aligned
+normal-RAM `S_EXEC` stores while entering `S_MWR` preserves precise completion,
+passes all simulation gates, and cuts the first-100 corpus 2.85%. The exact
+seed-21 fit is timing-clean at 41,044 ALMs and 4,188 LABs, but two Speedometer
+4.02 runs score only 0.405 and 0.406 versus 0.399 accepted. The stable +1.63%
+two-run gain is below the 2% area-consuming gate and costs seven LABs, so the
+candidate is rejected and preserved only on `cpu-early-store-20260909`. The
+parent remains on AP68040 `cbac732`, seed 21. Full details are in measurement
+section 36. MiSTer is at Menu and the disk is restored to golden MD5
+`16790b0577e13b45782214433d34954b`.
