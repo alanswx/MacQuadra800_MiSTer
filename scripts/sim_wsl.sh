@@ -6,7 +6,7 @@
 #
 #  1. BUILD ON ext4, NOT /mnt/c. Verilator emits ~40 C++ files and g++ writes as
 #     many objects; across the 9p /mnt/c bridge that is several times slower than
-#     copying the sources into the WSL filesystem first. This syncs to ~/wombat33.
+#     copying the sources into the WSL filesystem first. This syncs to ~/MacQuadra800.
 #  2. STRIP CRLF. Shell scripts checked out on Windows used to arrive with CRLF,
 #     and a CRLF `#!/bin/sh` dies under dash with `set: Illegal option -` — which
 #     is exactly how docs/tools/make-fastboot-rom.sh failed on 2026-08-29.
@@ -22,7 +22,7 @@
 #   bash scripts/sim_wsl.sh log [grep-pattern]        # tail / grep the run log
 #   bash scripts/sim_wsl.sh -h
 #
-# The run is headless and logs to ~/wombat33/verilator/sim_run.log inside WSL.
+# The run is headless and logs to ~/MacQuadra800/verilator/sim_run.log inside WSL.
 # Useful extra args (see verilator/sim_main.cpp):
 #   +rom=quadra800.rom.hex        pristine ROM (default here is the fast-boot one)
 #   --stop-at-pc 4080280e,4080281f   standing Sad Mac tripwire, dumps regs
@@ -30,7 +30,7 @@
 set -u
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" || exit 1
 
-WSL_DIR='$HOME/wombat33'
+WSL_DIR='$HOME/MacQuadra800'
 DISTRO="${WSL_DISTRO:-}"
 wsl_run() {
     if [ -n "$DISTRO" ]; then wsl.exe -d "$DISTRO" -e bash -lc "$1"
@@ -46,7 +46,7 @@ build)
     echo "[sim] syncing sources -> WSL $WSL_DIR (ext4, not /mnt/c)"
     wsl_run "set -e
         mkdir -p $WSL_DIR
-        cd /mnt/c/Temp/mistercore/wombat33_MiSTer 2>/dev/null || cd \"\$(wslpath '$(pwd -W 2>/dev/null || pwd)')\"
+        cd \"\$(wslpath '$(pwd -W 2>/dev/null || pwd)')\"
         cp -r --parents rtl verilator docs/tools releases $WSL_DIR/
         find $WSL_DIR -name '*.sh' -exec sed -i 's/\r\$//' {} +
         cd $WSL_DIR/verilator
@@ -57,7 +57,7 @@ build)
 disk)
     IMG="${1:?usage: sim_wsl.sh disk <local-image.hda>}"
     [ -f "$IMG" ] || { echo "ERROR: no such image: $IMG" >&2; exit 1; }
-    DEST="//wsl.localhost/${DISTRO:-Ubuntu-24.04}/home/$(wsl_run 'echo $USER' | tr -d '\r\n')/wombat33/verilator/run.hda"
+    DEST="//wsl.localhost/${DISTRO:-Ubuntu-24.04}/home/$(wsl_run 'echo $USER' | tr -d '\r\n')/MacQuadra800/verilator/run.hda"
     echo "[sim] copying $IMG -> WSL run.hda (this is the sim's WRITABLE copy)"
     cp "$IMG" "$DEST" || exit 1
     wsl_run "cd $WSL_DIR/verilator && ls -l run.hda && md5sum run.hda"

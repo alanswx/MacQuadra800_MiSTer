@@ -54,6 +54,8 @@ V_SRC = \
 	$(RTL)/rtc3430042.sv \
 	$(RTL)/easc.sv \
 	$(RTL)/ncr53c96.sv \
+	$(RTL)/cd_audio.sv \
+	$(RTL)/scsi_cache.sv \
 	$(RTL)/adb.sv \
 	$(RTL)/scc.v \
 	$(RTL)/uart/txuart.v \
@@ -124,6 +126,25 @@ tb_sdram:
 	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME +define+SIMULATION=1 --top-module tb_sdram --Mdir ./obj_dir_tb -o tb_sdram tb_sdram.sv $(RTL)/sdram_beat32.sv $(RTL)/sdram.sv altddio_out_stub.v
 	./obj_dir_tb/tb_sdram
 
+# Directed unit test for the 53C96 SCSI target (rtl/ncr53c96.sv), driven in
+# BOTH driver dialects: the Quadra 800 ROM's DMA-form selects and a Unix
+# ncr53c9x-class driver's FIFO-preloaded $41/$42/$43/$46.  A/UX's own c94
+# driver is the second kind, so this is where widening the model for it is
+# checked against the ROM path that already boots Mac OS.
+#   make tb_ncr53c96
+tb_scsi_cache:
+	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME -Wno-CASEINCOMPLETE -Wno-BLKSEQ +define+SIMULATION=1 +define+VERILATOR=1 -Wno-MULTIDRIVEN -Wno-SYNCASYNCNET -Wno-COMBDLY +incdir+$(RTL) --top-module tb_scsi_cache --Mdir ./obj_dir_tbc -o tb_scsi_cache tb_scsi_cache.sv $(RTL)/scsi_cache.sv
+	./obj_dir_tbc/tb_scsi_cache
+
+# the CD slot on multi-block groups as well (MB_CD=1, the shipped setting)
+tb_scsi_cache_mbcd:
+	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME -Wno-CASEINCOMPLETE -Wno-BLKSEQ +define+SIMULATION=1 +define+VERILATOR=1 -Wno-MULTIDRIVEN -Wno-SYNCASYNCNET -Wno-COMBDLY +incdir+$(RTL) --top-module tb_scsi_cache +define+MB_CD_TB=1 --Mdir ./obj_dir_tbc_mbcd -o tb_scsi_cache_mbcd tb_scsi_cache.sv $(RTL)/scsi_cache.sv
+	./obj_dir_tbc_mbcd/tb_scsi_cache_mbcd
+
+tb_ncr53c96:
+	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME -Wno-CASEINCOMPLETE -Wno-BLKSEQ +define+SIMULATION=1 +define+VERILATOR=1 -Wno-MULTIDRIVEN -Wno-SYNCASYNCNET -Wno-COMBDLY +incdir+$(RTL) --top-module tb_ncr53c96 --Mdir ./obj_dir_tb -o tb_ncr53c96 tb_ncr53c96.sv $(RTL)/ncr53c96.sv $(RTL)/cd_audio.sv
+	./obj_dir_tb/tb_ncr53c96
+
 # Directed timing/data test for the transaction-to-beat adapter's registered
 # one-beat completion and its two-beat misalignment path.
 tb_wombat_bus32:
@@ -181,11 +202,5 @@ tb_memory_path_registered_first_miss:
 	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME +define+SIMULATION=1 --top-module tb_memory_path -GFAST_BYPASS=1 -GDIRECT_FIRST_MISS=1 -GREGISTERED_FIRST_MISS=1 -GADAPTER_LINE_HIT=1 -GDIRECT_MEM_ACK=0 -GREGISTERED_LINE_HIT=1 --Mdir ./obj_dir_tb_mempath_registered_first_miss -o tb_memory_path_registered_first_miss tb_memory_path.sv tb_sdram.sv $(RTL)/wombat_bus32.sv $(RTL)/sdram_beat32.sv $(RTL)/sdram.sv altddio_out_stub.v
 	./obj_dir_tb_mempath_registered_first_miss/tb_memory_path_registered_first_miss
 
-# Directed NCR53C96 protocol and disk round-trip regression.
-tb_ncr53c96:
-	mkdir -p obj_dir_tb_ncr
-	iverilog -g2012 -DSIMULATION=1 -DVERILATOR=1 -s tb_ncr53c96 -o obj_dir_tb_ncr/tb_ncr53c96.vvp tb_ncr53c96.sv $(RTL)/ncr53c96.sv
-	vvp obj_dir_tb_ncr/tb_ncr53c96.vvp
-
 clean:
-	rm -rf obj_dir obj_dir_tb obj_dir_tb_bus32 obj_dir_tb_store_buffer obj_dir_tb_mempath obj_dir_tb_mempath_safe obj_dir_tb_mempath_ordered_line obj_dir_tb_mempath_stock_machine obj_dir_tb_mempath_registered_line obj_dir_tb_mempath_registered_bus_line obj_dir_tb_mempath_registered_first_miss obj_dir_tb_ncr
+	rm -rf obj_dir obj_dir_tb obj_dir_tbc obj_dir_tbc_mbcd obj_dir_tb_bus32 obj_dir_tb_store_buffer obj_dir_tb_mempath obj_dir_tb_mempath_safe obj_dir_tb_mempath_ordered_line obj_dir_tb_mempath_stock_machine obj_dir_tb_mempath_registered_line obj_dir_tb_mempath_registered_bus_line obj_dir_tb_mempath_registered_first_miss

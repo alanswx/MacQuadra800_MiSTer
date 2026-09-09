@@ -48,17 +48,19 @@ module emu
 	input  [7:0]  ioctl_index,
 	output reg    ioctl_wait = 1'b0,
 
-	// SCSI disk: MiSTer block-device surface for sim_blkdevice.cpp
+	// SCSI targets: MiSTer block-device surface for sim_blkdevice.cpp.
+	// Bit 0 = SCSI ID 0 disk, bit 1 = ID 1 disk, bit 2 = ID 3 CD-ROM; one
+	// lba / data bus is shared (one nexus at a time).
 	output [31:0] sd_lba0,
 	output  [5:0] sd_blk_cnt0,
-	output        sd_rd,
-	output        sd_wr,
-	input         sd_ack,
+	output  [2:0] sd_rd,
+	output  [2:0] sd_wr,
+	input   [2:0] sd_ack,
 	input  [12:0] sd_buff_addr,
 	input  [15:0] sd_buff_dout,
 	output [15:0] sd_buff_din0,
 	input         sd_buff_wr,
-	input         img_mounted,
+	input   [2:0] img_mounted,
 	input         img_readonly,
 	input  [63:0] img_size,
 
@@ -85,7 +87,7 @@ reg [1:0] ram_cfg = 2'd0;
 initial if (!$value$plusargs("ram=%d", ram_cfg)) ram_cfg = 2'd0;
 localparam RAM_WORDS  = 1 << (RAM_ADDR_BITS-2);
 localparam ROM_WORDS  = 262144;                // 1 MB
-// VRAM mirrors wombat33.sv exactly: 308 KB backed, with the 204 KB fold
+// VRAM mirrors MacQuadra800.sv exactly: 308 KB backed, with the 204 KB fold
 // that makes the unbacked 308K..512K window alias downward.  It used to be
 // a flat 1 MB with no fold, so the fold had NEVER executed in sim and
 // hardware-only video corruption was invisible here (RESUME-disk-gate.md
@@ -119,6 +121,7 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS)) machine (
 	.clk_vid(clk_sys),
 	.nreset_vid(~reset),
 	.ram_cfg(ram_cfg),
+	.mon_12in(1'b0),                     // sim scans out the 13" 640x480 shape
 	.nreset(~reset),
 	.ce(1'b1),
 

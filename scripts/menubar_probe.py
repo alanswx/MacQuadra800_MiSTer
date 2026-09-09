@@ -6,7 +6,7 @@ title is dark text on a light bar, so the highlighted one is the widest run of
 columns that are dark through the WHOLE bar height.
 
   python3 scripts/menubar_probe.py <shot.png>
-  -> "OPEN x=[154,208] center=181"   or   "NONE"
+  -> "OPEN 154 208"   (left and right column of the open title)   or   "NONE"
 
 Exists because the event-to-pixel scale of mrext motion is not stable -- it
 depends on how many moves get coalesced into one ADB report -- so a script that

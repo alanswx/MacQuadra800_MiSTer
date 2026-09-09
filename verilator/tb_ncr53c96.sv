@@ -59,25 +59,33 @@ wire        dma_valid, drq, irq;
 reg         img_mounted = 0;
 reg  [63:0] img_size = 0;
 wire [31:0] io_lba;
-wire  [5:0] io_blk_cnt;
 wire        io_rd, io_wr;
 reg         io_ack = 0;
-reg  [12:0] sd_buff_addr = 0;
+reg   [7:0] sd_buff_addr = 0;
 reg  [15:0] sd_buff_dout = 0;
 wire [15:0] sd_buff_din;
 reg         sd_buff_wr = 0;
 
 always #5 clk = ~clk;
 
-ncr53c96 #(.DISK_ID(0)) dut (
+// the disk under test is target 0 (SCSI ID 0, hps_io slot 0); the other two
+// targets stay unmounted / unselected in this bench
+// The synthetic block device below serves target 0 (the disk) and target 2
+// (the CD-ROM) with the same bytes, so a CD read of logical block N must
+// return HPS blocks 4N..4N+3.  Target 1 is mounted late (T16g).
+wire [2:0] io_rd_v, io_wr_v;
+assign io_rd = io_rd_v[0] | io_rd_v[1] | io_rd_v[2];
+assign io_wr = io_wr_v[0] | io_wr_v[1];
+reg        cd_mount = 0, d1_mount = 0;
+reg  [7:0] sel_id = 8'h00;                   // R_SELID the helpers write
+ncr53c96 dut (
 	.clk(clk), .nreset(nreset), .ce(ce),
 	.sel(sel), .write(write), .rs(rs), .wdata(wdata), .rdata(rdata),
 	.dma_rd(dma_rd), .dma_wr(dma_wr), .dma_wdata(dma_wdata),
 	.dma_rdata(dma_rdata), .dma_valid(dma_valid), .drq(drq), .irq(irq),
-	.img_mounted(img_mounted), .img_size(img_size),
-	.io_lba(io_lba), .io_blk_cnt(io_blk_cnt),
-	.io_rd(io_rd), .io_wr(io_wr), .io_ack(io_ack),
-	.sd_buff_addr(sd_buff_addr), .sd_buff_dout(sd_buff_dout),
+	.img_mounted({cd_mount, d1_mount, img_mounted}), .img_size(img_size),
+	.io_lba(io_lba), .io_rd(io_rd_v), .io_wr(io_wr_v), .io_ack({io_ack, io_ack, io_ack}),
+	.sd_buff_addr({5'd0, sd_buff_addr}), .sd_buff_dout(sd_buff_dout),
 	.sd_buff_din(sd_buff_din), .sd_buff_wr(sd_buff_wr)
 );
 
@@ -90,7 +98,10 @@ ncr53c96 #(.DISK_ID(0)) dut (
 localparam NBLK = 64;
 reg [7:0] disk [0:NBLK*512-1];
 
-integer d_state = 0, d_lat = 0, d_i = 0, d_lba = 0, d_nblk = 1;
+integer k2;
+reg [7:0] it2;
+integer d_state = 0, d_lat = 0, d_i = 0, d_lba = 0;
+integer dev_lat = 40;                        // device round trip, settable per test
 integer wr_blocks = 0;                       // blocks the device has accepted
 
 always @(posedge clk) begin
@@ -99,8 +110,7 @@ always @(posedge clk) begin
 	0: begin
 		if (io_rd || io_wr) begin
 			d_lba   <= io_lba;
-			d_nblk  <= io_blk_cnt + 1;
-			d_lat   <= 40;                   // short but non-zero round trip
+			d_lat   <= dev_lat;              // short but non-zero round trip (default 40)
 			d_state <= io_rd ? 1 : 3;
 		end
 	end
@@ -110,9 +120,9 @@ always @(posedge clk) begin
 		else begin io_ack <= 1; d_i <= 0; d_state <= 2; end
 	end
 	2: begin
-		if (d_i < 256*d_nblk) begin
-			sd_buff_addr <= d_i[12:0];
-			sd_buff_dout <= {disk[d_lba*512 + d_i*2], disk[d_lba*512 + d_i*2 + 1]};
+		if (d_i < 256) begin
+			sd_buff_addr <= d_i[7:0];
+			sd_buff_dout <= (d_lba < NBLK) ? {disk[d_lba*512 + d_i*2], disk[d_lba*512 + d_i*2 + 1]} : 16'h0000;
 			sd_buff_wr   <= 1;
 			d_i          <= d_i + 1;
 		end
@@ -134,15 +144,15 @@ always @(posedge clk) begin
 		// TWO-cycle round trip: the tb's sd_buff_addr register delays the
 		// address one cycle, and sbuf's q_s read register delays the data a
 		// second, so sd_buff_din reflects the address driven TWO cycles ago.
-		if (d_i >= 2 && d_i < 256*d_nblk + 2) begin
+		if (d_i >= 2 && d_i < 258) begin
 			disk[d_lba*512 + (d_i-2)*2]     <= sd_buff_din[15:8];
 			disk[d_lba*512 + (d_i-2)*2 + 1] <= sd_buff_din[7:0];
 		end
-		if (d_i < 256*d_nblk + 2) begin
-			if (d_i < 256*d_nblk) sd_buff_addr <= d_i[12:0];
+		if (d_i < 258) begin
+			if (d_i < 256) sd_buff_addr <= d_i[7:0];
 			d_i <= d_i + 1;
 		end
-		else begin io_ack <= 0; wr_blocks <= wr_blocks + d_nblk; d_state <= 0; end
+		else begin io_ack <= 0; wr_blocks <= wr_blocks + 1; d_state <= 0; end
 	end
 	endcase
 end
@@ -200,7 +210,7 @@ task pdma_wr(input [7:0] b);
 		g = 0;
 		@(negedge clk); dma_wr = 1; dma_wdata = b;
 		@(negedge clk);
-		while (!dma_valid && g < 2000) begin @(negedge clk); g = g + 1; end
+		while (!dma_valid && g < 40000) begin @(negedge clk); g = g + 1; end
 		if (!dma_valid) begin
 			fails = fails + 1;
 			$display("  FAIL pdma_wr(%02X) never acked", b);
@@ -215,7 +225,7 @@ task pdma_rd(output [7:0] b);
 		g = 0;
 		@(negedge clk); dma_rd = 1;
 		@(negedge clk);
-		while (!dma_valid && g < 2000) begin @(negedge clk); g = g + 1; end
+		while (!dma_valid && g < 40000) begin @(negedge clk); g = g + 1; end
 		if (!dma_valid) begin
 			fails = fails + 1;
 			$display("  FAIL pdma_rd never acked");
@@ -267,7 +277,7 @@ reg [7:0] cdb [0:11];
 task rom_command(input integer n);
 	integer j;
 	begin
-		reg_wr(R_SELID, 8'h00);
+		reg_wr(R_SELID, sel_id);
 		reg_wr(R_CMD, 8'h01);                  // flush FIFO
 		set_tc(16'd1);
 		reg_wr(R_CMD, 8'hC1);                  // DMA select w/o ATN
@@ -283,7 +293,7 @@ endtask
 task unix_select(input [7:0] selcmd, input integer n, input integer identify);
 	integer j;
 	begin
-		reg_wr(R_SELID, 8'h00);
+		reg_wr(R_SELID, sel_id);
 		reg_wr(R_CMD, 8'h01);                  // flush
 		if (identify) reg_wr(R_FIFO, 8'h80);   // IDENTIFY, LUN 0, no disconnect
 		for (j = 0; j < n; j = j + 1) reg_wr(R_FIFO, cdb[j]);
@@ -508,8 +518,10 @@ initial begin
 	//------------------------------------------------------------------
 	$display("-- T7  selection timeout on an empty target");
 	//------------------------------------------------------------------
+	// ID 5: IDs 0/1 are the disks and ID 3 is the CD-ROM drive, which
+	// answers selection even with no disc (the AppleCD driver polls it)
 	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
-	reg_wr(R_SELID, 8'h03);
+	reg_wr(R_SELID, 8'h05);
 	reg_wr(R_CMD, 8'h01);
 	reg_wr(R_FIFO, 8'h80);
 	for (k = 0; k < 6; k = k + 1) reg_wr(R_FIFO, 8'h00);
@@ -1003,14 +1015,1016 @@ initial begin
 		end
 	end
 
+	//==================================================================
+	// CD-ROM target (SCSI ID 3, hps_io slot 4) and the second disk
+	//==================================================================
+	$display("-- T16a CD-ROM: INQUIRY with no disc (drive answers selection)");
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	sel_id = 8'h03;
+	cdb[0]=8'h12; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=8'd36; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	read_regs(st, sp, it);
+	expect_bits("T16a intr BS|FC", it, I_BUS | I_FC);
+	expect8("T16a step 4", sp & 8'h07, 8'd4);
+	expect8("T16a phase DATA IN", {5'd0, st[2:0]}, {5'd0, PH_DIN});
+	set_tc(16'd36);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 36; k = k + 1) begin
+		pdma_rd(b);
+		case (k)
+		0:  expect8("T16a inq type CD", b, 8'h05);
+		1:  expect8("T16a inq removable", b, 8'h80);
+		4:  expect8("T16a inq addl len", b, 8'h31);
+		8:  expect8("T16a inq vendor S", b, "S");
+		16: expect8("T16a inq product C", b, "C");
+		27: expect8("T16a inq product 8", b, "8");
+		default: ;
+		endcase
+	end
+	wait_irq(500, ok);
+	read_regs(st, sp, it);
+	expect8("T16a phase STATUS after 36", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+	reg_wr(R_CMD, 8'h11);
+	wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16a status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+
+	$display("-- T16b CD-ROM: TEST UNIT READY with no disc -> NOT READY / $B0");
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h00; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	read_regs(st, sp, it);
+	expect8("T16b phase STATUS", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+	reg_wr(R_CMD, 8'h11);
+	wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16b status CHECK", b, 8'h02);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	cdb[0]=8'h03; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=8'd18; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	read_regs(st, sp, it);
+	expect8("T16b sense phase DATA IN", {5'd0, st[2:0]}, {5'd0, PH_DIN});
+	set_tc(16'd18);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 18; k = k + 1) begin
+		pdma_rd(b);
+		if (k == 0)  expect8("T16b sense fmt", b, 8'h70);
+		if (k == 2)  expect8("T16b sense key NOT READY", b, 8'h02);
+		if (k == 12) expect8("T16b sense ASC B0", b, 8'hB0);
+	end
+	wait_irq(500, ok);
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16b sense status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+
+	$display("-- T16c CD-ROM: mount 16 x 2048 (the 64-block device), READ CAPACITY");
+	img_size = 64*512;
+	cd_mount = 1; @(negedge clk); @(negedge clk); cd_mount = 0;
+	// the audio engine fetches its TOC blob (the device serves zeros there,
+	// so it synthesizes the single-track TOC) and grinds the M:S:F divider
+	guard = 0;
+	while (!dut.ca_toc_ready && guard < 400000) begin @(negedge clk); guard = guard + 1; end
+	$display("   TOC ready after %0d cycles (mst=%0d toc_valid=%b n=%0d leadout_lba=%0d img_blocks=%0d)", guard,
+	         dut.g_cd_audio.cd_audio_i.mst, dut.g_cd_audio.cd_audio_i.toc_valid, dut.g_cd_audio.cd_audio_i.n_tracks,
+	         dut.g_cd_audio.cd_audio_i.leadout_lba, dut.g_cd_audio.cd_audio_i.img_blocks);
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h25; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0;
+	cdb[6]=0; cdb[7]=0; cdb[8]=0; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok);
+	read_regs(st, sp, it);
+	expect8("T16c phase DATA IN", {5'd0, st[2:0]}, {5'd0, PH_DIN});
+	set_tc(16'd8);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 8; k = k + 1) begin
+		pdma_rd(b);
+		case (k)
+		0, 1, 2: expect8("T16c cap hi", b, 8'h00);
+		3: expect8("T16c cap last LBA 15", b, 8'd15);
+		6: expect8("T16c blk len 0x08", b, 8'h08);
+		7: expect8("T16c blk len 0x00", b, 8'h00);
+		default: ;
+		endcase
+	end
+	wait_irq(500, ok);
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16c status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+
+	$display("-- T16d CD-ROM: READ TOC format 0, lead-out at 00:02:16");
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h43; cdb[1]=8'h02; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0;
+	cdb[6]=0; cdb[7]=0; cdb[8]=8'd20; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok);
+	read_regs(st, sp, it);
+	expect8("T16d phase DATA IN", {5'd0, st[2:0]}, {5'd0, PH_DIN});
+	set_tc(16'd20);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 20; k = k + 1) begin
+		pdma_rd(b);
+		case (k)
+		1:  expect8("T16d toc len 18", b, 8'd18);
+		2:  expect8("T16d first 1", b, 8'd1);
+		3:  expect8("T16d last 1", b, 8'd1);
+		5:  expect8("T16d ctrl data", b, 8'h14);
+		6:  expect8("T16d track 1", b, 8'd1);
+		10: expect8("T16d trk1 S=2", b, 8'd2);
+		14: expect8("T16d lead-out AA", b, 8'hAA);
+		17: expect8("T16d lead-out M", b, 8'd0);
+		18: expect8("T16d lead-out S", b, 8'd2);
+		19: expect8("T16d lead-out F", b, 8'd16);
+		default: ;
+		endcase
+	end
+	wait_irq(500, ok);
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16d status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+
+	$display("-- T16e CD-ROM: READ(10) logical block 1 = HPS blocks 4..7, 2048 bytes");
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h28; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=8'd1;
+	cdb[6]=0; cdb[7]=0; cdb[8]=8'd1; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok);
+	read_regs(st, sp, it);
+	expect8("T16e phase DATA IN", {5'd0, st[2:0]}, {5'd0, PH_DIN});
+	set_tc(16'd2048);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 2048; k = k + 1) begin
+		pdma_rd(b);
+		if (b !== (((4 + k/512)*7 + (k%512)) & 8'hFF)) begin
+			fails = fails + 1;
+			if (fails < 20) $display("  FAIL T16e byte %0d: got %02X want %02X", k, b, ((4 + k/512)*7 + (k%512)) & 8'hFF);
+		end
+		checks = checks + 1;
+	end
+	wait_irq(2000, ok);
+	read_regs(st, sp, it);
+	expect8("T16e phase STATUS after 2048", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16e status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+
+	$display("-- T16f CD-ROM: WRITE(6) -> CHECK, DATA PROTECT / $27");
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h0A; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=1; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	read_regs(st, sp, it);
+	expect8("T16f phase STATUS", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16f status CHECK", b, 8'h02);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	cdb[0]=8'h03; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=8'd18; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	set_tc(16'd18);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 18; k = k + 1) begin
+		pdma_rd(b);
+		if (k == 2)  expect8("T16f sense DATA PROTECT", b, 8'h07);
+		if (k == 12) expect8("T16f sense ASC 27", b, 8'h27);
+	end
+	wait_irq(500, ok);
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+
+	$display("-- T16g second disk: ID 1 times out unmounted, answers once mounted");
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	sel_id = 8'h01;
+	cdb[0]=8'h00; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	read_regs(st, sp, it);
+	expect_bits("T16g unmounted DISC", it, I_DISC);
+	img_size = 64*512;
+	d1_mount = 1; @(negedge clk); @(negedge clk); d1_mount = 0;
+	repeat (4) @(negedge clk);
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h12; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=8'd36; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	read_regs(st, sp, it);
+	expect8("T16g phase DATA IN", {5'd0, st[2:0]}, {5'd0, PH_DIN});
+	set_tc(16'd36);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 36; k = k + 1) begin
+		pdma_rd(b);
+		if (k == 0) expect8("T16g inq type disk", b, 8'h00);
+		if (k == 8) expect8("T16g inq vendor W", b, "W");
+	end
+	wait_irq(500, ok);
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16g status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	sel_id = 8'h00;
+
+	$display("-- T16h CD-ROM: MODE SELECT block length 512 is REFUSED (05/26): capacity 16 x 2048, READ(6) = four HPS blocks");
+	sel_id = 8'h03;
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h15; cdb[1]=8'h10; cdb[2]=0; cdb[3]=0; cdb[4]=8'd12; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	read_regs(st, sp, it);
+	expect8("T16h phase DATA OUT", {5'd0, st[2:0]}, {5'd0, PH_DOUT});
+	reg_wr(R_CMD, 8'h01);
+	set_tc(16'd12);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 12; k = k + 1) begin
+		guard = 0;
+		while (!drq && guard < 100000) begin @(negedge clk); guard = guard + 1; end
+		// header 00 00 00 08, descriptor 00 000000 00 000200
+		pdma_wr((k == 3) ? 8'h08 : (k == 10) ? 8'h02 : 8'h00);
+	end
+	wait_irq(2000, ok);
+	read_regs(st, sp, it);
+	expect8("T16h phase STATUS after list", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16h msel 512 status CHECK", b, 8'h02);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	repeat (16) @(negedge clk);
+	expect8("T16h blk512 never latched", {7'd0, dut.cd_blk512}, 8'd0);
+	// the ROM's boot scan: an 8-byte list whose byte 3 still claims an
+	// 8-byte descriptor -- refused too, and nothing is parsed past it
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h15; cdb[1]=8'h10; cdb[2]=0; cdb[3]=0; cdb[4]=8'd8; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	reg_wr(R_CMD, 8'h01);
+	set_tc(16'd8);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 8; k = k + 1) begin
+		guard = 0;
+		while (!drq && guard < 100000) begin @(negedge clk); guard = guard + 1; end
+		pdma_wr((k == 3) ? 8'h08 : 8'h00);
+	end
+	wait_irq(2000, ok);
+	read_regs(st, sp, it);                          // a driver reads INTR before the next command
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16h ROM 8-byte msel status CHECK", b, 8'h02);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	repeat (16) @(negedge clk);
+	expect8("T16h blk512 still 0", {7'd0, dut.cd_blk512}, 8'd0);
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h25; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0;
+	cdb[6]=0; cdb[7]=0; cdb[8]=0; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok);
+	read_regs(st, sp, it);
+	expect8("T16h cap phase DATA IN", {5'd0, st[2:0]}, {5'd0, PH_DIN});
+	set_tc(16'd8);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 8; k = k + 1) begin
+		pdma_rd(b);
+		case (k)
+		0, 1, 2: expect8("T16h cap hi", b, 8'h00);
+		3: expect8("T16h cap last LBA 15", b, 8'd15);
+		6: expect8("T16h blk len 0x08", b, 8'h08);
+		7: expect8("T16h blk len 0x00", b, 8'h00);
+		default: ;
+		endcase
+	end
+	wait_irq(500, ok);
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16h cap status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	// READ(6) block 4 of 2048 = HPS blocks 16..19
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h08; cdb[1]=0; cdb[2]=0; cdb[3]=8'd4; cdb[4]=8'd1; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	read_regs(st, sp, it);
+	expect8("T16h read phase DATA IN", {5'd0, st[2:0]}, {5'd0, PH_DIN});
+	set_tc(16'd2048);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 2048; k = k + 1) begin
+		pdma_rd(b);
+		if (b !== (((16 + k/512)*7 + (k%512)) & 8'hFF)) begin
+			fails = fails + 1;
+			if (fails < 20) $display("  FAIL T16h byte %0d: got %02X want %02X", k, b, ((16 + k/512)*7 + (k%512)) & 8'hFF);
+		end
+		checks = checks + 1;
+	end
+	wait_irq(4000, ok);
+	read_regs(st, sp, it);
+	expect8("T16h phase STATUS after 2048", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16h read status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	// MODE SENSE page $30 reports the 2048-byte descriptor; a 2048 MODE SELECT is accepted
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h1A; cdb[1]=0; cdb[2]=8'h30; cdb[3]=0; cdb[4]=8'd36; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	set_tc(16'd36);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 36; k = k + 1) begin
+		pdma_rd(b);
+		if (k == 3)  expect8("T16h msense bd len 8", b, 8'd8);
+		if (k == 7)  expect8("T16h msense last LBA 15", b, 8'd15);
+		if (k == 10) expect8("T16h msense blk len 0x08", b, 8'h08);
+		if (k == 14) expect8("T16h msense APPLE", b, "A");
+	end
+	wait_irq(500, ok);
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16h msense status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h15; cdb[1]=8'h10; cdb[2]=0; cdb[3]=0; cdb[4]=8'd12; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	reg_wr(R_CMD, 8'h01);
+	set_tc(16'd12);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 12; k = k + 1) begin
+		guard = 0;
+		while (!drq && guard < 100000) begin @(negedge clk); guard = guard + 1; end
+		pdma_wr((k == 3) ? 8'h08 : (k == 10) ? 8'h08 : 8'h00);
+	end
+	wait_irq(2000, ok);
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16h msel 2048 status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	repeat (16) @(negedge clk);
+	expect8("T16h blk512 still cleared", {7'd0, dut.cd_blk512}, 8'd0);
+	sel_id = 8'h00;
+
+
+	$display("-- T16i disk: MODE SENSE page $30 = Apple firmware ID page (Drive Setup / installer)");
+	sel_id = 8'h00;
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h1A; cdb[1]=0; cdb[2]=8'h30; cdb[3]=0; cdb[4]=8'd36; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	read_regs(st, sp, it);
+	expect8("T16i phase DATA IN", {5'd0, st[2:0]}, {5'd0, PH_DIN});
+	set_tc(16'd36);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 36; k = k + 1) begin
+		pdma_rd(b);
+		case (k)
+		0:  expect8("T16i mode data len 35", b, 8'd35);
+		2:  expect8("T16i not write protected", b, 8'h00);
+		3:  expect8("T16i bd len 8", b, 8'd8);
+		7:  expect8("T16i last LBA 63", b, 8'd63);
+		10: expect8("T16i blk len 0x02", b, 8'h02);
+		12: expect8("T16i page B0", b, 8'hB0);
+		13: expect8("T16i page len 22", b, 8'h16);
+		14: expect8("T16i A", b, "A");
+		19: expect8("T16i space", b, " ");
+		20: expect8("T16i C", b, "C");
+		32: expect8("T16i C of INC", b, "C");
+		35: expect8("T16i trailing space", b, " ");
+		default: ;
+		endcase
+	end
+	wait_irq(500, ok);
+	read_regs(st, sp, it);
+	expect8("T16i phase STATUS after 36", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16i status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	// any other page still answers the 4-byte header
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h1A; cdb[1]=0; cdb[2]=8'h03; cdb[3]=0; cdb[4]=8'd36; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	set_tc(16'd4);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 4; k = k + 1) begin
+		pdma_rd(b);
+		if (k == 0) expect8("T16i page 3 hdr len 3", b, 8'd3);
+	end
+	wait_irq(500, ok);
+	read_regs(st, sp, it);
+	expect8("T16i page 3 STATUS after 4", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16i page 3 status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+
+	$display("-- T16j install pattern: CD READ(10) (2048-byte blocks; the 512 request is refused) / disk WRITE(6) interleaved");
+	// MODE SELECT 512 on the CD
+	sel_id = 8'h03;
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h15; cdb[1]=8'h10; cdb[2]=0; cdb[3]=0; cdb[4]=8'd12; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	reg_wr(R_CMD, 8'h01);
+	set_tc(16'd12);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 12; k = k + 1) begin
+		guard = 0;
+		while (!drq && guard < 100000) begin @(negedge clk); guard = guard + 1; end
+		pdma_wr((k == 3) ? 8'h08 : (k == 10) ? 8'h02 : 8'h00);
+	end
+	wait_irq(2000, ok);
+	read_regs(st, sp, it);                          // a driver reads INTR before the next command
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16j msel 512 status CHECK", b, 8'h02);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	for (blk = 0; blk < 3; blk = blk + 1) begin
+		// CD READ(10) of one 2048-byte block at lba 10+blk (= HPS 40+4*blk..): TC 2048
+		sel_id = 8'h03;
+		reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+		cdb[0]=8'h28; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=10+blk;
+		cdb[6]=0; cdb[7]=0; cdb[8]=8'd1; cdb[9]=0;
+		unix_select(8'h42, 10, 1);
+		wait_irq(500, ok);
+		read_regs(st, sp, it);
+		expect8("T16j cd read phase DATA IN", {5'd0, st[2:0]}, {5'd0, PH_DIN});
+		set_tc(16'd2048);
+		reg_wr(R_CMD, 8'h90);
+		for (k = 0; k < 2048; k = k + 1) begin
+			pdma_rd(b);
+			if (b !== (((40+4*blk + k/512)*7 + (k%512)) & 8'hFF)) begin
+				fails = fails + 1;
+				if (fails < 20) $display("  FAIL T16j cd byte %0d: got %02X want %02X", k, b, ((40+4*blk + k/512)*7 + (k%512)) & 8'hFF);
+			end
+			checks = checks + 1;
+		end
+		wait_irq(4000, ok);
+		read_regs(st, sp, it);
+		expect8("T16j cd phase STATUS", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+		reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+		reg_rd(R_FIFO, b); expect8("T16j cd status GOOD", b, 8'h00);
+		reg_rd(R_FIFO, b);
+		reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+		// disk WRITE(6) of 2 blocks at lba 30+2*blk in 256-byte chunks
+		sel_id = 8'h00;
+		reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+		byi = wr_blocks;
+		cdb[0]=8'h0A; cdb[1]=0; cdb[2]=0; cdb[3]=30+2*blk; cdb[4]=8'd2; cdb[5]=0;
+		unix_select(8'h42, 6, 1);
+		wait_irq(500, ok);
+		read_regs(st, sp, it);
+		expect8("T16j write phase DATA OUT", {5'd0, st[2:0]}, {5'd0, PH_DOUT});
+		reg_wr(R_CMD, 8'h01);
+		for (k2 = 0; k2 < 4; k2 = k2 + 1) begin
+			set_tc(16'd256);
+			reg_wr(R_CMD, 8'h90);
+			for (k = 0; k < 256; k = k + 1) begin
+				guard = 0;
+				while (!drq && guard < 100000) begin @(negedge clk); guard = guard + 1; end
+				if (guard >= 100000) begin
+					fails = fails + 1;
+					$display("  FAIL T16j DREQ stalled at chunk %0d byte %0d", k2, k);
+					k = 256;
+				end
+				else pdma_wr(((k2*256 + k)*3 + blk) & 8'hFF);
+			end
+			wait_irq(4000, ok);
+			read_regs(st, sp, it);
+		end
+		expect8("T16j phase STATUS after write", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+		reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+		reg_rd(R_FIFO, b); expect8("T16j write status GOOD", b, 8'h00);
+		reg_rd(R_FIFO, b);
+		reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+		guard = 0;
+		while (wr_blocks - byi != 2 && guard < 100000) begin @(negedge clk); guard = guard + 1; end
+		checks = checks + 1;
+		if (wr_blocks - byi != 2) begin fails = fails + 1; $display("  FAIL T16j blocks flushed %0d", wr_blocks - byi); end
+		for (k = 0; k < 1024; k = k + 1) begin
+			if (disk[(30+2*blk)*512 + k] !== ((k*3 + blk) & 8'hFF)) begin
+				fails = fails + 1;
+				if (fails < 20) $display("  FAIL T16j disk byte %0d: got %02X want %02X", k, disk[(30+2*blk)*512 + k], (k*3 + blk) & 8'hFF);
+			end
+			checks = checks + 1;
+		end
+	end
+	// back to 2048
+	sel_id = 8'h03;
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h15; cdb[1]=8'h10; cdb[2]=0; cdb[3]=0; cdb[4]=8'd12; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	reg_wr(R_CMD, 8'h01);
+	set_tc(16'd12);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 12; k = k + 1) begin
+		guard = 0;
+		while (!drq && guard < 100000) begin @(negedge clk); guard = guard + 1; end
+		pdma_wr((k == 3) ? 8'h08 : (k == 10) ? 8'h08 : 8'h00);
+	end
+	wait_irq(2000, ok);
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	sel_id = 8'h00;
+
+	$display("-- T16k CD-ROM: START/STOP eject takes the disc away until a bus reset (ROM CD boot)");
+	sel_id = 8'h03;
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h1B; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=8'h02; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	read_regs(st, sp, it);
+	expect8("T16k eject phase STATUS", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16k eject status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h00; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16k TUR after eject CHECK", b, 8'h02);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	reg_wr(R_CMD, 8'h03);                          // RESET SCSI BUS
+	repeat (8) @(negedge clk);
+	reg_rd(R_INTR, b);                             // clear the reset interrupt
+	repeat (8) @(negedge clk);
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h00; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16k TUR after bus reset GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	sel_id = 8'h00;
+
+	$display("-- T16l slow HPS: disk WRITE then CD READ back to back while the last flush is in flight");
+	dev_lat = 3000;
+	for (blk = 0; blk < 3; blk = blk + 1) begin
+		// disk WRITE(6) of 2 blocks at lba 36+2*blk, 256-byte chunks, as the ROM does
+		sel_id = 8'h00;
+		reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+		byi = wr_blocks;
+		cdb[0]=8'h0A; cdb[1]=0; cdb[2]=0; cdb[3]=36+2*blk; cdb[4]=8'd2; cdb[5]=0;
+		unix_select(8'h42, 6, 1);
+		wait_irq(500, ok);
+		read_regs(st, sp, it);
+		expect8("T16l write phase DATA OUT", {5'd0, st[2:0]}, {5'd0, PH_DOUT});
+		reg_wr(R_CMD, 8'h01);
+		for (k2 = 0; k2 < 4; k2 = k2 + 1) begin
+			set_tc(16'd256);
+			reg_wr(R_CMD, 8'h90);
+			for (k = 0; k < 256; k = k + 1) begin
+				guard = 0;
+				while (!drq && guard < 100000) begin @(negedge clk); guard = guard + 1; end
+				if (guard >= 100000) begin
+					fails = fails + 1;
+					$display("  FAIL T16l DREQ stalled at chunk %0d byte %0d", k2, k);
+					k = 256;
+				end
+				else pdma_wr(((k2*256 + k)*7 + blk + 1) & 8'hFF);
+			end
+			wait_irq(20000, ok);
+			read_regs(st, sp, it);
+		end
+		expect8("T16l phase STATUS after write", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+		reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+		reg_rd(R_FIFO, b); expect8("T16l write status GOOD", b, 8'h00);
+		reg_rd(R_FIFO, b);
+		reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+		// NO wait for the flush: the CD READ(10) follows at once (2048-byte blocks here)
+		sel_id = 8'h03;
+		reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+		cdb[0]=8'h28; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=13+blk;
+		cdb[6]=0; cdb[7]=0; cdb[8]=8'd1; cdb[9]=0;
+		unix_select(8'h42, 10, 1);
+		wait_irq(500, ok);
+		read_regs(st, sp, it);
+		expect8("T16l cd read phase DATA IN", {5'd0, st[2:0]}, {5'd0, PH_DIN});
+		set_tc(16'd2048);
+		reg_wr(R_CMD, 8'h90);
+		for (k = 0; k < 2048; k = k + 1) begin
+			pdma_rd(b);
+			if (b !== ((((13+blk)*4 + k/512)*7 + (k%512)) & 8'hFF)) begin
+				fails = fails + 1;
+				if (fails < 20) $display("  FAIL T16l cd byte %0d: got %02X want %02X", k, b, (((13+blk)*4 + k/512)*7 + (k%512)) & 8'hFF);
+			end
+			checks = checks + 1;
+		end
+		wait_irq(20000, ok);
+		read_regs(st, sp, it);
+		expect8("T16l cd phase STATUS", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+		reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+		reg_rd(R_FIFO, b); expect8("T16l cd status GOOD", b, 8'h00);
+		reg_rd(R_FIFO, b);
+		reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+		// the written blocks must have landed intact despite the read behind them
+		guard = 0;
+		while (wr_blocks - byi != 2 && guard < 200000) begin @(negedge clk); guard = guard + 1; end
+		checks = checks + 1;
+		if (wr_blocks - byi != 2) begin fails = fails + 1; $display("  FAIL T16l blocks flushed %0d", wr_blocks - byi); end
+		for (k = 0; k < 1024; k = k + 1) begin
+			if (disk[(36+2*blk)*512 + k] !== ((k*7 + blk + 1) & 8'hFF)) begin
+				fails = fails + 1;
+				if (fails < 20) $display("  FAIL T16l disk byte %0d: got %02X want %02X", k, disk[(36+2*blk)*512 + k], (k*7 + blk + 1) & 8'hFF);
+			end
+			checks = checks + 1;
+		end
+	end
+	dev_lat = 40;
+	sel_id = 8'h00;
+
+	$display("-- T16m disk: MODE SELECT(6) list accepted, VERIFY / SYNCHRONIZE CACHE / FORMAT UNIT GOOD");
+	sel_id = 8'h00;
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h15; cdb[1]=8'h10; cdb[2]=0; cdb[3]=0; cdb[4]=8'd12; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	read_regs(st, sp, it);
+	expect8("T16m msel phase DATA OUT", {5'd0, st[2:0]}, {5'd0, PH_DOUT});
+	reg_wr(R_CMD, 8'h01);
+	set_tc(16'd12);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 12; k = k + 1) begin
+		guard = 0;
+		while (!drq && guard < 100000) begin @(negedge clk); guard = guard + 1; end
+		pdma_wr((k == 3) ? 8'h08 : (k == 10) ? 8'h02 : 8'h00);
+	end
+	wait_irq(2000, ok);
+	read_regs(st, sp, it);
+	expect8("T16m msel phase STATUS", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16m msel status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	// the disk is still a 512-byte device afterwards
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h25; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0; cdb[6]=0; cdb[7]=0; cdb[8]=0; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok);
+	set_tc(16'd8);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 8; k = k + 1) begin
+		pdma_rd(b);
+		if (k == 3) expect8("T16m cap last LBA 63", b, 8'd63);
+		if (k == 6) expect8("T16m blk len 0x02", b, 8'h02);
+	end
+	wait_irq(500, ok);
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16m cap status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	// VERIFY(10) without BytChk, SYNCHRONIZE CACHE, FORMAT UNIT, SEND DIAGNOSTIC: straight to GOOD
+	for (k2 = 0; k2 < 4; k2 = k2 + 1) begin
+		reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+		case (k2)
+		0: begin cdb[0]=8'h2F; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=8'd4; cdb[6]=0; cdb[7]=0; cdb[8]=8'd2; cdb[9]=0; unix_select(8'h42, 10, 1); end
+		1: begin cdb[0]=8'h35; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0; cdb[6]=0; cdb[7]=0; cdb[8]=0; cdb[9]=0; unix_select(8'h42, 10, 1); end
+		2: begin cdb[0]=8'h04; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0; unix_select(8'h42, 6, 1); end
+		3: begin cdb[0]=8'h1D; cdb[1]=8'h04; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0; unix_select(8'h42, 6, 1); end
+		endcase
+		wait_irq(500, ok);
+		read_regs(st, sp, it);
+		expect8("T16m no-op phase STATUS", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+		reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+		reg_rd(R_FIFO, b); expect8("T16m no-op status GOOD", b, 8'h00);
+		reg_rd(R_FIFO, b);
+		reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	end
+	// an unknown opcode still CHECKs (ILLEGAL REQUEST)
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h0E; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16m unknown opcode CHECK", b, 8'h02);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	cdb[0]=8'h03; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=8'd18; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	set_tc(16'd18);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 18; k = k + 1) begin
+		pdma_rd(b);
+		if (k == 2)  expect8("T16m sense ILLEGAL REQUEST", b, 8'h05);
+		if (k == 12) expect8("T16m sense ASC 20", b, 8'h20);
+	end
+	wait_irq(500, ok);
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+
+	$display("-- T16n Mac OS style write: WRITE(10) of 4 blocks as ONE DMA transfer (TC=2048) on a slow device");
+	dev_lat = 3000;
+	sel_id = 8'h00;
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	byi = wr_blocks;
+	cdb[0]=8'h2A; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=8'd44; cdb[6]=0; cdb[7]=0; cdb[8]=8'd4; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok);
+	read_regs(st, sp, it);
+	expect8("T16n phase DATA OUT", {5'd0, st[2:0]}, {5'd0, PH_DOUT});
+	reg_wr(R_CMD, 8'h01);
+	set_tc(16'd2048);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 2048; k = k + 1) begin
+		guard = 0;
+		while (!drq && guard < 200000) begin @(negedge clk); guard = guard + 1; end
+		if (guard >= 200000) begin
+			fails = fails + 1;
+			$display("  FAIL T16n DREQ never returned at byte %0d (block %0d)", k, k/512);
+			k = 2048;
+		end
+		else pdma_wr(((k*5) + 7) & 8'hFF);
+	end
+	wait_irq(200000, ok);
+	read_regs(st, sp, it);
+	$display("   T16n after 2048 bytes: stat=%02X intr=%02X flushed=%0d", st, it, wr_blocks - byi);
+	// the target must reach STATUS on its own once the last block is flushed
+	guard = 0;
+	while (st[2:0] != PH_STAT && guard < 400000) begin @(negedge clk); guard = guard + 1; read_regs(st, sp, it); end
+	expect8("T16n phase STATUS after the write", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T16n status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	guard = 0;
+	while (wr_blocks - byi != 4 && guard < 400000) begin @(negedge clk); guard = guard + 1; end
+	checks = checks + 1;
+	if (wr_blocks - byi != 4) begin fails = fails + 1; $display("  FAIL T16n blocks flushed %0d (want 4)", wr_blocks - byi); end
+	for (k = 0; k < 2048; k = k + 1) begin
+		if (disk[44*512 + k] !== (((k*5) + 7) & 8'hFF)) begin
+			fails = fails + 1;
+			if (fails < 20) $display("  FAIL T16n disk byte %0d: got %02X want %02X", k, disk[44*512 + k], ((k*5) + 7) & 8'hFF);
+		end
+		checks = checks + 1;
+	end
+	dev_lat = 40;
+
+	$display("-- T16o stress: 80 rounds of CD READ / disk READ / disk WRITE(10) with random lengths, latencies and pacing");
+	begin : stress
+		integer rnd, it, nb, lb, lat, gap, kk, fails0;
+		reg [7:0] bb;
+		rnd = 32'h5EED1234;
+		fails0 = fails;
+		for (it = 0; it < 80 && fails == fails0; it = it + 1) begin
+			if (it % 10 == 0) $display("   T16o round %0d at %0t", it, $time);
+			// --- CD READ(10), 1..3 logical blocks (2048-byte mode) at lba 3..4
+			rnd = rnd * 1103515245 + 12345; nb = 1 + ((rnd >> 16) % 2);
+			rnd = rnd * 1103515245 + 12345; lb = 3;                        // HPS 12..19, never written by another test
+			rnd = rnd * 1103515245 + 12345; dev_lat = 40 + ((rnd >> 16) % 3000);
+			sel_id = 8'h03;
+			reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+			cdb[0]=8'h28; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=lb[7:0]; cdb[6]=0; cdb[7]=0; cdb[8]=nb[7:0]; cdb[9]=0;
+			unix_select(8'h42, 10, 1);
+			wait_irq(2000, ok);
+			set_tc(nb * 2048);
+			reg_wr(R_CMD, 8'h90);
+			for (kk = 0; kk < nb * 2048; kk = kk + 1) begin
+				pdma_rd(bb);
+				if (bb !== (((lb*4 + kk/512)*7 + (kk%512)) & 8'hFF)) begin
+					fails = fails + 1;
+					if (fails < fails0 + 6) $display("  FAIL T16o it=%0d cd byte %0d: got %02X want %02X", it, kk, bb, ((lb*4 + kk/512)*7 + (kk%512)) & 8'hFF);
+				end
+				checks = checks + 1;
+			end
+			wait_irq(200000, ok);
+			read_regs(st, sp, it2);
+			if (st[2:0] != PH_STAT) begin fails = fails + 1; $display("  FAIL T16o it=%0d cd read did not reach STATUS (stat=%02X)", it, st); end
+			reg_wr(R_CMD, 8'h11); wait_irq(2000, ok);
+			reg_rd(R_FIFO, bb); if (bb !== 8'h00) begin fails = fails + 1; $display("  FAIL T16o it=%0d cd status %02X", it, bb); end
+			reg_rd(R_FIFO, bb);
+			reg_wr(R_CMD, 8'h12); wait_irq(2000, ok); read_regs(st, sp, it2);
+			// --- disk READ(10), 1..4 blocks at lba 56..59
+			rnd = rnd * 1103515245 + 12345; nb = 1 + ((rnd >> 16) % 4);
+			rnd = rnd * 1103515245 + 12345; lb = 56 + ((rnd >> 16) % 4);  // 56..59 never written
+			rnd = rnd * 1103515245 + 12345; dev_lat = 40 + ((rnd >> 16) % 3000);
+			sel_id = 8'h00;
+			reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+			cdb[0]=8'h28; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=lb[7:0]; cdb[6]=0; cdb[7]=0; cdb[8]=nb[7:0]; cdb[9]=0;
+			unix_select(8'h42, 10, 1);
+			wait_irq(2000, ok);
+			set_tc(nb * 512);
+			reg_wr(R_CMD, 8'h90);
+			for (kk = 0; kk < nb * 512; kk = kk + 1) begin
+				pdma_rd(bb);
+				checks = checks + 1;
+			end
+			wait_irq(200000, ok);
+			read_regs(st, sp, it2);
+			if (st[2:0] != PH_STAT) begin fails = fails + 1; $display("  FAIL T16o it=%0d disk read did not reach STATUS (stat=%02X)", it, st); end
+			reg_wr(R_CMD, 8'h11); wait_irq(2000, ok);
+			reg_rd(R_FIFO, bb); reg_rd(R_FIFO, bb);
+			reg_wr(R_CMD, 8'h12); wait_irq(2000, ok); read_regs(st, sp, it2);
+			// --- disk WRITE(10), 1..4 blocks at lba 60, one TI, random inter-byte gaps
+			rnd = rnd * 1103515245 + 12345; nb = 1 + ((rnd >> 16) % 4);
+			rnd = rnd * 1103515245 + 12345; lb = 60;                       // 60..63, rewritten each round
+			rnd = rnd * 1103515245 + 12345; dev_lat = 40 + ((rnd >> 16) % 3000);
+			rnd = rnd * 1103515245 + 12345; gap = (rnd >> 16) % 4;
+			reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+			byi = wr_blocks;
+			cdb[0]=8'h2A; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=lb[7:0]; cdb[6]=0; cdb[7]=0; cdb[8]=nb[7:0]; cdb[9]=0;
+			unix_select(8'h42, 10, 1);
+			wait_irq(2000, ok);
+			read_regs(st, sp, it2);
+			if (st[2:0] != PH_DOUT) begin fails = fails + 1; $display("  FAIL T16o it=%0d write not in DATA OUT (stat=%02X)", it, st); end
+			reg_wr(R_CMD, 8'h01);
+			set_tc(nb * 512);
+			reg_wr(R_CMD, 8'h90);
+			for (kk = 0; kk < nb * 512; kk = kk + 1) begin
+				guard = 0;
+				while (!drq && guard < 200000) begin @(negedge clk); guard = guard + 1; end
+				if (guard >= 200000) begin
+					fails = fails + 1;
+					$display("  FAIL T16o it=%0d WRITE DREQ never returned at byte %0d of %0d (lat=%0d gap=%0d)", it, kk, nb*512, dev_lat, gap);
+					kk = nb * 512;
+				end
+				else begin
+					pdma_wr((kk*3 + it) & 8'hFF);
+					repeat (gap) @(negedge clk);
+				end
+			end
+			wait_irq(200000, ok);
+			guard = 0; read_regs(st, sp, it2);
+			while (st[2:0] != PH_STAT && guard < 400000) begin @(negedge clk); guard = guard + 1; read_regs(st, sp, it2); end
+			if (st[2:0] != PH_STAT) begin fails = fails + 1; $display("  FAIL T16o it=%0d write never reached STATUS (stat=%02X intr=%02X flushed=%0d of %0d)", it, st, it2, wr_blocks - byi, nb); end
+			reg_wr(R_CMD, 8'h11); wait_irq(2000, ok);
+			reg_rd(R_FIFO, bb); if (bb !== 8'h00) begin fails = fails + 1; $display("  FAIL T16o it=%0d write status %02X", it, bb); end
+			reg_rd(R_FIFO, bb);
+			reg_wr(R_CMD, 8'h12); wait_irq(2000, ok); read_regs(st, sp, it2);
+			guard = 0;
+			while (wr_blocks - byi != nb && guard < 400000) begin @(negedge clk); guard = guard + 1; end
+			checks = checks + 1;
+			if (wr_blocks - byi != nb) begin fails = fails + 1; $display("  FAIL T16o it=%0d blocks flushed %0d want %0d", it, wr_blocks - byi, nb); end
+			for (kk = 0; kk < nb * 512; kk = kk + 1) begin
+				if (disk[lb*512 + kk] !== ((kk*3 + it) & 8'hFF)) begin
+					fails = fails + 1;
+					if (fails < fails0 + 6) $display("  FAIL T16o it=%0d disk byte %0d: got %02X want %02X", it, kk, disk[lb*512 + kk], (kk*3 + it) & 8'hFF);
+				end
+				checks = checks + 1;
+			end
+		end
+		$display("   T16o rounds completed: %0d, failures added: %0d", it, fails - fails0);
+	end
+	dev_lat = 40;
+	sel_id = 8'h00;
+
+	$display("-- T16p cross-target: a disk WRITE(10) then immediately a CD READ(10) select on a SLOW device");
+	// This is the installer deadlock: the disk write must not report STATUS
+	// until its final block has flushed, or the CD select switches cur_tgt
+	// and the flush ack is lost.
+	dev_lat = 4000;
+	sel_id = 8'h00;
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	byi = wr_blocks;
+	cdb[0]=8'h2A; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=8'd50; cdb[6]=0; cdb[7]=0; cdb[8]=8'd2; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(2000, ok);
+	read_regs(st, sp, it);
+	expect8("T16p write phase DATA OUT", {5'd0, st[2:0]}, {5'd0, PH_DOUT});
+	reg_wr(R_CMD, 8'h01);
+	set_tc(16'd1024);
+	reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 1024; k = k + 1) begin
+		guard = 0;
+		while (!drq && guard < 200000) begin @(negedge clk); guard = guard + 1; end
+		if (guard >= 200000) begin fails = fails + 1; $display("  FAIL T16p write DREQ stall at %0d", k); k = 1024; end
+		else pdma_wr((k*3 + 5) & 8'hFF);
+	end
+	// the write must NOT reach STATUS until the flush lands: poll, it should
+	// still be in DATA OUT (or transitioning) with the flush outstanding
+	wait_irq(200000, ok);
+	guard = 0; read_regs(st, sp, it);
+	while (st[2:0] != PH_STAT && guard < 400000) begin @(negedge clk); guard = guard + 1; read_regs(st, sp, it); end
+	expect8("T16p write reached STATUS", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+	reg_wr(R_CMD, 8'h11); wait_irq(2000, ok);
+	reg_rd(R_FIFO, b); expect8("T16p write status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(2000, ok); read_regs(st, sp, it);
+	// blocks landed
+	guard = 0;
+	while (wr_blocks - byi != 2 && guard < 400000) begin @(negedge clk); guard = guard + 1; end
+	expect8("T16p 2 blocks flushed", (wr_blocks - byi == 2) ? 8'd1 : 8'd0, 8'd1);
+	// NOW select the CD for a READ(10) -- this used to deadlock.  (variant A:
+	// let the disk flush finish first to isolate the byte count from the overlap)
+	dev_lat = 40;
+	$display("   T16p pre-CD state: fifo_cnt=%0d buf_valid=%b sbuf_pos=%0d sbuf_len=%0d flush_pending=%b io_discard=%b", dut.fifo_cnt, dut.buf_valid, dut.sbuf_pos, dut.sbuf_len, dut.flush_pending, dut.io_discard);
+	sel_id = 8'h03;
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h28; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=8'd1; cdb[6]=0; cdb[7]=0; cdb[8]=8'd1; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(2000, ok);
+	read_regs(st, sp, it);
+	expect8("T16p CD read phase DATA IN", {5'd0, st[2:0]}, {5'd0, PH_DIN});
+	$display("   T16p at DATA IN: fifo_cnt=%0d buf_valid=%b sbuf_pos=%0d sbuf_len=%0d blocks_left=%0d", dut.fifo_cnt, dut.buf_valid, dut.sbuf_pos, dut.sbuf_len, dut.blocks_left);
+	set_tc(16'd2048);
+	reg_wr(R_CMD, 8'h90);
+	byi = 0;                                        // reuse as a delivered-byte count
+	// DREQ-paced move.w like the ROM (and T9): one DRQ wait per TWO bytes.
+	// Data-in DRQ needs >= 2 bytes in the FIFO (the 53C96 leaves the last
+	// odd byte for the processor), so a loop that waits for DRQ before every
+	// single byte strands the final one -- that was the "1-byte residual"
+	// this test used to print as a WARN.
+	for (k = 0; k < 1024; k = k + 1) begin
+		guard = 0;
+		while (!drq && guard < 400000) begin @(negedge clk); guard = guard + 1; end
+		if (guard >= 400000) k = 1024;              // no more bytes coming
+		else begin pdma_rd(b); pdma_rd(b); byi = byi + 2; end
+	end
+	// the point of this test: the CD read after a disk WRITE must NOT deadlock
+	// (before the flush-ack routing fix it hung forever with 0 bytes served).
+	checks = checks + 1;
+	if (byi < 2040) begin fails = fails + 1; $display("  FAIL T16p CD-after-write DEADLOCK: only %0d/2048 bytes served", byi); end
+	else if (byi != 2048) begin fails = fails + 1; $display("  FAIL T16p CD-after-write served %0d/2048 bytes", byi); end
+	// drain to a clean STATUS regardless
+	guard = 0; read_regs(st, sp, it);
+	while (st[2:0] != PH_STAT && guard < 20000) begin @(negedge clk); guard = guard + 1; read_regs(st, sp, it); end
+	if (st[2:0] == PH_STAT) begin
+		reg_wr(R_CMD, 8'h11); wait_irq(2000, ok);
+		reg_rd(R_FIFO, b); reg_rd(R_FIFO, b);
+		reg_wr(R_CMD, 8'h12); wait_irq(2000, ok); read_regs(st, sp, it);
+	end
+	dev_lat = 40;
+	sel_id = 8'h00;
+
+	$display("-- T17 CD-ROM: Apple $C1 READ TOC header / lead-out / track 1, $CC AUDIO STATUS");
+	sel_id = 8'h03;
+	// header: {01, last BCD 01, 00, 00}
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'hC1; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0; cdb[6]=0; cdb[7]=0; cdb[8]=8'd4; cdb[9]=8'h00;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	expect8("T17 hdr phase DATA IN", {5'd0, st[2:0]}, {5'd0, PH_DIN});
+	set_tc(16'd4); reg_wr(R_CMD, 8'h90);
+	pdma_rd(b); expect8("T17 hdr[0]", b, 8'h01);
+	pdma_rd(b); expect8("T17 hdr[1] last=01", b, 8'h01);
+	pdma_rd(b); expect8("T17 hdr[2]", b, 8'h00);
+	pdma_rd(b); expect8("T17 hdr[3]", b, 8'h00);
+	wait_irq(500, ok); reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T17 hdr status GOOD", b, 8'h00); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	// lead-out: the Apple table is disc-LBA MSF (no +150): 16 frames = 00:00:16 BCD
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[9]=8'h40;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	set_tc(16'd4); reg_wr(R_CMD, 8'h90);
+	pdma_rd(b); expect8("T17 leadout M", b, 8'h00);
+	pdma_rd(b); expect8("T17 leadout S", b, 8'h00);
+	pdma_rd(b); expect8("T17 leadout F", b, 8'h16);
+	pdma_rd(b); expect8("T17 leadout pad", b, 8'h00);
+	wait_irq(500, ok); reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	// track 1 descriptor: {ctrl $14, 00, 00, 00} (LBA 0, no +150)
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[5]=8'h01; cdb[9]=8'h80;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	set_tc(16'd4); reg_wr(R_CMD, 8'h90);
+	pdma_rd(b); expect8("T17 trk1 ctrl", b, 8'h14);
+	pdma_rd(b); expect8("T17 trk1 M", b, 8'h00);
+	pdma_rd(b); expect8("T17 trk1 S", b, 8'h00);
+	pdma_rd(b); expect8("T17 trk1 F", b, 8'h00);
+	wait_irq(500, ok); reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	// AUDIO STATUS: idle (5), 0, ctrl, MSF
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'hCC; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0; cdb[6]=0; cdb[7]=0; cdb[8]=8'd6; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	expect8("T17 astat phase DATA IN", {5'd0, st[2:0]}, {5'd0, PH_DIN});
+	set_tc(16'd6); reg_wr(R_CMD, 8'h90);
+	pdma_rd(b); expect8("T17 astat idle", b, 8'h05);
+	pdma_rd(b); expect8("T17 astat[1]", b, 8'h00);
+	pdma_rd(b); expect8("T17 astat ctrl", b, 8'h14);
+	for (k = 0; k < 3; k = k + 1) pdma_rd(b);
+	wait_irq(500, ok); reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T17 astat status GOOD", b, 8'h00); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	sel_id = 8'h00;
+
 	$display("== tb_ncr53c96: %0d checks, %0d failures ==", checks, fails);
+
 	if (fails != 0) $display("RESULT: FAIL");
 	else            $display("RESULT: PASS");
 	$finish;
 end
 
 initial begin
-	#20_000_000;
+	#400_000_000;
 	$display("== tb_ncr53c96: TIMEOUT ==");
 	$display("RESULT: FAIL");
 	$finish;

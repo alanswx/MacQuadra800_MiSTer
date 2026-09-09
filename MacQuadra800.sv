@@ -1,5 +1,5 @@
 //============================================================================
-//  wombat33 — MiSTer top for the Quadra 800 machine.
+//  MacQuadra800 — MiSTer top for the Quadra 800 machine.
 //
 //  Platform memory contract (see rtl/quadra800.sv and verilator/sim.v):
 //  one ack-based beat port with mem_memsel (0 RAM, 1 ROM, 2 VRAM) plus a
@@ -64,17 +64,28 @@ localparam CONF_STR = {
 	// reaches 31250 through its own WR11/TRxC path (rtl/scc.v); the token is
 	// what makes the Main offer the MIDI mode, and the mode it reports back in
 	// uart_mode is what gates the user-port MIDI-in merge on serialIn below.
-	"Wombat33;UART57600:115200,MIDI;",
+	"MacQuadra800;UART57600:115200,MIDI;",
 	// SC0, not S0: the letter after S is a flag, and 'C' is what sets
 	// store_name in the Main's option parser -- i.e. what makes MiSTer write
-	// config/Wombat33.s0 and re-mount the image on the next core start. With a
+	// config/MacQuadra800.s0 and re-mount the image on the next core start. With a
 	// plain S0 the mount works but is forgotten every boot, so the disk had to
 	// be picked from the OSD by hand each time and the deploy's slot-0 seed was
 	// inert. Every sibling Mac core (MacLC, MacLCII, MacIIvi, MacPlus,
 	// LBMacTwo) uses SC0 for this reason.
-	"SC0,HDAVHD,Mount SCSI disk;",
+	"SC0,HDAVHD,Mount SCSI disk 0;",
+	"SC1,HDAVHD,Mount SCSI disk 1;",
+	// slot 4 is the CD-ROM (SCSI ID 3).  CUE/BIN/CHD need the Main fork's
+	// Mac CD layer (support/mac/mac_cdrom.cpp), which serves them as a flat
+	// 2048-byte-sector disc plus a TOC blob; ISO/TOAST work on a stock Main.
+	"SC4,ISOTO*CUEBINCHD,Mount CD-ROM;",
 	"-;",
 	"O[4:3],RAM (on reset),32MB,64MB,128MB;",
+	// The monitor on the DA-15.  The ROM samples the DAFB sense lines once
+	// at boot and QuickDraw lays out for that geometry, so this is latched
+	// under reset like the RAM size (MacLC does the same).
+`ifndef VIDEO_512_OFF
+	"O[5],Monitor (on reset),13in 640x480,12in 512x384;",
+`endif
 	"O[122:121],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
 	"-;",
 	"T[0],Reset;",
@@ -117,20 +128,54 @@ wire [26:0] ioctl_addr;
 wire [15:0] ioctl_dout;
 reg         ioctl_wait;
 
-wire [31:0] sd_lba[1];
-wire  [5:0] sd_blk_cnt;
-wire  [0:0] sd_rd, sd_wr;
-wire  [0:0] sd_ack;
+// hps_io virtual drives.  The slot numbers follow the Main fork's Mac SCSI
+// family layout (support/mac/mac.cpp) so its Toolbox / CD handlers apply:
+//   0 SCSI disk 0   1 SCSI disk 1   2 (unused; PRAM in MacLC)
+//   3 BlueSCSI Toolbox control   4 CD-ROM image   5 CD changer control
+localparam VDNUM      = 6;
+localparam VD_DISK0   = 0, VD_DISK1 = 1, VD_TOOLBOX = 3, VD_CDROM = 4, VD_CDTB = 5;
+wire [31:0] sd_lba[VDNUM];
+wire  [VDNUM-1:0] sd_rd, sd_wr;
+wire  [VDNUM-1:0] sd_ack;
 wire [12:0] sd_buff_addr;
 wire [15:0] sd_buff_dout;
-wire [15:0] sd_buff_din[1];
+wire [15:0] sd_buff_din[VDNUM];
 wire        sd_buff_wr;
 wire [32:0] TIMESTAMP;                     // Unix seconds from the HPS, for the RTC
-wire  [0:0] img_mounted;
+wire  [VDNUM-1:0] img_mounted;
 wire        img_readonly;
 wire [63:0] img_size;
 
-hps_io #(.CONF_STR(CONF_STR), .WIDE(1), .VDNUM(1), .BLKSZ(2)) hps_io
+// ncr53c96's three targets map onto slots 0, 1 and 4
+wire [31:0] scsi_lba;
+wire  [2:0] scsi_rd, scsi_wr;
+wire [15:0] scsi_buff_din;
+wire  [5:0] scsi_blk_cnt;               // blocks - 1 of the machine's current transaction (one at a time)
+assign sd_lba[VD_DISK0] = scsi_lba;  assign sd_lba[VD_DISK1] = scsi_lba;  assign sd_lba[VD_CDROM] = scsi_lba;
+// Per-slot assigns, not a concatenation: a packed literal put the CD strobe
+// at bit 5 (the CD-changer control slot) once, so every CD read -- the TOC
+// fetch on mount, the ROM's block 0 -- was answered on slot 5 while the core
+// waited on slot 4, and the machine hung with io_busy stuck (2026-09-03).
+assign sd_rd[VD_DISK0]   = scsi_rd[0];
+assign sd_rd[VD_DISK1]   = scsi_rd[1];
+assign sd_rd[VD_CDROM]   = scsi_rd[2];
+assign sd_rd[2]          = 1'b0;
+assign sd_rd[VD_TOOLBOX] = 1'b0;
+assign sd_rd[VD_CDTB]    = 1'b0;
+assign sd_wr[VD_DISK0]   = scsi_wr[0];
+assign sd_wr[VD_DISK1]   = scsi_wr[1];
+assign sd_wr[2]          = 1'b0;
+assign sd_wr[VD_TOOLBOX] = 1'b0;
+assign sd_wr[VD_CDROM]   = 1'b0;                                  // the CD is read-only
+assign sd_wr[VD_CDTB]    = 1'b0;
+assign sd_buff_din[VD_DISK0] = scsi_buff_din;
+assign sd_buff_din[VD_DISK1] = scsi_buff_din;
+assign sd_buff_din[VD_CDROM] = scsi_buff_din;
+assign sd_lba[2] = 0; assign sd_lba[VD_TOOLBOX] = 0; assign sd_lba[VD_CDTB] = 0;
+assign sd_buff_din[2] = 0; assign sd_buff_din[VD_TOOLBOX] = 0; assign sd_buff_din[VD_CDTB] = 0;
+wire  [2:0] scsi_ack = {sd_ack[VD_CDROM], sd_ack[VD_DISK1], sd_ack[VD_DISK0]};
+
+hps_io #(.CONF_STR(CONF_STR), .WIDE(1), .VDNUM(VDNUM), .BLKSZ(2)) hps_io
 (
 	.clk_sys(clk_sys),
 	.HPS_BUS(HPS_BUS),
@@ -162,7 +207,7 @@ hps_io #(.CONF_STR(CONF_STR), .WIDE(1), .VDNUM(1), .BLKSZ(2)) hps_io
 	.ioctl_wait(ioctl_wait),
 
 	.sd_lba(sd_lba),
-	.sd_blk_cnt('{sd_blk_cnt}),
+	.sd_blk_cnt('{scsi_blk_cnt, scsi_blk_cnt, 6'd0, 6'd0, scsi_blk_cnt, 6'd0}),   // the machine's three slots; the rest never transfer
 	.sd_rd(sd_rd),
 	.sd_wr(sd_wr),
 	.sd_ack(sd_ack),
@@ -187,22 +232,111 @@ wire pll_locked;
 // broken HDMI mode from it (the reported screen showing the frame four times
 // across the width).  25.175 MHz gives exactly VGA 640x480 @ 59.94 Hz, which
 // is what the Mac LC core does; see rtl/pll_video.v.
+//
+// The 12" RGB monitor wants 15.664 MHz for its 640x407 frame.  That is a
+// runtime RECONFIG of the one output counter (sys/pll_cfg, the ao486 /
+// MacLC pattern): CLK_VIDEO has to be a raw PLL output, so a clock mux is
+// not an option (Fitter Error 15836).  Only C0 changes, the VCO stays put.
+// The static config is the 13" divider, so a 13" boot performs no reconfig
+// at all -- MacLC's boot-time retarget glitched CLK_VIDEO while the HPS was
+// mounting images and wedged the SCSI path.
 wire clk_vid, pll_video_locked;
+wire [63:0] reconfig_to_pll, reconfig_from_pll;
 pll_video pllv
 (
 	.refclk(CLK_50M),
 	.rst(1'b0),
 	.outclk_0(clk_vid),
 	.locked(pll_video_locked),
-	.reconfig_to_pll(64'd0),
-	.reconfig_from_pll()
+	.reconfig_to_pll(reconfig_to_pll),
+	.reconfig_from_pll(reconfig_from_pll)
 );
 
+`ifdef VIDEO_512_OFF
+// VIDEO_512_OFF=1 (qsf): no runtime PLL reconfiguration -- the 13" 640x480
+// divider is the static config and stays.  Saves the pll_cfg block (~360
+// ALMs), the area lever for CPU builds that keep the CD-ROM target.
+assign reconfig_to_pll = 64'd0;
+wire   pix_quiet = 1'b0;
+wire   mon_12in  = 1'b0;
+`else
+wire        pixcfg_waitrequest;
+reg         pixcfg_write = 0;
+reg   [5:0] pixcfg_address = 0;
+reg  [31:0] pixcfg_data = 0;
+// The framework's trimmed reconfiguration core (sys/pll_cfg/pll_cfg_hdmi.v,
+// Altera's altera_pll_reconfig_core with the unused features cut out) has
+// the same management interface and the MODE / C-counter / START registers
+// this path writes, at ~300 logic cells instead of the generic IP's 715.
+pll_cfg_hdmi pll_video_cfg
+(
+	.mgmt_clk(CLK_50M),
+	.mgmt_reset(0),
+	.mgmt_waitrequest(pixcfg_waitrequest),
+	.mgmt_write(pixcfg_write),
+	.mgmt_address(pixcfg_address),
+	.mgmt_writedata(pixcfg_data),
+	.reconfig_to_pll(reconfig_to_pll),
+	.reconfig_from_pll(reconfig_from_pll)
+);
+
+// C0 counter word per monitor: {[22:18] counter#=0, [17] odd-div, [16]
+// bypass, [15:8] high count, [7:0] low count} (sys/pll_cfg/
+// altera_pll_reconfig_core.v).  VCO 704.9 MHz: /28 = 25.175 MHz, /45 =
+// 15.664 MHz.
+// The monitor is latched under reset like the RAM size (ram_cfg below):
+// the ROM reads the DAFB sense lines once at boot.
+reg mon_12in = 1'b0;
+always @(posedge clk_sys) if (reset) mon_12in <= status[5];
+wire [31:0] pix_c0 = mon_12in ? 32'h00021716 : 32'h00000E0E;
+
+// The retarget never drops PLL lock (the VCO is untouched), so the scanout
+// would step to the new rate mid-frame and Main's vsync_adjust would
+// measure one chimera frame and latch an out-of-spec HDMI mode (MacLC,
+// 2026-08-08).  pix_quiet holds the video reset from retarget-pending
+// until ~84 ms after the FSM has consumed it, so a monitor change presents
+// as a clean blank-and-return.
+reg pix_quiet = 1'b0;
+always @(posedge CLK_50M) begin : pix_reconfig
+	reg [21:0] settle = 22'd0;
+	reg [31:0] c0_cur = 32'h00000E0E;    // = the static 13" config
+	reg [31:0] c0_s1, c0_s2;
+	reg [2:0]  state = 0;
+	c0_s1 <= pix_c0;                     // settle across clk_sys -> CLK_50M
+	c0_s2 <= c0_s1;
+	if (c0_s2 == c0_s1 && c0_s2 != c0_cur) begin
+		settle    <= 22'h3FFFFF;
+		pix_quiet <= 1'b1;
+	end else if (settle != 0) begin
+		settle    <= settle - 1'd1;
+	end else begin
+		pix_quiet <= 1'b0;
+	end
+	if (!pixcfg_waitrequest) begin
+		pixcfg_write <= 0;
+		if (pll_video_locked) begin
+			if (state) state <= state + 1'd1;
+			case (state)
+				0: if (c0_s2 == c0_s1 && c0_s2 != c0_cur) begin
+						c0_cur <= c0_s2;
+						state  <= 1;
+					end
+				1: begin pixcfg_address <= 0; pixcfg_data <= 0;      pixcfg_write <= 1; end // polled mode
+				3: begin pixcfg_address <= 5; pixcfg_data <= c0_cur; pixcfg_write <= 1; end // C0 counter
+				5: begin pixcfg_address <= 2; pixcfg_data <= 0;      pixcfg_write <= 1; end // start
+				default: ;
+			endcase
+		end
+	end
+end
+`endif
+
 // video-domain reset: released only once the pixel clock is locked AND the
-// machine is out of reset, 2FF-synced into clk_vid
+// machine is out of reset AND no retarget is settling, 2FF-synced into
+// clk_vid (pix_quiet is a multi-ms CLK_50M level; the 2FF is its sync)
 reg vidrst_meta, vidrst_s;
 always @(posedge clk_vid) begin
-	vidrst_meta <= reset | ~pll_video_locked;
+	vidrst_meta <= reset | ~pll_video_locked | pix_quiet;
 	vidrst_s    <= vidrst_meta;
 end
 wire nreset_vid = ~vidrst_s;
@@ -251,26 +385,40 @@ wire reset = RESET | status[0] | buttons[1] | ioctl_download |
 // So the mount is remembered here, outside the machine reset, and replayed on
 // each reset release as well as when it first arrives. Size is captured a cycle
 // ahead of the pulse so it is stable when the target samples it.
-reg        mount_valid  = 0;      // an image is mounted (survives machine reset)
-reg [63:0] mount_size   = 0;
-reg        mount_replay = 0;
+// Three targets, one memory each.  A Main pulse for slot 0/1/4 records the
+// size and schedules a replay; a reset release schedules a replay of every
+// remembered slot.  Replays go out one target per clock pair so the machine
+// sees a single pulse with its own size each time.
+reg  [2:0] mount_valid  = 0;      // an image is mounted (survives machine reset)
+reg [63:0] mount_size [0:2];
+reg  [2:0] mount_replay = 0;
 reg        reset_d      = 1;
-reg        mach_img_mounted = 0;
+reg  [2:0] mach_img_mounted = 0;
+reg [63:0] mach_img_size = 0;
+wire [2:0] main_mount = {img_mounted[VD_CDROM], img_mounted[VD_DISK1], img_mounted[VD_DISK0]};
+integer mi;
 always @(posedge clk_sys) begin
 	mach_img_mounted <= 0;
 	reset_d          <= reset;
 
-	if (img_mounted[0]) begin
-		mount_size   <= img_size;
-		mount_valid  <= (img_size != 0);   // size 0 = eject, replay that too
-		mount_replay <= 1;
-	end
-	else if (reset_d && !reset && mount_valid) begin
-		mount_replay <= 1;                 // reset just released: re-announce
-	end
-	else if (mount_replay && !reset) begin
-		mount_replay     <= 0;
-		mach_img_mounted <= 1;
+	for (mi = 0; mi < 3; mi = mi + 1)
+		if (main_mount[mi]) begin
+			mount_size[mi]   <= img_size;
+			mount_valid[mi]  <= (img_size != 0);   // size 0 = eject, replay that too
+			mount_replay[mi] <= 1;
+		end
+	if (reset_d && !reset) mount_replay <= mount_replay | mount_valid;   // reset just released
+
+	if (!reset && mach_img_mounted == 3'b000) begin
+		if (mount_replay[0]) begin
+			mount_replay[0] <= 0; mach_img_size <= mount_size[0]; mach_img_mounted <= 3'b001;
+		end
+		else if (mount_replay[1]) begin
+			mount_replay[1] <= 0; mach_img_size <= mount_size[1]; mach_img_mounted <= 3'b010;
+		end
+		else if (mount_replay[2]) begin
+			mount_replay[2] <= 0; mach_img_size <= mount_size[2]; mach_img_mounted <= 3'b100;
+		end
 	end
 end
 
@@ -321,13 +469,24 @@ wire [127:0] sdr_line_data;
 wire        sdr_line_pending;
 wire [26:4] sdr_line_pending_tag;
 
-quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS)) machine (
+// The CD-ROM target and its audio engine cost ~2,800 ALMs.  A build that
+// needs them back (CPU work) adds to the qsf:
+//   set_global_assignment -name VERILOG_MACRO "CDROM_OFF=1"
+// and gets a machine with two hard disks and no ID 3; the OSD's CD line
+// still exists but the mount goes nowhere.
+`ifdef CDROM_OFF
+localparam CDROM_EN = 0;
+`else
+localparam CDROM_EN = 1;
+`endif
+quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS), .CDROM(CDROM_EN)) machine (
 	.clk(clk_sys),
 	.nreset(~reset),
 	.ce(1'b1),
 	.clk_vid(clk_vid),
 	.nreset_vid(nreset_vid),
 	.ram_cfg(ram_cfg),
+	.mon_12in(mon_12in),
 
 	.mem_req(mem_req),
 	.mem_write(mem_write),
@@ -356,6 +515,8 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS)) machine (
 	.CE_PIXEL(CE_PIXEL),
 
 	.AUDIO_L(mac_audio_l),
+	.cd_snd_l(cd_snd_l),
+	.cd_snd_r(cd_snd_r),
 	.AUDIO_R(mac_audio_r),
 
 	.ps2_key(ps2_key),
@@ -370,15 +531,15 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS)) machine (
 	.scc_txd_b(serialOutB),
 
 	.img_mounted(mach_img_mounted),
-	.img_size(mount_size),
-	.io_lba(sd_lba[0]),
-	.io_blk_cnt(sd_blk_cnt),
-	.io_rd(sd_rd[0]),
-	.io_wr(sd_wr[0]),
-	.io_ack(sd_ack[0]),
+	.img_size(mach_img_size),
+	.io_lba(scsi_lba),
+	.io_blk_cnt(scsi_blk_cnt),
+	.io_rd(scsi_rd),
+	.io_wr(scsi_wr),
+	.io_ack(scsi_ack),
 	.sd_buff_addr(sd_buff_addr),
 	.sd_buff_dout(sd_buff_dout),
-	.sd_buff_din(sd_buff_din[0]),
+	.sd_buff_din(scsi_buff_din),
 	.sd_buff_wr(sd_buff_wr),
 
 	.dbg_berr(),
@@ -519,17 +680,24 @@ assign VGA_B = mt32_lcd ? {{2{mt32_lcd_pix}}, mac_vga_b[7:2]} : mac_vga_b;
 // is present AND "Use MT32-pi" is Yes); exact zeros otherwise, so the mix is
 // bit-identical to today with no Pi attached or the device disabled.
 wire signed [15:0] mac_audio_l, mac_audio_r;
+// CD-DA from the SCSI CD-ROM's audio engine (rtl/cd_audio.sv): exact zeros
+// unless the AppleCD player is playing, so the mix is unchanged otherwise.
+// These were left undeclared at the instantiation once (implicit 1-bit
+// nets, never summed): the engine played, the core stayed silent.
+wire signed [15:0] cd_snd_l, cd_snd_r;
 wire signed [17:0] audio_mix_l = {{2{mac_audio_l[15]}}, mac_audio_l}
+                               + {{2{cd_snd_l[15]}}, cd_snd_l}
                                + (mt32_use ? {{2{mt32_i2s_l[15]}}, mt32_i2s_l} : 18'sd0);
 wire signed [17:0] audio_mix_r = {{2{mac_audio_r[15]}}, mac_audio_r}
+                               + {{2{cd_snd_r[15]}}, cd_snd_r}
                                + (mt32_use ? {{2{mt32_i2s_r[15]}}, mt32_i2s_r} : 18'sd0);
 assign AUDIO_L = (audio_mix_l > 18'sd32767)  ?  16'sd32767 :
                  (audio_mix_l < -18'sd32768) ? -16'sd32768 : audio_mix_l[15:0];
 assign AUDIO_R = (audio_mix_r > 18'sd32767)  ?  16'sd32767 :
                  (audio_mix_r < -18'sd32768) ? -16'sd32768 : audio_mix_r[15:0];
 
-assign LED_USER = ioctl_download | sd_rd[0] | sd_wr[0];
-assign LED_DISK = {1'b1, sd_rd[0] | sd_wr[0]};
+assign LED_USER = ioctl_download | (|sd_rd) | (|sd_wr);
+assign LED_DISK = {1'b1, (|sd_rd) | (|sd_wr)};
 
 //////////////////////////////////////////////////////////////////
 // SDRAM — the machine's RAM.  ROM stays in DDR3 (it is uploaded once
@@ -672,7 +840,7 @@ end
 
 // port B: DAFB scanout, on the PIXEL clock.  M10K is natively dual-clock, so
 // this costs nothing and there is no timed arc between the ports -- the
-// crossing is blessed in wombat33.sdc along with the rest of clk_vid.
+// crossing is blessed in MacQuadra800.sdc along with the rest of clk_vid.
 always @(posedge clk_vid)
 	vid_rdata <= {vram3[vb_addr], vram2[vb_addr],
 	              vram1[vb_addr], vram0[vb_addr]};

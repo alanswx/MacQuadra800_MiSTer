@@ -38,6 +38,13 @@ module dafb
 	// for the same arrangement -- config 2FF-synced in, VBL toggled back.
 	input         clk_vid,
 	input         nreset_vid,
+	// Monitor on the DA-15: 0 = 13" RGB 640x480 (sense code 6), 1 = 12" RGB
+	// 512x384 (sense code 2).  Quasi-static: the platform latches it under
+	// reset, because a real Quadra samples the sense lines only in the ROM's
+	// boot probe and QuickDraw lays out for the boot geometry.  It picks
+	// both the sense-register answer and the scanout timing (clk_vid is
+	// retargeted to the matching dot clock by MacQuadra800.sv).
+	input         mon_12in,
 
 	// register beat slave ($F9800000 block, addr = offset bits [9:2])
 	input         sel,
@@ -53,7 +60,7 @@ module dafb
 	output [21:2] vid_addr,
 	input  [31:0] vid_rdata,
 	// the programmed row pitch, so the platform's VRAM mapper can compact
-	// away the never-visible tail of each row (see wombat33.sv)
+	// away the never-visible tail of each row (see MacQuadra800.sv)
 	output [13:0] vid_stride,
 
 	output  [7:0] vga_r,
@@ -74,9 +81,8 @@ reg [13:0] stride;               // bytes
 assign vid_stride = stride;
 reg  [2:0] sense_drive;          // last value written to the sense register
 reg [11:0] timing_ctrl, config_r, swatch_mode, test_r, swatch_test;
-// Swatch exposes 17 consecutive timing words.  A power-of-two backing array
-// lets Quartus place the otherwise scattered 204-bit register file in MLAB.
-(* ramstyle = "MLAB, no_rw_check" *) reg [11:0] crtc_param [0:31];
+reg [11:0] hparam [0:9];
+reg [11:0] vparam [0:6];
 // MAME's DAFB has VBL on status bit 0 (clear at +$114); QEMU's macfb has
 // it on bit 2 (clear at +$10C, irq masked by +$104).  The ROM boots on
 // both, so serve both conventions: VBL raises bits {2,0} as enabled,
@@ -87,18 +93,29 @@ reg [11:0] cursor_line, anim_line;
 
 reg  [7:0] pal_addr;
 reg  [1:0] pal_idx;
-// The RAMDAC has independent CPU and scanout reads.  A single inferred array
-// therefore needs three ports (one write plus two reads), which Quartus builds
-// as one M10K read view and a complete 6,144-flop mirror.  Keep the two views
-// explicit instead: both banks receive every palette write, the CPU reads its
-// clk-domain copy, and scanout reads its clk_vid-domain copy.  Each array is a
-// simple-dual-port M10K, preserving the existing registered-read timing.
-(* ramstyle = "M10K, no_rw_check" *) reg [7:0] pal_r_cpu [0:255];
-(* ramstyle = "M10K, no_rw_check" *) reg [7:0] pal_g_cpu [0:255];
-(* ramstyle = "M10K, no_rw_check" *) reg [7:0] pal_b_cpu [0:255];
-(* ramstyle = "M10K, no_rw_check" *) reg [7:0] pal_r_vid [0:255];
-(* ramstyle = "M10K, no_rw_check" *) reg [7:0] pal_g_vid [0:255];
-(* ramstyle = "M10K, no_rw_check" *) reg [7:0] pal_b_vid [0:255];
+// The CLUT is a true dual-port, dual-clock RAM per plane: port A (clk) is
+// the RAMDAC write and its readback, port B (clk_vid) is the scan-out.  As
+// three plain arrays with a second read port on clk, synthesis kept the M10K
+// for the scan-out and rebuilt the readback from logic — 6.7k LUTs and 3.5k
+// registers for this module.  With explicit ports it is three M10Ks.
+wire [7:0] pal_q_r, pal_q_g, pal_q_b;     // port A readback of pal_addr
+wire [7:0] clut_r, clut_g, clut_b;        // port B scan-out
+wire [7:0] clut_idx;
+reg        pal_rd_pend;                   // readback: one cycle for the RAM
+// RAMDAC data register ($200+$10): the write lands in the access cycle, at
+// the address the RAMDAC currently points at (it auto-increments after B).
+wire       pal_acc  = sel && !ack && (blk == 2'd2) && (rsel == 6'h04);
+wire       pal_rd   = pal_acc && !write;
+wire       pal_wr   = pal_acc &&  write && ce;
+wire       pal_we_r = pal_wr && (pal_idx == 2'd0);
+wire       pal_we_g = pal_wr && (pal_idx == 2'd1);
+wire       pal_we_b = pal_wr && (pal_idx == 2'd2);
+dafb_clut clut_r_i (.clka(clk), .aa(pal_addr), .da(wdata[7:0]), .wea(pal_we_r), .qa(pal_q_r),
+                    .clkb(clk_vid), .ab(clut_idx), .qb(clut_r));
+dafb_clut clut_g_i (.clka(clk), .aa(pal_addr), .da(wdata[7:0]), .wea(pal_we_g), .qa(pal_q_g),
+                    .clkb(clk_vid), .ab(clut_idx), .qb(clut_g));
+dafb_clut clut_b_i (.clka(clk), .aa(pal_addr), .da(wdata[7:0]), .wea(pal_we_b), .qa(pal_q_b),
+                    .clkb(clk_vid), .ab(clut_idx), .qb(clut_b));
 reg  [7:0] pbctrl;
 reg  [2:0] mode;                 // 0=1bpp 1=2bpp 2=4bpp 3=8bpp 4=24bpp
 
@@ -119,6 +136,7 @@ always @(posedge clk) begin
 		int_en <= 0; int_status <= 0;
 		cursor_line <= 0; anim_line <= 0;
 		pal_addr <= 0; pal_idx <= 0; pbctrl <= 0; mode <= 3'd0;
+		pal_rd_pend <= 0;
 	end
 	else if (ce) begin
 		ack <= 0;
@@ -130,9 +148,15 @@ always @(posedge clk) begin
 			int_status[2] <= 1'b1;
 		end
 
-		if (sel && !ack) begin
+		// RAMDAC data readback: cycle 1 lets the RAM present pal_addr, cycle
+		// 2 returns it.  Every other access still completes in one cycle.
+		if (pal_rd && !pal_rd_pend) begin
+			pal_rd_pend <= 1;
+		end
+		else if (sel && !ack) begin
 			ack   <= 1;
 			rdata <= 32'h0;
+			pal_rd_pend <= 0;
 			case (blk)
 			2'd0: begin                                   // DAFB
 				if (write) begin
@@ -161,9 +185,10 @@ always @(posedge clk) begin
 					6'h02: rdata <= {20'd0, stride[13:2]};
 					6'h03: rdata <= {20'd0, timing_ctrl};
 					6'h04: rdata <= {20'd0, config_r};
-					// 13" 640x480 (code 6), QEMU macfb normal-sense formula:
-					// (~code & 7) | (~driven & 7)
-					6'h07: rdata <= {29'd0, 3'b001 | ~sense_drive};
+					// QEMU macfb normal-sense formula (~code & 7) | (~driven & 7):
+					// 13" 640x480 is code 6 (~6 = 001), 12" 512x384 is code 2
+					// (~2 = 101) -- MAME dafb.cpp's table, Apple TN HW26.
+					6'h07: rdata <= {29'd0, (mon_12in ? 3'b101 : 3'b001) | ~sense_drive};
 					6'h0B: rdata <= {20'd0, 3'd3, test_r[8:0]};  // DAFB version 3
 					default: ;
 					endcase
@@ -184,8 +209,10 @@ always @(posedge clk) begin
 					6'h07: anim_line   <= wdata[11:0];
 					6'h08: swatch_test <= wdata[11:0];
 					default: begin
-						if (rsel >= 6'h09 && rsel <= 6'h19)
-							crtc_param[rsel - 6'h09] <= wdata[11:0];
+						if (rsel >= 6'h09 && rsel <= 6'h12)
+							hparam[rsel - 6'h09] <= wdata[11:0];
+						if (rsel >= 6'h13 && rsel <= 6'h19)
+							vparam[rsel - 6'h13] <= wdata[11:0];
 					end
 					endcase
 				end
@@ -196,8 +223,10 @@ always @(posedge clk) begin
 					6'h05: begin rdata <= 0; int_status <= 0; end
 					6'h08: rdata <= {20'd0, swatch_test};
 					default: begin
-						if (rsel >= 6'h09 && rsel <= 6'h19)
-							rdata <= {20'd0, crtc_param[rsel - 6'h09]};
+						if (rsel >= 6'h09 && rsel <= 6'h12)
+							rdata <= {20'd0, hparam[rsel - 6'h09]};
+						if (rsel >= 6'h13 && rsel <= 6'h19)
+							rdata <= {20'd0, vparam[rsel - 6'h13]};
 					end
 					endcase
 				end
@@ -207,20 +236,7 @@ always @(posedge clk) begin
 					case (rsel)
 					6'h00: begin pal_addr <= wdata[7:0]; pal_idx <= 0; end
 					6'h04: begin
-						case (pal_idx)
-						2'd0: begin
-							pal_r_cpu[pal_addr] <= wdata[7:0];
-							pal_r_vid[pal_addr] <= wdata[7:0];
-						end
-						2'd1: begin
-							pal_g_cpu[pal_addr] <= wdata[7:0];
-							pal_g_vid[pal_addr] <= wdata[7:0];
-						end
-						default: begin
-							pal_b_cpu[pal_addr] <= wdata[7:0];
-							pal_b_vid[pal_addr] <= wdata[7:0];
-						end
-						endcase
+						// the plane write itself is pal_we_* above
 						if (pal_idx == 2'd2) begin
 							pal_idx  <= 0;
 							pal_addr <= pal_addr + 1'b1;
@@ -244,9 +260,9 @@ always @(posedge clk) begin
 					case (rsel)
 					6'h00: begin rdata <= {24'd0, pal_addr}; pal_idx <= 0; end
 					6'h04: begin
-						rdata <= {24'd0, (pal_idx == 2'd0) ? pal_r_cpu[pal_addr] :
-						                 (pal_idx == 2'd1) ? pal_g_cpu[pal_addr] :
-						                                     pal_b_cpu[pal_addr]};
+						rdata <= {24'd0, (pal_idx == 2'd0) ? pal_q_r :
+						                 (pal_idx == 2'd1) ? pal_q_g :
+						                                     pal_q_b};
 						pal_idx <= (pal_idx == 2'd2) ? 2'd0 : pal_idx + 1'b1;
 					end
 					6'h08: rdata <= {24'd0, pbctrl};
@@ -265,22 +281,36 @@ end
 // guest programs them once per mode set and then redraws the whole screen, so
 // a 2FF sync per bit is enough and the worst case on a change is one torn
 // frame.  MacLC does exactly this (maclc_v8_video.sv *_meta stages); the meta
-// stages are false-pathed in wombat33.sdc.
+// stages are false-pathed in MacQuadra800.sdc.
 //----------------------------------------------------------------------------
 reg [20:0] fb_base_meta, fb_base_v;
 reg [13:0] stride_meta,  stride_v;
 reg  [2:0] mode_meta,    mode_v;
+reg        mon_meta,     mon_v;
 always @(posedge clk_vid) begin
 	fb_base_meta <= fb_base; fb_base_v <= fb_base_meta;
 	stride_meta  <= stride;  stride_v  <= stride_meta;
 	mode_meta    <= mode;    mode_v    <= mode_meta;
+	mon_meta     <= mon_12in; mon_v    <= mon_meta;
 end
 
 //----------------------------------------------------------------------------
-// scanout: 640x480 active in 800x525, one pixel per clk_vid (25.175 MHz)
+// scanout: one pixel per clk_vid.
+//   13" RGB: 640x480 active in 800x525 at 25.175 MHz -> 59.94 Hz (VGA)
+//   12" RGB: 512x384 active in 640x407 at 15.664 MHz -> 60.14 Hz (the real
+//            Quadra drives 15.6672 MHz; sync 528-576 / 385-388 as MacLC's
+//            12" table, which is MAME's 512-active shape)
+// The platform swaps the dot clock with the monitor, so the counters simply
+// follow mon_v; a change holds the scanout in reset anyway (pix_quiet).
 //----------------------------------------------------------------------------
-localparam H_ACT = 640, H_FP = 16, H_SYNC = 96, H_TOT = 800;
-localparam V_ACT = 480, V_FP = 10, V_SYNC = 2,  V_TOT = 525;
+wire [9:0] H_ACT  = mon_v ? 10'd512 : 10'd640;
+wire [9:0] H_FP   = 10'd16;
+wire [9:0] H_SYNC = mon_v ? 10'd48  : 10'd96;
+wire [9:0] H_TOT  = mon_v ? 10'd640 : 10'd800;
+wire [9:0] V_ACT  = mon_v ? 10'd384 : 10'd480;
+wire [9:0] V_FP   = mon_v ? 10'd1   : 10'd10;
+wire [9:0] V_SYNC = mon_v ? 10'd3   : 10'd2;
+wire [9:0] V_TOT  = mon_v ? 10'd407 : 10'd525;
 
 reg [9:0] hcnt;
 reg [9:0] vcnt;
@@ -324,28 +354,18 @@ assign vid_addr = fetch_addr[21:2];
 
 // current word: the freshly fetched one on a refill boundary
 wire [31:0] cur = (shcnt == 0) ? fetch_word : shreg;
-wire [7:0] clut_idx = (mode_v == 3'd3) ? cur[31:24] :
+assign clut_idx = (mode_v == 3'd3) ? cur[31:24] :
                       (mode_v == 3'd0) ? {7'd0, cur[31]} :
                       (mode_v == 3'd1) ? {6'd0, cur[31:30]} :
                                          {4'd0, cur[31:28]};
 
-reg [7:0] pal_r_vid_q, pal_g_vid_q, pal_b_vid_q;
+reg       act_q;                  // active-video, aligned with the CLUT read
 reg       hb_r, vb_r;
-assign vga_r = (hb_r || vb_r) ? 8'd0 : pal_r_vid_q;
-assign vga_g = (hb_r || vb_r) ? 8'd0 : pal_g_vid_q;
-assign vga_b = (hb_r || vb_r) ? 8'd0 : pal_b_vid_q;
+assign vga_r = act_q ? clut_r : 8'd0;
+assign vga_g = act_q ? clut_g : 8'd0;
+assign vga_b = act_q ? clut_b : 8'd0;
 assign vga_hb = hb_r;
 assign vga_vb = vb_r;
-
-// Keep the palette reads in their own unconditional clocked process so the
-// three registers can become the output registers of dual-clock M10Ks.  The
-// blanking mux stays after those registers and therefore does not add a pixel
-// of latency relative to the original registered palette lookup.
-always @(posedge clk_vid) begin
-	pal_r_vid_q <= pal_r_vid[clut_idx];
-	pal_g_vid_q <= pal_g_vid[clut_idx];
-	pal_b_vid_q <= pal_b_vid[clut_idx];
-end
 
 // next line's base offset: (vcnt+1) * stride, tracked incrementally
 reg [21:0] line_base_next;
@@ -357,6 +377,7 @@ always @(posedge clk_vid) begin
 		hb_r <= 1; vb_r <= 1;
 		shreg <= 0; shcnt <= 0;
 		fetch_addr <= 0; fetch_word <= 0; fpipe <= 0;
+		act_q <= 0;
 		line_base_next <= 0;
 	end
 	else begin
@@ -407,7 +428,34 @@ always @(posedge clk_vid) begin
 			end
 		end
 
+		act_q <= hactive && vactive;
 	end
 end
 
+endmodule
+
+//============================================================================
+//  dafb_clut — one 256 x 8 CLUT plane as a true dual-port, dual-clock RAM.
+//  Port A (clka): write and registered readback of the same address.
+//  Port B (clkb): registered read for the scan-out.  Read-during-write on
+//  the same address never happens on hardware (the RAMDAC readback follows
+//  a write by at least a bus turnaround), so no bypass logic is asked for.
+//============================================================================
+module dafb_clut
+(
+	input        clka,
+	input  [7:0] aa,
+	input  [7:0] da,
+	input        wea,
+	output reg [7:0] qa,
+	input        clkb,
+	input  [7:0] ab,
+	output reg [7:0] qb
+);
+(* ramstyle = "M10K, no_rw_check" *) reg [7:0] mem [0:255];
+always @(posedge clka) begin
+	if (wea) mem[aa] <= da;
+	qa <= mem[aa];
+end
+always @(posedge clkb) qb <= mem[ab];
 endmodule

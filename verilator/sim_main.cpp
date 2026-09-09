@@ -52,7 +52,7 @@ bool single_step = 0;
 bool multi_step = 0;
 int  multi_step_amount = 1024;
 
-// Core options (mirrors the CONF_STR options in wombat33.sv)
+// Core options (mirrors the CONF_STR options in MacQuadra800.sv)
 int opt_tvmode = 0;      // 0 NTSC, 1 PAL
 int opt_noise = 0;       // 0 white, 1 red, 2 green, 3 blue
 
@@ -99,6 +99,7 @@ double sc_time_stamp() { return main_time; }
 SimClock clk_sys(1);
 SimAudio audio(33000000, false);
 std::string scsi_disk_file;      // --disk <path> mounts on SCSI ID 0
+std::string scsi_cd_file;        // --cd <path> mounts a flat 2048-byte disc on the CD-ROM (SCSI ID 3)
 
 DebugConsole console;
 SimBlockDevice blockdevice(console);
@@ -430,6 +431,8 @@ int main(int argc, char** argv, char** env) {
 			trace_after = strtoull(argv[++i], nullptr, 0);
 		} else if (!strcmp(argv[i], "--stop-at-pc") && i + 1 < argc) {
 			sscanf(argv[++i], "%x,%x", &stop_pc_lo, &stop_pc_hi);
+		} else if (!strcmp(argv[i], "--cd") && i + 1 < argc) {
+			scsi_cd_file = argv[++i];
 		} else if (!strcmp(argv[i], "--disk") && i + 1 < argc) {
 			scsi_disk_file = argv[++i];
 		} else if (!strncmp(argv[i], "+mousewiggle=", 13)) {
@@ -484,11 +487,14 @@ int main(int argc, char** argv, char** env) {
 	blockdevice.sd_buff_addr   = &VERTOPINTERN->sd_buff_addr;
 	blockdevice.sd_buff_dout   = &VERTOPINTERN->sd_buff_dout;
 	blockdevice.sd_buff_din[0] = &VERTOPINTERN->sd_buff_din0;
+	blockdevice.sd_lba[2]      = &VERTOPINTERN->sd_lba0;        // CD-ROM: same lba / data bus
+	blockdevice.sd_buff_din[2] = &VERTOPINTERN->sd_buff_din0;
 	blockdevice.sd_buff_wr     = &VERTOPINTERN->sd_buff_wr;
 	blockdevice.img_mounted    = &VERTOPINTERN->img_mounted;
 	blockdevice.img_readonly   = &VERTOPINTERN->img_readonly;
 	blockdevice.img_size       = &VERTOPINTERN->img_size;
 	if (!scsi_disk_file.empty()) blockdevice.MountDisk(scsi_disk_file, 0);
+	if (!scsi_cd_file.empty())   blockdevice.MountDisk(scsi_cd_file, 2);
 
 	input.Initialise();
 	if (!headless) {

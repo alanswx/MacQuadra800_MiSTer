@@ -24,7 +24,8 @@
 
 module quadra800
 #(
-	parameter RAM_ADDR_BITS = 27              // address space ceiling: 128 MB
+	parameter RAM_ADDR_BITS = 27,             // address space ceiling: 128 MB
+	parameter CDROM         = 1               // 0 = no CD-ROM target (rtl/ncr53c96.sv)
 )
 (
 	input         clk,
@@ -40,6 +41,7 @@ module quadra800
 	// releases — the top folds a change into the reset.
 	//   0 = 32 MB   1 = 64 MB   2 = 128 MB
 	input   [1:0] ram_cfg,
+	input         mon_12in,      // DAFB monitor: 0 = 13" 640x480, 1 = 12" 512x384
 
 	// platform memory beat port
 	output reg        mem_req,
@@ -73,13 +75,16 @@ module quadra800
 	output signed [15:0] AUDIO_R,
 
 	// SCSI disk block device
-	input         img_mounted,
+	// three SCSI targets (ID 0/1 disks, ID 3 CD-ROM): see rtl/ncr53c96.sv
+	output signed [15:0] cd_snd_l,          // CD audio PCM, from the SCSI CD-ROM
+	output signed [15:0] cd_snd_r,
+	input   [2:0] img_mounted,
 	input  [63:0] img_size,
 	output [31:0] io_lba,
-	output  [5:0] io_blk_cnt,
-	output        io_rd,
-	output        io_wr,
-	input         io_ack,
+	output  [5:0] io_blk_cnt,               // hps_io sd_blk_cnt: blocks - 1 per transaction
+	output  [2:0] io_rd,
+	output  [2:0] io_wr,
+	input   [2:0] io_ack,
 	input  [12:0] sd_buff_addr,
 	input  [15:0] sd_buff_dout,
 	output [15:0] sd_buff_din,
@@ -146,10 +151,74 @@ reg         walker_berr;
 reg         cpu_berr;
 wire  [2:0] ipl_n;
 
+// SCSI block port.  The engine (ncr53c96, inside iosb) talks to the block
+// cache; the cache talks to hps_io through this module's io_* / sd_buff_*
+// ports.  Reads hit in block RAM and are prefetched behind, writes are
+// acked from RAM and flushed in the background, so the engine never has a
+// write flush outstanding across a target switch (rtl/scsi_cache.sv).
+wire [31:0] e_io_lba;
+wire  [2:0] e_io_rd, e_io_wr, e_io_ack;
+wire [12:0] e_sd_buff_addr;
+wire [15:0] e_sd_buff_dout, e_sd_buff_din;
+wire        e_sd_buff_wr;
+wire [15:0] cache_hits, cache_misses;
+
+// CACHE_CD_OFF=1 in the qsf passes the CD-ROM slot straight through (its tags
+// and mux leg go away, ~250 ALMs) -- the area lever for CPU builds that keep
+// the CD target; the disks' write-behind is untouched.
+`ifdef CACHE_CD_OFF
+localparam CACHE_CD_SLOT = 0;
+`else
+localparam CACHE_CD_SLOT = 1;
+`endif
+// CACHE_SMALL=1 in the qsf halves the disk windows (32/32/16 sectors): the tag
+// bitmaps and their muxes shrink with them -- the area lever for CPU builds.
+`ifdef CACHE_SMALL
+localparam CACHE_SECT0 = 32, CACHE_SECT1 = 32;
+`else
+localparam CACHE_SECT0 = 64, CACHE_SECT1 = 48;
+`endif
+scsi_cache #(.SECT0(CACHE_SECT0), .SECT1(CACHE_SECT1), .SECT2(16), .PF_DEPTH(8), .CACHE_CD(CACHE_CD_SLOT)) scsi_cache (
+	.clk(clk),
+	.nreset(nreset),
+
+	.e_lba(e_io_lba),
+	.e_rd(e_io_rd),
+	.e_wr(e_io_wr),
+	.e_ack(e_io_ack),
+	.e_buff_addr(e_sd_buff_addr),
+	.e_buff_dout(e_sd_buff_dout),
+	.e_buff_din(e_sd_buff_din),
+	.e_buff_wr(e_sd_buff_wr),
+
+	.p_lba(io_lba),
+	.p_blk_cnt(io_blk_cnt),
+	.p_rd(io_rd),
+	.p_wr(io_wr),
+	.p_ack(io_ack),
+	.p_buff_addr(sd_buff_addr),
+	.p_buff_dout(sd_buff_dout),
+	.p_buff_din(sd_buff_din),
+	.p_buff_wr(sd_buff_wr),
+
+	.img_mounted(img_mounted),
+	.img_size(img_size),
+
+	.stat_hits(cache_hits),
+	.stat_misses(cache_misses)
+);
+
+// any block transfer in flight between the machine and the HPS -- on either
+// side of the cache: a request strobe up, or an ack still streaming.  Holds
+// the CPU's stall watchdog.
+wire hps_busy = (|e_io_rd) | (|e_io_wr) | (|e_io_ack) | (|io_rd) | (|io_wr) | (|io_ack);
+wire cpu_stall_flt;
 wombat_cpu cpu (
 	.clk(clk),
 	.nreset(nreset),
 	.ce(ce),
+	.stall_hold(hps_busy),
+	.dbg_stall_flt(cpu_stall_flt),
 
 	.ipl(ipl_n),
 	.ipl_autovector(1'b1),
@@ -238,7 +307,7 @@ wire        iosb_fault;   // ack released a timed-out PDMA beat -> bus error
 
 wire dafb_vbl;
 
-iosb iosb (
+iosb #(.CDROM(CDROM)) iosb (
 	.clk(clk),
 	.nreset(nreset),
 	.ce(ce),
@@ -251,6 +320,7 @@ iosb iosb (
 	.rdata(iosb_rdata),
 	.ack(iosb_ack),
 	.sdma_fault(iosb_fault),
+	.stall_flt(cpu_stall_flt),
 
 	.vbl_irq(dafb_vbl),
 	.scsi_irq(1'b0),
@@ -268,22 +338,27 @@ iosb iosb (
 
 	.audio_l(AUDIO_L),
 	.audio_r(AUDIO_R),
+	.cd_snd_l(cd_snd_l),
+	.cd_snd_r(cd_snd_r),
 
 	.img_mounted(img_mounted),
 	.img_size(img_size),
-	.io_lba(io_lba),
-	.io_blk_cnt(io_blk_cnt),
-	.io_rd(io_rd),
-	.io_wr(io_wr),
-	.io_ack(io_ack),
-	.sd_buff_addr(sd_buff_addr),
-	.sd_buff_dout(sd_buff_dout),
-	.sd_buff_din(sd_buff_din),
-	.sd_buff_wr(sd_buff_wr),
+	.io_lba(e_io_lba),
+	.io_rd(e_io_rd),
+	.io_wr(e_io_wr),
+	.io_ack(e_io_ack),
+	.sd_buff_addr(e_sd_buff_addr),
+	.sd_buff_dout(e_sd_buff_dout),
+	.sd_buff_din(e_sd_buff_din),
+	.sd_buff_wr(e_sd_buff_wr),
 
 	.ps2_key(ps2_key),
 	.ps2_mouse(ps2_mouse),
-	.timestamp(timestamp)
+	.timestamp(timestamp),
+
+	// DEBUG: fault channel for the SCSI trace in iosb.sv
+	.berr_active(svc == S_BERR),
+	.berr_addr(svc_addr)
 );
 
 //----------------------------------------------------------------------------
@@ -299,6 +374,7 @@ wire        dafb_ack;
 dafb dafb (
 	.clk_vid(clk_vid),
 	.nreset_vid(nreset_vid),
+	.mon_12in(mon_12in),
 	.clk(clk),
 	.nreset(nreset),
 	.ce(ce),

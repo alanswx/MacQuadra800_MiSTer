@@ -36,14 +36,14 @@ set_global_assignment -name FITTER_EFFORT "STANDARD FIT"
 # needed: it fit at 81% but missed setup by 0.947 ns (Fmax 32.0 vs the
 # 33.0 MHz clock).  Do not re-apply the area knobs without a fit that
 # actually needs them.
-set_global_assignment -name OPTIMIZATION_MODE "HIGH PERFORMANCE EFFORT"
+set_global_assignment -name OPTIMIZATION_MODE "BALANCED"
 set_global_assignment -name ALLOW_POWER_UP_DONT_CARE ON
 set_global_assignment -name QII_AUTO_PACKED_REGISTERS NORMAL
 set_global_assignment -name ROUTER_LCELL_INSERTION_AND_LOGIC_DUPLICATION ON
 set_global_assignment -name PHYSICAL_SYNTHESIS_COMBO_LOGIC ON
-set_global_assignment -name PHYSICAL_SYNTHESIS_REGISTER_DUPLICATION ON
+set_global_assignment -name PHYSICAL_SYNTHESIS_REGISTER_DUPLICATION OFF
 set_global_assignment -name PHYSICAL_SYNTHESIS_REGISTER_RETIMING ON
-set_global_assignment -name OPTIMIZATION_TECHNIQUE SPEED
+set_global_assignment -name OPTIMIZATION_TECHNIQUE BALANCED
 set_global_assignment -name MUX_RESTRUCTURE ON
 set_global_assignment -name REMOVE_REDUNDANT_LOGIC_CELLS ON
 set_global_assignment -name AUTO_DELAY_CHAINS_FOR_HIGH_FANOUT_INPUT_PINS ON
@@ -124,45 +124,23 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # open_row -> command[0] crossing (-1.030 ns setup, +0.239 ns hold), with
 # 5.572 ns of routing delay. Seed 19 meets timing at +0.378 ns setup and
 # +0.251 ns hold and passed the full Mac OS 7.5.5 Speedometer 3.23 PR suite.
-# The AP040 instruction branch-refill buffer is close to the LAB limit. Seeds
-# 19, 20, and 23 missed setup by 0.033, 0.001, and 0.108 ns respectively.
-# Packed 32-bit branch-refill storage plus the memory-source and DBcc retirement
-# shortcuts close at seed 25 with +0.078 ns worst setup (+0.170 ns CPU setup)
-# and +0.204 ns hold, and passed the full Mac OS 7.5.5 Speedometer 3.23 PR suite.
-# Decode-preselected source EAs plus direct memory-source MOVE retirement close
-# at seed 27 with +0.026 ns worst setup overall (+0.830 ns CPU, +0.813 ns SDRAM)
-# and +0.245 ns worst hold (+0.257 ns CPU, +0.432 ns SDRAM), and passed the full
-# Mac OS 7.5.5 Speedometer 3.23 PR suite in hardware.
-# ADD.L Dn,Dn decode-time register selection also closes at seed 27 with +0.070
-# ns worst setup (+0.772 ns CPU and +0.070 ns SDRAM) and +0.245 ns worst hold
-# (+0.263 ns CPU and +0.430 ns SDRAM). It uses 40,738 ALMs and 4,182 LABs and
-# passed the full Speedometer PR suite; scores were within 0.5% of the prior
-# build, so its measured benefit remains workload-specific.
-# The DAFB palette M10K mirrors and combined timing-register MLAB close at seed
-# 28 with 36,592 ALMs, 4,080/4,191 LABs, +0.291 ns worst setup (+0.862 ns CPU,
-# +0.291 ns SDRAM), and +0.243 ns worst hold. Seed 27 is smaller but rejected:
-# its SDRAM setup slack is -0.453 ns with -0.692 ns TNS.
-# The accepted sequential I-cache lookahead closes cleanly at seed 32 with
-# 37,357 ALMs, 4,152/4,191 LABs, +0.115 ns worst setup (+0.785 ns CPU,
-# +0.115 ns SDRAM), and +0.213 ns worst hold (+0.250 ns CPU, +0.413 ns
-# SDRAM). Seed 30 failed setup by 0.128 ns; seed 31 failed setup by 0.090 ns
-# and hold by 0.222 ns. Seed 32 is the accepted placement for that checkpoint.
-# The 2026-09-05 upstream AP68040 cache-invalidation/FPU-frame fixes moved the
-# seed-32 CPU setup path to -0.321 ns, so that RBF was rejected without deploy.
-# Seed 33 closes the integrated tree at 37,131 ALMs and 4,118/4,191 LABs, with
-# +0.145 ns worst setup (+0.145 ns CPU, +0.911 ns SDRAM) and +0.244 ns worst
-# hold (+0.434 ns CPU, +0.256 ns SDRAM), all zero TNS. Keep seed 33.
-# The 32-sector SCSI read-batch buffer moved placement: seeds 33, 34, 35, and
-# 36 missed timing (worst slack -0.211, -0.370, -0.553, and -0.614 ns).
-# Seed 37 closed the read-batch-only tree at +0.263 ns setup, but adding the
-# upstream NCR53C96 protocol fixes moved it to -0.062 ns in the 99 MHz domain.
-# Seed 38 closes the integrated tree at +0.394 ns setup and +0.175 ns worst
-# hold, both with zero TNS; CPU setup remains +1.066 ns.
-# Adding 32-sector write batching moved placement again: seed 38 failed hold
-# by 0.310 ns and seed 39 failed 99 MHz setup by 0.059 ns. Seed 40 closes
-# at +0.417 ns setup and +0.192 ns worst hold, both zero TNS; CPU setup is
-# +1.157 ns. Keep seed 40 for the read+write-batched checkpoint.
-set_global_assignment -name SEED 40
+# 2026-09-08 (build M, MacQuadra800_20260908_3): seed 21 on the release recipe
+# fits at 98 % and meets timing at +0.444 ns setup (HDMI PLL domain; clk_sys
+# +0.797, clk_ram +0.927), the best margin since the recipe; seed 19 gave
+# +0.171 on the previous head.
+set_global_assignment -name SEED 21
+#
+# 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
+# the design no longer fits with speed-directed synthesis; all-area
+# synthesis fits but breaks HDMI-domain timing.  What fits with timing
+# (build L, MacQuadra800_20260908_2, +0.171 ns): OPTIMIZATION_MODE BALANCED,
+# OPTIMIZATION_TECHNIQUE BALANCED, register duplication off, plus the
+# switches below -- CACHE_CD_OFF (the CD passes through the block cache),
+# CACHE_SMALL (32/32/16-sector cache), MISTER_DISABLE_ALSA (Linux-side audio
+# mix; MT32-pi is a separate module), MISTER_DOWNSCALE_NN and
+# MISTER_DISABLE_ADAPTIVE (scaler refinements).  Composite Y/C stays in.
+# Re-enable any of them only with a matching cut elsewhere
+# (docs: area-levers in the resume doc; releases/README.md).
 
 #set_global_assignment -name VERILOG_MACRO "MISTER_FB=1"
 
@@ -173,10 +151,28 @@ set_global_assignment -name SEED 40
 #set_global_assignment -name VERILOG_MACRO "MISTER_DEBUG_NOHDMI=1"
 
 # disable bilinear filtering when downscaling
-#set_global_assignment -name VERILOG_MACRO "MISTER_DOWNSCALE_NN=1"
+set_global_assignment -name VERILOG_MACRO "MISTER_DOWNSCALE_NN=1"
 
 # disable adaptive scanline filtering
-#set_global_assignment -name VERILOG_MACRO "MISTER_DISABLE_ADAPTIVE=1"
+set_global_assignment -name VERILOG_MACRO "MISTER_DISABLE_ADAPTIVE=1"
+
+# ============================================================================
+# DEBUG ONLY -- SCSI protocol tracer in rtl/iosb.sv.
+#
+# Uncomment to stream every first-sighting SCSI register value, bus fault and
+# stray I/O address out the modem port as ASCII, readable on the MiSTer with
+#     stty -F /dev/ttyS1 115200 raw -echo && cat /dev/ttyS1
+# (scripts/scsi_trace.sh does deploy + capture + decode in one go).
+#
+# This TAKES OVER the guest's serial port -- the SCC no longer reaches the pin.
+# Never ship a bitstream built with this on.  scripts/build_only.sh detects the
+# line below and prints a DEBUG BUILD banner so it cannot pass unnoticed.
+# ============================================================================
+#set_global_assignment -name VERILOG_MACRO "SCSI_TRACE=1"
+#set_global_assignment -name VERILOG_MACRO "CDROM_OFF=1"
+set_global_assignment -name VERILOG_MACRO "CACHE_CD_OFF=1"
+#set_global_assignment -name VERILOG_MACRO "VIDEO_512_OFF=1"
+set_global_assignment -name VERILOG_MACRO "CACHE_SMALL=1"
 
 #use only 1MB per frame for scaler to free ~21MB DDR3 RAM
 #set_global_assignment -name VERILOG_MACRO "MISTER_SMALL_VBUF=1"
@@ -185,7 +181,7 @@ set_global_assignment -name SEED 40
 #set_global_assignment -name VERILOG_MACRO "MISTER_DISABLE_YC=1"
 
 # Disable ALSA audio output to save some resources
-#set_global_assignment -name VERILOG_MACRO "MISTER_DISABLE_ALSA=1"
+set_global_assignment -name VERILOG_MACRO "MISTER_DISABLE_ALSA=1"
 
 source sys/sys.tcl
 source sys/sys_analog.tcl
@@ -345,8 +341,8 @@ set_global_assignment -name FAMILY "Cyclone V"
 set_global_assignment -name CDF_FILE jtag.cdf
 set_global_assignment -name QIP_FILE sys/sys.qip
 set_global_assignment -name QIP_FILE rtl/pll.qip
-set_global_assignment -name SDC_FILE wombat33.sdc
-set_global_assignment -name SYSTEMVERILOG_FILE wombat33.sv
+set_global_assignment -name SDC_FILE MacQuadra800.sdc
+set_global_assignment -name SYSTEMVERILOG_FILE MacQuadra800.sv
 set_global_assignment -name QIP_FILE rtl/ap68040/rtl/ap040.qip
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/wombat_cpu.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/wombat_store_buffer.sv
@@ -358,6 +354,8 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/dafb.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/rtc3430042.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/easc.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/ncr53c96.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/cd_audio.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/scsi_cache.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/adb.sv
 set_global_assignment -name VERILOG_FILE rtl/dpram.v
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram.sv
@@ -426,3 +424,8 @@ set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to SDIO_DAT[*]
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to SD_SPI*
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to USER_IO[*]
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to VGA_EN
+set_global_assignment -name VERILOG_FILE rtl/pll_video.v
+set_global_assignment -name VERILOG_FILE rtl/scc.v
+set_global_assignment -name VERILOG_FILE rtl/uart/txuart.v
+set_global_assignment -name VERILOG_FILE rtl/uart/rxuart.v
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram_beat32.sv
