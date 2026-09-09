@@ -92,7 +92,7 @@ logic (cells or ALMs from the fit and map reports, 2026-09-03 to 09-08):
 
 | block | logic | how to leave it out |
 |---|---|---|
-| AP68040 core (`ap040_core`) | ~24,000 cells with `5aa596f` (17,600 before it); FPU 8,559, ALU 2,461, MMU 1,206, muldiv 732 | this is the part being optimized |
+| AP68040 core (`ap040_core`) | ~25,100 own cells with Alan's `299cb36` (24,000 with `5aa596f`, 17,600 before it); FPU 7,044 (8,559 before its register bank moved into MLABs), ALU 2,491, MMU 1,205, muldiv 732, I/D cache 721; the whole `wombat_cpu` hierarchy is 37,779 cells | this is the part being optimized |
 | CD-ROM target + CD audio engine (`ncr53c96` CD paths, `cd_audio`) | **~3,000 ALMs** (36,830 -> 33,794 at seed 19) | `CDROM_OFF=1` — no CD-ROM at all; the switch is the `CDROM` parameter on `ncr53c96` |
 | SCSI block cache (`scsi_cache`) | ~1,750 cells; the CD slot's share ~250 ALMs | `CACHE_CD_OFF=1` (default on: the CD passes through) and `CACHE_SMALL=1` (default on: 32/32/16-sector cache instead of 64/48/16) |
 | 512x384 monitor retarget (`pll_cfg_hdmi`) | ~300 cells (715 with the generic `pll_cfg` IP) | `VIDEO_512_OFF=1` |
