@@ -50,10 +50,11 @@ module emu
 
 	// SCSI disk: MiSTer block-device surface for sim_blkdevice.cpp
 	output [31:0] sd_lba0,
+	output  [5:0] sd_blk_cnt0,
 	output        sd_rd,
 	output        sd_wr,
 	input         sd_ack,
-	input   [7:0] sd_buff_addr,
+	input  [12:0] sd_buff_addr,
 	input  [15:0] sd_buff_dout,
 	output [15:0] sd_buff_din0,
 	input         sd_buff_wr,
@@ -151,6 +152,7 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS)) machine (
 	.img_mounted(img_mounted),
 	.img_size(img_size),
 	.io_lba(sd_lba0),
+	.io_blk_cnt(sd_blk_cnt0),
 	.io_rd(sd_rd),
 	.io_wr(sd_wr),
 	.io_ack(sd_ack),

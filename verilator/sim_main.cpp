@@ -477,6 +477,7 @@ int main(int argc, char** argv, char** env) {
 	top->eval();
 
 	blockdevice.sd_lba[0]      = &VERTOPINTERN->sd_lba0;
+	blockdevice.sd_blk_cnt     = &VERTOPINTERN->sd_blk_cnt0;
 	blockdevice.sd_rd          = &VERTOPINTERN->sd_rd;
 	blockdevice.sd_wr          = &VERTOPINTERN->sd_wr;
 	blockdevice.sd_ack         = &VERTOPINTERN->sd_ack;

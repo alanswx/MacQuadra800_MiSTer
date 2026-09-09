@@ -17,10 +17,11 @@ struct SimBlockDevice {
 public:
 
 	IData* sd_lba[kVDNUM];
+	CData* sd_blk_cnt;      // additional 512-byte blocks in this transfer
 	CData* sd_rd;           // 2-bit in MacLC
 	CData* sd_wr;           // 2-bit in MacLC
 	CData* sd_ack;          // 2-bit in MacLC
-	CData* sd_buff_addr;    // 8-bit for MacLC
+	SData* sd_buff_addr;    // 13-bit word address for up to 32 blocks
 	SData* sd_buff_dout;    // 16-bit for MacLC
 	SData* sd_buff_din[kVDNUM];  // 16-bit for MacLC
 	CData* sd_buff_wr;
@@ -29,6 +30,7 @@ public:
 	QData* img_size;
 
 	int bytecnt;
+	int transfer_bytes;
         long int disk_size[kVDNUM];
 	bool reading;
 	bool writing;

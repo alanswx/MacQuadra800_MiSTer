@@ -20,7 +20,7 @@ IData* sd_lba[kVDNUM]= {NULL,NULL,NULL,NULL,NULL,
 CData* sd_rd=NULL;           // 2-bit in MacLC
 CData* sd_wr=NULL;           // 2-bit in MacLC
 CData* sd_ack=NULL;          // 2-bit in MacLC
-CData* sd_buff_addr=NULL;    // 8-bit for MacLC
+SData* sd_buff_addr=NULL;    // 13-bit batched buffer word address
 SData* sd_buff_dout=NULL;    // 16-bit for MacLC
 SData* sd_buff_din[kVDNUM]= {NULL,NULL,NULL,NULL,NULL,
                    NULL,NULL,NULL,NULL,NULL};  // 16-bit for MacLC
@@ -95,7 +95,7 @@ void SimBlockDevice::BeforeEval(long long cycles)
     if (current_disk == i) {
     // send data - 16-bit word at a time for MacLC
     if (ack_delay==1) {
-      if (reading && (*sd_buff_wr==0) &&  (bytecnt<kBLKSZ)) {
+      if (reading && (*sd_buff_wr==0) && (bytecnt < transfer_bytes)) {
          // Read 2 bytes and combine into 16-bit word
          int byte1 = disk[i].get();
          int byte2 = disk[i].get();
@@ -104,7 +104,7 @@ void SimBlockDevice::BeforeEval(long long cycles)
          bytecnt += 2;
          *sd_buff_wr= 1;
          //printf("cycles %x reading %X : %X ack %x\n",cycles,*sd_buff_addr,*sd_buff_dout,*sd_ack );
-      } else if(writing && bytecnt < kBLKSZ) {
+      } else if(writing && bytecnt < transfer_bytes) {
         // Write one word per clock from the target's sector buffer. q_a is
         // synchronous, so the next address is driven after consuming this word.
         // Write 16-bit word as 2 bytes
@@ -117,7 +117,7 @@ void SimBlockDevice::BeforeEval(long long cycles)
           disk[i].put(word & 0xFF);
         }
         bytecnt += 2;
-        *sd_buff_addr = (bytecnt < kBLKSZ) ? bytecnt/2 : 0;
+        *sd_buff_addr = (bytecnt < transfer_bytes) ? bytecnt/2 : 0;
       } else if(writing) {
         disk[i].flush();
         *sd_buff_addr = 0;
@@ -126,7 +126,7 @@ void SimBlockDevice::BeforeEval(long long cycles)
           *sd_buff_wr=0;
 
           if (reading) {
-                if(bytecnt >= kBLKSZ) {
+                if(bytecnt >= transfer_bytes) {
                         reading = 0;
                 }
         }
@@ -161,9 +161,11 @@ fprintf(stderr,"mounting flag cleared  %d\n",i);
         int lba = *(sd_lba[i]);
         if (bitcheck(*sd_rd,i)) {
                 reading = true;
+                transfer_bytes = ((*sd_blk_cnt) + 1) * kBLKSZ;
         }
         if (bitcheck(*sd_wr,i)) {
                 writing = true;
+                transfer_bytes = ((*sd_blk_cnt) + 1) * kBLKSZ;
         }
 
         disk[i].clear();
@@ -203,8 +205,10 @@ SimBlockDevice::SimBlockDevice(DebugConsole c) {
 
         sd_rd = NULL;
         sd_wr = NULL;
-        sd_ack = NULL;
-        sd_buff_addr = NULL;
+		sd_ack = NULL;
+		sd_blk_cnt = NULL;
+		sd_buff_addr = NULL;
+		transfer_bytes = kBLKSZ;
         sd_buff_dout = NULL;
         for (int i=0;i<kVDNUM;i++) {
            sd_lba[i] = NULL;

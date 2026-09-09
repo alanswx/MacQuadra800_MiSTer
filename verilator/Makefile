@@ -181,5 +181,11 @@ tb_memory_path_registered_first_miss:
 	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME +define+SIMULATION=1 --top-module tb_memory_path -GFAST_BYPASS=1 -GDIRECT_FIRST_MISS=1 -GREGISTERED_FIRST_MISS=1 -GADAPTER_LINE_HIT=1 -GDIRECT_MEM_ACK=0 -GREGISTERED_LINE_HIT=1 --Mdir ./obj_dir_tb_mempath_registered_first_miss -o tb_memory_path_registered_first_miss tb_memory_path.sv tb_sdram.sv $(RTL)/wombat_bus32.sv $(RTL)/sdram_beat32.sv $(RTL)/sdram.sv altddio_out_stub.v
 	./obj_dir_tb_mempath_registered_first_miss/tb_memory_path_registered_first_miss
 
+# Directed NCR53C96 protocol and disk round-trip regression.
+tb_ncr53c96:
+	mkdir -p obj_dir_tb_ncr
+	iverilog -g2012 -DSIMULATION=1 -DVERILATOR=1 -s tb_ncr53c96 -o obj_dir_tb_ncr/tb_ncr53c96.vvp tb_ncr53c96.sv $(RTL)/ncr53c96.sv
+	vvp obj_dir_tb_ncr/tb_ncr53c96.vvp
+
 clean:
-	rm -rf obj_dir obj_dir_tb obj_dir_tb_bus32 obj_dir_tb_store_buffer obj_dir_tb_mempath obj_dir_tb_mempath_safe obj_dir_tb_mempath_ordered_line obj_dir_tb_mempath_stock_machine obj_dir_tb_mempath_registered_line obj_dir_tb_mempath_registered_bus_line obj_dir_tb_mempath_registered_first_miss
+	rm -rf obj_dir obj_dir_tb obj_dir_tb_bus32 obj_dir_tb_store_buffer obj_dir_tb_mempath obj_dir_tb_mempath_safe obj_dir_tb_mempath_ordered_line obj_dir_tb_mempath_stock_machine obj_dir_tb_mempath_registered_line obj_dir_tb_mempath_registered_bus_line obj_dir_tb_mempath_registered_first_miss obj_dir_tb_ncr

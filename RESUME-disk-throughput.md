@@ -272,3 +272,74 @@ One caution specific to this area: `rtl/ncr53c96.sv:339-359` documents the
 pair, is **invisible in sim**, and is fatal on hardware. Any change to the
 buffer's width, addressing, or length handling must be re-checked against that
 comment before it goes to the FPGA.
+
+## 11. Hardware result — 32-sector reads and writes (2026-09-08/09)
+
+The analysis above is now superseded by direct profiling on the DE10-Nano at
+`192.168.1.75`. Main_MiSTer was instrumented with aggregate SD counters and
+timers (`SDPROF=1`). Speedometer 3.23 was run with exactly one Disk iteration
+and CPU, Graphics, and Math set to zero. Counters were reset only after the
+scratch-volume chooser appeared, and there was no guest input or screenshot
+capture during either timed interval.
+
+### Baseline immediately before write batching
+
+This baseline already included the upstream NCR53C96 protocol fixes and
+32-sector **read** batching (seed 38):
+
+| Metric | Read-batched baseline |
+|---|---:|
+| Speedometer Disk | **0.650** |
+| Read requests / sectors | 268 / 7,463 |
+| Write requests / sectors | 8,961 / 8,961 |
+| File-write time | 35.069 s |
+| Total SD service time | 37.263 s |
+
+Every write request was exactly one sector. Writes, not reads, were the
+measured bottleneck: file writes alone consumed 94.1% of SD service time.
+
+Artifacts:
+
+- `scratch/perf/sdprof_upstream_seed38_result.png`
+- `scratch/perf/sdprof_upstream_seed38_tail.log`
+
+### Change and regression gate
+
+The NCR write path now accumulates up to 32 complete sectors in the existing
+16 KiB buffer and publishes one platform request with `io_blk_cnt=N-1`.
+Requests are clamped to `blocks_left`; the final batch therefore handles a
+short remainder without writing beyond the CDB range. The focused NCR testbench
+passes **6,556 checks with zero failures**, including byte-exact two- and
+four-sector writes across TC=256 chunk boundaries.
+
+The first two placements were rejected: seed 38 failed hold by 0.310 ns and
+seed 39 failed 99 MHz setup by 0.059 ns. Seed 40 is timing-clean:
+
+| Seed-40 fit | Result |
+|---|---:|
+| Worst setup slack | +0.417 ns |
+| Worst hold slack | +0.192 ns |
+| CPU setup slack | +1.157 ns |
+| ALMs | 37,218 / 41,910 (89%) |
+| Block RAM | 443 / 553 (80%) |
+
+RBF: `Wombat33_Disk_batch32rw_upstreamscsi_seed40_20260908.rbf`, MD5
+`72fb9b543c98f7b235d2454e6111ddd3`, SHA-256
+`e3e544cf75552f9d93e519b25ba2331e59dec31b4c8cffa6e519484e79e6b435`.
+
+### Optimized hardware result
+
+| Metric | Baseline | 32-sector writes | Change |
+|---|---:|---:|---:|
+| Speedometer Disk | 0.650 | **3.956** | **6.09x** |
+| Write requests / sectors | 8,961 / 8,961 | **280 / 8,960** | 32 sectors/request |
+| File-write time | 35.069 s | **1.605 s** | **21.85x faster** |
+| Total SD service time | 37.263 s | **3.662 s** | **10.18x faster** |
+
+All 280 measured writes landed in the profiler's 32-or-more-sector bucket;
+8,960 / 280 is exactly 32 sectors per request. Payload transfer time remained
+about the same (`from_fpga_us`: 1.317 s baseline, 1.302 s optimized), proving
+that fixed per-request file-I/O overhead—not the FPGA-manager wire—was the
+dominant write cost.
+
+Artifacts:

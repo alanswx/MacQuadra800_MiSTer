@@ -152,7 +152,17 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # Seed 33 closes the integrated tree at 37,131 ALMs and 4,118/4,191 LABs, with
 # +0.145 ns worst setup (+0.145 ns CPU, +0.911 ns SDRAM) and +0.244 ns worst
 # hold (+0.434 ns CPU, +0.256 ns SDRAM), all zero TNS. Keep seed 33.
-set_global_assignment -name SEED 33
+# The 32-sector SCSI read-batch buffer moved placement: seeds 33, 34, 35, and
+# 36 missed timing (worst slack -0.211, -0.370, -0.553, and -0.614 ns).
+# Seed 37 closed the read-batch-only tree at +0.263 ns setup, but adding the
+# upstream NCR53C96 protocol fixes moved it to -0.062 ns in the 99 MHz domain.
+# Seed 38 closes the integrated tree at +0.394 ns setup and +0.175 ns worst
+# hold, both with zero TNS; CPU setup remains +1.066 ns.
+# Adding 32-sector write batching moved placement again: seed 38 failed hold
+# by 0.310 ns and seed 39 failed 99 MHz setup by 0.059 ns. Seed 40 closes
+# at +0.417 ns setup and +0.192 ns worst hold, both zero TNS; CPU setup is
+# +1.157 ns. Keep seed 40 for the read+write-batched checkpoint.
+set_global_assignment -name SEED 40
 
 #set_global_assignment -name VERILOG_MACRO "MISTER_FB=1"
 

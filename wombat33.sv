@@ -118,6 +118,7 @@ wire [15:0] ioctl_dout;
 reg         ioctl_wait;
 
 wire [31:0] sd_lba[1];
+wire  [5:0] sd_blk_cnt;
 wire  [0:0] sd_rd, sd_wr;
 wire  [0:0] sd_ack;
 wire [12:0] sd_buff_addr;
@@ -161,7 +162,7 @@ hps_io #(.CONF_STR(CONF_STR), .WIDE(1), .VDNUM(1), .BLKSZ(2)) hps_io
 	.ioctl_wait(ioctl_wait),
 
 	.sd_lba(sd_lba),
-	.sd_blk_cnt('{6'd0}),
+	.sd_blk_cnt('{sd_blk_cnt}),
 	.sd_rd(sd_rd),
 	.sd_wr(sd_wr),
 	.sd_ack(sd_ack),
@@ -371,10 +372,11 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS)) machine (
 	.img_mounted(mach_img_mounted),
 	.img_size(mount_size),
 	.io_lba(sd_lba[0]),
+	.io_blk_cnt(sd_blk_cnt),
 	.io_rd(sd_rd[0]),
 	.io_wr(sd_wr[0]),
 	.io_ack(sd_ack[0]),
-	.sd_buff_addr(sd_buff_addr[7:0]),
+	.sd_buff_addr(sd_buff_addr),
 	.sd_buff_dout(sd_buff_dout),
 	.sd_buff_din(sd_buff_din[0]),
 	.sd_buff_wr(sd_buff_wr),
