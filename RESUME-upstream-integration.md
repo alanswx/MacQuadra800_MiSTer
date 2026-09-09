@@ -49,5 +49,38 @@ uncommitted D-cache repeat/sequential prototype on top: that candidate cost
 seven LABs in the smaller pre-integration design. Reclaim area or re-evaluate
 the release feature switches before resuming CPU expansion.
 
-Hardware boot and guest regression have not yet been run for this exact merge
-RBF. Do not call it a release until Mac OS and A/UX boot/shutdown gates pass.
+Hardware validation on the exact merge RBF:
+
+- deployed as
+  `/media/fat/_Unstable/MacQuadra800_upstream_cba1490_ap299cb36_seed21_20260909.rbf`;
+- the renamed core needs the Quadra ROM at
+  `/media/fat/games/MacQuadra800/boot.rom`; after seeding that path, Mac OS
+  7.5.5 booted normally from an independent restore of the Speedometer 4.02
+  golden disk;
+- Speedometer 4.02 CPU Benchmark Mix completed with no capture or input during
+  the timed interval;
+- the result frame is
+  `scratch/integration/upstream_speedo402_results.png` in the original
+  worktree, SHA-256
+  `f760517837d39cd21047c4dee045e5c07fb2c0e78474c28301674f52346821f9`;
+- MiSTer was returned to Menu and the disposable disk was restored to golden
+  MD5 `16790b0577e13b45782214433d34954b` after the run.
+
+| CPU Benchmark Mix test | seed-40 control | merged upstream seed-21 | change |
+|---|---:|---:|---:|
+| KWhetstones/sec | 341.397 | 342.993 | +0.47% |
+| Dhrystones/sec | 4584.745 | 4432.219 | -3.33% |
+| Towers (s) | 2.189 | 2.176 | +0.60% |
+| Quick Sort (s) | 1.703 | 1.751 | -2.74% |
+| Bubble Sort (s) | 2.321 | 2.326 | -0.21% |
+| Queens (s) | 1.364 | 1.364 | 0.00% |
+| Puzzle (s) | 3.776 | 3.781 | -0.13% |
+| Permutations (s) | 3.308 | 3.309 | -0.03% |
+| Integer Matrix (s) | 2.561 | 2.562 | -0.04% |
+| Sieve (s) | 4.176 | 3.978 | +4.98% |
+| **average ratio** | **0.393** | **0.394** | **+0.25%** |
+
+The aggregate result is effectively flat. The opposing Dhrystone, Quick Sort,
+and Sieve movements should be treated as run variation unless a second cold
+run reproduces them. Mac OS hardware boot and the CPU benchmark gate pass;
+A/UX and clean guest shutdown remain untested on this exact RBF.
