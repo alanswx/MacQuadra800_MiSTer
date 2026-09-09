@@ -1845,3 +1845,78 @@ Preserved artifacts:
 - RBF MD5: `6147a2cc478f084c1ea77c2bb418811a`
 - RBF SHA-256:
   `cc1088e7639bf0662a4a6d59558fe77c333ff8e5037c6251c55117f59df25a68`
+
+
+## 34. Early normal-RAM operand reads (Speedometer 4.02)
+
+The original 68040 implementation papers describe a six-stage pipeline in
+which the EAF address buffer automatically initiates a load, and report that
+roughly 40% of instructions perform a data read. The AP68040 core instead
+spent its first `S_MRD` cycle copying an already registered request onto the
+shared memory port. Issuing an aligned request while entering `S_MRD` removes
+that setup cycle without changing translation, cache lookup, acknowledgement,
+fault, or retirement behavior.
+
+The first prototype applied this to every aligned `mrd` helper. Although the
+complete AP suite passed and 406 CPU-corpus rows produced 6,740 matching field
+groups with zero real differences, hardware exposed missing sequencing outside
+the normal operand path: Speedometer returned near-zero elapsed times and a
+negative Puzzle time. That RBF is rejected. The accepted candidate is limited
+to `S_PIPE_SRD`/`S_PIPE_DEA` accesses in the 32 MB RAM window; MMIO,
+exception/return, MOVES, indirect-EA, and system/FPU helper reads retain their
+old setup cycle.
+
+The narrowed candidate passes the integer, exception, MMU, cache, FPU, reset,
+double-fault, and cache-snoop suites. The focused phase-1 loop falls from
+160,650 to 147,852 cycles (-7.96%). Seed 21 fits with zero timing TNS:
+
+| metric | merged upstream baseline | early RAM operand read | change |
+|---|---:|---:|---:|
+| fitted ALMs | 41,057 | **40,873** | -184 |
+| LABs used | 4,190 | **4,181** | -9 |
+| fitted registers | 25,316 | 25,279 | -37 |
+| RAM blocks | 477 | 477 | 0 |
+| DSP blocks | 49 | 54 | +5 |
+| worst setup | +0.156 ns | **+0.088 ns** | pass |
+| CPU setup | +0.325 ns | **+0.899 ns** | pass |
+| SDRAM setup | +0.771 ns | **+0.918 ns** | pass |
+| worst hold | +0.205 ns | **+0.245 ns** | pass |
+
+Two independently cold-restored Speedometer 4.02 runs both report a 0.399
+average. The second run is compared with the exact merged-upstream seed-21
+baseline below; each timed interval had no remote input or screen capture.
+
+| CPU Benchmark Mix test | upstream seed 21 | early RAM read | change |
+|---|---:|---:|---:|
+| KWhetstones/sec | 342.993 | 344.598 | +0.47% |
+| Dhrystones/sec | 4432.219 | 4509.069 | +1.73% |
+| Towers (s) | 2.176 | 2.146 | +1.40% |
+| Quick Sort (s) | 1.751 | 1.725 | +1.51% |
+| Bubble Sort (s) | 2.326 | 2.263 | +2.78% |
+| Queens (s) | 1.364 | 1.347 | +1.26% |
+| Puzzle (s) | 3.781 | 3.676 | +2.86% |
+| Permutations (s) | 3.309 | 3.287 | +0.67% |
+| Integer Matrix (s) | 2.562 | 2.519 | +1.71% |
+| Sieve (s) | 3.978 | 3.948 | +0.76% |
+| **average ratio** | **0.394** | **0.399** | **+1.27%** |
+
+The gain is below the old 2% threshold for an area-consuming CPU change, but
+this combined checkpoint also replaces duplicate CD-audio divide/modulus logic
+with an exact 8-bit reciprocal conversion and is smaller than the baseline.
+It therefore improves both performance and the limiting LAB headroom.
+
+![Speedometer 4.02 early RAM operand result](perf/macquadra800_cpu_earlyread_ram_seed21_speedo402.png)
+
+Preserved artifacts:
+
+- AP68040 branch/commit: `cpu-early-data-read-20260909` / `cbac732`;
+- parent branch/commit: `cpu-early-data-read-20260909` / `6b3b520` before docs;
+- MiSTer RBF:
+  `/media/fat/_Unstable/MacQuadra800_CPU_earlyread_ram_seed21_20260909.rbf`;
+- RBF SHA-256:
+  `cf87f84e70e6621e1ef6ebd3f341c06f2d87dc66dea5b7a3f70ba730aeab9427`.
+
+After both runs the MiSTer was returned to `MENU`; the disposable disk was
+restored to golden MD5 `16790b0577e13b45782214433d34954b`. The installed
+Main and its preserved pre-test copy both match MD5
+`dfb5937ba47720c3ae20abc8f381c462`.

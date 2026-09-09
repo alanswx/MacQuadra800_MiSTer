@@ -84,3 +84,19 @@ The aggregate result is effectively flat. The opposing Dhrystone, Quick Sort,
 and Sieve movements should be treated as run variation unless a second cold
 run reproduces them. Mac OS hardware boot and the CPU benchmark gate pass;
 A/UX and clean guest shutdown remain untested on this exact RBF.
+
+
+## CPU continuation
+
+Work now continues from the clean fork checkout
+`/home/alans/mister/MacQuadra800_MiSTer` on branch
+`cpu-early-data-read-20260909`. `origin` is
+`alanswx/MacQuadra800_MiSTer`; `upstream` is the renamed Dani repository above.
+
+AP68040 `cbac732` issues aligned normal operand-pipeline reads in the 32 MB RAM
+window while entering `S_MRD`. The deliberately broader first prototype is
+hardware-rejected because it broke Speedometer elapsed-time results. The
+narrowed seed-21 build is timing-clean, fits at 40,873 ALMs and 4,181 LABs, and
+reproduces a 0.399 Speedometer 4.02 CPU average twice versus 0.394 for this
+integration. Exact results, validation, hashes, and the original 68040 paper
+EAF motivation are in `docs/PERFORMANCE_MEASUREMENTS.md` section 34.

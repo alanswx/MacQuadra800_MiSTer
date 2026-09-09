@@ -639,12 +639,13 @@ optimization is not confused with already-adequate SDRAM bandwidth.
 - [ ] Evaluate a safe early cache-fill acknowledgement only if subsequent words
   can complete coherently while the CPU continues and redirects/faults remain
   correct.
-- [ ] **Active:** instrument D-cache hits, misses, fills, stores, and
-  acknowledgement latency during the Speedometer CPU interval. If `S_MRD` is
-  waiting on internal lookup, prototype a one-entry registered data request or
-  early hit response that preserves MMU translation, snoops, byte lanes,
-  faults, and the registered external completion path. Target at least a 2%
-  CPU-average gain within the 73 free LABs; otherwise reclaim area first.
+- [x] Profile D-cache activity and test both a registered hit shortcut and
+  earlier data-request issue. The repeat/sequential hit predictor gained only
+  0.51% and was rejected. Issuing normal aligned RAM operands while entering
+  `S_MRD` is accepted: two cold Speedometer 4.02 runs both score 0.399 versus
+  0.394 upstream (+1.27%), while the combined BCD reclaim leaves the fit 184
+  ALMs and 9 LABs smaller than upstream. Broad early issue is rejected because
+  hardware timer results became invalid; see measurement section 34.
 - [ ] Measure whether write-through cache stores can retire into a small ordered
   store buffer while the external write completes. Do this only after the hit
   breakdown above, and require load-after-store forwarding, I/D snoop ordering,
