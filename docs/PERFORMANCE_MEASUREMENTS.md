@@ -599,3 +599,64 @@ It booted Mac OS 7.5.5 and completed one iteration of every PR category. Mac OS
 then reached its safe-to-switch-off screen, the MiSTer returned to its menu, and
 the disposable disk was restored from the pristine golden. Both images matched
 MD5 `0c4f774b4a2eccd5656e92f16119875f` after restoration.
+
+## 13. Alan's AP68040 `299cb36` on the 20260908_3 release recipe (2026-09-08/09)
+
+Candidate `scratch/MacQuadra800_alan299_512cd4f8.rbf` (md5 `512cd4f8…`),
+branch `alan-perf-20260908` at `f5ba53e`: the shipped `20260908_3` source
+with only the `rtl/ap68040` submodule moved from `5aa596f` to `299cb36`
+(queued-opcode retire into decode, resident immediates consumed in decode,
+DBcc dispatch from the branch refill sector, one-longword sequential I-cache
+lookahead, FPU register bank in MLABs, Adam Polkosnik's cache-invalidation
+race and FPU exception-frame fixes). Seed 21, 98 % ALMs, +0.579 ns. Same
+disk (Quad Squad, slot 1 second disk and the retail ISO in slot 4 mounted as
+on 09-08), Speedometer 4.02, one iteration, operator subagent; screenshots
+and the full transcription in `scratch/gate_alan/`.
+
+### Benchmark Mix (Quadra 605 = 1.0), three clean runs
+
+| Test | Run 1 | Run 2 | Run 3 | `5aa596f` (§9) | change |
+|---|---|---|---|---|---|
+| KWhetstones/sec | 346.185 | 347.467 | 347.528 | 326.2 | +6.5 % |
+| Dhrystones/sec | 4577.006 | 4576.791 | 4576.771 | 4173 | +9.7 % |
+| Towers (sec) | 2.185 | 2.187 | 2.187 | 2.387 | −8.4 % |
+| Quick Sort (sec) | 1.703 | 1.701 | 1.701 | 1.959 | −13.2 % |
+| Bubble Sort (sec) | 2.323 | 2.323 | 2.323 | 2.648 | −12.3 % |
+| Queens (sec) | 1.366 | 1.366 | 1.366 | 1.534 | −11.0 % |
+| Puzzle (sec) | 3.790 | 3.790 | 3.768 | 4.127 | −8.4 % |
+| Permutations (sec) | 3.321 | 3.322 | 3.321 | 3.574 | −7.1 % |
+| Int. Matrix (sec) | 2.594 | 2.590 | 2.551 | 2.812 | −8.2 % |
+| Sieve (sec) | 4.187 | 4.176 | 4.169 | 4.592 | −9.1 % |
+| **Average ratio** | **0.394** | **0.395** | **0.396** | 0.361 | **+9.4 %** |
+
+Color QuickDraw (⌘G; only the 8-bit depth was enabled in the dialog this
+time): 8-bit 30.370 s, ratio **0.348** (32.540 s / 0.317 in §9, −6.7 %).
+FPU (⌘F, Quadra 650 = 1.0): KWhetstones 1515.261, Matrix Mult. 2.408 s,
+Fast Fourier 1.130 s, **average 0.279** (0.250, +11.6 %).
+
+Run-to-run spread is under 1 % on every line (Int. Matrix 1.7 %). **No
+first-run anomaly**: run 1's Sieve was 4.187 s, in line with runs 2 and 3.
+
+### Boot time went the other way
+
+Finder desktop at **162–202 s** after `load_core` (30 s polling; the splash
+was at 20 % with four extension icons at T+100 s, black at T+51 s) against
+"about 2 min 15 s" for `20260908_3` on the same disk with the same slot 1
+and slot 4 mounts. Everything measured inside the guest is faster, so the
+extra 30–60 s is before or around the ROM's disk scan. The Verilator
+full-machine boot of a fresh 8.1 install with this CPU never leaves the
+ROM's flashing-question-mark stage (26,000 sector reads and counting),
+while the same harness at `5aa596f` is being run as the control; see
+`RESUME-alan-perf.md`.
+
+### A/UX 3.1 on the same bitstream
+
+Multiuser Finder desktop in 225 s (fsck seen), CommandShell live (`uname -a`
+answers), but `shutdown -h now` printed the broadcast, the usual
+`callrpc RPC: Port mapper failure` and four `kill: No such process` lines,
+half-erased the Finder and then stopped repainting for 25 minutes. Typed
+`sync` and `halt` still moved `write_bytes` (~1 MB, then ~0.5 MB), so the
+kernel was alive; Shift taps changed nothing, Returns erased a few more
+icon labels. The `20260908_3` gate used Special → Shut Down for A/UX, the
+09-02 gate used `shutdown -h now` on the `be0a662` CPU and reached "You
+may now switch off". Not yet separated between the CPU and the path.

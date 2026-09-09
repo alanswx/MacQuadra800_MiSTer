@@ -70,8 +70,52 @@ clear would need the `fill_snooped`-style sticky flag, not a one-liner).
   beside it. The oracle gate sim (`gate.hda`, `sim_gate.log`) started 23:33;
   score it with the recipe in `RESUME-cpu-merge.md` when `[HB] pc` parks at
   `000400FA` (results at sector 1398, 2048 sectors).
-- Hardware gate: __GATE__
+- Hardware gate: **Mac OS 8.1 PASS, A/UX FAIL at shutdown** (operator run 23:28–00:45,
+  `scratch/gate_alan/`, 71 screenshots, `speedometer.md`): Finder desktop
+  at 162–202 s (previous build ~135 s, same mounts), clock ticks, mouse and
+  menus live, Speedometer Benchmark Mix **0.394/0.395/0.396 vs 0.361**
+  (Queens 1.366 s, Bubble 2.323 s, Permutations 3.321 s, Dhrystones 4577),
+  CQD 0.348 vs 0.317, FPU 0.279 vs 0.250, no first-run anomaly, Special →
+  Shut Down clean. A/UX: multiuser desktop 225 s, CommandShell answers
+  `uname -a`, but `shutdown -h now` stalled after its kill lines with a
+  half-erased Finder; `sync`/`halt` still flushed to disk, no repaint for
+  25 min, never "You may now switch off". Full table in
+  `docs/PERFORMANCE_MEASUREMENTS.md` §13.
+- **Experimental build B** (`../MacQuadra800_wt2`, submodule `6d50064` =
+  299cb36 + `wombat-predecode-regalu`): fits at 99 % but fails timing,
+  clk_ram −1.045 ns and HDMI −0.064 ns (`scratch/build_B_regalu_s21.log`
+  there). Not pursued; the tree is left checked out at it.
 
 ## Box / repo state
 
-__STATE__
+- **MiSTer:** `MacQuadra800` (the candidate, `/media/fat/_Unstable/MacQuadra800.rbf`,
+  md5 512cd4f8) with the **A/UX guest wedged mid-shutdown** on
+  `HD60_512-AUX3.1-Installed.hda` (`scratch/gate_alan/46_final_state.png`).
+  The operator typed `sync` and `halt` (both flushed) and did not reload;
+  slot 0 is already restored to `games/MacQuadra800/QuadSquad8.hda`. A
+  `load_core` over it is the user's call (binding rule 1); expect a long
+  fsck on the next A/UX boot. The SGI Indy session that had the box before
+  was idle for hours and is not running.
+- **Repo:** branch `alan-perf-20260908` (from `main` `cba1490`): `bffbd3b`
+  submodule bump, `f5ba53e` qsf note, `bfb3b37` README/RESUME, then this
+  update. `main` untouched. Nothing pushed. Scratch worktree of the
+  submodule with the merged experiment: scratchpad `ap_merge_test`
+  (`git worktree prune` in `rtl/ap68040` removes the stale entry).
+- **WSL sims** (`~/MacQuadra800*`): the 299cb36 boot and gate runs were
+  killed (both stuck at the ROM's disk-scan loop, pc 408099B0); the control
+  at `5aa596f` (`~/MacQuadra800_ctl`, `sim_ctl.log`, screenshots at 1200 and
+  2400 frames) and four bisect trees `~/MacQuadra800_b_<commit>` (8ab1057,
+  c897d77, c9ecf79, 8951fd2) with `run.hda` = the fresh 8.1 install image
+  are set up; a boot that passes shows "Starting Up" by frame 2400.
+
+## Next
+
+1. Decide the box: reload the candidate (or the release) over the wedged
+   A/UX; then re-run the A/UX half with Special → Shut Down AND with
+   `shutdown -h now` on both this candidate and `20260908_3` to separate
+   the CPU from the path.
+2. Finish the sim bisect (control first). If a commit is guilty, report
+   it to Alan with the sim recipe; hardware boot time (162–202 s vs 135 s)
+   is the second symptom to give him.
+3. No release from this branch until A/UX shuts down cleanly and the boot
+   time is explained.
