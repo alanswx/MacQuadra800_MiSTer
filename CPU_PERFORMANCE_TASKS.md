@@ -646,6 +646,10 @@ optimization is not confused with already-adequate SDRAM bandwidth.
   0.394 upstream (+1.27%), while the combined BCD reclaim leaves the fit 184
   ALMs and 9 LABs smaller than upstream. Broad early issue is rejected because
   hardware timer results became invalid; see measurement section 34.
+- [x] Test issuing simple `(An)`, `(An)+`, and `-(An)` source operands directly
+  from address generation. The focused cached phase improved 8.52%, but the
+  hardware average remained 0.399 while the fit cost 264 ALMs and 8 LABs,
+  leaving only two LABs free. Rejected; see measurement section 35.
 - [ ] Measure whether write-through cache stores can retire into a small ordered
   store buffer while the external write completes. Do this only after the hit
   breakdown above, and require load-after-store forwarding, I/D snoop ordering,

@@ -1920,3 +1920,80 @@ After both runs the MiSTer was returned to `MENU`; the disposable disk was
 restored to golden MD5 `16790b0577e13b45782214433d34954b`. The installed
 Main and its preserved pre-test copy both match MD5
 `dfb5937ba47720c3ae20abc8f381c462`.
+
+## 35. Source-EA issue from `S_PIPE_START` (rejected)
+
+After the accepted early normal-RAM read in section 34, the next experiment
+moved request issue one stage earlier for the three simple source addressing
+modes `(An)`, `(An)+`, and `-(An)`. Extension-bearing modes, MMIO,
+misalignment, exception/return, MOVES, indirect-EA, and system/FPU helpers kept
+the accepted cadence. Postincrement/predecrement restart records and destination
+register-port selection were retained.
+
+The implementation is preserved on AP68040 branch
+`cpu-simple-source-issue-20260909`, commit `d777c5d`, but is **rejected**. The
+complete integer, exception, MMU, cache, FPU, reset, double-fault, cache-snoop,
+walker-CDC, 16-bit-gap, and timeout suites pass, and the full-machine Verilator
+model compiles and links. In the focused cached phase, `S_PIPE_SRD` occupancy
+falls from 12,806 to 199 cycles and total time falls from 147,852 to 135,252
+cycles (-8.52%). An immutable 100-row CPU corpus also has zero real result
+differences and falls from 32,841,589 to 32,805,897 cycles (-0.109%).
+
+Seed 21 fit logically, but an unrelated HDMI path missed setup by 0.309 ns.
+Seed 30 is timing-clean and was the exact hardware image:
+
+| metric | accepted early-read seed 21 | simple-source seed 30 | change |
+|---|---:|---:|---:|
+| fitted ALMs | 40,873 | 41,137 | +264 |
+| LABs used | 4,181 | 4,189 | +8 (2 free) |
+| fitted registers | 25,279 | 25,300 | +21 |
+| RAM blocks | 477 | 477 | 0 |
+| DSP blocks | 54 | 54 | 0 |
+| worst setup | +0.088 ns | +0.376 ns | pass |
+| CPU setup | +0.899 ns | +0.809 ns | pass |
+| SDRAM setup | +0.918 ns | +0.566 ns | pass |
+| worst hold | +0.245 ns | +0.219 ns | pass |
+
+Mac OS 7.5.5 booted normally in full color. Speedometer 4.02 was run once from
+a freshly restored golden disk, with no capture or remote input during the
+timed interval:
+
+| CPU Benchmark Mix test | accepted early read | simple-source issue | change |
+|---|---:|---:|---:|
+| KWhetstones/sec | 344.598 | 345.069 | +0.14% |
+| Dhrystones/sec | 4509.069 | 4555.694 | +1.03% |
+| Towers (s) | 2.146 | 2.139 | +0.33% |
+| Quick Sort (s) | 1.725 | 1.726 | -0.06% |
+| Bubble Sort (s) | 2.263 | 2.264 | -0.04% |
+| Queens (s) | 1.347 | 1.341 | +0.45% |
+| Puzzle (s) | 3.676 | 3.676 | 0.00% |
+| Permutations (s) | 3.287 | 3.287 | 0.00% |
+| Integer Matrix (s) | 2.519 | 2.517 | +0.08% |
+| Sieve (s) | 3.948 | 3.949 | -0.03% |
+| **average ratio** | **0.399** | **0.399** | **0.00%** |
+
+The synthetic hot-loop gain therefore does not survive the full application,
+and the candidate consumes nearly all of the reclaimed LAB headroom. It fails
+the hardware/area gate and is not the parent submodule revision.
+
+Two DAFB timing-register packing experiments made before this CPU candidate are
+also rejected. Mapping the array to MLABs passed its directed test and timing
+but used 4,187 LABs despite saving 161 ALMs and 171 registers. A synchronous
+M10K version passed its directed test and timing and saved 304 ALMs and 173
+registers, but still used 4,187 LABs and one additional RAM block. Neither
+improves the limiting free-LAB count over the accepted 4,181-LAB fit.
+
+![Rejected simple-source Speedometer 4.02 result](perf/macquadra800_cpu_simple_source_seed30_speedo402.png)
+
+Preserved artifacts:
+
+- AP68040 branch/commit: `cpu-simple-source-issue-20260909` / `d777c5d`;
+- MiSTer RBF:
+  `/media/fat/_Unstable/MacQuadra800_CPU_simple_source_seed30_20260909.rbf`;
+- RBF SHA-256:
+  `0d7e5794828448ce11508cb39aaa6c6fc2d127a9bcb7340c17e417784d747414`;
+- result screenshot SHA-256:
+  `1b2c726c4e34f5f728aa80384e4c6f54fc8e40ea3d387b288c1ef94da6484dcd`.
+
+After the run MiSTer returned to `MENU`, and the disposable disk was restored
+to golden MD5 `16790b0577e13b45782214433d34954b`.

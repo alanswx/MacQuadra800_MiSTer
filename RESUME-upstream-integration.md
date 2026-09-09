@@ -100,3 +100,16 @@ narrowed seed-21 build is timing-clean, fits at 40,873 ALMs and 4,181 LABs, and
 reproduces a 0.399 Speedometer 4.02 CPU average twice versus 0.394 for this
 integration. Exact results, validation, hashes, and the original 68040 paper
 EAF motivation are in `docs/PERFORMANCE_MEASUREMENTS.md` section 34.
+
+### 2026-09-09 next CPU experiment
+
+AP68040 `d777c5d` issued simple `(An)`, `(An)+`, and `-(An)` operands directly
+from `S_PIPE_START`. It passed the complete regression set and reduced the
+focused cached phase by 8.52%, but its timing-clean seed-30 fit cost 264 ALMs
+and 8 LABs over the accepted checkpoint, leaving only two LABs free. On the
+exact hardware RBF, Mac OS 7.5.5 booted normally and Speedometer 4.02 still
+reported a 0.399 CPU Benchmark Mix average. The candidate is rejected and the
+parent remains on AP68040 `cbac732`, seed 21. Section 35 of
+`docs/PERFORMANCE_MEASUREMENTS.md` has the full measurements and artifact
+hashes. MiSTer is at Menu and the disposable disk is restored to golden MD5
+`16790b0577e13b45782214433d34954b`.
