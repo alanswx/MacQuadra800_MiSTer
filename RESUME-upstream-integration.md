@@ -126,3 +126,24 @@ candidate is rejected and preserved only on `cpu-early-store-20260909`. The
 parent remains on AP68040 `cbac732`, seed 21. Full details are in measurement
 section 36. MiSTer is at Menu and the disk is restored to golden MD5
 `16790b0577e13b45782214433d34954b`.
+
+### 2026-09-09 accepted early-write + NCR area reclaim
+
+The exact 8-bit `bin2bcd8` conversions in `rtl/ncr53c96.sv` now use the same
+multiply-by-205 reciprocal method as `cd_audio.sv`, eliminating seven `/10`
+and seven `%10` divider networks. Combined with AP68040 early-write commit
+`164a376`, seed 21 fits timing-clean at 40,523 ALMs, 4,187 LABs, 25,352
+registers, 477 RAM blocks, and 64 DSP blocks. Worst setup/hold are +0.398 and
++0.202 ns; CPU and SDRAM setup are +0.739 and +0.904 ns. Compared with the
+accepted early-read checkpoint this saves 350 ALMs but uses six more LABs,
+leaving four free.
+
+The NCR regression passes 476,837 checks and the complete machine model
+compiles and links. Two valid unperturbed Speedometer 4.02 runs both score
+0.405 versus 0.399 (+1.50%), reproducing the earlier write-path gain. One first
+invocation produced impossible negative late-test values and is explicitly
+discarded as an invalid Speedometer run; a cold restored run and its immediate
+repeat were stable and identical at 0.405. Full details are in measurement
+section 37. MiSTer is at Menu, the disk is restored to golden MD5
+`16790b0577e13b45782214433d34954b`, and Main plus its preserved copy both match
+MD5 `dfb5937ba47720c3ae20abc8f381c462`.

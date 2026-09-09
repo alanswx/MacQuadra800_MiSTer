@@ -2074,3 +2074,76 @@ Preserved artifacts:
 
 After the repeat, MiSTer returned to `MENU` and the disposable disk was restored
 to golden MD5 `16790b0577e13b45782214433d34954b`.
+
+## 37. Early writes with NCR BCD area reclaim (accepted)
+
+Section 36 rejected early aligned RAM write issue only because its +1.63%
+two-run hardware gain cost 171 ALMs and seven of the ten free LABs. Inspection
+of the full synthesis hierarchy then found seven `/10` and seven `%10`
+networks in `ncr53c96.bin2bcd8`. Replacing them with the exact 8-bit
+multiply-by-205 reciprocal already used by `cd_audio` is exhaustive for all
+256 inputs: `t=(v*205)>>11`, `u=v-10*t`. The NCR testbench passes all 476,837
+checks, and the complete machine Verilator model compiles and links.
+
+The reciprocal conversion removes about 692 combinational ALUTs from the NCR
+hierarchy (5,362 to 4,670) in exchange for ten DSP blocks. Combined with
+AP68040 early-write commit `164a376`, the exact seed-21 hardware fit has zero
+setup and hold TNS:
+
+| metric | accepted early-read seed 21 | early-write + NCR BCD | change |
+|---|---:|---:|---:|
+| fitted ALMs | 40,873 | **40,523** | -350 |
+| LABs used | 4,181 | **4,187** | +6 (4 free) |
+| fitted registers | 25,279 | 25,352 | +73 |
+| RAM blocks | 477 | 477 | 0 |
+| DSP blocks | 54 | 64 | +10 |
+| worst setup | +0.088 ns | **+0.398 ns** | pass |
+| CPU setup | +0.899 ns | **+0.739 ns** | pass |
+| SDRAM setup | +0.918 ns | **+0.904 ns** | pass |
+| worst hold | +0.245 ns | **+0.202 ns** | pass |
+
+A cold-restored run and its immediate repeat both report a 0.405 CPU average.
+The repeat is shown below against the accepted early-read reference; neither
+timed interval had remote input or screen capture.
+
+| CPU Benchmark Mix test | accepted early read | combined candidate | change |
+|---|---:|---:|---:|
+| KWhetstones/sec | 344.598 | 349.027 | +1.29% |
+| Dhrystones/sec | 4509.069 | 4664.089 | +3.44% |
+| Towers (s) | 2.146 | 2.085 | +2.93% |
+| Quick Sort (s) | 1.725 | 1.703 | +1.29% |
+| Bubble Sort (s) | 2.263 | 2.242 | +0.94% |
+| Queens (s) | 1.347 | 1.305 | +3.22% |
+| Puzzle (s) | 3.676 | 3.666 | +0.27% |
+| Permutations (s) | 3.287 | 3.248 | +1.20% |
+| Integer Matrix (s) | 2.519 | 2.502 | +0.68% |
+| Sieve (s) | 3.948 | 3.872 | +1.96% |
+| **average ratio** | **0.399** | **0.405** | **+1.50%** |
+
+One earlier invocation is excluded: it displayed impossible negative values
+for the late tests and an average of -13.104. After returning to Menu and
+restoring the golden disk, the cold run and immediate repeat were valid and
+identical at 0.405. This is accepted because it preserves the reproducible CPU
+gain while reducing fitted ALMs below the prior accepted checkpoint. The LAB
+trade remains explicit: four LABs are free rather than ten.
+
+![Speedometer 4.02 early-write plus NCR BCD result](perf/macquadra800_cpu_earlywrite_ncrbcd_seed21_speedo402.png)
+
+Preserved artifacts:
+
+- NCR parent commit: `edc5330`;
+- AP68040 branch/commit: `cpu-early-store-20260909` / `164a376`;
+- combined parent branch/commit before documentation:
+  `cpu-early-store-area-20260909` / `dd13663`;
+- MiSTer RBF:
+  `/media/fat/_Unstable/MacQuadra800_CPU_earlywrite_ncrbcd_seed21_20260909.rbf`;
+- RBF MD5: `5b5052589283480efe637aad12bb1f67`;
+- RBF SHA-256:
+  `4be8597a1b6ac6a5d31a603f610d56f83e65886aacb79f56b8cf2d7ff296d499`;
+- accepted result screenshot SHA-256:
+  `47a382be2e5a7f3d051d2e905dbea5c59b520e0140283c9f63c00f53e2b3d31f`.
+
+After validation the MiSTer returned to `MENU`; the disposable disk was
+restored to golden MD5 `16790b0577e13b45782214433d34954b`. Installed Main and
+its preserved pre-test copy both match MD5
+`dfb5937ba47720c3ae20abc8f381c462`.

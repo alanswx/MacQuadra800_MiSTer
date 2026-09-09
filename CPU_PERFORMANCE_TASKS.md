@@ -652,9 +652,11 @@ optimization is not confused with already-adequate SDRAM bandwidth.
   leaving only two LABs free. Rejected; see measurement section 35.
 - [x] The two-entry ordered RAM store buffer is already accepted in measurement
   section 11. A follow-up that issues aligned `S_EXEC` writes one AP state
-  earlier passes every gate and improves the first-100 corpus 2.85%, but its two
-  hardware runs average only +1.63% while costing 171 ALMs and 7 LABs. Rejected
-  until equivalent area is reclaimed; see measurement section 36.
+  earlier passes every gate and improves the first-100 corpus 2.85%. It is now
+  accepted together with the exact NCR BCD reciprocal conversion: two valid
+  hardware runs score 0.405 (+1.50% over 0.399), and the combined seed-21 fit
+  is 350 ALMs smaller than the prior checkpoint, although it uses six more LABs
+  and leaves four free. See measurement sections 36-37.
 - [ ] Consider copyback only with a real dirty-line snoop/writeback design.
   External DMA and the MMU walker's U/M-bit writes must not invalidate and lose
   dirty CPU data.
