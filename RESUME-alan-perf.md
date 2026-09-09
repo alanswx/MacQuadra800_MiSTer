@@ -106,7 +106,15 @@ clear would need the `fill_snooped`-style sticky flag, not a one-liner).
   at `5aa596f` (`~/MacQuadra800_ctl`, `sim_ctl.log`, screenshots at 1200 and
   2400 frames) and four bisect trees `~/MacQuadra800_b_<commit>` (8ab1057,
   c897d77, c9ecf79, 8951fd2) with `run.hda` = the fresh 8.1 install image
-  are set up; a boot that passes shows "Starting Up" by frame 2400.
+  were set up -- **void**: the control at `5aa596f` shows the same
+  flashing "?" at frames 1200 and 2400 on `install8_result.hda`, so that
+  image does not boot in this harness with either CPU (the sim's SCSI
+  target or the image, not the CPU). The live sim check is the proven gate
+  image: `~/MacQuadra800_ctl/verilator/sim_gate_ctl.log` (5aa596f on
+  `gate_ctl.hda`) against `~/MacQuadra800/verilator/sim_gate.log` (299cb36,
+  killed at cycle 3.36G with 18,664 reads, no `io_wr`, pc still in ROM) and
+  the four bisect trees now running `gate.hda` (`sim_gate_b.log`); a pass
+  shows `io_wr` lines and `[HB] pc` leaving `40xxxxxx` for RAM.
 
 ## Next
 
