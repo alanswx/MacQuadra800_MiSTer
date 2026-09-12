@@ -714,6 +714,60 @@ reads at the sim's fixed 16,000-tick latency are inside the number):
 | + fill hold and branch hint (no store path) | 491,296,965 | -5.8 % |
 | + one-state store (9216f3e) | 453,064,767 | **-13.1 %** |
 
+### Hardware gate of the store head (2026-09-12, the .92 MiSTer)
+
+`MacQuadra800_store_ba54b0ee.rbf` (`c9219a8`, seed 22) on 192.168.99.92:
+Quad Squad 8.1 disk (slot 0 only, no second disk, no CD; the core's RAM
+option at its 32 MB default -- Speedometer reports 32768K), operator
+subagent, log and 135 screenshots in `scratch/gate_store/`. As a control
+the shipped `20260908_3` was run on the same box, disk and settings; it
+reproduces its historical numbers (Mix 0.360 vs 0.361, Queens 1.534,
+Bubble Sort 2.652 vs 2.648, FPU 0.251 vs 0.250), so the 32 MB setting does
+not distort the comparison.
+
+| item | store head | shipped 20260908_3 (same box) |
+|---|---|---|
+| Mac OS 8.1: Finder menu bar after `load_core` | **103 s** (icons 142 s) | 135 s |
+| Mac OS 8.1: Special -> Shut Down to the halt screen | 41 s, 61 s (and one hang, below) | 56 s |
+| A/UX 3.1: multiuser desktop | **137 s**, no fsck | -- |
+| A/UX 3.1: `shutdown -h now` to "You may now switch off" | **PASS, 130 s** (299cb36 wedged here) | -- |
+
+Speedometer 4.02 Benchmark Mix (Quadra 605 = 1.0; four candidate runs
+0.460 / 0.462 / 0.462 / 0.460, run 3 shown):
+
+| test | shipped 20260908_3 | store head | change |
+|---|---:|---:|---:|
+| KWhetstones/sec | 326.569 | 385.724 | +18.1 % |
+| Dhrystones/sec | 4104.703 | 5771.238 | +40.6 % |
+| Towers (s) | 2.376 | 1.845 | -22.3 % |
+| Quick Sort (s) | 2.013 | 1.480 | -26.5 % |
+| Bubble Sort (s) | 2.652 | 1.944 | -26.7 % |
+| Queens (s) | 1.534 | 1.131 | -26.3 % |
+| Puzzle (s) | 4.145 | 3.210 | -22.6 % |
+| Permutations (s) | 3.576 | 2.829 | -20.9 % |
+| Int. Matrix (s) | 2.823 | 2.240 | -20.7 % |
+| Sieve (s) | 4.425 | 3.340 | -24.5 % |
+| **average ratio** | **0.360** | **0.462** | **+28.3 %** |
+
+Color QuickDraw 8-bit (Cmd+G): 31.435 s / 0.337 -> **25.575 s / 0.414**
+(+22.8 %). FPU (Cmd+F, Quadra 650 = 1.0): KWhetstones 1687.809, Matrix
+Mult. 2.201 s, Fast Fourier 1.064 s, **average 0.305** vs 0.251 (+21.5 %).
+Against the 299cb36 gate (§13, 0.395) the store head is +17 %. Run-to-run
+spread under 1 %; no first-run anomaly.
+
+**The one anomaly:** the first Mac OS 8.1 Shut Down (after ~50 min of
+uptime with Speedometer's CQD and FPU suites, a file rename, window drags,
+zooms and collapses, and Find File still running) closed the Special menu
+and then never moved again for 12 minutes: clock frozen, no guest disk
+writes, the Finder's event loop not tracking the menu bar, only the
+interrupt-driven cursor alive. The next boot reported "not shut down
+properly" and the disk was fine. Two later candidate shutdowns (a clean
+desktop; and Find File plus a Speedometer run again, ~11 min uptime) and
+the release with Find File open all halted cleanly, so it stands as one
+hang in three candidate shutdowns, not reproduced and not attributed. A
+shutdown soak (repeated boot/activity/shutdown cycles on the candidate and
+the release) is the next step before this build is released.
+
 After that point the fast-boot ROM runs ahead into the boot blocks and
 then parks forever in the ROM's video identification (`$40802F3A` and the
 probe-list walk from `$2F70`): the System asks for the video ID the cold

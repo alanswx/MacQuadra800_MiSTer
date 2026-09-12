@@ -148,7 +148,10 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # clk_ram +0.593. Seed 22 is the current seed for this head.
 # Seed 23 (built in ../MacQuadra800_wt2) fits in 41,049 ALMs but misses the HDMI
 # domain by 0.092 ns (clk_sys +0.530, clk_ram +0.651): rejected, seed 22 stays.
-set_global_assignment -name SEED 22
+# Store head + posted VRAM writes (800a94f): seed 22 fits in 41,109 ALMs but misses
+# the HDMI domain by 0.036 ns (clk_sys +0.743, clk_ram +0.789, hold +0.246);
+# walking seed 23 here and seed 24 in ../MacQuadra800_wt2.
+set_global_assignment -name SEED 23
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
 # the design no longer fits with speed-directed synthesis; all-area

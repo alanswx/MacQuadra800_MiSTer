@@ -51,6 +51,26 @@ his box; ours placed differently. The read-ahead flow itself died after a
 successful fit because a qsf comment was edited mid-build (memory note
 `never-edit-qsf-during-build`); `quartus_sta` + `quartus_asm` on the finished db produced the report and rbf above.
 
+## Hardware gate of the store head: PASSED (2026-09-12 08:12-10:15)
+
+`MacQuadra800_store_ba54b0ee.rbf` on the .92 box (operator log and 135
+screenshots in `scratch/gate_store/`; full tables in
+`docs/PERFORMANCE_MEASUREMENTS.md` §14): Mac OS 8.1 Finder in **103 s**
+(release 135 s on the same box), A/UX 3.1 desktop in 137 s and
+**`shutdown -h now` clean in 130 s** (the 299cb36 wedge did not recur),
+Speedometer 4.02 Benchmark Mix **0.462 vs 0.360** for the shipped release
+measured on the same box (+28 %; Dhrystones +41 %, Queens -26 %), CQD 0.414
+vs 0.337, FPU 0.305 vs 0.251. Caveat: one Mac OS 8.1 Shut Down out of three
+hung (menu closed, clock frozen, no disk writes, cursor alive) after ~50 min
+of uptime with CQD/FPU runs, a rename and window operations; not
+reproduced on a clean desktop nor with the same apps at 11 min uptime, and
+the release halted cleanly with Find File open. **A shutdown soak is
+running** (`scratch/soak_store/BRIEF.md`: five candidate cycles with varied
+uptime/activity, then three release cycles) before any release decision.
+The box's RAM option is at the 32 MB default here (the earlier gates ran
+128 MB); the release control reproduces its historical numbers, so the
+comparison stands.
+
 ## Posted VRAM writes (`800a94f`, 2026-09-12 08:20)
 
 `rtl/wombat_store_buffer.sv` now queues writes into the DAFB VRAM window
@@ -60,8 +80,10 @@ queued store (`tb_wombat_store_buffer` T6, ALL TESTS PASSED). Every
 QuickDraw pixel store used to pay the whole uncached platform round trip in
 `S_MWR` (cache C_PASS, bus32, service FSM, the top's two-cycle VRAM beat and
 the acks back: about 11 clocks); now the CPU sees the capture ack. The
-build of the store head plus this change is in flight at seed 22
-(`scratch/build_vrampost_s22.log`); the hardware measurement is the
+seed-22 build of the store head plus this change fits (41,109 ALMs) but
+misses the HDMI domain by 0.036 ns (`scratch/build_vrampost_s22.log`);
+seed 23 (main tree) and seed 24 (`../MacQuadra800_wt2`) are walking. The
+hardware measurement is the
 Speedometer Color QuickDraw ratio (0.348 on 299cb36) against the store-head
 gate's number. Not yet in any rbf on the box.
 
