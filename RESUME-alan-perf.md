@@ -51,6 +51,20 @@ his box; ours placed differently. The read-ahead flow itself died after a
 successful fit because a qsf comment was edited mid-build (memory note
 `never-edit-qsf-during-build`); `quartus_sta` + `quartus_asm` on the finished db produced the report and rbf above.
 
+## Posted VRAM writes (`800a94f`, 2026-09-12 08:20)
+
+`rtl/wombat_store_buffer.sv` now queues writes into the DAFB VRAM window
+(`$F9000000-$F91FFFFF`, on-chip block RAM, cannot fault) exactly like RAM
+writes; DAFB register writes and VRAM read-backs still wait behind an older
+queued store (`tb_wombat_store_buffer` T6, ALL TESTS PASSED). Every
+QuickDraw pixel store used to pay the whole uncached platform round trip in
+`S_MWR` (cache C_PASS, bus32, service FSM, the top's two-cycle VRAM beat and
+the acks back: about 11 clocks); now the CPU sees the capture ack. The
+build of the store head plus this change is in flight at seed 22
+(`scratch/build_vrampost_s22.log`); the hardware measurement is the
+Speedometer Color QuickDraw ratio (0.348 on 299cb36) against the store-head
+gate's number. Not yet in any rbf on the box.
+
 ## Hardware and the .92 box
 
 `scripts/local.env` now points at **192.168.99.92** (the user: .143 is not
