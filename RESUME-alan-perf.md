@@ -1,129 +1,130 @@
-# RESUME — Alan's 299cb36 CPU on branch `alan-perf-20260908` (2026-09-08 evening)
+# RESUME — branch `alan-perf-20260908`: Alan's CPU stack + the lookup read-ahead (2026-09-12)
 
-Read `RESUME-open-items.md` for the state of everything else; this file is
-only the CPU bump. Branch `alan-perf-20260908`, cut from `main` at `cba1490`
-at the user's request ("pull in Alan's latest performance enhancements, go
-nuts, make a new branch").
+Read `RESUME-open-items.md` for everything that is not the CPU. This file is
+the CPU branch: what is on it, what was measured, what is owed.
 
-## What was taken
-
-`rtl/ap68040` moved from `5aa596f` (the shipped 20260908_3 CPU) to Alan's
-`299cb36`, the tip of `origin/wombat-upstream-fixes`. Alan publishes one
-branch per step, each stacked on the last; that branch is the newest and
-contains all of them (`docs`: the graph is in the memory note
-`alan-ap68040-branch-layout`). Ten commits:
+## State of the branch (newest first)
 
 | commit | what |
 |---|---|
-| 8231eec | FPU register bank inferred in MLABs (`ap040_fp_regfile`, `ramstyle = "MLAB, no_rw_check"`); the FPU drops from 8,559 to 7,044 cells |
-| d543f2d | CMP.L Dn,Dn selects both register-file ports in decode and skips PIPE_START |
-| 8ab1057 | a resident queued opcode retires directly into decode (no S_FETCH cycle); BSR.B / MOVE USP,An get same-edge forwarding of A7/USP |
-| 0a84732, c897d77 | resident immediate extension words are consumed in S_DECODE instead of an empty S_IMMF cycle (refuses an outstanding prefetch or same-edge memory ack) |
-| 95319b4, c9ecf79 | a taken DBcc whose target window is resident in the branch refill sector dispatches from the refill queue (`decode_dbcc_brf`) |
-| 8951fd2 | one-longword sequential instruction-cache lookahead (`ipred_*` in `ap040_cache.v`): the idle data-RAM cycle after an I-hit reads the next longword and serves it from C_IDLE |
-| 9996357 | Adam Polkosnik: t_mmu replay of the NeXTSTEP loadable-kernel-server fault shape (checks 200-212) |
-| 299cb36 | Adam Polkosnik: a cache-invalidation race (`store_inv_lost` now gates `rd_accept` and the C_IDLE accept) and the FPU raising vector 55 for packed stores without preparing the BUSY frame |
+| `0651e59` | docs: `docs/cpu-lookup-readahead.md`, §14 of `docs/PERFORMANCE_MEASUREMENTS.md`, sim `--prof` profiler, `run_corpus.sh` tolerates BLKLOOPINIT |
+| `7d8569d` | AP68040 `d325967`: Quartus single-driver fix for the read-ahead index |
+| `d6a1815` | **AP68040 `b80a79e` (branch `wombat-lookup-readahead`): cached hits resolve in the acceptance cycle** — idle read-ahead of the tag row and data ways in `ap040_cache`, plus a one-cycle-early lookup hint from the sequencer (`pre_valid/pre_addr/pre_fc/pre_instr`) through the MMU (ATC row read on the hint) to the cache. `rtl/wombat_cpu.sv` carries the new wires. |
+| `4404a15` | AP68040 to Alan's `164a376` (`cpu-early-store-20260909`): aligned normal-RAM reads issue while entering `S_MRD`, aligned `S_EXEC` stores while entering `S_MWR` |
+| `6452ac9` | Alan's exact multiply-by-205 `bin2bcd` in `ncr53c96`/`cd_audio` (~692 ALUTs), `build_only.sh --check` generates `build_id.v` |
+| `e4c08e2` | verilator: the sim block device serves multi-block (`sd_blk_cnt`) transactions with the 13-bit buffer address; the gate image runs to its result write again |
+| `945ff6b`… | the 299cb36 bump and its gate notes (below) |
 
-Also in the stack: the fetch-queue / branch-refill / m16 payload arrays are
-no longer reset (only their valid/count controls are), an FPGA packing
-saving. No top-level port or parameter changed; `rtl/wombat_cpu.sv` is
-untouched.
+`main` is untouched at `cba1490`. Nothing is pushed. The AP68040 submodule's
+branch `wombat-lookup-readahead` (3 commits on Alan's `164a376`) lives only in
+`rtl/ap68040`'s local repo; his remote branches were fetched (HTTPS) — see
+the memory note `alan-fork-layout-2026-09` and `../quadra800_alan`.
 
-**Not taken** (Alan did not carry them forward): `wombat-inline-branch-refill`
-(dispatch of every `go_pc` target from the refill sector; conflicts with the
-DBcc line that superseded it) and `wombat-predecode-regalu` (ADD.L Dn,Dm
-predecoded at retirement with a register-file forwarding mux; merges cleanly
-onto 299cb36, tested in a scratch worktree, but his later icache-lookahead
-commit was built without it). Both are one `git merge` away if wanted.
+## What the read-ahead does (short; the design note has the rest)
 
-One thing to raise with Alan: the I-cache lookahead buffer (`ipred_data`)
-is a private copy of an instruction longword that is cleared by CINV, reset
-and any non-matching instruction request, but **not by a bus snoop**
-(`s_stb`) that invalidates its source line. The window is one longword and
-needs code being DMA'd over while it executes, so it is theoretical for
-Mac OS / A/UX; noted, not patched (the snoop port is ce-independent, so the
-clear would need the `fill_snooped`-style sticky flag, not a one-liner).
+A translated cached read went core → MMU ATC row read → cache tag/data read
+→ compare → ack in four cycles because every stage waited for the one in
+front. The cache now reads its RAMs in every idle cycle at the address being
+presented (the set index is inside the page offset, so it is correct before
+translation), re-validates that read against the accepted request, and acks
+a hit in the acceptance cycle; the sequencer additionally announces its next
+data access / queue fill one cycle early so the ATC and cache rows are
+already read when the request registers. Translated cached read 4 → 2
+cycles; untranslated 3 → 2. Snoops on the read-ahead edge or in the
+acceptance cycle fall back to the old `C_LOOK` path (directed test T14).
 
-## Verification so far
+Verified in simulation: complete AP68040 suite, first-100 silicon corpus
+(0 REAL diffs), `bench_loop` **-9.1 %** (147,790 → 134,406; `S_MRD` -32 %,
+data-read request→ack 2.0 → 1.0 cycles). Not yet built or run on hardware.
 
-- Verilator (WSL, sources synced 23:04): `tb_wombat_bus32` 6/6,
-  `tb_store_buffer` all pass, `tb_memory_path_registered_first_miss` 0
-  failures (52.4 MB/s, 304 ns average fill), `tb_sdram` 45/45 with 0 chip
-  protocol errors, and the AP68040 `tb_ap040_cache_snoop` (including Adam's
-  new invalidation-race test) ALL TESTS PASSED under Verilator
-  (`scratch/wsl_benches.log`). WSL has no iverilog/vasm, so Alan's full
-  self-test suite was not run here (the user's standing instruction: Alan
-  runs it; build and fire onto hardware).
-- Build (this tree, `scratch/build_alan_s21.log`): release recipe unchanged,
-  seed 21, **fits first try**: 41,060 / 41,910 ALMs (98 %), setup +0.579 ns
-  (HDMI PLL domain; clk_sys +0.753, clk_ram +0.943), hold +0.225 ns,
-  recovery +3.98; Analysis & Synthesis 3 min, whole flow 20 min. rbf md5
-  `512cd4f8869ca815ec27b0cc0af150e2`, copy in
-  `scratch/MacQuadra800_alan299_512cd4f8.rbf`. Post-placement checks: no
-  `open_row` altsyncram in the map report (the page table stayed in logic),
-  `ap040_fp_regfile` inferred as `altdpram` (MLAB). CPU hierarchy 37,779
-  cells vs 38,138 for 5aa596f (`ap040_core` own 25,076, FPU 7,044, cache 721).
-- Full-machine Verilator boot of `scratch/install8_result.hda` (fresh 8.1
-  install) started 23:10 in WSL (`~/MacQuadra800/verilator/sim_run.log`,
-  screenshots `screenshot_f*.png` every 1200 frames): ROM start-up and the
-  disk-search icon at 20 guest-seconds; slow (~85x) with the gate sim
-  beside it. The oracle gate sim (`gate.hda`, `sim_gate.log`) started 23:33;
-  score it with the recipe in `RESUME-cpu-merge.md` when `[HB] pc` parks at
-  `000400FA` (results at sector 1398, 2048 sectors).
-- Hardware gate: **Mac OS 8.1 PASS, A/UX FAIL at shutdown** (operator run 23:28–00:45,
-  `scratch/gate_alan/`, 71 screenshots, `speedometer.md`): Finder desktop
-  at 162–202 s (previous build ~135 s, same mounts), clock ticks, mouse and
-  menus live, Speedometer Benchmark Mix **0.394/0.395/0.396 vs 0.361**
-  (Queens 1.366 s, Bubble 2.323 s, Permutations 3.321 s, Dhrystones 4577),
-  CQD 0.348 vs 0.317, FPU 0.279 vs 0.250, no first-run anomaly, Special →
-  Shut Down clean. A/UX: multiuser desktop 225 s, CommandShell answers
-  `uname -a`, but `shutdown -h now` stalled after its kill lines with a
-  half-erased Finder; `sync`/`halt` still flushed to disk, no repaint for
-  25 min, never "You may now switch off". Full table in
-  `docs/PERFORMANCE_MEASUREMENTS.md` §13.
-- **Experimental build B** (`../MacQuadra800_wt2`, submodule `6d50064` =
-  299cb36 + `wombat-predecode-regalu`): fits at 99 % but fails timing,
-  clk_ram −1.045 ns and HDMI −0.064 ns (`scratch/build_B_regalu_s21.log`
-  there). Not pursued; the tree is left checked out at it.
+## Builds (release recipe, seed 21)
 
-## Box / repo state
+| head | ALMs | timing | rbf |
+|---|---|---|---|
+| `4404a15` (Alan's tip) | 40,265 (96 %) | **HDMI PLL domain -0.164 ns**; clk_sys +0.508, clk_ram +1.189, hold +0.198 | `scratch/MacQuadra800_alan164_s21_6d6a6daf.rbf` — not deployable, seed walk owed |
+| `7d8569d` (read-ahead) | in flight since 01:13 (`scratch/build_readahead_s21.log`; the fitter was still placing at 01:55, longer than the 20-minute tip flow) | | |
 
-- **MiSTer:** `MacQuadra800` (the candidate, `/media/fat/_Unstable/MacQuadra800.rbf`,
-  md5 512cd4f8) with the **A/UX guest wedged mid-shutdown** on
-  `HD60_512-AUX3.1-Installed.hda` (`scratch/gate_alan/46_final_state.png`).
-  The operator typed `sync` and `halt` (both flushed) and did not reload;
-  slot 0 is already restored to `games/MacQuadra800/QuadSquad8.hda`. A
-  `load_core` over it is the user's call (binding rule 1); expect a long
-  fsck on the next A/UX boot. The SGI Indy session that had the box before
-  was idle for hours and is not running.
-- **Repo:** branch `alan-perf-20260908` (from `main` `cba1490`): `bffbd3b`
-  submodule bump, `f5ba53e` qsf note, `bfb3b37` README/RESUME, then this
-  update. `main` untouched. Nothing pushed. Scratch worktree of the
-  submodule with the merged experiment: scratchpad `ap_merge_test`
-  (`git worktree prune` in `rtl/ap68040` removes the stale entry).
-- **WSL sims** (`~/MacQuadra800*`): the 299cb36 boot and gate runs were
-  killed (both stuck at the ROM's disk-scan loop, pc 408099B0); the control
-  at `5aa596f` (`~/MacQuadra800_ctl`, `sim_ctl.log`, screenshots at 1200 and
-  2400 frames) and four bisect trees `~/MacQuadra800_b_<commit>` (8ab1057,
-  c897d77, c9ecf79, 8951fd2) with `run.hda` = the fresh 8.1 install image
-  were set up -- **void**: the control at `5aa596f` shows the same
-  flashing "?" at frames 1200 and 2400 on `install8_result.hda`, so that
-  image does not boot in this harness with either CPU (the sim's SCSI
-  target or the image, not the CPU). The live sim check is the proven gate
-  image: `~/MacQuadra800_ctl/verilator/sim_gate_ctl.log` (5aa596f on
-  `gate_ctl.hda`) against `~/MacQuadra800/verilator/sim_gate.log` (299cb36,
-  killed at cycle 3.36G with 18,664 reads, no `io_wr`, pc still in ROM) and
-  the four bisect trees now running `gate.hda` (`sim_gate_b.log`); a pass
-  shows `io_wr` lines and `[HB] pc` leaving `40xxxxxx` for RAM.
+Alan's own seed-21 fit of the same tip RTL was 40,523 ALMs / +0.398 ns on
+his box; ours placed differently. If the read-ahead build also misses the
+HDMI domain, walk seeds (22, 23, …) — it is the known placement lottery, not
+the RTL (see the qsf comment block).
+
+## Hardware and the .92 box
+
+`scripts/local.env` now points at **192.168.99.92** (the user: .143 is not
+at home). It is a shared box: it was found running the **SGIIndy core with a
+live IRIX 5.3 desktop** (`scratch/p92_initial.png`), so binding rule 1
+applies — no `load_core` until the user says the Indy can go. Seeded for
+us meanwhile: `games/MacQuadra800/boot.rom`, `QuadSquad8.hda` (from the
+08-31 backup, `backup/QuadSquad8.hda.gz`), `HD60_512-AUX3.1-Installed.hda`
+(pristine md5 b44b7623…, from `backup/…zip`). No `config/MacQuadra800.s0`
+yet — `deploy_screenshot.sh` seeds it. Its Main (`/media/fat/MiSTer`, md5
+d6d63ec4) has `mac_eth` strings but is not verified to be the 20260908 fork
+build the CD path needs.
+
+The gate for this branch, once a timing-clean rbf exists and the box is
+free: Mac OS 8.1 boot + Speedometer 4.02 Benchmark Mix (compare with
+0.395 for 299cb36 and Alan's 0.405 for 164a376), then A/UX boot +
+`shutdown -h now` (the 299cb36 gate wedged there; still unexplained — see
+"Older notes"). Hand the driving to an Opus operator per the memory note.
+
+## Simulation infrastructure that now works
+
+- WSL `~/local/bin`: `iverilog`/`vvp`/`vasm` built from source (memory note
+  `wsl-ap68040-toolchain`). `~/ap040_base` = 164a376, `~/ap040_work` = the
+  read-ahead; `bash run_tests.sh`, then `vvp build/tb_prog.vvp
+  +prog=build/bench_loop.hex +prof +memlat`. Strip CRs after every rsync.
+- `SingleStepTests/preboot/sim040/run_corpus.sh` under WSL Verilator 5.020
+  with `AP68040_RTL=~/ap040_work/rtl` (Retro68 at
+  `~/repos/Retro68-build/toolchain`). The corpus payload runs with the
+  caches OFF, so its cycle count does not see cache work.
+- Full-machine sim (`scripts/sim_wsl.sh build|disk|run`): the block device
+  now honours `sd_blk_cnt`, so images boot again; `--prof` prints the
+  sequencer state histogram, clocks/dispatch, port-wait cycles, `S_MRD`/
+  `S_MWR` split by cache FSM state and address region, and acceptance-cycle
+  hit counts at every heartbeat (5M cycles). `+blkdbg` traces block-device
+  requests on stderr.
+- **Known sim harness bug, not the CPU:** every long boot so far (gate
+  image on both 5aa596f and 299cb36; the fresh 8.1 install on the
+  read-ahead CPU) stops in the ROM SCSI Manager (`pc 408D21DE`/`408D22FC`)
+  after a few hundred sector reads: the last `io_rd+` never gets its
+  `io_ack+` from `verilator/sim/sim_blkdevice.cpp`. The 8.1 boot's case was
+  the second read of lba 2282, right after the boot's first *write*
+  (lba 98). The `+blkdbg` run started at 01:58 (`~/MacQuadra800/verilator/
+  sim_blk.log`) is meant to catch it. Until it is fixed the sim cannot
+  reach the Finder.
+- The earlier "bisect" trees `~/MacQuadra800_b_*` are void (all six ran the
+  gate corpus to its result write and then hit the same harness stop).
+
+## First real-workload profile (read-ahead CPU, ROM init, 145M cycles)
+
+6.52 clocks per dispatch. `S_MRD` 25.7 %, `S_DECODE` 16.6 %, `S_FETCH`
+11.7 %, `S_MWR` 6.6 %, `S_DBCC1` 6.2 %, `S_PIPE_START` 5.5 %, `S_EXEC`
+5.1 %, `S_IMMF` 5.0 %, port-wait (data access held behind a queue fetch)
+2.5 %. This is ROM start-up code, not the OS; the uncapped `--prof` boot
+will give the Finder-era numbers. Alan's Speedometer profile on 299cb36 was
+12.05 clocks/dispatch with `S_MRD` 35 %.
 
 ## Next
 
-1. Decide the box: reload the candidate (or the release) over the wedged
-   A/UX; then re-run the A/UX half with Special → Shut Down AND with
-   `shutdown -h now` on both this candidate and `20260908_3` to separate
-   the CPU from the path.
-2. Finish the sim bisect (control first). If a commit is guilty, report
-   it to Alan with the sim recipe; hardware boot time (162–202 s vs 135 s)
-   is the second symptom to give him.
-3. No release from this branch until A/UX shuts down cleanly and the boot
-   time is explained.
+1. Read-ahead build result → seed walk if HDMI misses → gate on .92 when
+   the Indy is released (ask the user).
+2. Fix the sim block-device stop (above) so a full boot can be scored in
+   simulation; then profile the Finder/Speedometer phase and pick the next
+   sequencer target from it (`S_DECODE` and `S_FETCH` are the next largest
+   after `S_MRD`; the data-side gain is now mostly in misses).
+3. Report to Alan: the read-ahead (submodule branch `wombat-lookup-readahead`
+   on his 164a376) and the T12 baseline change; his tip misses HDMI timing
+   at seed 21 on our build.
+
+## Older notes (the 299cb36 gate, 2026-09-08/09)
+
+`299cb36` fitted at seed 21 (98 %, +0.579 ns), Mac OS 8.1 passed with
+Speedometer Benchmark Mix 0.395 vs 0.361, A/UX 3.1 reached the desktop but
+`shutdown -h now` wedged (kernel alive, no repaint), and the Finder desktop
+came 30–60 s later than 20260908_3. Full table in
+`docs/PERFORMANCE_MEASUREMENTS.md` §13, operator screenshots in
+`scratch/gate_alan/`. The Verilator "boot failure" attributed to that CPU
+was the block-device harness (fixed in `e4c08e2`), so it is not evidence
+against 299cb36; the A/UX wedge and the slower boot remain to be separated
+between CPU and path on the next gate.
