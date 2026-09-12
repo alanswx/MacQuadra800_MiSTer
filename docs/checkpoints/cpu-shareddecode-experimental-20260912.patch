@@ -1,0 +1,506 @@
+--- a/rtl/ap040_core.v
++++ b/rtl/ap040_core.v
+@@ -117,6 +117,10 @@
+ reg [31:0] mmusr;
+ reg [31:0] urp, srp;
+ reg [15:0] ir;
++// Simulation dispatch event, including consecutive same-state retirement.
++// No hardware consumer: synthesis trims this internal profiling register.
++// Sample after eval/NBA, and resynchronize the observer while reset is low.
++reg perf_dispatch_toggle /* verilator public_flat_rd */;
+ // FPGA power-up distinguishes the first (cold) reset from later RSTI
+ // assertions.  The 68040 preserves MMU register contents on reset except for
+ // the E bits in TC and the four TTRs.
+@@ -254,6 +258,10 @@
+ reg   [3:0] rr_b;
+ wire [31:0] rf_rdata_a;
+ wire [31:0] rf_rdata_b;
++// Adjacent retirement dispatches before the previous registered write
++// commits. Forward both capture ports, including merge_sz's upper bits.
++wire [31:0] rf_capture_a = (rf_we && rf_waddr == rr_a) ? rf_wdata : rf_rdata_a;
++wire [31:0] rf_capture_b = (rf_we && rf_waddr == rr_b) ? rf_wdata : rf_rdata_b;
+ reg         aux_we;
+ reg   [1:0] aux_sel;
+ reg  [31:0] aux_wdata;
+@@ -312,8 +320,8 @@
+                             (exec_kind == EK_ALU) && (p_dst == DK_REG);
+ wire [31:0] alu_src = (regs_alu_fire && state == S_MRD) ? mem_rdata :
+                      (regs_alu_fire && state == S_PIPE_SDONE) ? m_val :
+-                     (regs_alu_fire && p_src == SK_REG) ? rf_rdata_a : src_val;
+-wire [31:0] alu_dst = regs_alu_fire ? rf_rdata_b : dst_val;
++                     (regs_alu_fire && p_src == SK_REG) ? rf_capture_a : src_val;
++wire [31:0] alu_dst = regs_alu_fire ? rf_capture_b : dst_val;
+ wire [31:0] alu_a = alu_is_bitop ? (p_dst_mem_bit ? {29'd0, alu_src[2:0]}
+                                                   : {27'd0, alu_src[4:0]}) :
+                     p_sextw      ? {{16{alu_src[15]}}, alu_src[15:0]} : alu_src;
+@@ -1812,6 +1820,107 @@
+ 	end
+ endfunction
+ 
++// One combinational register-only descriptor serves ordinary decode and
++// lookahead at an older ALU retirement. It reads opcode bits only; operands
++// and CCR remain owned by the existing execution pipeline. Fetches initiated
++// in S_DECODE must use the ordinary path because this decoder still sees ir.
++wire [15:0] rd_ir = (state == S_DECODE) ? ir : epf_data[epf_head];
++wire [2:0] rd_mode = rd_ir[5:3];
++wire [1:0] rd_sz = rd_ir[7:6];
++reg rd_valid, rd_quick, rd_flags, rd_wbsup, rd_sextw;
++reg [5:0] rd_alu;
++reg [1:0] rd_size, rd_ssize, rd_dsize;
++reg [3:0] rd_sa, rd_da;
++wire [3:0] rd_qval = (rd_ir[11:9] == 3'd0) ? 4'd8 : {1'b0, rd_ir[11:9]};
++always @* begin
++	rd_valid = 0; rd_quick = 0; rd_flags = 1; rd_wbsup = 0; rd_sextw = 0;
++	rd_alu = `AP040_ALU_MOVE;
++	rd_size = rd_sz; rd_ssize = rd_sz; rd_dsize = rd_sz;
++	rd_sa = {rd_mode[0], rd_ir[2:0]};
++	rd_da = {1'b0, rd_ir[11:9]};
++	case (rd_ir[15:12])
++		4'h1, 4'h2, 4'h3: begin
++			rd_size = (rd_ir[15:12] == 4'h1) ? `AP040_SZ_B :
++			          (rd_ir[15:12] == 4'h2) ? `AP040_SZ_L : `AP040_SZ_W;
++			rd_ssize = rd_size; rd_dsize = rd_size;
++			rd_da = {rd_ir[6], rd_ir[11:9]};
++			if (rd_mode[2:1] == 0 && rd_ir[8:7] == 0 &&
++			    !(rd_size == `AP040_SZ_B && (rd_mode[0] || rd_ir[6]))) begin
++				rd_valid = 1;
++				if (rd_ir[6]) begin
++					rd_flags = 0; rd_sextw = (rd_size == `AP040_SZ_W);
++					rd_size = `AP040_SZ_L;
++				end
++			end
++		end
++		4'h5: begin
++			// Size 11 is Scc/DBcc; byte An is illegal, not a quick op.
++			if (rd_sz != 2'b11 && rd_mode[2:1] == 0 &&
++			    !(rd_sz == `AP040_SZ_B && rd_mode[0])) begin
++				rd_valid = 1; rd_quick = 1;
++				rd_alu = rd_ir[8] ? `AP040_ALU_SUB : `AP040_ALU_ADD;
++				rd_da = {rd_mode[0], rd_ir[2:0]};
++				if (rd_mode[0]) begin rd_size = `AP040_SZ_L; rd_flags = 0; end
++			end
++		end
++		4'h8, 4'hC: begin
++			// Reverse-direction register encodings are BCD/PACK/EXG,
++			// not OR/AND aliases. Size 11 belongs to MUL/DIV.
++			rd_alu = rd_ir[14] ? `AP040_ALU_AND : `AP040_ALU_OR;
++			if (!rd_ir[8] && rd_sz != 2'b11 && rd_mode == 0) rd_valid = 1;
++		end
++		4'h9, 4'hD: begin
++			rd_alu = rd_ir[14] ? `AP040_ALU_ADD : `AP040_ALU_SUB;
++			if (rd_mode[2:1] == 0) begin
++				if (rd_sz == 2'b11) begin
++					// ADDA/SUBA sign extend word sources, preserve CCR.
++					rd_valid = 1; rd_flags = 0; rd_da[3] = 1;
++					rd_size = `AP040_SZ_L;
++					rd_ssize = rd_ir[8] ? `AP040_SZ_L : `AP040_SZ_W;
++					rd_sextw = !rd_ir[8];
++				end
++				else if (!rd_ir[8]) begin
++					rd_valid = !(rd_sz == `AP040_SZ_B && rd_mode[0]);
++				end
++				else if (!rd_mode[0]) begin
++					// Register ADDX/SUBX consume the settled predecessor CCR.
++					rd_valid = 1;
++					rd_alu = rd_ir[14] ? `AP040_ALU_ADDX : `AP040_ALU_SUBX;
++				end
++			end
++		end
++		4'hB: begin
++			rd_alu = `AP040_ALU_CMP; rd_wbsup = 1;
++			if (rd_sz == 2'b11 && rd_mode[2:1] == 0) begin
++				rd_valid = 1; rd_da[3] = 1; rd_size = `AP040_SZ_L;
++				rd_ssize = rd_ir[8] ? `AP040_SZ_L : `AP040_SZ_W;
++				rd_sextw = !rd_ir[8];
++			end
++			else if (rd_sz != 2'b11 && !rd_ir[8] && rd_mode[2:1] == 0) begin
++				rd_valid = !(rd_sz == `AP040_SZ_B && rd_mode[0]);
++			end
++			else if (rd_sz != 2'b11 && rd_ir[8] && rd_mode == 0) begin
++				rd_valid = 1; rd_alu = `AP040_ALU_EOR; rd_wbsup = 0;
++				rd_sa = {1'b0, rd_ir[11:9]}; rd_da = {1'b0, rd_ir[2:0]};
++			end
++		end
++		default: begin end
++	endcase
++end
++
++task dispatch_reg_decode;
++	begin
++		alu_op <= rd_alu;
++		op_size <= rd_size; p_ssize <= rd_ssize; p_dsize <= rd_dsize;
++		p_src <= rd_quick ? SK_IMPL : SK_REG;
++		if (rd_quick) src_val <= {28'd0, rd_qval};
++		p_dst <= DK_REG; p_sreg <= rd_sa; p_dreg <= rd_da;
++		p_flags <= rd_flags; p_wbsup <= rd_wbsup; p_sextw <= rd_sextw;
++		rr_a <= rd_sa; rr_b <= rd_da;
++		state <= S_PIPE_REGS;
++	end
++endtask
++
+ task fetch_next;
+ 	begin
+ 		fc_ovr_v <= 0;
+@@ -1860,6 +1969,7 @@
+ 			in_exc <= 0;
+ 			epf_pop = 2'd1;
+ 			ir <= epf_data[epf_head];
++			perf_dispatch_toggle <= ~perf_dispatch_toggle;
+ 			pc_i <= pc;
+ 			pc <= pc + 32'd2;
+ 			tr_t1 <= sr[15];
+@@ -1871,6 +1981,12 @@
+ 			p_dst_mem_bit <= 0;
+ 			exec_kind <= EK_ALU;
+ 			state <= S_DECODE;
++			// Bounded overlap: only ordinary register ALU retirement may
++			// bypass decode. System/auxiliary and SR-bank-changing producers
++			// keep their existing serialization. A7 therefore forwards in
++			// the same bank as the pending write; no speculative SP access.
++			if (state != S_DECODE && regs_alu_fire && !aux_we && rd_valid)
++				dispatch_reg_decode;
+ 		end
+ 		else begin
+ 			issue_ifetch(pc, sr_s);
+@@ -1887,7 +2003,7 @@
+ 		if (p_flags) sr[4:0] <= alu_fl;
+ 		if (!p_wbsup) begin
+ 			if (p_dreg[3]) rfw(p_dreg, alu_res);
+-			else rfw(p_dreg, merge_sz(rf_rdata_b, alu_res, op_size));
++			else rfw(p_dreg, merge_sz(rf_capture_b, alu_res, op_size));
+ 		end
+ 		fetch_next;
+ 	end
+@@ -1938,6 +2054,7 @@
+ 
+ 		in_exc <= 0;
+ 		ir <= fw;
++		perf_dispatch_toggle <= ~perf_dispatch_toggle;
+ 		pc_i <= a;
+ 		pc <= a + 32'd2;
+ 		tr_t1 <= sr[15];
+@@ -2096,6 +2213,7 @@
+ 		end
+ 		mmu_reset_seen <= 1;
+ 		ir <= 0;
++		perf_dispatch_toggle <= 0;
+ 		mem_req <= 0; mem_write <= 0; mem_instr <= 0;
+ 		mem_size <= `AP040_SZ_W; mem_addr <= 0; mem_wdata <= 0;
+ 		fc_r <= `AP040_FC_SUPER_DATA;
+@@ -2327,6 +2445,7 @@
+ 					in_exc <= 0;
+ 					epf_pop = 2'd1;
+ 					ir <= fw;
++					perf_dispatch_toggle <= ~perf_dispatch_toggle;
+ 					pc <= pc + 32'd2;
+ 					// per-instruction defaults
+ 					tr_t1 <= sr[15];
+@@ -5149,7 +5268,8 @@
+ 				// asynchronous port-A value as soon as the pipeline starts.
+ 				// Decode cases which need another register override this below.
+ 				rr_a <= {1'b1, d_rn};
+-				case (ir_hi)
++				if (rd_valid) dispatch_reg_decode;
++				else case (ir_hi)
+ 					//-------------------------------------------- 0x0: bit/imm
+ 					4'h0: begin
+ 						if (ir[8] && d_mode == 3'b001) begin
+@@ -5351,10 +5471,6 @@
+ 							end
+ 							if (ea_is_imm)
+ 								immf((move_size == `AP040_SZ_L) ? 2'd2 : 2'd1, S_PIPE_START);
+-							else if ((d_mode == 3'b000 || d_mode == 3'b001) &&
+-							         (d_op8_6 == 3'b000 || d_op8_6 == 3'b001))
+-								pipe_go_regpair({d_mode[0], d_rn},
+-								                {(d_op8_6 == 3'b001), d_reg9});
+ 							else pipe_go;
+ 						end
+ 					end
+@@ -5748,26 +5864,17 @@
+ 							end
+ 						end
+ 						else begin
+-							// ADDQ/SUBQ
++							// Register quick forms are handled by rd_valid above.
+ 							alu_op <= ir[8] ? `AP040_ALU_SUB : `AP040_ALU_ADD;
+ 							p_src <= SK_IMPL;
+ 							src_val <= {28'd0, (d_reg9 == 3'd0) ? 4'd8 : {1'b0, d_reg9}};
+-							if (d_mode == 3'b001) begin
+-								// to An: whole register, no flags, any size but byte
+-								if (std_size == `AP040_SZ_B) go_illegal;
+-								else begin
+-									op_size <= `AP040_SZ_L;
+-									p_dst <= DK_REG; p_dreg <= {1'b1, d_rn};
+-									p_flags <= 0;
+-									pipe_go;
+-								end
+-							end
++							if (dst_not_alt) go_illegal; // includes byte An
+ 							else begin
+ 								op_size <= std_size;
+ 								p_dsize <= std_size;
+-								if (d_mode == 3'b000) begin p_dst <= DK_REG; p_dreg <= {1'b0, d_rn}; pipe_go_regdst({1'b0, d_rn}); end
+-								else if (dst_not_alt) go_illegal;
+-								else begin p_dst <= DK_MEM; p_rmw <= 1; dst_mode_r <= d_mode; dst_rn_r <= d_rn; pipe_go; end
++								p_dst <= DK_MEM; p_rmw <= 1;
++								dst_mode_r <= d_mode; dst_rn_r <= d_rn;
++								pipe_go;
+ 							end
+ 						end
+ 					end
+@@ -5879,7 +5986,6 @@
+ 								// <ea> OR Dn -> Dn
+ 								p_dst <= DK_REG; p_dreg <= {1'b0, d_reg9};
+ 								if (d_mode == 3'b001) go_illegal;
+-								else if (d_mode == 3'b000) begin p_src <= SK_REG; p_sreg <= {1'b0, d_rn}; pipe_go_regpair({1'b0, d_rn}, {1'b0, d_reg9}); end
+ 								else if (ea_is_imm) begin p_src <= SK_IMM; immf((std_size == `AP040_SZ_L) ? 2'd2 : 2'd1, S_PIPE_START); end
+ 								else begin p_src <= SK_MEM; src_mode_r <= d_mode; src_rn_r <= d_rn; pipe_go; end
+ 							end
+@@ -5910,29 +6016,20 @@
+ 							p_sextw <= !d_op8_6[2];
+ 							p_flags <= 0;
+ 							p_dst <= DK_REG; p_dreg <= {1'b1, d_reg9};
+-							if (d_mode == 3'b000 || d_mode == 3'b001) begin
+-								p_src <= SK_REG; p_sreg <= {d_mode[0], d_rn}; pipe_go_regpair({d_mode[0], d_rn}, {1'b1, d_reg9});
+-							end
+-							else if (ea_is_imm) begin
++							if (ea_is_imm) begin
+ 								p_src <= SK_IMM;
+ 								immf(d_op8_6[2] ? 2'd2 : 2'd1, S_PIPE_START);
+ 							end
+ 							else begin p_src <= SK_MEM; src_mode_r <= d_mode; src_rn_r <= d_rn; pipe_go; end
+ 						end
+ 						else if (ir[8] && d_mode[2:1] == 2'b00 && std_size != 2'b11) begin
+-							// ADDX/SUBX
++							// Predecrement ADDX/SUBX; register form is shared.
+ 							alu_op <= is_add ? `AP040_ALU_ADDX : `AP040_ALU_SUBX;
+ 							op_size <= std_size;
+ 							p_ssize <= std_size; p_dsize <= std_size;
+-							if (!d_mode[0]) begin
+-								p_src <= SK_REG; p_sreg <= {1'b0, d_rn};
+-								p_dst <= DK_REG; p_dreg <= {1'b0, d_reg9};
+-							end
+-							else begin
+-								p_src <= SK_MEM; src_mode_r <= 3'b100; src_rn_r <= d_rn;
+-								p_dst <= DK_MEM; dst_mode_r <= 3'b100; dst_rn_r <= d_reg9;
+-								p_rmw <= 1;
+-							end
++							p_src <= SK_MEM; src_mode_r <= 3'b100; src_rn_r <= d_rn;
++							p_dst <= DK_MEM; dst_mode_r <= 3'b100; dst_rn_r <= d_reg9;
++							p_rmw <= 1;
+ 							pipe_go;
+ 						end
+ 						else begin
+@@ -5943,10 +6040,6 @@
+ 								// <ea> op Dn -> Dn
+ 								p_dst <= DK_REG; p_dreg <= {1'b0, d_reg9};
+ 								if (d_mode == 3'b001 && std_size == `AP040_SZ_B) go_illegal;
+-								else if (d_mode == 3'b000 || d_mode == 3'b001) begin
+-									p_src <= SK_REG; p_sreg <= {d_mode[0], d_rn};
+-									pipe_go_regpair({d_mode[0], d_rn}, {1'b0, d_reg9});
+-								end
+ 								else if (ea_is_imm) begin p_src <= SK_IMM; immf((std_size == `AP040_SZ_L) ? 2'd2 : 2'd1, S_PIPE_START); end
+ 								else begin p_src <= SK_MEM; src_mode_r <= d_mode; src_rn_r <= d_rn; pipe_go; end
+ 							end
+@@ -5977,10 +6070,7 @@
+ 							p_sextw <= !d_op8_6[2];
+ 							p_wbsup <= 1;
+ 							p_dst <= DK_REG; p_dreg <= {1'b1, d_reg9};
+-							if (d_mode == 3'b000 || d_mode == 3'b001) begin
+-								p_src <= SK_REG; p_sreg <= {d_mode[0], d_rn}; pipe_go_regpair({d_mode[0], d_rn}, {1'b1, d_reg9});
+-							end
+-							else if (ea_is_imm) begin
++							if (ea_is_imm) begin
+ 								p_src <= SK_IMM;
+ 								immf(d_op8_6[2] ? 2'd2 : 2'd1, S_PIPE_START);
+ 							end
+@@ -5994,10 +6084,6 @@
+ 							p_wbsup <= 1;
+ 							p_dst <= DK_REG; p_dreg <= {1'b0, d_reg9};
+ 							if (d_mode == 3'b001 && std_size == `AP040_SZ_B) go_illegal;
+-							else if (d_mode == 3'b000 || d_mode == 3'b001) begin
+-								p_src <= SK_REG; p_sreg <= {d_mode[0], d_rn};
+-								pipe_go_regpair({d_mode[0], d_rn}, {1'b0, d_reg9});
+-							end
+ 							else if (ea_is_imm) begin p_src <= SK_IMM; immf((std_size == `AP040_SZ_L) ? 2'd2 : 2'd1, S_PIPE_START); end
+ 							else begin p_src <= SK_MEM; src_mode_r <= d_mode; src_rn_r <= d_rn; pipe_go; end
+ 						end
+@@ -6018,8 +6104,7 @@
+ 							op_size <= std_size;
+ 							p_dsize <= std_size;
+ 							p_src <= SK_REG; p_sreg <= {1'b0, d_reg9};
+-							if (d_mode == 3'b000) begin p_dst <= DK_REG; p_dreg <= {1'b0, d_rn}; pipe_go_regpair({1'b0, d_reg9}, {1'b0, d_rn}); end
+-							else if (dst_not_alt) go_illegal;
++							if (dst_not_alt) go_illegal;
+ 							else begin
+ 								p_dst <= DK_MEM; p_rmw <= 1;
+ 								dst_mode_r <= d_mode; dst_rn_r <= d_rn;
+@@ -6079,7 +6164,6 @@
+ 							if (!ir[8]) begin
+ 								p_dst <= DK_REG; p_dreg <= {1'b0, d_reg9};
+ 								if (d_mode == 3'b001) go_illegal;
+-								else if (d_mode == 3'b000) begin p_src <= SK_REG; p_sreg <= {1'b0, d_rn}; pipe_go_regpair({1'b0, d_rn}, {1'b0, d_reg9}); end
+ 								else if (ea_is_imm) begin p_src <= SK_IMM; immf((std_size == `AP040_SZ_L) ? 2'd2 : 2'd1, S_PIPE_START); end
+ 								else begin p_src <= SK_MEM; src_mode_r <= d_mode; src_rn_r <= d_rn; pipe_go; end
+ 							end
+--- a/tb/asm/t_integer.s
++++ b/tb/asm/t_integer.s
+@@ -953,6 +953,148 @@
+ 	bsr.s	bsr_after_a7_write
+ 	chkl	a7,$3300,214
+ 	move.l	a5,a7
++	bra.s	overlap_register_checks
++bsr_after_a7_write:
++	rts
++overlap_register_checks:
++
++;--------------------------------------- shared register decode / overlap
++	; Consecutive partial writes need the predecessor on port B for both
++	; arithmetic and preserved upper bits. Later operations consume port A
++	; and both ports together. Keep checks outside the dense instruction chain.
++	move.l	#$1234FFFE,d0
++	move.l	#$01020301,d1
++	moveq	#0,d2
++	move.l	#100,d3
++	divu.w	#3,d3		; let the instruction queue run ahead
++	add.b	d1,d0
++	add.b	d1,d0
++	move.w	d0,d2
++	add.w	d1,d0
++	add.w	d0,d0
++	move.b	d0,d2
++	addq.l	#8,d2
++	subq.b	#1,d2
++	chkl	d0,$12340402,215
++	chkl	d2,$FF09,216
++
++	; More than two adjacent immediate-source operations, including quick 8.
++	moveq	#0,d0
++	addq.l	#1,d0
++	addq.l	#2,d0
++	addq.l	#3,d0
++	addq.l	#4,d0
++	subq.w	#1,d0
++	addq.b	#8,d0
++	subq.l	#2,d0
++	move.l	d0,d1
++	chkl	d1,15,217
++
++	move.l	#$FFFF0000,d0
++	move.l	#$12345678,d1
++	or.l	d1,d0
++	and.l	d1,d0
++	eor.l	d0,d0
++	move.l	d0,d1
++	chkccr	$04,218
++	chkl	d1,0,219
++
++	; Word address arithmetic sign extends, writes all 32 bits, and leaves
++	; CCR untouched. CMPA suppresses writeback and keeps the incoming X bit.
++	move.l	#$CAFE8001,d0
++	move.w	#$10,ccr
++	movea.w	d0,a1
++	adda.w	d0,a1
++	suba.w	d0,a1
++	move.l	a1,d1
++	cmpa.w	d0,a1
++	chkccr	$14,220
++	chkl	a1,$FFFF8001,221
++	chkl	d1,$FFFF8001,222
++	move.w	#$1F,ccr
++	addq.w	#8,a1
++	subq.l	#8,a1
++	chkccr	$1F,223
++	chkl	a1,$FFFF8001,224
++
++	; CMP updates CCR but does not write a stale ALU result to its destination.
++	; ADDX/SUBX then consume X and sticky Z at their own capture clock.
++	moveq	#0,d0
++	moveq	#0,d1
++	moveq	#0,d2
++	move.w	#$10,ccr
++	cmp.l	d0,d1
++	addx.l	d0,d1
++	addx.l	d0,d2
++	subx.l	d0,d2
++	chkccr	$00,225
++	chkl	d1,1,226
++	chkl	d2,0,227
++	moveq	#-1,d0
++	moveq	#0,d1
++	moveq	#0,d2
++	addq.l	#1,d0
++	addx.l	d0,d1
++	addx.l	d1,d2
++	chkl	d0,0,228
++	chkl	d2,1,229
++
++	; A completed memory load may dispatch its RAW consumer. Postincrement
++	; must be visible to the younger address-register arithmetic as well.
++	lea	($3000).l,a0
++	move.l	#7,(a0)
++	move.l	(a0)+,d0
++	add.l	d0,d0
++	adda.l	d0,a0
++	move.l	a0,d1
++	chkl	d0,14,230
++	chkl	d1,$3012,231
++	lea	($3000).l,a0
++	move.l	(a0)+,d0
++	addq.l	#4,a0
++	chkl	a0,$3008,232
++
++	; Ordinary A7 operations use the active bank throughout the chain.
++	; System/aux predecessors and a bank switch retain ordinary decode.
++	move.l	a7,a5
++	movea.l	#$3300,a0
++	movea.l	a0,a7
++	addq.w	#8,a7
++	subq.l	#4,a7
++	move.l	a7,d0
++	chkl	d0,$3304,233
++	move.l	a5,a7
++	movea.l	#$3200,a0
++	move.l	a0,usp
++	move.l	usp,a1
++	addq.l	#4,a1
++	chkl	a1,$3204,234
++	move.l	#$3100,d0
++	movec	d0,msp
++	move.w	#$3700,sr
++	addq.l	#4,a7
++	move.l	a7,d0
++	chkl	d0,$3104,235
++	move.w	#$2700,sr
++	cmpa.l	a5,a7
++	beq.s	overlap_isp_ok
++	failt	236
++overlap_isp_ok:
++
++	; Unsupported extension, unary, memory destination, and control-flow
++	; boundaries still decode normally between supported register operations.
++	moveq	#3,d0
++	addq.l	#1,d0
++	addi.l	#5,d0
++	neg.l	d0
++	add.l	d0,d0
++	move.l	d0,($3000).l
++	move.l	($3000).l,d1
++	cmp.l	d0,d1
++	beq.s	overlap_fallback_ok
++	failt	237
++overlap_fallback_ok:
++	chkl	d1,$FFFFFFEE,238
+ 
+ 	move.w	#$600D,(DONEREG).l
+ 	stop	#$2700
+@@ -965,9 +1107,6 @@
+ subrtd:
+ 	rtd	#4
+ 
+-bsr_after_a7_write:
+-	rts
+-
+ bsr_stale_fail:
+ 	failt	193
+ 

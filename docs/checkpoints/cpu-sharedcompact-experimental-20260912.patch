@@ -1,0 +1,123 @@
+--- a/rtl/ap040_core.v
++++ b/rtl/ap040_core.v
+@@ -640,6 +640,10 @@
+ reg        epf_flushed;          // the queue was flushed this cycle
+ reg  [1:0] epf_pop;              // words consumed this cycle
+ reg  [1:0] epf_fillw;            // words appended this cycle
++// Blocking per-clock carrier: only fetch_next's qualified resident-opcode
++// branch sets this. Descriptor controls are written once after case(state),
++// rather than expanded inside every caller of the generic completion task.
++reg        rd_queue_pop;
+ 
+ // A resident word needs no bus cycle at all, so a fetch consumes it in the
+ // very cycle it would otherwise have spent issuing a request.
+@@ -1981,12 +1985,7 @@
+ 			p_dst_mem_bit <= 0;
+ 			exec_kind <= EK_ALU;
+ 			state <= S_DECODE;
+-			// Bounded overlap: only ordinary register ALU retirement may
+-			// bypass decode. System/auxiliary and SR-bank-changing producers
+-			// keep their existing serialization. A7 therefore forwards in
+-			// the same bank as the pending write; no speculative SP access.
+-			if (state != S_DECODE && regs_alu_fire && !aux_we && rd_valid)
+-				dispatch_reg_decode;
++			rd_queue_pop = 1;
+ 		end
+ 		else begin
+ 			issue_ifetch(pc, sr_s);
+@@ -2190,6 +2189,7 @@
+ 	epf_flushed = 0;
+ 	epf_pop     = 2'd0;
+ 	epf_fillw   = 2'd0;
++	rd_queue_pop = 0;
+ 
+ 	if (!nreset) begin
+ 		state <= S_START;
+@@ -5268,8 +5268,7 @@
+ 				// asynchronous port-A value as soon as the pipeline starts.
+ 				// Decode cases which need another register override this below.
+ 				rr_a <= {1'b1, d_rn};
+-				if (rd_valid) dispatch_reg_decode;
+-				else case (ir_hi)
++				case (ir_hi)
+ 					//-------------------------------------------- 0x0: bit/imm
+ 					4'h0: begin
+ 						if (ir[8] && d_mode == 3'b001) begin
+@@ -5438,7 +5437,8 @@
+ 
+ 					//------------------------------------------- 0x1-0x3: MOVE
+ 					4'h1, 4'h2, 4'h3: begin
+-						if (move_size == `AP040_SZ_B &&
++						if (rd_valid) begin end // descriptor applied after state case
++						else if (move_size == `AP040_SZ_B &&
+ 						    (d_mode == 3'b001 || d_op8_6 == 3'b001)) go_illegal;
+ 						else if (d_op8_6 == 3'b111 && d_reg9 > 3'b001) go_illegal;
+ 						else begin
+@@ -5832,7 +5832,8 @@
+ 
+ 					//------------------------------ 0x5: ADDQ/SUBQ/Scc/DBcc
+ 					4'h5: begin
+-						if (ir[7:6] == 2'b11) begin
++						if (rd_valid) begin end
++						else if (ir[7:6] == 2'b11) begin
+ 							if (d_mode == 3'b001) begin
+ 								// DBcc
+ 								br_base <= pc;
+@@ -5913,7 +5914,8 @@
+ 
+ 					//------------------------------------- 0x8: OR/DIV/SBCD
+ 					4'h8: begin
+-						if (d_op8_6 == 3'b011 || d_op8_6 == 3'b111) begin
++						if (rd_valid) begin end
++						else if (d_op8_6 == 3'b011 || d_op8_6 == 3'b111) begin
+ 							// DIVU.W / DIVS.W
+ 							exec_kind <= EK_MD_W;
+ 							md_isdiv <= 1;
+@@ -6008,7 +6010,8 @@
+ 					4'h9, 4'hD: begin : dec_addsub
+ 						reg is_add;
+ 						is_add = (ir_hi == 4'hD);
+-						if (d_op8_6 == 3'b011 || d_op8_6 == 3'b111) begin
++						if (rd_valid) begin end
++						else if (d_op8_6 == 3'b011 || d_op8_6 == 3'b111) begin
+ 							// ADDA/SUBA
+ 							alu_op <= is_add ? `AP040_ALU_ADD : `AP040_ALU_SUB;
+ 							op_size <= `AP040_SZ_L;
+@@ -6062,7 +6065,8 @@
+ 
+ 					//---------------------------------- 0xB: CMP/CMPA/EOR/CMPM
+ 					4'hB: begin
+-						if (d_op8_6 == 3'b011 || d_op8_6 == 3'b111) begin
++						if (rd_valid) begin end
++						else if (d_op8_6 == 3'b011 || d_op8_6 == 3'b111) begin
+ 							// CMPA
+ 							alu_op <= `AP040_ALU_CMP;
+ 							op_size <= `AP040_SZ_L;
+@@ -6115,7 +6119,8 @@
+ 
+ 					//------------------------------------ 0xC: AND/MUL/EXG
+ 					4'hC: begin
+-						if (d_op8_6 == 3'b011 || d_op8_6 == 3'b111) begin
++						if (rd_valid) begin end
++						else if (d_op8_6 == 3'b011 || d_op8_6 == 3'b111) begin
+ 							// MULU.W / MULS.W
+ 							exec_kind <= EK_MD_W;
+ 							md_isdiv <= 0;
+@@ -6403,6 +6408,17 @@
+ 			default: fatal_halt;
+ 		endcase
+ 
++		// Single shared-descriptor control writer. In normal decode only
++		// covered opcode families suppress their legacy body; unrelated
++		// system/FPU/control decoding carries no global rd_valid qualifier.
++		// For lookahead, rd_queue_pop proves fetch_next passed IRQ/trace,
++		// resident-PC/context and same-cycle flush checks. The bounded ALU
++		// producer set cannot change the active A7 bank or emit aux writes.
++		// S_DECODE itself never uses lookahead: rd_ir still selects ir there.
++		if (rd_valid && ((state == S_DECODE) ||
++		    (rd_queue_pop && regs_alu_fire && !aux_we)))
++			dispatch_reg_decode;
++
+ 		//-------------------------------------------------- fetch queue engine
+ 		// The queue fills itself: whenever the memory port is idle, the
+ 		// stream is armed, and there is room for the whole request, the

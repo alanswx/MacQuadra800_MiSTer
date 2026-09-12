@@ -198,9 +198,14 @@ reg [31:0] rom  [0:ROM_WORDS-1]  /*verilator public*/;
 reg [31:0] vram [0:VRAM_WORDS-1] /*verilator public*/;
 
 reg [1023:0] rom_file;
+integer rom_input_fd;
 initial begin
 	if (!$value$plusargs("rom=%s", rom_file))
 		rom_file = "quadra800.rom.hex";
+	rom_input_fd = $fopen(rom_file, "r");
+	if (!rom_input_fd)
+		$fatal(1, "Missing ROM file %0s; select an existing file with +rom=<path>", rom_file);
+	$fclose(rom_input_fd);
 	$readmemh(rom_file, rom);
 	// +warmstart: preload the warm-start signature so the ROM skips the
 	// destructive RAM test (iteration aid; cold boot leaves this off)

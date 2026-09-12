@@ -1,0 +1,689 @@
+--- a/verilator/sim_main.cpp
++++ b/verilator/sim_main.cpp
+@@ -30,6 +30,8 @@
+ #include "sim_blkdevice.h"
+ #include "implot.h"
+ #include "m68k_dasm.h"
++#include "cpu_dispatch_observer.h"
++#include "sim_control.h"
+ 
+ // sim.v keeps its own module class (the public arrays force it), so its
+ // internals live under rootp->emu rather than flattened into root.
+@@ -73,6 +75,9 @@
+ // pc_i register: one entry per instruction dispatch, extension words read
+ // straight from the sim memory arrays)
+ bool cpu_trace_disabled = false;      // --no-cpu-trace
++static std::string control_file;      // --control PATH: optional local commands
++static SimControl sim_control;
++static bool control_shot_pending = false;
+ bool gui_instr_log = false;           // stream instructions into the Debug log
+ bool gui_trace_file = true;           // trace file toggle (GUI defaults off)
+ bool showDebugLog = true;
+@@ -80,6 +85,7 @@
+ const char* cpu_trace_filename = "cpu_trace.log";
+ long cpu_trace_count = 0;
+ uint32_t cpu_trace_last_pc = 0xFFFFFFFF;
++static CpuDispatchObserver cpu_dispatch_observer;
+ 
+ // Cheap long-run observability: heartbeat line + a pc histogram (one
+ // bucket per 256 bytes over the whole 4 GB, sampled every clock).
+@@ -118,11 +124,13 @@
+ 
+ // Simulation-only exact-workload profiler. SIGUSR1 resets/starts the
+ // bracket; SIGUSR2 stops it and writes the report.
++// Dispatch means an actual opcode load, before decode/operand execution.
++// Faulting opcodes are included; clocks_per_dispatch is not retirement CPI.
+ static std::string prof_file;
+ static volatile sig_atomic_t prof_start_req = 0, prof_stop_req = 0;
+-static bool prof_active = false, prof_prev_valid = false;
++static CpuProfileGate prof_gate;
++static bool prof_prev_valid = false;
+ static uint8_t prof_prev_state = 0;
+-static uint32_t prof_prev_pc = 0;
+ static uint64_t prof_dispatches = 0;
+ static uint64_t prof_cycles, prof_state_cycles[256], prof_state_entries[256];
+ static uint64_t prof_transitions[256][256], prof_opcodes[65536];
+@@ -178,35 +186,34 @@
+ 		        (unsigned long long)prof_opcodes[op],
+ 		        dispatches ? 100.0*prof_opcodes[op]/dispatches : 0.0);
+ 	fclose(f);
+-	printf("[CPU-PROFILE] wrote %s: %llu cycles, %llu dispatches, %.3f clocks/dispatch\n",
++	printf("[CPU-PROFILE] wrote %s: %llu cycles, %llu opcode dispatches, %.3f clocks/dispatch\n",
+ 	       prof_file.c_str(), (unsigned long long)prof_cycles,
+ 	       (unsigned long long)dispatches, cpd);
+ 	fflush(stdout);
+ }
+ 
+-static void prof_step() {
+-	if (prof_start_req) {
+-		prof_start_req=0; prof_stop_req=0; prof_reset(); prof_active=true;
++static void prof_step(bool dispatch) {
++	const bool start = prof_start_req != 0, stop = prof_stop_req != 0;
++	if (start) prof_start_req = 0;
++	if (start || stop) prof_stop_req = 0;
++	const auto action = prof_gate.sample(start, stop);
++	if (action == CpuProfileGate::Start) {
++		prof_reset();
+ 		printf("[CPU-PROFILE] started at simulator cycle %llu\n", (unsigned long long)main_time);
+ 		fflush(stdout);
+ 	}
+-	if (prof_stop_req) {
+-		prof_stop_req=0; if (prof_active) prof_dump(); prof_active=false; return;
+-	}
+-	if (!prof_active) return;
++	if (action == CpuProfileGate::Stop) { prof_dump(); return; }
++	if (action == CpuProfileGate::Skip) return;
+ 	uint8_t state=SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__state;
+ 	uint16_t ir=SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__ir;
+-	uint32_t pc=SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__pc_i;
+ 	uint8_t cst=SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__cst;
+ 	prof_cycles++; prof_state_cycles[state]++; prof_cache_states[cst&7]++;
+ 	if (SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__rd_accept) prof_rd_accept++;
+ 	if (SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__look_hit) prof_look_hit++;
+ 	if (SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__ipred_hit) prof_ipred_hit++;
+-	// A resident MOVEQ/NOP can retire directly into another S_DECODE clock.
+-	// Count that new PC even without a state transition; a stalled decode
+-	// keeps both state and PC unchanged and must not be counted repeatedly.
+-	if (state == 4 && (!prof_prev_valid || state != prof_prev_state ||
+-	                  pc != prof_prev_pc)) {
++	// The continuously sampled opcode-load toggle handles bypassed decode,
++	// consecutive same-PC/state dispatches, and clock-enable stalls alike.
++	if (dispatch) {
+ 		prof_dispatches++;
+ 		prof_opcodes[ir]++;
+ 	}
+@@ -215,10 +222,55 @@
+ 		if (prof_prev_valid) prof_transitions[prof_prev_state][state]++;
+ 		prof_prev_state=state; prof_prev_valid=true;
+ 	}
+-	prof_prev_pc=pc;
+ }
+ 
+ // ---- ADB mouse from clicks on the VGA image -------------------------------
++
++// Local control never opens a stream or emits guest input unless --control
++// is supplied. Reuse SimInput's normal PS/2-to-ADB queue and timing contract.
++static void control_before_eval() {
++	if (!sim_control.enabled()) return;
++	SimControlCommand command{};
++	if (sim_control.step(VERTOPINTERN->reset || control_shot_pending,
++	                     input.keyEvents.empty() && input.keyEventTimer == 0, command)) {
++		switch (command.kind) {
++		case SimControlCommand::Down:
++		case SimControlCommand::Up:
++			input.keyEvents.emplace(static_cast<char>(command.value),
++				command.kind == SimControlCommand::Down, command.extended,
++				static_cast<unsigned>(command.value));
++			printf("[SIM-CONTROL] %s %02llX%s cycle=%llu\n",
++				command.kind == SimControlCommand::Down ? "down" : "up",
++				(unsigned long long)command.value, command.extended ? " ext" : "",
++				(unsigned long long)main_time);
++			break;
++		case SimControlCommand::Wait:
++			printf("[SIM-CONTROL] wait %llu rising edges cycle=%llu\n",
++				(unsigned long long)command.value, (unsigned long long)main_time);
++			break;
++		case SimControlCommand::Shot:
++			control_shot_pending = true; // block following commands until frame capture
++			break;
++		case SimControlCommand::ProfileStart:
++		case SimControlCommand::ProfileStop:
++			if (prof_file.empty()) fprintf(stderr, "[SIM-CONTROL] profile requires --cpu-profile FILE\n");
++			else if (command.kind == SimControlCommand::ProfileStart) prof_start_req = 1;
++			else prof_stop_req = 1;
++			break;
++		}
++		fflush(stdout);
++	}
++	static size_t last_rejected = 0;
++	if (sim_control.rejected() != last_rejected) {
++		fprintf(stderr, "[SIM-CONTROL] rejected malformed/overlong commands: %zu total\n", sim_control.rejected());
++		last_rejected = sim_control.rejected();
++	}
++	static std::string last_error;
++	if (sim_control.read_error() != last_error) {
++		last_error = sim_control.read_error();
++		fprintf(stderr, "[SIM-CONTROL] read error: %s\n", last_error.c_str());
++	}
++}
+ // A click (or drag) on the VGA output picks a target pixel; each GUI frame
+ // one MiSTer-format ps2_mouse packet nudges the pointer toward it.  The ADB
+ // mouse is relative, so the loop is closed against the Mac's own idea of the
+@@ -316,8 +368,11 @@
+ static void save_screenshot(int frame) {
+ 	char filename[64];
+ 	snprintf(filename, sizeof(filename), "screenshot_f%d.png", frame);
+-	stbi_write_png(filename, output_width, output_height, 4, output_ptr,
+-	               output_width * 4);
++	if (!stbi_write_png(filename, output_width, output_height, 4, output_ptr,
++	                   output_width * 4)) {
++		fprintf(stderr, "[SCREENSHOT] failed to write %s\n", filename);
++		return;
++	}
+ 	printf("Saved %s (%dx%d)\n", filename, output_width, output_height);
+ }
+ 
+@@ -333,15 +388,26 @@
+ 
+ 		if (clk_sys.clk != clk_sys.old) {
+ 			if (clk_sys.clk) {
++				control_before_eval();
+ 				input.BeforeEval();
+ 				if (!scsi_disk_file.empty()) blockdevice.BeforeEval(main_time);
+ 			}
+ 			top->eval();
+ 			if (clk_sys.clk && !scsi_disk_file.empty()) blockdevice.AfterEval();
++			bool cpu_dispatch = false;
++			if (clk_sys.clk) {
++				// Observe after eval/NBA even while reset, profiling, or trace
++				// output is disabled. Enabling a consumer must never replay an
++				// old dispatch or mistake the current pc_i for a new opcode.
++				cpu_dispatch = cpu_dispatch_observer.sample(VERTOPINTERN->reset,
++					SIMEMU->machine__DOT__cpu__DOT__core__DOT__perf_dispatch_toggle);
++				if (VERTOPINTERN->reset) prof_prev_valid = false;
++			}
+ 			if (clk_sys.clk && !VERTOPINTERN->reset) {
+-				prof_step();
++				prof_step(cpu_dispatch);
+ 				machine_events();
+-				if (!cpu_trace_disabled && main_time >= trace_after) cpu_trace_step();
++				if (cpu_dispatch && !cpu_trace_disabled && main_time >= trace_after)
++					cpu_trace_step();
+ 				uint32_t hpc = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__pc_i;
+ 				if (pc_hist_enable) pc_hist[hpc >> 8]++;
+ 				{
+@@ -424,8 +490,13 @@
+ 				(VERTOPINTERN->VGA_B << 16) |
+ 				(VERTOPINTERN->VGA_G << 8) |
+ 				 VERTOPINTERN->VGA_R;
++			const auto previous_frame = video.count_frame;
+ 			video.Clock(VERTOPINTERN->VGA_HB, VERTOPINTERN->VGA_VB,
+ 			            VERTOPINTERN->VGA_HS, VERTOPINTERN->VGA_VS, colour);
++			if (control_shot_pending && video.count_frame != previous_frame) {
++				save_screenshot(video.count_frame);
++				control_shot_pending = false;
++			}
+ 		}
+ 
+ 		main_time++;
+@@ -453,14 +524,15 @@
+ 	return (addr & 2) ? (uint16_t)word : (uint16_t)(word >> 16);
+ }
+ 
+-// One trace line per instruction dispatch: pc_i changed inside the core.
++// Called only for the same actual opcode-load event used by the profiler.
++// Repeated PC/state values are legitimate separate dispatches.
+ static void cpu_trace_step() {
+ 	uint32_t pc = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__pc_i;
+-	if (pc == cpu_trace_last_pc) return;
+ 	cpu_trace_last_pc = pc;
+ 
+ 	unsigned short opwords[5];
+-	for (int k = 0; k < 5; k++) opwords[k] = sim_read_word(pc + 2*k);
++	opwords[0] = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__ir;
++	for (int k = 1; k < 5; k++) opwords[k] = sim_read_word(pc + 2*k);
+ 	unsigned int len = 2;
+ 	const char* disasm = disassemble_68k_ext_len(pc, opwords, 5, &len);
+ 	cpu_trace_count++;
+@@ -529,6 +601,12 @@
+ 	for (int i = 1; i < argc; i++) {
+ 		if (!strcmp(argv[i], "--headless") || !strcmp(argv[i], "--no-gui")) {
+ 			headless = true;
++		} else if (!strcmp(argv[i], "--control")) {
++			if (i + 1 >= argc) {
++				fprintf(stderr, "--control requires an existing regular file or FIFO path\n");
++				return 1;
++			}
++			control_file = argv[++i];
+ 		} else if (!strcmp(argv[i], "--no-cpu-trace")) {
+ 			cpu_trace_disabled = true;
+ 		} else if (!strcmp(argv[i], "--max-cycles") && i + 1 < argc) {
+@@ -559,6 +637,7 @@
+ 		} else if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
+ 			printf("wombat33 sim: [--headless] [--screenshot F1,F2,..] [--stop-at-frame N]\n"
+ 			       "              [--no-cpu-trace] [--max-cycles N] [--cpu-profile FILE]\n"
++			       "              [--control PATH] (down/up HEX [ext], wait CYCLES, shot, profile start/stop)\n"
+ 			       "              [+rom=<hexfile>]\n");
+ 			return 0;
+ 		}
+@@ -572,6 +651,15 @@
+ 	}
+ #endif
+ 
++	if (!control_file.empty()) {
++		std::string error;
++		if (!sim_control.open(control_file, error)) {
++			fprintf(stderr, "[SIM-CONTROL] cannot open %s: %s\n", control_file.c_str(), error.c_str());
++			return 1;
++		}
++		printf("[SIM-CONTROL] reading %s (nonblocking, simulated-cycle pacing)\n", control_file.c_str());
++	}
++
+ 	// The interactive GUI must not fill the disk behind the user's back:
+ 	// the trace file starts enabled only for headless runs — unless a
+ 	// debug window was explicitly requested on the command line.
+@@ -588,6 +676,7 @@
+ 	VERTOPINTERN->clk_sys = 0;
+ 	VERTOPINTERN->reset = 1;
+ 	VERTOPINTERN->ps2_key = 0;
++	input.ps2_key = &VERTOPINTERN->ps2_key;
+ 	VERTOPINTERN->ps2_mouse = 0;
+ 	VERTOPINTERN->ioctl_download = 0;
+ 	VERTOPINTERN->ioctl_wr = 0;
+@@ -803,9 +892,9 @@
+ 		if (headless && Verilated::gotFinish()) done = true;
+ 	}
+ 
+-	if (prof_active) { prof_dump(); prof_active=false; }
++	if (prof_gate.active()) { prof_dump(); prof_gate.stop(); }
+ 	if (cpu_trace_file) {
+-		printf("CPU trace: %ld instructions, last pc=%08X (%s)\n",
++		printf("CPU trace: %ld opcode dispatches, last pc=%08X (%s)\n",
+ 		       cpu_trace_count, cpu_trace_last_pc, cpu_trace_filename);
+ 		fclose(cpu_trace_file);
+ 	}
+--- /dev/null
++++ b/verilator/cpu_dispatch_observer.h
+@@ -0,0 +1,41 @@
++#ifndef CPU_DISPATCH_OBSERVER_H
++#define CPU_DISPATCH_OBSERVER_H
++
++// Call once after every rising-edge eval, including reset and periods when
++// all consumers are disabled. First observation establishes a baseline;
++// reset observations resynchronize without manufacturing opcode events.
++class CpuDispatchObserver {
++public:
++	bool sample(bool reset, bool toggle) {
++		const bool event = valid_ && !reset && toggle != last_;
++		last_ = toggle;
++		valid_ = true;
++		return event;
++	}
++private:
++	bool valid_ = false;
++	bool last_ = false;
++};
++
++// Preserve the existing profiler's sampled bracket semantics: start clears
++// counters and includes this sample; stop excludes this sample. If both
++// requests are pending together, start wins. Requests wait through reset.
++class CpuProfileGate {
++public:
++	enum Action { Skip, Start, Count, Stop };
++	Action sample(bool start, bool stop) {
++		if (start) { active_ = true; return Start; }
++		if (stop) {
++			const bool was_active = active_;
++			active_ = false;
++			return was_active ? Stop : Skip;
++		}
++		return active_ ? Count : Skip;
++	}
++	bool active() const { return active_; }
++	void stop() { active_ = false; }
++private:
++	bool active_ = false;
++};
++
++#endif
+--- /dev/null
++++ b/verilator/tests/cpu_dispatch_observer_test.cpp
+@@ -0,0 +1,82 @@
++#include "../cpu_dispatch_observer.h"
++#include <cassert>
++#include <cstdio>
++
++// Replay the production sampling order: observe every post-eval rising edge,
++// process profile requests only outside reset, then gate consumers. PC/state
++// are deliberately fixed: neither is an event discriminator anymore.
++struct Replay {
++	CpuDispatchObserver observer;
++	CpuProfileGate profile;
++	unsigned cycles = 0, opcodes = 0, traces = 0, dumps = 0;
++	bool pending_start = false, pending_stop = false;
++	void edge(bool reset, bool toggle, bool trace_enabled,
++	          bool start = false, bool stop = false) {
++		pending_start |= start;
++		pending_stop |= stop;
++		const bool dispatch = observer.sample(reset, toggle);
++		if (reset) return;
++		const auto action = profile.sample(pending_start, pending_stop);
++		pending_start = pending_stop = false;
++		if (action == CpuProfileGate::Start) cycles = opcodes = 0;
++		if (action == CpuProfileGate::Start || action == CpuProfileGate::Count) {
++			++cycles;
++			if (dispatch) ++opcodes;
++		}
++		if (action == CpuProfileGate::Stop) ++dumps;
++		if (trace_enabled && dispatch) ++traces;
++	}
++};
++
++int main() {
++	// Attaching with a high toggle is not itself a dispatch.
++	CpuDispatchObserver attached;
++	assert(!attached.sample(false, true));
++	assert(!attached.sample(false, true));
++	assert(attached.sample(false, false));
++	// Reset-induced toggle changes do not appear as opcodes. A real opcode
++	// on the first nonreset sample is retained after a reset baseline.
++	assert(!attached.sample(true, true));
++	assert(!attached.sample(true, false));
++	assert(attached.sample(false, true));
++
++	Replay r;
++	r.edge(true, false, false);
++	r.edge(false, false, false, true); // start at an idle/stalled opcode
++	assert(r.cycles == 1 && r.opcodes == 0 && r.traces == 0);
++	r.edge(false, true, true);        // same PC and state 190
++	r.edge(false, false, true);       // same PC and state 190, next opcode load
++	r.edge(false, true, true);        // same PC and state 190, next opcode load
++	assert(r.opcodes == 3 && r.traces == 3);
++	for (int i = 0; i < 4; ++i) r.edge(false, true, true); // ce=0: toggle holds
++	assert(r.opcodes == 3 && r.traces == 3 && r.cycles == 8);
++	r.edge(false, false, true, false, true); // stop excludes current event
++	assert(r.opcodes == 3 && r.traces == 4 && r.dumps == 1 && r.cycles == 8);
++	r.edge(false, true, false);        // disabled consumers still observed
++	r.edge(false, true, true, true);   // reenable/start does not replay it
++	assert(r.opcodes == 0 && r.traces == 4 && r.cycles == 1);
++	r.edge(false, false, true, true);  // restart includes current real event
++	assert(r.opcodes == 1 && r.cycles == 1 && r.traces == 5);
++	r.edge(false, true, true, true, true); // simultaneous requests: start wins
++	assert(r.opcodes == 1 && r.cycles == 1 && r.traces == 6 && r.dumps == 1);
++	// Active profile spans reset without counting reset clocks/events.
++	r.edge(true, false, true);
++	r.edge(true, false, true);
++	r.edge(false, false, true);
++	assert(r.opcodes == 1 && r.cycles == 2 && r.traces == 6);
++	r.edge(false, true, true);
++	assert(r.opcodes == 2 && r.traces == 7);
++	// Requests during reset are applied at the next nonreset sample.
++	r.edge(true, false, true, false, true);
++	r.edge(false, true, true);
++	assert(r.opcodes == 2 && r.traces == 8 && r.dumps == 2);
++	r.edge(false, false, false);       // odd number of unobserved-by-output events
++	r.edge(true, false, false, true);
++	r.edge(false, false, true);        // new bracket: no stale event
++	assert(r.opcodes == 0 && r.cycles == 1 && r.traces == 8);
++	r.edge(false, true, true);
++	assert(r.opcodes == 1 && r.traces == 9);
++	r.profile.stop();
++	assert(!r.profile.active());
++	std::puts("PASS: dispatch reset/stalls/same-PC-state and profile/trace boundaries");
++}
+--- /dev/null
++++ b/verilator/sim_control.h
+@@ -0,0 +1,172 @@
++#ifndef SIM_CONTROL_H
++#define SIM_CONTROL_H
++
++#include <cerrno>
++#include <cstdint>
++#include <cstring>
++#include <deque>
++#include <limits>
++#include <sstream>
++#include <string>
++#ifndef _WIN32
++#include <fcntl.h>
++#include <sys/stat.h>
++#include <unistd.h>
++#endif
++
++// Optional local, newline-delimited control stream. No input is opened or
++// event emitted by construction. All clocks below are simulated rising edges.
++struct SimControlCommand {
++	enum Kind { Down, Up, Wait, Shot, ProfileStart, ProfileStop } kind;
++	uint64_t value = 0;
++	bool extended = false;
++};
++
++class SimControl {
++public:
++	static constexpr size_t QueueLimit = 64, LineLimit = 160;
++	SimControl() = default;
++	SimControl(const SimControl&) = delete;
++	SimControl& operator=(const SimControl&) = delete;
++	~SimControl() {
++#ifndef _WIN32
++		if (fd_ >= 0) ::close(fd_);
++#endif
++	}
++	bool open(const std::string& path, std::string& error) {
++#ifndef _WIN32
++		const int fd = ::open(path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
++		if (fd < 0) { error = std::strerror(errno); return false; }
++		struct stat st;
++		if (::fstat(fd, &st) < 0) {
++			error = std::strerror(errno); ::close(fd); return false;
++		}
++		if (!S_ISREG(st.st_mode) && !S_ISFIFO(st.st_mode)) {
++			error = "control path must be a regular file or FIFO";
++			::close(fd); return false;
++		}
++		if (fd_ >= 0) ::close(fd_);
++		fd_ = fd;
++		return true;
++#else
++		(void)path;
++		error = "--control requires POSIX nonblocking local files/FIFOs";
++		return false;
++#endif
++	}
++	bool enabled() const { return fd_ >= 0; }
++	size_t queued() const { return queue_.size(); }
++	size_t rejected() const { return rejected_; }
++	const std::string& read_error() const { return read_error_; }
++
++	// Bounded byte ingestion, also used by deterministic parser tests. Return
++	// consumed bytes so a full command queue never loses buffered input.
++	size_t feed(const char* data, size_t count) {
++		size_t used = 0;
++		while (used < count && queue_.size() < QueueLimit) {
++			const char ch = data[used++];
++			if (ch == '\n') {
++				if (!discard_line_) parse_line();
++				line_.clear(); discard_line_ = false;
++			} else if (!discard_line_) {
++				if (line_.size() == LineLimit) {
++					++rejected_; line_.clear(); discard_line_ = true;
++				} else line_ += ch;
++			}
++		}
++		return used;
++	}
++
++	void poll() {
++#ifndef _WIN32
++		if (fd_ < 0) return;
++		size_t budget = 1024;
++		while (budget && queue_.size() < QueueLimit) {
++			if (input_pos_ == input_size_) {
++				const ssize_t n = ::read(fd_, input_, sizeof(input_));
++				if (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR)
++					read_error_ = std::strerror(errno);
++				// EOF leaves the descriptor and partial line intact: regular
++				// files can be appended, FIFO writers can disconnect/reconnect.
++				if (n <= 0) break;
++				input_pos_ = 0; input_size_ = static_cast<size_t>(n);
++			}
++			const size_t remaining = input_size_ - input_pos_;
++			const size_t used = feed(input_ + input_pos_, remaining < budget ? remaining : budget);
++			input_pos_ += used; budget -= used;
++			if (!used) break;
++		}
++#endif
++	}
++
++	// Service once before each rising-edge eval. Poll at most once per 16384
++	// clocks, accept at most one command per clock, and wait for the existing
++	// key queue/pacing timer before starting the next command. Wait N inserts
++	// N complete idle clocks after the wait command's acceptance clock.
++	bool step(bool paused, bool keys_ready, SimControlCommand& command) {
++		if ((poll_ticks_++ & 16383U) == 0) poll();
++		if (paused) return false;
++		if (wait_left_) { --wait_left_; return false; }
++		if (!keys_ready || queue_.empty()) return false;
++		command = queue_.front(); queue_.pop_front();
++		if (command.kind == SimControlCommand::Wait) wait_left_ = command.value;
++		return true;
++	}
++
++private:
++	static bool number(const std::string& text, unsigned base, uint64_t& value) {
++		size_t i = 0;
++		if (base == 16 && text.size() > 2 && text[0] == '0' &&
++		    (text[1] == 'x' || text[1] == 'X')) i = 2;
++		if (i == text.size()) return false;
++		value = 0;
++		for (; i < text.size(); ++i) {
++			const char ch = text[i];
++			const unsigned digit = ch >= '0' && ch <= '9' ? unsigned(ch - '0') :
++				ch >= 'a' && ch <= 'f' ? unsigned(ch - 'a' + 10) :
++				ch >= 'A' && ch <= 'F' ? unsigned(ch - 'A' + 10) : 99;
++			if (digit >= base || value > (std::numeric_limits<uint64_t>::max() - digit) / base)
++				return false;
++			value = value * base + digit;
++		}
++		return true;
++	}
++	void parse_line() {
++		const auto comment = line_.find('#');
++		std::istringstream in(line_.substr(0, comment));
++		std::string op, arg, ext, extra;
++		if (!(in >> op)) return;
++		SimControlCommand command{};
++		bool valid = false;
++		if (op == "down" || op == "up") {
++			command.kind = op == "down" ? SimControlCommand::Down : SimControlCommand::Up;
++			if ((in >> arg) && number(arg, 16, command.value) && command.value <= 255) {
++				if (!(in >> ext)) valid = true;
++				else if (ext == "ext" && !(in >> extra)) { command.extended = true; valid = true; }
++			}
++		} else if (op == "wait") {
++			command.kind = SimControlCommand::Wait;
++			valid = bool(in >> arg) && number(arg, 10, command.value) && !(in >> extra);
++		} else if (op == "shot") {
++			command.kind = SimControlCommand::Shot;
++			valid = !(in >> extra);
++		} else if (op == "profile") {
++			if ((in >> arg) && (arg == "start" || arg == "stop") && !(in >> extra)) {
++				command.kind = arg == "start" ? SimControlCommand::ProfileStart : SimControlCommand::ProfileStop;
++				valid = true;
++			}
++		}
++		if (valid) queue_.push_back(command);
++		else ++rejected_;
++	}
++	int fd_ = -1;
++	uint32_t poll_ticks_ = 0;
++	uint64_t wait_left_ = 0;
++	size_t rejected_ = 0, input_pos_ = 0, input_size_ = 0;
++	bool discard_line_ = false;
++	std::string line_, read_error_;
++	std::deque<SimControlCommand> queue_;
++	char input_[512];
++};
++
++#endif
+--- /dev/null
++++ b/verilator/tests/sim_control_test.cpp
+@@ -0,0 +1,98 @@
++#include "../sim_control.h"
++#include <cassert>
++#include <cstdio>
++#include <cstdlib>
++
++static void feed(SimControl& control, const std::string& text) {
++	assert(control.feed(text.data(), text.size()) == text.size());
++}
++
++int main() {
++	SimControl c;
++	SimControlCommand command{};
++	assert(!c.enabled() && !c.step(false, true, command)); // opt-in, idle by default
++	feed(c, "# comment\n\r\ndown 0x1c");
++	assert(c.queued() == 0); // incomplete lines never execute
++	feed(c, "\r\nup 1C\ndown 75 ext # arrow\nprofile start\nprofile stop\nshot\n");
++	assert(c.queued() == 6 && c.rejected() == 0);
++	assert(!c.step(true, true, command));  // reset blocks guest commands
++	assert(!c.step(false, false, command)); // existing PS/2 queue/timer owns input
++	assert(c.step(false, true, command) && command.kind == SimControlCommand::Down && command.value == 0x1c && !command.extended);
++	assert(c.step(false, true, command) && command.kind == SimControlCommand::Up && command.value == 0x1c);
++	assert(c.step(false, true, command) && command.extended && command.value == 0x75);
++	assert(c.step(false, true, command) && command.kind == SimControlCommand::ProfileStart);
++	assert(c.step(false, true, command) && command.kind == SimControlCommand::ProfileStop);
++	assert(c.step(false, true, command) && command.kind == SimControlCommand::Shot);
++	feed(c, "wait 3\ndown 5a\nwait 0\nup 5a\n");
++	assert(!c.step(true, true, command)); // screenshot/reset pause keeps order
++	assert(c.step(false, true, command) && command.kind == SimControlCommand::Wait);
++	assert(!c.step(false, true, command));
++	assert(!c.step(true, true, command)); // paused clocks do not consume wait
++	assert(!c.step(false, true, command));
++	assert(!c.step(false, true, command));
++	assert(c.step(false, true, command) && command.kind == SimControlCommand::Down);
++	assert(c.step(false, true, command) && command.kind == SimControlCommand::Wait);
++	assert(c.step(false, true, command) && command.kind == SimControlCommand::Up);
++	feed(c, "down 100\nup -1\nwait -2\nwait 18446744073709551616\ndown 1c extra\nshot file.png\nprofile end\nwait 1 extra\n");
++	assert(c.rejected() == 8 && c.queued() == 0);
++	feed(c, std::string(161, 'x') + "down 1c\nshot\n");
++	assert(c.rejected() == 9 && c.queued() == 1); // long-line suffix cannot execute
++	assert(c.step(false, true, command) && command.kind == SimControlCommand::Shot);
++
++	// Backpressure returns exactly the unconsumed suffix; no commands drop.
++	std::string many;
++	for (unsigned i = 0; i < 100; ++i) many += "wait " + std::to_string(i) + "\n";
++	SimControl bounded;
++	size_t consumed = bounded.feed(many.data(), many.size());
++	assert(consumed < many.size() && bounded.queued() == SimControl::QueueLimit);
++	for (unsigned expected = 0; expected < 100; ++expected) {
++		while (!bounded.step(false, true, command)) {}
++		assert(command.kind == SimControlCommand::Wait && command.value == expected);
++		if (consumed < many.size())
++			consumed += bounded.feed(many.data() + consumed, many.size() - consumed);
++	}
++	assert(consumed == many.size() && bounded.queued() == 0);
++
++#ifndef _WIN32
++	char fixture[] = "/tmp/ap040-control-test.XXXXXX";
++	assert(::mkdtemp(fixture));
++	const std::string fifo = std::string(fixture) + "/commands.fifo";
++	const std::string file = std::string(fixture) + "/commands.txt";
++	assert(::mkfifo(fifo.c_str(), 0600) == 0);
++	std::string error;
++	{
++		SimControl reader;
++		assert(reader.open(fifo, error)); // returns with no writer present
++		reader.poll(); assert(reader.queued() == 0);
++		int writer = ::open(fifo.c_str(), O_WRONLY | O_NONBLOCK);
++		assert(writer >= 0 && ::write(writer, "down 1c", 7) == 7);
++		reader.poll(); assert(reader.queued() == 0);
++		assert(::write(writer, "\nwait 3\n", 8) == 8);
++		::close(writer); reader.poll(); assert(reader.queued() == 2);
++		writer = ::open(fifo.c_str(), O_WRONLY | O_NONBLOCK);
++		assert(writer >= 0 && ::write(writer, "up 1c\n", 6) == 6);
++		::close(writer); reader.poll(); assert(reader.queued() == 3);
++		assert(reader.step(false, true, command) && command.kind == SimControlCommand::Down);
++		assert(reader.step(false, true, command) && command.kind == SimControlCommand::Wait);
++		for (int i = 0; i < 3; ++i) assert(!reader.step(false, true, command));
++		assert(reader.step(false, true, command) && command.kind == SimControlCommand::Up);
++	}
++	{
++		int writer = ::open(file.c_str(), O_CREAT | O_EXCL | O_WRONLY, 0600);
++		assert(writer >= 0 && ::write(writer, "shot\n", 5) == 5);
++		::close(writer);
++		SimControl reader;
++		assert(reader.open(file, error)); reader.poll();
++		assert(reader.step(false, true, command) && command.kind == SimControlCommand::Shot);
++		reader.poll(); assert(reader.queued() == 0); // EOF does not replay
++		writer = ::open(file.c_str(), O_WRONLY | O_APPEND);
++		assert(writer >= 0 && ::write(writer, "profile start\n", 14) == 14);
++		::close(writer); reader.poll();
++		assert(reader.step(false, true, command) && command.kind == SimControlCommand::ProfileStart);
++		assert(!reader.open(fixture, error)); // reject directories/devices
++	}
++	assert(::unlink(fifo.c_str()) == 0 && ::unlink(file.c_str()) == 0);
++	assert(::rmdir(fixture) == 0);
++#endif
++	std::puts("PASS: optional control parser, bounds, pacing, FIFO reconnect and file append");
++}

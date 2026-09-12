@@ -30,6 +30,8 @@
 #include "sim_blkdevice.h"
 #include "implot.h"
 #include "m68k_dasm.h"
+#include "cpu_dispatch_observer.h"
+#include "sim_control.h"
 
 // sim.v keeps its own module class (the public arrays force it), so its
 // internals live under rootp->emu rather than flattened into root.
@@ -42,6 +44,9 @@
 #include <sstream>
 #include <vector>
 #include <algorithm>
+#include <cstdint>
+#include <cstring>
+#include <csignal>
 
 // Simulation control
 // ------------------
@@ -70,6 +75,9 @@ bool pc_was_in_stop = false;               // edge detector for the stop range
 // pc_i register: one entry per instruction dispatch, extension words read
 // straight from the sim memory arrays)
 bool cpu_trace_disabled = false;      // --no-cpu-trace
+static std::string control_file;      // --control PATH: optional local commands
+static SimControl sim_control;
+static bool control_shot_pending = false;
 bool gui_instr_log = false;           // stream instructions into the Debug log
 bool gui_trace_file = true;           // trace file toggle (GUI defaults off)
 bool showDebugLog = true;
@@ -77,6 +85,7 @@ FILE* cpu_trace_file = nullptr;
 const char* cpu_trace_filename = "cpu_trace.log";
 long cpu_trace_count = 0;
 uint32_t cpu_trace_last_pc = 0xFFFFFFFF;
+static CpuDispatchObserver cpu_dispatch_observer;
 
 // Cheap long-run observability: heartbeat line + a pc histogram (one
 // bucket per 256 bytes over the whole 4 GB, sampled every clock).
@@ -113,7 +122,155 @@ SimVideo video(800, 600, 0);
 float vga_scale = 1.0f;
 SimInput input(12, console);
 
+// Simulation-only exact-workload profiler. SIGUSR1 resets/starts the
+// bracket; SIGUSR2 stops it and writes the report.
+// Dispatch means an actual opcode load, before decode/operand execution.
+// Faulting opcodes are included; clocks_per_dispatch is not retirement CPI.
+static std::string prof_file;
+static volatile sig_atomic_t prof_start_req = 0, prof_stop_req = 0;
+static CpuProfileGate prof_gate;
+static bool prof_prev_valid = false;
+static uint8_t prof_prev_state = 0;
+static uint64_t prof_dispatches = 0;
+static uint64_t prof_cycles, prof_state_cycles[256], prof_state_entries[256];
+static uint64_t prof_transitions[256][256], prof_opcodes[65536];
+static uint64_t prof_cache_states[8], prof_rd_accept, prof_look_hit, prof_ipred_hit;
+
+static void prof_start_signal(int) { prof_start_req = 1; }
+static void prof_stop_signal(int) { prof_stop_req = 1; }
+
+static void prof_reset() {
+	prof_dispatches = 0;
+	prof_cycles = prof_rd_accept = prof_look_hit = prof_ipred_hit = 0;
+	memset(prof_state_cycles, 0, sizeof(prof_state_cycles));
+	memset(prof_state_entries, 0, sizeof(prof_state_entries));
+	memset(prof_transitions, 0, sizeof(prof_transitions));
+	memset(prof_opcodes, 0, sizeof(prof_opcodes));
+	memset(prof_cache_states, 0, sizeof(prof_cache_states));
+	prof_prev_valid = false;
+}
+
+static void prof_dump() {
+	if (prof_file.empty()) return;
+	FILE* f = fopen(prof_file.c_str(), "w");
+	if (!f) { fprintf(stderr, "[CPU-PROFILE] cannot write %s\n", prof_file.c_str()); return; }
+	uint64_t dispatches = prof_dispatches;
+	double cpd = dispatches ? (double)prof_cycles / dispatches : 0.0;
+	fprintf(f, "SUMMARY\tcycles\tdispatches\tclocks_per_dispatch\trd_accept\tlook_hit_cycles\tipred_hit_cycles\n");
+	fprintf(f, "SUMMARY\t%llu\t%llu\t%.6f\t%llu\t%llu\t%llu\n",
+	        (unsigned long long)prof_cycles, (unsigned long long)dispatches, cpd,
+	        (unsigned long long)prof_rd_accept, (unsigned long long)prof_look_hit,
+	        (unsigned long long)prof_ipred_hit);
+	fprintf(f, "STATE\tid\tcycles\tentries\tpercent\n");
+	for (int i=0; i<256; i++) if (prof_state_cycles[i])
+		fprintf(f, "STATE\t%d\t%llu\t%llu\t%.6f\n", i,
+		        (unsigned long long)prof_state_cycles[i],
+		        (unsigned long long)prof_state_entries[i],
+		        prof_cycles ? 100.0*prof_state_cycles[i]/prof_cycles : 0.0);
+	fprintf(f, "CACHE_STATE\tid\tcycles\tpercent\n");
+	for (int i=0; i<8; i++) if (prof_cache_states[i])
+		fprintf(f, "CACHE_STATE\t%d\t%llu\t%.6f\n", i,
+		        (unsigned long long)prof_cache_states[i],
+		        prof_cycles ? 100.0*prof_cache_states[i]/prof_cycles : 0.0);
+	fprintf(f, "TRANSITION\tfrom\tto\tcount\n");
+	for (int a=0; a<256; a++) for (int b=0; b<256; b++)
+		if (prof_transitions[a][b])
+			fprintf(f, "TRANSITION\t%d\t%d\t%llu\n", a, b,
+			        (unsigned long long)prof_transitions[a][b]);
+	std::vector<int> ops;
+	for (int i=0; i<65536; i++) if (prof_opcodes[i]) ops.push_back(i);
+	std::sort(ops.begin(), ops.end(), [](int a,int b) { return prof_opcodes[a] > prof_opcodes[b]; });
+	fprintf(f, "OPCODE\topcode\tdispatches\tpercent\n");
+	for (int op: ops)
+		fprintf(f, "OPCODE\t%04X\t%llu\t%.6f\n", op,
+		        (unsigned long long)prof_opcodes[op],
+		        dispatches ? 100.0*prof_opcodes[op]/dispatches : 0.0);
+	fclose(f);
+	printf("[CPU-PROFILE] wrote %s: %llu cycles, %llu opcode dispatches, %.3f clocks/dispatch\n",
+	       prof_file.c_str(), (unsigned long long)prof_cycles,
+	       (unsigned long long)dispatches, cpd);
+	fflush(stdout);
+}
+
+static void prof_step(bool dispatch) {
+	const bool start = prof_start_req != 0, stop = prof_stop_req != 0;
+	if (start) prof_start_req = 0;
+	if (start || stop) prof_stop_req = 0;
+	const auto action = prof_gate.sample(start, stop);
+	if (action == CpuProfileGate::Start) {
+		prof_reset();
+		printf("[CPU-PROFILE] started at simulator cycle %llu\n", (unsigned long long)main_time);
+		fflush(stdout);
+	}
+	if (action == CpuProfileGate::Stop) { prof_dump(); return; }
+	if (action == CpuProfileGate::Skip) return;
+	uint8_t state=SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__state;
+	uint16_t ir=SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__ir;
+	uint8_t cst=SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__cst;
+	prof_cycles++; prof_state_cycles[state]++; prof_cache_states[cst&7]++;
+	if (SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__rd_accept) prof_rd_accept++;
+	if (SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__look_hit) prof_look_hit++;
+	if (SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__ipred_hit) prof_ipred_hit++;
+	// The continuously sampled opcode-load toggle handles bypassed decode,
+	// consecutive same-PC/state dispatches, and clock-enable stalls alike.
+	if (dispatch) {
+		prof_dispatches++;
+		prof_opcodes[ir]++;
+	}
+	if (!prof_prev_valid || state != prof_prev_state) {
+		prof_state_entries[state]++;
+		if (prof_prev_valid) prof_transitions[prof_prev_state][state]++;
+		prof_prev_state=state; prof_prev_valid=true;
+	}
+}
+
 // ---- ADB mouse from clicks on the VGA image -------------------------------
+
+// Local control never opens a stream or emits guest input unless --control
+// is supplied. Reuse SimInput's normal PS/2-to-ADB queue and timing contract.
+static void control_before_eval() {
+	if (!sim_control.enabled()) return;
+	SimControlCommand command{};
+	if (sim_control.step(VERTOPINTERN->reset || control_shot_pending,
+	                     input.keyEvents.empty() && input.keyEventTimer == 0, command)) {
+		switch (command.kind) {
+		case SimControlCommand::Down:
+		case SimControlCommand::Up:
+			input.keyEvents.emplace(static_cast<char>(command.value),
+				command.kind == SimControlCommand::Down, command.extended,
+				static_cast<unsigned>(command.value));
+			printf("[SIM-CONTROL] %s %02llX%s cycle=%llu\n",
+				command.kind == SimControlCommand::Down ? "down" : "up",
+				(unsigned long long)command.value, command.extended ? " ext" : "",
+				(unsigned long long)main_time);
+			break;
+		case SimControlCommand::Wait:
+			printf("[SIM-CONTROL] wait %llu rising edges cycle=%llu\n",
+				(unsigned long long)command.value, (unsigned long long)main_time);
+			break;
+		case SimControlCommand::Shot:
+			control_shot_pending = true; // block following commands until frame capture
+			break;
+		case SimControlCommand::ProfileStart:
+		case SimControlCommand::ProfileStop:
+			if (prof_file.empty()) fprintf(stderr, "[SIM-CONTROL] profile requires --cpu-profile FILE\n");
+			else if (command.kind == SimControlCommand::ProfileStart) prof_start_req = 1;
+			else prof_stop_req = 1;
+			break;
+		}
+		fflush(stdout);
+	}
+	static size_t last_rejected = 0;
+	if (sim_control.rejected() != last_rejected) {
+		fprintf(stderr, "[SIM-CONTROL] rejected malformed/overlong commands: %zu total\n", sim_control.rejected());
+		last_rejected = sim_control.rejected();
+	}
+	static std::string last_error;
+	if (sim_control.read_error() != last_error) {
+		last_error = sim_control.read_error();
+		fprintf(stderr, "[SIM-CONTROL] read error: %s\n", last_error.c_str());
+	}
+}
 // A click (or drag) on the VGA output picks a target pixel; each GUI frame
 // one MiSTer-format ps2_mouse packet nudges the pointer toward it.  The ADB
 // mouse is relative, so the loop is closed against the Mac's own idea of the
@@ -211,8 +368,11 @@ static void adb_mouse_wiggle(uint64_t frame) {
 static void save_screenshot(int frame) {
 	char filename[64];
 	snprintf(filename, sizeof(filename), "screenshot_f%d.png", frame);
-	stbi_write_png(filename, output_width, output_height, 4, output_ptr,
-	               output_width * 4);
+	if (!stbi_write_png(filename, output_width, output_height, 4, output_ptr,
+	                   output_width * 4)) {
+		fprintf(stderr, "[SCREENSHOT] failed to write %s\n", filename);
+		return;
+	}
 	printf("Saved %s (%dx%d)\n", filename, output_width, output_height);
 }
 
@@ -228,14 +388,26 @@ int verilate() {
 
 		if (clk_sys.clk != clk_sys.old) {
 			if (clk_sys.clk) {
+				control_before_eval();
 				input.BeforeEval();
 				if (!scsi_disk_file.empty()) blockdevice.BeforeEval(main_time);
 			}
 			top->eval();
 			if (clk_sys.clk && !scsi_disk_file.empty()) blockdevice.AfterEval();
+			bool cpu_dispatch = false;
+			if (clk_sys.clk) {
+				// Observe after eval/NBA even while reset, profiling, or trace
+				// output is disabled. Enabling a consumer must never replay an
+				// old dispatch or mistake the current pc_i for a new opcode.
+				cpu_dispatch = cpu_dispatch_observer.sample(VERTOPINTERN->reset,
+					SIMEMU->machine__DOT__cpu__DOT__core__DOT__perf_dispatch_toggle);
+				if (VERTOPINTERN->reset) prof_prev_valid = false;
+			}
 			if (clk_sys.clk && !VERTOPINTERN->reset) {
+				prof_step(cpu_dispatch);
 				machine_events();
-				if (!cpu_trace_disabled && main_time >= trace_after) cpu_trace_step();
+				if (cpu_dispatch && !cpu_trace_disabled && main_time >= trace_after)
+					cpu_trace_step();
 				uint32_t hpc = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__pc_i;
 				if (pc_hist_enable) pc_hist[hpc >> 8]++;
 				{
@@ -318,8 +490,13 @@ int verilate() {
 				(VERTOPINTERN->VGA_B << 16) |
 				(VERTOPINTERN->VGA_G << 8) |
 				 VERTOPINTERN->VGA_R;
+			const auto previous_frame = video.count_frame;
 			video.Clock(VERTOPINTERN->VGA_HB, VERTOPINTERN->VGA_VB,
 			            VERTOPINTERN->VGA_HS, VERTOPINTERN->VGA_VS, colour);
+			if (control_shot_pending && video.count_frame != previous_frame) {
+				save_screenshot(video.count_frame);
+				control_shot_pending = false;
+			}
 		}
 
 		main_time++;
@@ -347,14 +524,15 @@ static uint16_t sim_read_word(uint32_t addr) {
 	return (addr & 2) ? (uint16_t)word : (uint16_t)(word >> 16);
 }
 
-// One trace line per instruction dispatch: pc_i changed inside the core.
+// Called only for the same actual opcode-load event used by the profiler.
+// Repeated PC/state values are legitimate separate dispatches.
 static void cpu_trace_step() {
 	uint32_t pc = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__pc_i;
-	if (pc == cpu_trace_last_pc) return;
 	cpu_trace_last_pc = pc;
 
 	unsigned short opwords[5];
-	for (int k = 0; k < 5; k++) opwords[k] = sim_read_word(pc + 2*k);
+	opwords[0] = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__ir;
+	for (int k = 1; k < 5; k++) opwords[k] = sim_read_word(pc + 2*k);
 	unsigned int len = 2;
 	const char* disasm = disassemble_68k_ext_len(pc, opwords, 5, &len);
 	cpu_trace_count++;
@@ -423,6 +601,12 @@ int main(int argc, char** argv, char** env) {
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "--headless") || !strcmp(argv[i], "--no-gui")) {
 			headless = true;
+		} else if (!strcmp(argv[i], "--control")) {
+			if (i + 1 >= argc) {
+				fprintf(stderr, "--control requires an existing regular file or FIFO path\n");
+				return 1;
+			}
+			control_file = argv[++i];
 		} else if (!strcmp(argv[i], "--no-cpu-trace")) {
 			cpu_trace_disabled = true;
 		} else if (!strcmp(argv[i], "--max-cycles") && i + 1 < argc) {
@@ -441,6 +625,8 @@ int main(int argc, char** argv, char** env) {
 			mouse_btn_period = atoi(argv[i] + 10);
 		} else if (!strcmp(argv[i], "--hist")) {
 			pc_hist_enable = true;
+		} else if (!strcmp(argv[i], "--cpu-profile") && i + 1 < argc) {
+			prof_file = argv[++i];
 		} else if (!strcmp(argv[i], "--screenshot") && i + 1 < argc) {
 			screenshot_mode = true;
 			std::stringstream ss(argv[++i]);
@@ -450,9 +636,28 @@ int main(int argc, char** argv, char** env) {
 			stop_at_frame = std::stoi(argv[++i]);
 		} else if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
 			printf("wombat33 sim: [--headless] [--screenshot F1,F2,..] [--stop-at-frame N]\n"
-			       "              [--no-cpu-trace] [--max-cycles N] [+rom=<hexfile>]\n");
+			       "              [--no-cpu-trace] [--max-cycles N] [--cpu-profile FILE]\n"
+			       "              [--control PATH] (down/up HEX [ext], wait CYCLES, shot, profile start/stop)\n"
+			       "              [+rom=<hexfile>]\n");
 			return 0;
 		}
+	}
+
+#ifndef _WIN32
+	if (!prof_file.empty()) {
+		std::signal(SIGUSR1, prof_start_signal);
+		std::signal(SIGUSR2, prof_stop_signal);
+		printf("[CPU-PROFILE] SIGUSR1 starts; SIGUSR2 writes %s\n", prof_file.c_str());
+	}
+#endif
+
+	if (!control_file.empty()) {
+		std::string error;
+		if (!sim_control.open(control_file, error)) {
+			fprintf(stderr, "[SIM-CONTROL] cannot open %s: %s\n", control_file.c_str(), error.c_str());
+			return 1;
+		}
+		printf("[SIM-CONTROL] reading %s (nonblocking, simulated-cycle pacing)\n", control_file.c_str());
 	}
 
 	// The interactive GUI must not fill the disk behind the user's back:
@@ -471,6 +676,7 @@ int main(int argc, char** argv, char** env) {
 	VERTOPINTERN->clk_sys = 0;
 	VERTOPINTERN->reset = 1;
 	VERTOPINTERN->ps2_key = 0;
+	input.ps2_key = &VERTOPINTERN->ps2_key;
 	VERTOPINTERN->ps2_mouse = 0;
 	VERTOPINTERN->ioctl_download = 0;
 	VERTOPINTERN->ioctl_wr = 0;
@@ -686,8 +892,9 @@ int main(int argc, char** argv, char** env) {
 		if (headless && Verilated::gotFinish()) done = true;
 	}
 
+	if (prof_gate.active()) { prof_dump(); prof_gate.stop(); }
 	if (cpu_trace_file) {
-		printf("CPU trace: %ld instructions, last pc=%08X (%s)\n",
+		printf("CPU trace: %ld opcode dispatches, last pc=%08X (%s)\n",
 		       cpu_trace_count, cpu_trace_last_pc, cpu_trace_filename);
 		fclose(cpu_trace_file);
 	}

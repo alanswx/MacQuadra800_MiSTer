@@ -1,0 +1,274 @@
+--- a/verilator/sim_main.cpp
++++ b/verilator/sim_main.cpp
+@@ -30,6 +30,7 @@
+ #include "sim_blkdevice.h"
+ #include "implot.h"
+ #include "m68k_dasm.h"
++#include "cpu_dispatch_observer.h"
+ 
+ // sim.v keeps its own module class (the public arrays force it), so its
+ // internals live under rootp->emu rather than flattened into root.
+@@ -80,6 +81,7 @@
+ const char* cpu_trace_filename = "cpu_trace.log";
+ long cpu_trace_count = 0;
+ uint32_t cpu_trace_last_pc = 0xFFFFFFFF;
++static CpuDispatchObserver cpu_dispatch_observer;
+ 
+ // Cheap long-run observability: heartbeat line + a pc histogram (one
+ // bucket per 256 bytes over the whole 4 GB, sampled every clock).
+@@ -118,11 +120,13 @@
+ 
+ // Simulation-only exact-workload profiler. SIGUSR1 resets/starts the
+ // bracket; SIGUSR2 stops it and writes the report.
++// Dispatch means an actual opcode load, before decode/operand execution.
++// Faulting opcodes are included; clocks_per_dispatch is not retirement CPI.
+ static std::string prof_file;
+ static volatile sig_atomic_t prof_start_req = 0, prof_stop_req = 0;
+-static bool prof_active = false, prof_prev_valid = false;
++static CpuProfileGate prof_gate;
++static bool prof_prev_valid = false;
+ static uint8_t prof_prev_state = 0;
+-static uint32_t prof_prev_pc = 0;
+ static uint64_t prof_dispatches = 0;
+ static uint64_t prof_cycles, prof_state_cycles[256], prof_state_entries[256];
+ static uint64_t prof_transitions[256][256], prof_opcodes[65536];
+@@ -178,35 +182,34 @@
+ 		        (unsigned long long)prof_opcodes[op],
+ 		        dispatches ? 100.0*prof_opcodes[op]/dispatches : 0.0);
+ 	fclose(f);
+-	printf("[CPU-PROFILE] wrote %s: %llu cycles, %llu dispatches, %.3f clocks/dispatch\n",
++	printf("[CPU-PROFILE] wrote %s: %llu cycles, %llu opcode dispatches, %.3f clocks/dispatch\n",
+ 	       prof_file.c_str(), (unsigned long long)prof_cycles,
+ 	       (unsigned long long)dispatches, cpd);
+ 	fflush(stdout);
+ }
+ 
+-static void prof_step() {
+-	if (prof_start_req) {
+-		prof_start_req=0; prof_stop_req=0; prof_reset(); prof_active=true;
++static void prof_step(bool dispatch) {
++	const bool start = prof_start_req != 0, stop = prof_stop_req != 0;
++	if (start) prof_start_req = 0;
++	if (start || stop) prof_stop_req = 0;
++	const auto action = prof_gate.sample(start, stop);
++	if (action == CpuProfileGate::Start) {
++		prof_reset();
+ 		printf("[CPU-PROFILE] started at simulator cycle %llu\n", (unsigned long long)main_time);
+ 		fflush(stdout);
+ 	}
+-	if (prof_stop_req) {
+-		prof_stop_req=0; if (prof_active) prof_dump(); prof_active=false; return;
+-	}
+-	if (!prof_active) return;
++	if (action == CpuProfileGate::Stop) { prof_dump(); return; }
++	if (action == CpuProfileGate::Skip) return;
+ 	uint8_t state=SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__state;
+ 	uint16_t ir=SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__ir;
+-	uint32_t pc=SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__pc_i;
+ 	uint8_t cst=SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__cst;
+ 	prof_cycles++; prof_state_cycles[state]++; prof_cache_states[cst&7]++;
+ 	if (SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__rd_accept) prof_rd_accept++;
+ 	if (SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__look_hit) prof_look_hit++;
+ 	if (SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__ipred_hit) prof_ipred_hit++;
+-	// A resident MOVEQ/NOP can retire directly into another S_DECODE clock.
+-	// Count that new PC even without a state transition; a stalled decode
+-	// keeps both state and PC unchanged and must not be counted repeatedly.
+-	if (state == 4 && (!prof_prev_valid || state != prof_prev_state ||
+-	                  pc != prof_prev_pc)) {
++	// The continuously sampled opcode-load toggle handles bypassed decode,
++	// consecutive same-PC/state dispatches, and clock-enable stalls alike.
++	if (dispatch) {
+ 		prof_dispatches++;
+ 		prof_opcodes[ir]++;
+ 	}
+@@ -215,7 +218,6 @@
+ 		if (prof_prev_valid) prof_transitions[prof_prev_state][state]++;
+ 		prof_prev_state=state; prof_prev_valid=true;
+ 	}
+-	prof_prev_pc=pc;
+ }
+ 
+ // ---- ADB mouse from clicks on the VGA image -------------------------------
+@@ -338,10 +340,20 @@
+ 			}
+ 			top->eval();
+ 			if (clk_sys.clk && !scsi_disk_file.empty()) blockdevice.AfterEval();
++			bool cpu_dispatch = false;
++			if (clk_sys.clk) {
++				// Observe after eval/NBA even while reset, profiling, or trace
++				// output is disabled. Enabling a consumer must never replay an
++				// old dispatch or mistake the current pc_i for a new opcode.
++				cpu_dispatch = cpu_dispatch_observer.sample(VERTOPINTERN->reset,
++					SIMEMU->machine__DOT__cpu__DOT__core__DOT__perf_dispatch_toggle);
++				if (VERTOPINTERN->reset) prof_prev_valid = false;
++			}
+ 			if (clk_sys.clk && !VERTOPINTERN->reset) {
+-				prof_step();
++				prof_step(cpu_dispatch);
+ 				machine_events();
+-				if (!cpu_trace_disabled && main_time >= trace_after) cpu_trace_step();
++				if (cpu_dispatch && !cpu_trace_disabled && main_time >= trace_after)
++					cpu_trace_step();
+ 				uint32_t hpc = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__pc_i;
+ 				if (pc_hist_enable) pc_hist[hpc >> 8]++;
+ 				{
+@@ -453,14 +465,15 @@
+ 	return (addr & 2) ? (uint16_t)word : (uint16_t)(word >> 16);
+ }
+ 
+-// One trace line per instruction dispatch: pc_i changed inside the core.
++// Called only for the same actual opcode-load event used by the profiler.
++// Repeated PC/state values are legitimate separate dispatches.
+ static void cpu_trace_step() {
+ 	uint32_t pc = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__pc_i;
+-	if (pc == cpu_trace_last_pc) return;
+ 	cpu_trace_last_pc = pc;
+ 
+ 	unsigned short opwords[5];
+-	for (int k = 0; k < 5; k++) opwords[k] = sim_read_word(pc + 2*k);
++	opwords[0] = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__ir;
++	for (int k = 1; k < 5; k++) opwords[k] = sim_read_word(pc + 2*k);
+ 	unsigned int len = 2;
+ 	const char* disasm = disassemble_68k_ext_len(pc, opwords, 5, &len);
+ 	cpu_trace_count++;
+@@ -803,9 +816,9 @@
+ 		if (headless && Verilated::gotFinish()) done = true;
+ 	}
+ 
+-	if (prof_active) { prof_dump(); prof_active=false; }
++	if (prof_gate.active()) { prof_dump(); prof_gate.stop(); }
+ 	if (cpu_trace_file) {
+-		printf("CPU trace: %ld instructions, last pc=%08X (%s)\n",
++		printf("CPU trace: %ld opcode dispatches, last pc=%08X (%s)\n",
+ 		       cpu_trace_count, cpu_trace_last_pc, cpu_trace_filename);
+ 		fclose(cpu_trace_file);
+ 	}
+--- /dev/null
++++ b/verilator/cpu_dispatch_observer.h
+@@ -0,0 +1,41 @@
++#ifndef CPU_DISPATCH_OBSERVER_H
++#define CPU_DISPATCH_OBSERVER_H
++
++// Call once after every rising-edge eval, including reset and periods when
++// all consumers are disabled. First observation establishes a baseline;
++// reset observations resynchronize without manufacturing opcode events.
++class CpuDispatchObserver {
++public:
++	bool sample(bool reset, bool toggle) {
++		const bool event = valid_ && !reset && toggle != last_;
++		last_ = toggle;
++		valid_ = true;
++		return event;
++	}
++private:
++	bool valid_ = false;
++	bool last_ = false;
++};
++
++// Preserve the existing profiler's sampled bracket semantics: start clears
++// counters and includes this sample; stop excludes this sample. If both
++// requests are pending together, start wins. Requests wait through reset.
++class CpuProfileGate {
++public:
++	enum Action { Skip, Start, Count, Stop };
++	Action sample(bool start, bool stop) {
++		if (start) { active_ = true; return Start; }
++		if (stop) {
++			const bool was_active = active_;
++			active_ = false;
++			return was_active ? Stop : Skip;
++		}
++		return active_ ? Count : Skip;
++	}
++	bool active() const { return active_; }
++	void stop() { active_ = false; }
++private:
++	bool active_ = false;
++};
++
++#endif
+--- /dev/null
++++ b/verilator/tests/cpu_dispatch_observer_test.cpp
+@@ -0,0 +1,82 @@
++#include "../cpu_dispatch_observer.h"
++#include <cassert>
++#include <cstdio>
++
++// Replay the production sampling order: observe every post-eval rising edge,
++// process profile requests only outside reset, then gate consumers. PC/state
++// are deliberately fixed: neither is an event discriminator anymore.
++struct Replay {
++	CpuDispatchObserver observer;
++	CpuProfileGate profile;
++	unsigned cycles = 0, opcodes = 0, traces = 0, dumps = 0;
++	bool pending_start = false, pending_stop = false;
++	void edge(bool reset, bool toggle, bool trace_enabled,
++	          bool start = false, bool stop = false) {
++		pending_start |= start;
++		pending_stop |= stop;
++		const bool dispatch = observer.sample(reset, toggle);
++		if (reset) return;
++		const auto action = profile.sample(pending_start, pending_stop);
++		pending_start = pending_stop = false;
++		if (action == CpuProfileGate::Start) cycles = opcodes = 0;
++		if (action == CpuProfileGate::Start || action == CpuProfileGate::Count) {
++			++cycles;
++			if (dispatch) ++opcodes;
++		}
++		if (action == CpuProfileGate::Stop) ++dumps;
++		if (trace_enabled && dispatch) ++traces;
++	}
++};
++
++int main() {
++	// Attaching with a high toggle is not itself a dispatch.
++	CpuDispatchObserver attached;
++	assert(!attached.sample(false, true));
++	assert(!attached.sample(false, true));
++	assert(attached.sample(false, false));
++	// Reset-induced toggle changes do not appear as opcodes. A real opcode
++	// on the first nonreset sample is retained after a reset baseline.
++	assert(!attached.sample(true, true));
++	assert(!attached.sample(true, false));
++	assert(attached.sample(false, true));
++
++	Replay r;
++	r.edge(true, false, false);
++	r.edge(false, false, false, true); // start at an idle/stalled opcode
++	assert(r.cycles == 1 && r.opcodes == 0 && r.traces == 0);
++	r.edge(false, true, true);        // same PC and state 190
++	r.edge(false, false, true);       // same PC and state 190, next opcode load
++	r.edge(false, true, true);        // same PC and state 190, next opcode load
++	assert(r.opcodes == 3 && r.traces == 3);
++	for (int i = 0; i < 4; ++i) r.edge(false, true, true); // ce=0: toggle holds
++	assert(r.opcodes == 3 && r.traces == 3 && r.cycles == 8);
++	r.edge(false, false, true, false, true); // stop excludes current event
++	assert(r.opcodes == 3 && r.traces == 4 && r.dumps == 1 && r.cycles == 8);
++	r.edge(false, true, false);        // disabled consumers still observed
++	r.edge(false, true, true, true);   // reenable/start does not replay it
++	assert(r.opcodes == 0 && r.traces == 4 && r.cycles == 1);
++	r.edge(false, false, true, true);  // restart includes current real event
++	assert(r.opcodes == 1 && r.cycles == 1 && r.traces == 5);
++	r.edge(false, true, true, true, true); // simultaneous requests: start wins
++	assert(r.opcodes == 1 && r.cycles == 1 && r.traces == 6 && r.dumps == 1);
++	// Active profile spans reset without counting reset clocks/events.
++	r.edge(true, false, true);
++	r.edge(true, false, true);
++	r.edge(false, false, true);
++	assert(r.opcodes == 1 && r.cycles == 2 && r.traces == 6);
++	r.edge(false, true, true);
++	assert(r.opcodes == 2 && r.traces == 7);
++	// Requests during reset are applied at the next nonreset sample.
++	r.edge(true, false, true, false, true);
++	r.edge(false, true, true);
++	assert(r.opcodes == 2 && r.traces == 8 && r.dumps == 2);
++	r.edge(false, false, false);       // odd number of unobserved-by-output events
++	r.edge(true, false, false, true);
++	r.edge(false, false, true);        // new bracket: no stale event
++	assert(r.opcodes == 0 && r.cycles == 1 && r.traces == 8);
++	r.edge(false, true, true);
++	assert(r.opcodes == 1 && r.traces == 9);
++	r.profile.stop();
++	assert(!r.profile.active());
++	std::puts("PASS: dispatch reset/stalls/same-PC-state and profile/trace boundaries");
++}

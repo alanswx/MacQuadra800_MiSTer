@@ -1,0 +1,456 @@
+diff --git a/rtl/ap040_core.v b/rtl/ap040_core.v
+index 3615844..4e7b047 100644
+--- a/rtl/ap040_core.v
++++ b/rtl/ap040_core.v
+@@ -303,10 +303,21 @@ wire alu_is_bitop = (alu_op >= `AP040_ALU_BTST) && (alu_op <= `AP040_ALU_BSET);
+ reg         p_sextw;
+ reg         p_dst_mem_bit;    // bit op destination is memory (modulo 8)
+ 
+-wire [31:0] alu_a = alu_is_bitop ? (p_dst_mem_bit ? {29'd0, src_val[2:0]}
+-                                                  : {27'd0, src_val[4:0]}) :
+-                    p_sextw      ? {{16{src_val[15]}}, src_val[15:0]} : src_val;
+-wire [31:0] alu_b = (state == S_SHIFT) ? sh_val : dst_val;
++// ALU operations targeting a register retire at operand capture. Register
++// sources have settled on port A. Memory retirement remains guarded by the
++// existing d_err-before-d_ack completion path; no early acknowledge is used.
++// Split reads use their assembled m_val only after all bytes have completed.
++wire        regs_alu_fire = (state == S_PIPE_REGS || state == S_PIPE_SDONE ||
++                            state == S_MRD) &&
++                            (exec_kind == EK_ALU) && (p_dst == DK_REG);
++wire [31:0] alu_src = (regs_alu_fire && state == S_MRD) ? mem_rdata :
++                     (regs_alu_fire && state == S_PIPE_SDONE) ? m_val :
++                     (regs_alu_fire && p_src == SK_REG) ? rf_rdata_a : src_val;
++wire [31:0] alu_dst = regs_alu_fire ? rf_rdata_b : dst_val;
++wire [31:0] alu_a = alu_is_bitop ? (p_dst_mem_bit ? {29'd0, alu_src[2:0]}
++                                                  : {27'd0, alu_src[4:0]}) :
++                    p_sextw      ? {{16{alu_src[15]}}, alu_src[15:0]} : alu_src;
++wire [31:0] alu_b = (state == S_SHIFT) ? sh_val : alu_dst;
+ wire  [4:0] alu_fin = (state == S_SHIFT) ? sh_fl : sr[4:0];
+ 
+ ap040_alu alu
+@@ -1869,6 +1880,19 @@ task fetch_next;
+ 	end
+ endtask
+ 
++// Shared in-order completion for an ALU operation with a settled register
++// destination. Called only after operand/fault qualification at each site.
++task retire_operand_alu;
++	begin
++		if (p_flags) sr[4:0] <= alu_fl;
++		if (!p_wbsup) begin
++			if (p_dreg[3]) rfw(p_dreg, alu_res);
++			else rfw(p_dreg, merge_sz(rf_rdata_b, alu_res, op_size));
++		end
++		fetch_next;
++	end
++endtask
++
+ // True while an effective address is being computed, i.e. while a data
+ // access is known to be coming.  Keeps speculative instruction fetches
+ // off the shared memory port just ahead of it.
+@@ -2015,6 +2039,28 @@ task pipe_go;
+ 	end
+ endtask
+ 
++// Decode has already identified both register operands for an ordinary
++// dyadic ALU instruction.  Select both asynchronous ports now so the next
++// state can capture/retire directly instead of spending S_PIPE_START merely
++// copying the same addresses out of p_sreg/p_dreg.
++task pipe_go_regpair;
++	input [3:0] sa;
++	input [3:0] da;
++	begin
++		rr_a <= sa;
++		rr_b <= da;
++		state <= S_PIPE_REGS;
++	end
++endtask
++
++task pipe_go_regdst;
++	input [3:0] da;
++	begin
++		rr_b <= da;
++		state <= S_PIPE_REGS;
++	end
++endtask
++
+ //---------------------------------------------------------------------------
+ // main state machine
+ //---------------------------------------------------------------------------
+@@ -2437,35 +2483,13 @@ always @(posedge clk) begin
+ 					else aerr_start;
+ 				end
+ 				else if (d_ack) begin
+-					// The common memory-source/register-destination path has
+-					// already parked port B on the destination register in
+-					// S_PIPE_SRD.  Capture both operands directly when the read
+-					// completes instead of spending S_PIPE_SDONE copying m_val.
+-					// Split page-crossing reads retain the generic path below.
+-					// A plain MOVE needs no destination-side ALU operand, so it can
+-					// also retire here instead of taking the following S_EXEC slot.
+-					// Keep this qualified by the actual MOVE opcode family: several
+-					// system instructions reuse AP040_ALU_MOVE internally.
++					// Port B has settled during the read. Reuse the shared ALU
++					// for all ordinary memory-to-register operations, not just
++					// MOVE. Keep the original completion/fault ordering and leave
++					// non-ALU/system consumers on their capture/execute path.
+ 					if (r_m_ret == S_PIPE_SDONE && p_src == SK_MEM &&
+-					    p_dst == DK_REG && alu_op == `AP040_ALU_MOVE &&
+-					    ir[15:14] == 2'b00 && ir[13:12] != 2'b00) begin : mrd_move_retire
+-						reg [31:0] move_v;
+-						move_v = p_sextw ? sxw(mem_rdata[15:0]) : mem_rdata;
+-						if (p_flags) begin
+-							case (op_size)
+-								`AP040_SZ_B: sr[3:0] <= {mem_rdata[7],
+-								                              mem_rdata[7:0] == 8'd0, 2'b00};
+-								`AP040_SZ_W: sr[3:0] <= {mem_rdata[15],
+-								                              mem_rdata[15:0] == 16'd0, 2'b00};
+-								default:      sr[3:0] <= {mem_rdata[31],
+-								                              mem_rdata == 32'd0, 2'b00};
+-							endcase
+-						end
+-						if (p_dreg[3])
+-							rfw(p_dreg, move_v);
+-						else
+-							rfw(p_dreg, merge_sz(rf_rdata_b, move_v, op_size));
+-						fetch_next;
++					    p_dst == DK_REG && exec_kind == EK_ALU) begin
++						retire_operand_alu;
+ 					end
+ 					else if (r_m_ret == S_PIPE_SDONE && p_dst == DK_REG) begin
+ 						src_val <= mem_rdata;
+@@ -2686,14 +2710,6 @@ always @(posedge clk) begin
+ 				if (p_dst == DK_REG) rr_b <= p_dreg;
+ 				mrd(ea_addr, p_ssize, S_PIPE_SDONE);
+ 			end
+-			S_PIPE_SDONE: begin
+-				src_val <= m_val;
+-				if (p_dst == DK_REG) begin
+-					dst_val <= rf_rdata_b;   // port B was set at S_PIPE_SRD
+-					state <= S_EXEC;
+-				end
+-				else state <= S_PIPE_DST;
+-			end
+ 			S_PIPE_SREG:  begin src_val <= rf_rdata_a; state <= S_PIPE_DST; end
+ 
+ 			S_PIPE_DST: begin
+@@ -2713,13 +2729,21 @@ always @(posedge clk) begin
+ 			S_PIPE_DDONE: begin dst_val <= m_val; state <= S_EXEC; end
+ 			S_PIPE_DREG:  begin dst_val <= rf_rdata_b; state <= S_EXEC; end
+ 
+-			// Both operands captured together.  src_val is taken only for a
+-			// REGISTER source: an immediate source was latched in
+-			// S_PIPE_START and a sourceless op never reads it.
+-			S_PIPE_REGS: begin
+-				if (p_src == SK_REG) src_val <= rf_rdata_a;
+-				dst_val <= rf_rdata_b;
+-				state <= S_EXEC;
++			// Share retirement for register and completed-memory sources. Keep
++			// non-ALU and memory-destination operations on the original path.
++			S_PIPE_REGS, S_PIPE_SDONE: begin
++				if (exec_kind == EK_ALU && p_dst == DK_REG) begin
++					retire_operand_alu;
++				end
++				else begin
++					if (state == S_PIPE_SDONE) src_val <= m_val;
++					else if (p_src == SK_REG) src_val <= rf_rdata_a;
++					if (p_dst == DK_REG) begin
++						dst_val <= rf_rdata_b;
++						state <= S_EXEC;
++					end
++					else state <= S_PIPE_DST;
++				end
+ 			end
+ 
+ 			//-------------------------------------------------------- execute
+@@ -5327,6 +5351,10 @@ always @(posedge clk) begin
+ 							end
+ 							if (ea_is_imm)
+ 								immf((move_size == `AP040_SZ_L) ? 2'd2 : 2'd1, S_PIPE_START);
++							else if ((d_mode == 3'b000 || d_mode == 3'b001) &&
++							         (d_op8_6 == 3'b000 || d_op8_6 == 3'b001))
++								pipe_go_regpair({d_mode[0], d_rn},
++								                {(d_op8_6 == 3'b001), d_reg9});
+ 							else pipe_go;
+ 						end
+ 					end
+@@ -5394,7 +5422,7 @@ always @(posedge clk) begin
+ 										op_size <= `AP040_SZ_W;
+ 										p_dsize <= `AP040_SZ_W;
+ 										p_flags <= 0;
+-										if (d_mode == 3'b000) begin p_dst <= DK_REG; p_dreg <= {1'b0, d_rn}; pipe_go; end
++										if (d_mode == 3'b000) begin p_dst <= DK_REG; p_dreg <= {1'b0, d_rn}; pipe_go_regdst({1'b0, d_rn}); end
+ 										else begin p_dst <= DK_MEM; dst_mode_r <= d_mode; dst_rn_r <= d_rn; pipe_go; end
+ 									end
+ 								end
+@@ -5405,7 +5433,7 @@ always @(posedge clk) begin
+ 									op_size <= std_size;
+ 									p_dsize <= std_size;
+ 									p_rmw <= 1;
+-									if (d_mode == 3'b000) begin p_dst <= DK_REG; p_dreg <= {1'b0, d_rn}; pipe_go; end
++									if (d_mode == 3'b000) begin p_dst <= DK_REG; p_dreg <= {1'b0, d_rn}; pipe_go_regdst({1'b0, d_rn}); end
+ 									else if (dst_not_alt) go_illegal;
+ 									else begin p_dst <= DK_MEM; dst_mode_r <= d_mode; dst_rn_r <= d_rn; pipe_go; end
+ 								end
+@@ -5419,7 +5447,7 @@ always @(posedge clk) begin
+ 									op_size <= `AP040_SZ_W;
+ 									p_dsize <= `AP040_SZ_W;
+ 									p_flags <= 0;
+-										if (d_mode == 3'b000) begin p_dst <= DK_REG; p_dreg <= {1'b0, d_rn}; pipe_go; end
++										if (d_mode == 3'b000) begin p_dst <= DK_REG; p_dreg <= {1'b0, d_rn}; pipe_go_regdst({1'b0, d_rn}); end
+ 										else if (dst_not_alt) go_illegal;
+ 										else begin p_dst <= DK_MEM; dst_mode_r <= d_mode; dst_rn_r <= d_rn; pipe_go; end
+ 								end
+@@ -5429,7 +5457,7 @@ always @(posedge clk) begin
+ 									alu_op <= `AP040_ALU_CLR;
+ 									op_size <= std_size;
+ 									p_dsize <= std_size;
+-									if (d_mode == 3'b000) begin p_dst <= DK_REG; p_dreg <= {1'b0, d_rn}; pipe_go; end
++									if (d_mode == 3'b000) begin p_dst <= DK_REG; p_dreg <= {1'b0, d_rn}; pipe_go_regdst({1'b0, d_rn}); end
+ 									else if (dst_not_alt) go_illegal;
+ 									else begin p_dst <= DK_MEM; dst_mode_r <= d_mode; dst_rn_r <= d_rn; pipe_go; end
+ 								end
+@@ -5455,7 +5483,7 @@ always @(posedge clk) begin
+ 									op_size <= std_size;
+ 									p_dsize <= std_size;
+ 									p_rmw <= 1;
+-									if (d_mode == 3'b000) begin p_dst <= DK_REG; p_dreg <= {1'b0, d_rn}; pipe_go; end
++									if (d_mode == 3'b000) begin p_dst <= DK_REG; p_dreg <= {1'b0, d_rn}; pipe_go_regdst({1'b0, d_rn}); end
+ 									else if (dst_not_alt) go_illegal;
+ 									else begin p_dst <= DK_MEM; dst_mode_r <= d_mode; dst_rn_r <= d_rn; pipe_go; end
+ 								end
+@@ -5486,7 +5514,7 @@ always @(posedge clk) begin
+ 									op_size <= std_size;
+ 									p_dsize <= std_size;
+ 									p_rmw <= 1;
+-									if (d_mode == 3'b000) begin p_dst <= DK_REG; p_dreg <= {1'b0, d_rn}; pipe_go; end
++									if (d_mode == 3'b000) begin p_dst <= DK_REG; p_dreg <= {1'b0, d_rn}; pipe_go_regdst({1'b0, d_rn}); end
+ 									else if (dst_not_alt) go_illegal;
+ 									else begin p_dst <= DK_MEM; dst_mode_r <= d_mode; dst_rn_r <= d_rn; pipe_go; end
+ 								end
+@@ -5507,7 +5535,7 @@ always @(posedge clk) begin
+ 										op_size <= `AP040_SZ_B;
+ 										p_dsize <= `AP040_SZ_B;
+ 										p_rmw <= 1;
+-										if (d_mode == 3'b000) begin p_dst <= DK_REG; p_dreg <= {1'b0, d_rn}; pipe_go; end
++										if (d_mode == 3'b000) begin p_dst <= DK_REG; p_dreg <= {1'b0, d_rn}; pipe_go_regdst({1'b0, d_rn}); end
+ 										else if (dst_not_alt) go_illegal;
+ 										else begin p_dst <= DK_MEM; dst_mode_r <= d_mode; dst_rn_r <= d_rn; pipe_go; end
+ 									end
+@@ -5557,7 +5585,7 @@ always @(posedge clk) begin
+ 									op_size <= `AP040_SZ_B;
+ 									p_dsize <= `AP040_SZ_B;
+ 									p_rmw <= 1;
+-									if (d_mode == 3'b000) begin p_dst <= DK_REG; p_dreg <= {1'b0, d_rn}; pipe_go; end
++									if (d_mode == 3'b000) begin p_dst <= DK_REG; p_dreg <= {1'b0, d_rn}; pipe_go_regdst({1'b0, d_rn}); end
+ 									else if (dst_not_alt) go_illegal;
+ 									else begin
+ 										lk_cyc <= 1;
+@@ -5714,7 +5742,7 @@ always @(posedge clk) begin
+ 								op_size <= `AP040_SZ_B;
+ 								p_dsize <= `AP040_SZ_B;
+ 								p_flags <= 0;
+-								if (d_mode == 3'b000) begin p_dst <= DK_REG; p_dreg <= {1'b0, d_rn}; pipe_go; end
++								if (d_mode == 3'b000) begin p_dst <= DK_REG; p_dreg <= {1'b0, d_rn}; pipe_go_regdst({1'b0, d_rn}); end
+ 								else if (dst_not_alt) go_illegal;
+ 								else begin p_dst <= DK_MEM; dst_mode_r <= d_mode; dst_rn_r <= d_rn; pipe_go; end
+ 							end
+@@ -5737,7 +5765,7 @@ always @(posedge clk) begin
+ 							else begin
+ 								op_size <= std_size;
+ 								p_dsize <= std_size;
+-								if (d_mode == 3'b000) begin p_dst <= DK_REG; p_dreg <= {1'b0, d_rn}; pipe_go; end
++								if (d_mode == 3'b000) begin p_dst <= DK_REG; p_dreg <= {1'b0, d_rn}; pipe_go_regdst({1'b0, d_rn}); end
+ 								else if (dst_not_alt) go_illegal;
+ 								else begin p_dst <= DK_MEM; p_rmw <= 1; dst_mode_r <= d_mode; dst_rn_r <= d_rn; pipe_go; end
+ 							end
+@@ -5787,7 +5815,7 @@ always @(posedge clk) begin
+ 							p_ssize <= `AP040_SZ_W;
+ 							p_dst <= DK_REG; p_dreg <= {1'b0, d_reg9};
+ 							if (d_mode == 3'b001) go_illegal;
+-							else if (d_mode == 3'b000) begin p_src <= SK_REG; p_sreg <= {1'b0, d_rn}; pipe_go; end
++							else if (d_mode == 3'b000) begin p_src <= SK_REG; p_sreg <= {1'b0, d_rn}; pipe_go_regpair({1'b0, d_rn}, {1'b0, d_reg9}); end
+ 							else if (ea_is_imm) begin p_src <= SK_IMM; immf(2'd1, S_PIPE_START); end
+ 							else begin p_src <= SK_MEM; src_mode_r <= d_mode; src_rn_r <= d_rn; pipe_go; end
+ 						end
+@@ -5851,7 +5879,7 @@ always @(posedge clk) begin
+ 								// <ea> OR Dn -> Dn
+ 								p_dst <= DK_REG; p_dreg <= {1'b0, d_reg9};
+ 								if (d_mode == 3'b001) go_illegal;
+-								else if (d_mode == 3'b000) begin p_src <= SK_REG; p_sreg <= {1'b0, d_rn}; pipe_go; end
++								else if (d_mode == 3'b000) begin p_src <= SK_REG; p_sreg <= {1'b0, d_rn}; pipe_go_regpair({1'b0, d_rn}, {1'b0, d_reg9}); end
+ 								else if (ea_is_imm) begin p_src <= SK_IMM; immf((std_size == `AP040_SZ_L) ? 2'd2 : 2'd1, S_PIPE_START); end
+ 								else begin p_src <= SK_MEM; src_mode_r <= d_mode; src_rn_r <= d_rn; pipe_go; end
+ 							end
+@@ -5883,7 +5911,7 @@ always @(posedge clk) begin
+ 							p_flags <= 0;
+ 							p_dst <= DK_REG; p_dreg <= {1'b1, d_reg9};
+ 							if (d_mode == 3'b000 || d_mode == 3'b001) begin
+-								p_src <= SK_REG; p_sreg <= {d_mode[0], d_rn}; pipe_go;
++								p_src <= SK_REG; p_sreg <= {d_mode[0], d_rn}; pipe_go_regpair({d_mode[0], d_rn}, {1'b1, d_reg9});
+ 							end
+ 							else if (ea_is_imm) begin
+ 								p_src <= SK_IMM;
+@@ -5917,16 +5945,7 @@ always @(posedge clk) begin
+ 								if (d_mode == 3'b001 && std_size == `AP040_SZ_B) go_illegal;
+ 								else if (d_mode == 3'b000 || d_mode == 3'b001) begin
+ 									p_src <= SK_REG; p_sreg <= {d_mode[0], d_rn};
+-									// The hot ADD.L Dn,Dn form needs no immediate or EA
+-									// setup. Select both asynchronous register-file ports
+-									// in decode and enter the combined capture state directly.
+-									if (is_add && d_mode == 3'b000 &&
+-									    std_size == `AP040_SZ_L) begin
+-										rr_a <= {1'b0, d_rn};
+-										rr_b <= {1'b0, d_reg9};
+-										state <= S_PIPE_REGS;
+-									end
+-									else pipe_go;
++									pipe_go_regpair({d_mode[0], d_rn}, {1'b0, d_reg9});
+ 								end
+ 								else if (ea_is_imm) begin p_src <= SK_IMM; immf((std_size == `AP040_SZ_L) ? 2'd2 : 2'd1, S_PIPE_START); end
+ 								else begin p_src <= SK_MEM; src_mode_r <= d_mode; src_rn_r <= d_rn; pipe_go; end
+@@ -5959,7 +5978,7 @@ always @(posedge clk) begin
+ 							p_wbsup <= 1;
+ 							p_dst <= DK_REG; p_dreg <= {1'b1, d_reg9};
+ 							if (d_mode == 3'b000 || d_mode == 3'b001) begin
+-								p_src <= SK_REG; p_sreg <= {d_mode[0], d_rn}; pipe_go;
++								p_src <= SK_REG; p_sreg <= {d_mode[0], d_rn}; pipe_go_regpair({d_mode[0], d_rn}, {1'b1, d_reg9});
+ 							end
+ 							else if (ea_is_imm) begin
+ 								p_src <= SK_IMM;
+@@ -5977,14 +5996,7 @@ always @(posedge clk) begin
+ 							if (d_mode == 3'b001 && std_size == `AP040_SZ_B) go_illegal;
+ 							else if (d_mode == 3'b000 || d_mode == 3'b001) begin
+ 								p_src <= SK_REG; p_sreg <= {d_mode[0], d_rn};
+-								// CMP.L Dn,Dn needs no immediate or EA setup. Select
+-								// both register-file ports in decode and skip PIPE_START.
+-								if (d_mode == 3'b000 && std_size == `AP040_SZ_L) begin
+-									rr_a <= {1'b0, d_rn};
+-									rr_b <= {1'b0, d_reg9};
+-									state <= S_PIPE_REGS;
+-								end
+-								else pipe_go;
++								pipe_go_regpair({d_mode[0], d_rn}, {1'b0, d_reg9});
+ 							end
+ 							else if (ea_is_imm) begin p_src <= SK_IMM; immf((std_size == `AP040_SZ_L) ? 2'd2 : 2'd1, S_PIPE_START); end
+ 							else begin p_src <= SK_MEM; src_mode_r <= d_mode; src_rn_r <= d_rn; pipe_go; end
+@@ -6006,7 +6018,7 @@ always @(posedge clk) begin
+ 							op_size <= std_size;
+ 							p_dsize <= std_size;
+ 							p_src <= SK_REG; p_sreg <= {1'b0, d_reg9};
+-							if (d_mode == 3'b000) begin p_dst <= DK_REG; p_dreg <= {1'b0, d_rn}; pipe_go; end
++							if (d_mode == 3'b000) begin p_dst <= DK_REG; p_dreg <= {1'b0, d_rn}; pipe_go_regpair({1'b0, d_reg9}, {1'b0, d_rn}); end
+ 							else if (dst_not_alt) go_illegal;
+ 							else begin
+ 								p_dst <= DK_MEM; p_rmw <= 1;
+@@ -6027,7 +6039,7 @@ always @(posedge clk) begin
+ 							p_ssize <= `AP040_SZ_W;
+ 							p_dst <= DK_REG; p_dreg <= {1'b0, d_reg9};
+ 							if (d_mode == 3'b001) go_illegal;
+-							else if (d_mode == 3'b000) begin p_src <= SK_REG; p_sreg <= {1'b0, d_rn}; pipe_go; end
++							else if (d_mode == 3'b000) begin p_src <= SK_REG; p_sreg <= {1'b0, d_rn}; pipe_go_regpair({1'b0, d_rn}, {1'b0, d_reg9}); end
+ 							else if (ea_is_imm) begin p_src <= SK_IMM; immf(2'd1, S_PIPE_START); end
+ 							else begin p_src <= SK_MEM; src_mode_r <= d_mode; src_rn_r <= d_rn; pipe_go; end
+ 						end
+@@ -6067,7 +6079,7 @@ always @(posedge clk) begin
+ 							if (!ir[8]) begin
+ 								p_dst <= DK_REG; p_dreg <= {1'b0, d_reg9};
+ 								if (d_mode == 3'b001) go_illegal;
+-								else if (d_mode == 3'b000) begin p_src <= SK_REG; p_sreg <= {1'b0, d_rn}; pipe_go; end
++								else if (d_mode == 3'b000) begin p_src <= SK_REG; p_sreg <= {1'b0, d_rn}; pipe_go_regpair({1'b0, d_rn}, {1'b0, d_reg9}); end
+ 								else if (ea_is_imm) begin p_src <= SK_IMM; immf((std_size == `AP040_SZ_L) ? 2'd2 : 2'd1, S_PIPE_START); end
+ 								else begin p_src <= SK_MEM; src_mode_r <= d_mode; src_rn_r <= d_rn; pipe_go; end
+ 							end
+diff --git a/tb/asm/t_integer.s b/tb/asm/t_integer.s
+index a3310f1..c737e5e 100644
+--- a/tb/asm/t_integer.s
++++ b/tb/asm/t_integer.s
+@@ -873,14 +873,87 @@ smcq_ok:
+ 	nop
+ 	nop
+ 	move.l	a0,a7
+-	bsr.s	bsr_after_a7_write
++	bsr.s	bsr_after_reg_a7_write
+ 	cmp.l	#$3300,a7
+ 	beq.s	bsr_a7_forward_ok
+ 	failt	193
+ bsr_a7_forward_ok:
+ 	move.l	a5,a7
++	bra.s	memretire_checks
++bsr_after_reg_a7_write:
++	rts
++memretire_checks:
+ 
+ ;----------------------------------------------------------------- all done
++	; Completed-load retirement: partial-register merge, flags, and immediate
++	; consumers must match the old capture/execute path in every memory phase.
++	lea	($3000).l,a0
++	move.l	#$8001FF7F,(a0)
++	move.l	#$12345678,d0
++	move.w	#$10,ccr
++	move.b	(a0),d0
++	chkccr	$18,194
++	chkl	d0,$12345680,195
++	move.w	(a0),d0
++	chkl	d0,$12348001,196
++	move.l	(a0),d0
++	add.l	d0,d0		; immediate RAW consumer
++	chkccr	$13,197		; X V C
++	chkl	d0,$0003FEFE,198
++
++	moveq	#1,d0
++	add.b	3(a0),d0
++	chkccr	$0A,199
++	chkl	d0,$80,200
++	moveq	#0,d0
++	sub.w	(a0),d0
++	chkccr	$11,201
++	chkl	d0,$00007FFF,202
++	move.w	#$10,ccr
++	cmp.w	(a0),d0		; compare suppresses writeback, preserves X
++	chkccr	$1B,203
++	chkl	d0,$00007FFF,204
++	move.l	#$FFFF0000,d0
++	or.l	(a0),d0
++	chkl	d0,$FFFFFF7F,205
++	and.l	(a0),d0
++	chkl	d0,$8001FF7F,206
++
++	; Postincrement/predecrement with the SAME address register as result:
++	; the ALU must see the updated An, while MOVEA replaces it entirely.
++	move.l	#4,(a0)
++	move.l	a0,a1
++	adda.l	(a1)+,a1
++	chkl	a1,$3008,207
++	lea	4(a0),a1
++	suba.l	-(a1),a1
++	chkl	a1,$2FFC,208
++	move.w	#$8001,(a0)
++	move.w	#$1F,ccr
++	movea.w	(a0),a1
++	chkccr	$1F,209		; sign extension must not modify CCR
++	chkl	a1,$FFFF8001,210
++
++	; Memory-destination MOVE and non-ALU consumers retain their old path.
++	move.l	#7,(a0)
++	move.l	(a0),4(a0)
++	move.l	4(a0),d0
++	chkl	d0,7,211
++	moveq	#3,d0
++	mulu.w	2(a0),d0
++	chkl	d0,21,212
++	divu.w	2(a0),d0
++	chkl	d0,3,213
++
++	; A7 load followed immediately by BSR exercises registered-write forwarding
++	; through the new memory capture retirement boundary.
++	move.l	a7,a5
++	move.l	#$3300,(a0)
++	movea.l	(a0),a7
++	bsr.s	bsr_after_a7_write
++	chkl	a7,$3300,214
++	move.l	a5,a7
++
+ 	move.w	#$600D,(DONEREG).l
+ 	stop	#$2700
+ 

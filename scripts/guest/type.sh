@@ -10,6 +10,7 @@
 # The guest sees a US-layout ADB keyboard, so the mapping below is the US
 # layout of the Linux keycodes mister_ws.py forwards. Pacing is 0.12 s per
 # key: faster than that and the ADB poll starts dropping characters.
+# CPU benchmark navigation uses MISTER_TYPE_DELAY=0.2 for reliable typeahead.
 set -u
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)" || exit 1
 . scripts/local.env
@@ -50,4 +51,4 @@ PY
 ) || exit 2
 
 [ -n "$ARGS" ] || exit 0
-exec python scripts/mister_ws.py --host "$MISTER_HOST" --port "${MISTER_HTTP_PORT:-8182}" --delay 0.12 $ARGS
+exec python scripts/mister_ws.py --host "$MISTER_HOST" --port "${MISTER_HTTP_PORT:-8182}" --delay "${MISTER_TYPE_DELAY:-0.12}" $ARGS

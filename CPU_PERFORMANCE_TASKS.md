@@ -1,8 +1,74 @@
 # CPU performance task list and recovery record
 
-Last updated: 2026-09-05. This is the authoritative CPU-speed queue and the
+Last updated: 2026-09-12. This is the authoritative CPU-speed queue and the
 first file to read after a power loss or a new session. Measurements and
 screenshots remain in `docs/PERFORMANCE_MEASUREMENTS.md`.
+
+## Current checkpoint and hardware access (2026-09-12)
+
+**Latest tested CD-ROM-off checkpoint: compact shared decode, Speedometer 4.02
+CPU Mix 0.447 / 0.447 / 0.447.** Parent visually verified all three, recovering
+the missing local second capture from MiSTer's archive. This is +2.87687% over
+0.4345 and +10.37037% over the full-feature 0.405 reference. Seed 23 fits at
+37,959 ALMs, 4,111 LABs (80 free), setup +0.330 ns / hold +0.227 ns, zero TNS.
+Compared with register dispatch it saves 171 ALMs and 13 LABs. Active CPU,
+integer tests and simulator profiling/control now match the validated isolated
+sources; final active-tree CPU checks passed. No commits/pushes yet. Main and
+golden disk remain unchanged; MiSTer is restored to MENU. Details and the exact
+RBF/source identities are in `docs/CPU_SHARED_DECODE_CHECKPOINT_20260912.md`.
+
+The committed full-feature reference scores 0.405 in Speedometer 4.02 CPU
+Benchmark Mix. The hardware-tested register-ALU capture/retirement experiment
+scores 0.423 and 0.424 (average 0.4235, +4.57%) in a temporary CD-ROM-off build.
+It is recoverable in the AP stash named "validated reg-ALU capture retirement,
+CD-off hw 0.4235"; it is not yet a committed replacement for the reference.
+
+The register-dispatch layer passes all eleven CPU suites, the full-machine
+compile/link, and the identical first-100 corpus: 34,941,315 clocks versus
+35,370,929 (-1.21%), with zero real architectural differences. Seed 22 fits at
+38,130 ALMs and 4,124 LABs (67 free), with worst slack +0.076 ns and zero
+negative-TNS groups. Clean-disk Speedometer 4.02 repeats now score 0.434 and
+0.435: mean 0.4345, +2.5974% versus 0.4235 and +7.2840% versus 0.405.
+This is the previous hardware-validated CD-off checkpoint, preserved for recovery.
+An earlier impossible-negative timing run is excluded. The disposable was
+restored after testing. A four-site immediate-register bypass saved zero corpus
+clocks and was removed. Recovery: `RESUME-cpu-cdoff-regalu.md`; latest evidence:
+`docs/CPU_OPTIMIZATION_LOG_20260912.md` and
+`scratch/perf_regdispatch_cdoff_seed22/verified_run{1,2}.png`.
+
+The preceding memory-ALU-only experiment measured:
+34,838,648 corpus clocks (-0.294%), all eleven suites and 1,900 field groups
+passing, full-machine compiled. Seed 22 is timing-clean at 37,782 ALMs but 4,152
+LABs (39 free); plausible 0.439/0.440 runs coexist with invalid timing runs.
+This intermediate experiment was superseded by the accepted compact build.
+A larger shared-decode/forwarding
+prototype is isolated under /tmp, passes all eleven suites and the first-100
+corpus, and reduces focused-loop cycles 122,788 -> 109,788 (-10.59%). Its corpus
+gain is only 9,188 clocks (-0.0264% versus memory-ALU); fit is timing-clean but
+uses 41,509 ALMs and 4,190 LABs (one free). It had one coherent 0.447 hardware
+run and two invalid runs; the compact variant below supersedes it.
+A separate compact-control variant passes all eleven suites and full-machine
+compile and identical corpus/loop checks. It fits 37,952 ALMs/4,111 LABs (80
+free), but seed 22 misses SDRAM setup by 0.039 ns: do not deploy. Same-RTL seed
+23 now passes all timing at 37,959 ALMs/4,111 LABs, +0.330 ns setup and zero
+TNS. Compact hardware testing passed with three coherent 0.447 runs; the
+intermittent stopwatch anomaly remains open. Historical recovery patch baselines:
+`docs/CPU_VALIDATION_UPDATE_20260912.md`. Simulation is not hardware speedup.
+
+The user explicitly released the FPGA after Apple-II on 2026-09-12; Mac CPU
+hardware testing may continue. Obey any later user reservation.
+
+Follow `AGENTS.md` and `docs/AGENT_TESTING_WORKFLOW.md`: Astra owns architecture,
+code, diagnosis, and acceptance; Luna runs established tests and Speedometer
+with exclusive FPGA ownership. Use concise handoffs and return evidence to
+Astra instead of supervising each GUI action with expensive model turns.
+Test agents must now use `scripts/cpu_benchmark_core.sh` for deployment/cleanup;
+ad-hoc core loading and disk overwrites are prohibited after a tester attempted
+to load the Main executable as an RBF. Parent recovered unchanged Main and Menu;
+the guard's real restore path was verified successfully.
+
+The area narrative below records earlier checkpoints; use this current
+snapshot and the ordered Priority 3 roadmap for new pipeline work.
 
 ## Immediate answer: should area be reduced?
 
@@ -554,8 +620,95 @@ seed-27 tree and compare both synthesis hierarchy and fitted LAB/ALM totals.
 ## Priority 3: front-end overlap and real pipelining
 
 The core is a correct multi-cycle sequencer, not a throughput pipeline. Narrow
-state bypasses help, but reaching much closer to a real 68040 eventually needs
-overlap. Start this only after area headroom exists.
+state bypasses shorten individual instruction latency, but do not by themselves
+provide the sustained instruction overlap of the real 68040. Reaching the
+user's Speedometer 4.02 target of about 1.9 from the measured 0.4345 requires
+roughly 4.4x throughput. That target is a benchmark proxy, not proof that every
+workload matches silicon; no individual optimization below is promised to
+deliver it.
+
+The original `The_68040_processor_I_Design_and_impleme.pdf` describes overlapping
+instruction prefetch, PC/decode, effective-address calculation, operand access,
+execution, and writeback. The objective is sustained throughput, not executing
+all six jobs in one long combinational cycle. Preserve clock timing and
+in-order architectural behavior while adding overlap.
+
+### Ordered roadmap: profile, then broaden instruction overlap
+
+1. **Profile today's Speedometer 4.02 CPU interval first.** Use the same ROM,
+   restored disk, settings, and all ten one-iteration CPU tests as hardware.
+   Record dynamic instruction/addressing-mode mix, clocks per instruction,
+   decode/EA/setup occupancy, instruction/data cache hit and miss counts,
+   hit-service latency versus external memory waits, port contention, and
+   branch/refill stalls. The older 3.23 profile of roughly 12 clocks per
+   dispatch is motivation, not a current 4.02 CPI measurement. Rank candidates
+   by dynamic coverage and estimated removable cycles before spending area.
+
+2. **Overlap shared decode with the current instruction.** Start with one
+   decoded-control register for a broad common subset, reusing the existing
+   execution machinery rather than duplicating ADD-only paths. Decode the
+   younger instruction while the older one executes, without fetching its
+   data operands or causing architectural side effects prematurely. Preserve
+   extension-word ownership, instruction PCs, queue flushes, and redirects;
+   unsupported or serializing instructions initially drain into the slow path.
+   Measure real-application improvement before adding a micro-op queue.
+
+3. **Pipeline common effective-address and operand work.** Cover MOVE,
+   arithmetic, compare, and logic across register-direct and common memory
+   modes such as (An), (An)+, -(An), displacement, and immediate forms.
+   Overlap address calculation and cache-hit operand access with older
+   execution instead of only making isolated register loops faster. Start with
+   bounded in-order overlap; do not introduce speculative MMIO or out-of-order
+   execution. The forwarding/retirement contract in step 5 is a prerequisite
+   before younger operand or execution stages can change machine state.
+
+4. **Remove internal cache-hit bubbles.** Separate lookup, translation, and
+   CPU/cache handoff costs from genuine SDRAM misses using step 1's profile.
+   Faster external RAM cannot remove cycles spent servicing an internal hit.
+   Evaluate registered hit paths and reduced serialized lookup stages with
+   measured dynamic coverage; revisit parallel ATC/cache work only if its
+   benefit justifies area and routing. Keep miss/coherence behavior and the
+   passing registered memory completion path intact.
+
+5. **Build forwarding and precise retirement alongside the overlap stages.**
+   Specify register RAW/WAW, An auto-update, CCR/X dependencies, stack-bank
+   changes, and control-register serialization. Carry each instruction's PC,
+   result, flags, pending write, and fault context to an explicit in-order
+   completion boundary. Younger instructions must not commit before older
+   faults, interrupts, or trace events; flush or drain safely on redirects,
+   bus faults, and unsupported operations. Prove restartable writes, snoops,
+   and self-modifying code with directed tests before enabling broader overlap.
+   This is an enabling correctness requirement, not a final cleanup task.
+
+6. **Tune branches, then assess frequency.** Once common instructions overlap,
+   profile taken/untaken branches and refill recovery again. Optimize the
+   dynamically important cases without blindly restoring rejected generic
+   redirect muxes. Keep 33 MHz as the throughput reference; consider frequency
+   increases only after CPI and routing improve, report them separately, and
+   retain authentic peripheral/bus timing. A clock increase is supplementary,
+   not evidence of a silicon-like pipeline.
+
+### Development headroom and acceptance gates
+
+The user-approved CD-ROM-off SKU is a temporary pipeline-development aid:
+keep both hard disks, and leave the active full-feature QSF unchanged.
+Matched synthesis estimates save 2,252 ALMs, 1,019 registers, 86,016 RAM bits,
+and 23 DSPs. The current fitted candidate still has only 67 free LABs, so
+continue measured CPU/control-mux area reclaim where necessary. CD removal is
+not a CPU speed optimization. Do not randomly strip MMU, FPU, caches, video,
+audio, or other peripherals; restoring or compacting CD support remains a
+separate full-feature integration task.
+
+For each bounded stage, preserve a recoverable checkpoint; require directed
+hazard/fault/flush tests, all eleven CPU suites, immutable corpus equivalence,
+full-machine compile/link, and zero-TNS fitted timing. Track both ALMs and
+LABs, resource-by-entity deltas, and per-clock margins. Accept throughput claims
+only after reproducible, unperturbed Speedometer 4.02 hardware runs from the
+restored disk while hardware access is authorized. Report individual tests as
+well as the average; do not infer application gains from a focused loop or
+corpus alone.
+
+### Existing completed steps and implementation checklist
 
 The first broad front-end step is accepted. The existing prefetch queue already
 held a next-opcode candidate often enough that a new queue was unnecessary:
@@ -680,12 +833,24 @@ optimization is not confused with already-adequate SDRAM bandwidth.
   HDMI, SDRAM, or `ir`/exception path is not proof the RTL idea is bad. Record
   the path, walk a small seed set, and accept only a zero-TNS fit.
 - Do not disable the MMU, FPU, caches, scaler, audio, or machine peripherals to
-  claim an area or speed win. Feature removal is not optimization.
+  claim an area or speed win. Feature removal is not optimization. The only
+  scoped exception here is the user-approved, explicitly labeled CD-ROM-off
+  development SKU described in Priority 3; it is not the full-feature reference.
 - Do not compare Speedometer 3.23 PR ratios directly with the published
   Speedometer 4.02 real-Quadra Benchmark Mix. Use the same application version,
   disk image, ROM, iteration count, and restored starting image.
 
 ## Validation gate for every CPU change
+
+Current 2026-09-12 gate and fixture: use `docs/AGENT_TESTING_WORKFLOW.md`.
+Use Speedometer 4.02 CPU Mix, all ten tests at one iteration, verified golden
+MD5 16790b0577e13b45782214433d34954b, exclusive FPGA owner, zero-TNS fitted
+candidate, two quiet hardware runs, MENU, and disposable restoration. The user
+explicitly permits hard-switching this disposable guest before replacing its
+image. Preserve Main. Current local toolchain/immutable corpus evidence is in
+`docs/CPU_OPTIMIZATION_LOG_20260912.md`.
+
+### Historical gate (superseded fixture and tool paths; retained for provenance)
 
 Run in this order so inexpensive failures stop the experiment early:
 
