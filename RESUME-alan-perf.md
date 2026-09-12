@@ -74,12 +74,25 @@ unexplained — see "Older notes"). If the store head misbehaves, fall back
 to `_Unstable/MacQuadra800_readahead_0018d4a9.rbf`, then to the shipped
 20260908_3. Hand the driving to an Opus operator per the memory note.
 
-Boot-time lead from the sim: the ROM spends the whole "black" phase in a
-VRAM byte-lane probe (`$408046B6..D4` writing and reading `$F903D028`,
-uncached, one byte per iteration); it runs for well over 3G half-cycles in
-the sim, the same order as the hardware's 50-second black phase. Making
-uncached VRAM byte accesses cheaper (or cacheable for that probe) would cut
-boot time far more than any sequencer change; not touched.
+Boot-time lead, corrected (2026-09-12 morning): the sim's endless
+"VRAM byte-lane probe" at `$408046B6..D4` is a **fast-boot ROM artefact**,
+not the hardware's black phase. The `[HB]` trail of the stuck runs shows the
+boot going through the ROM checksum, sizing, SCSI scan and into code
+running from RAM (`$8610`, the boot blocks) at ~500M cycles; only THEN
+does the PC enter the video-identification code (`$40802F3A`, an ID
+lookup at `$2F3E`, and on a miss the full probe-list walk from `$2F70`,
+which retries forever when no list entry's VIA1 machine-ID/feature word
+matches). The System's start-up asks the ROM for the video ID that the
+cold-boot path saved; the patched warm-boot path never saved one, so the
+lookup misses and the list walk loops. The hardware runs the pristine ROM's
+cold path and never sees this. What the hardware's ~50 s black phase most
+likely is: the ROM's pattern test of the 128 MB (the same test the
+fast-boot patch skips; 1.5G cycles for 32 MB in the sim), which the
+memory-path speedups shorten directly. Consequences: Finder-era profiling
+must use the pristine ROM (`+rom=quadra800.rom.hex`, ~20 more minutes of
+sim), and the sim's VRAM/uncached-access cost is not a boot-time lever.
+Two such runs are in flight: `~/MacQuadra800_fh/verilator/sim_prof_full.log`
+(store head) and `~/MacQuadra800/verilator/sim_prof_full.log` (read-ahead).
 
 ## Simulation infrastructure that now works
 

@@ -714,7 +714,10 @@ reads at the sim's fixed 16,000-tick latency are inside the number):
 | + fill hold and branch hint (no store path) | 491,296,965 | -5.8 % |
 | + one-state store (9216f3e) | 453,064,767 | **-13.1 %** |
 
-The ROM phase after that point is the DAFB VRAM byte-lane probe at
-`$408046B6..D4` (writes and reads of `$F903D028`, uncached), which the
-sequencer changes barely touch; the OS-phase profile is still owed (the
-`--prof` boot is running).
+After that point the fast-boot ROM runs ahead into the boot blocks and
+then parks forever in the ROM's video identification (`$40802F3A` and the
+probe-list walk from `$2F70`): the System asks for the video ID the cold
+boot saved and the patched warm path never saved one. That is a sim
+artefact of the fast-boot patch, not a hardware phase (see
+`RESUME-alan-perf.md`); the OS-phase profile is being taken with the
+pristine ROM instead.
