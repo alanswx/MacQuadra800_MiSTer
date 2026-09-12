@@ -93,10 +93,20 @@ static uint8_t  prof_prev_state = 0;
 // S_MRD/S_MWR cycles split by where the access is (cache FSM state) and
 // what it targets (address region), plus acceptance-cycle cache hits
 static uint64_t prof_mrd_cst[8], prof_mwr_cst[8];
-static uint64_t prof_mrd_region[4], prof_mwr_region[4];   // ram, rom, io, other
+static uint64_t prof_mrd_region[5], prof_mwr_region[5];   // ram, rom, io, vram, other
+static int prof_region(uint32_t a) {
+	return (a < 0x10000000u) ? 0 : ((a >> 28) == 4) ? 1 : ((a >> 28) == 5) ? 2 :
+	       ((a >> 21) == 0x7C8) ? 3 : 4;                          // $F9000000-$F91FFFFF
+}
 static uint64_t prof_fast_hit_i = 0, prof_fast_hit_d = 0;
+// S_FETCH split: cycles with a queue fetch outstanding (the opcode is on its
+// way) versus without one (re-arming, or a redirect not yet issued), and the
+// completed transactions per region so the S_MRD/S_MWR cycles read as an
+// average latency per access.
+static uint64_t prof_fetch_pend = 0, prof_fetch_nopend = 0;
+static uint64_t prof_dack_rd[5], prof_dack_wr[5], prof_iack = 0;
 static const char* prof_cst_name[8] = {"IDLE","LOOK","FERR","WINV","FILL","TAGW","PASS","SWEEP"};
-static const char* prof_region_name[4] = {"ram","rom","io","other"};
+static const char* prof_region_name[5] = {"ram","rom","io","vram","other"};
 static void cpu_prof_print() {
 	int idx[256];
 	for (int i = 0; i < 256; i++) idx[i] = i;
@@ -113,13 +123,28 @@ static void cpu_prof_print() {
 	printf("[PROF]   S_MRD by cache state:");
 	for (int i = 0; i < 8; i++) if (prof_mrd_cst[i]) printf(" %s=%llu", prof_cst_name[i], (unsigned long long)prof_mrd_cst[i]);
 	printf("\n[PROF]   S_MRD by region:");
-	for (int i = 0; i < 4; i++) if (prof_mrd_region[i]) printf(" %s=%llu", prof_region_name[i], (unsigned long long)prof_mrd_region[i]);
+	for (int i = 0; i < 5; i++) if (prof_mrd_region[i]) printf(" %s=%llu", prof_region_name[i], (unsigned long long)prof_mrd_region[i]);
 	printf("\n[PROF]   S_MWR by cache state:");
 	for (int i = 0; i < 8; i++) if (prof_mwr_cst[i]) printf(" %s=%llu", prof_cst_name[i], (unsigned long long)prof_mwr_cst[i]);
 	printf("\n[PROF]   S_MWR by region:");
-	for (int i = 0; i < 4; i++) if (prof_mwr_region[i]) printf(" %s=%llu", prof_region_name[i], (unsigned long long)prof_mwr_region[i]);
+	for (int i = 0; i < 5; i++) if (prof_mwr_region[i]) printf(" %s=%llu", prof_region_name[i], (unsigned long long)prof_mwr_region[i]);
 	printf("\n[PROF]   acceptance-cycle hits: instr %llu, data %llu\n",
 	       (unsigned long long)prof_fast_hit_i, (unsigned long long)prof_fast_hit_d);
+	printf("[PROF]   S_FETCH: fetch outstanding %llu, none outstanding %llu; instruction acks %llu
+",
+	       (unsigned long long)prof_fetch_pend, (unsigned long long)prof_fetch_nopend,
+	       (unsigned long long)prof_iack);
+	printf("[PROF]   data reads by region (acks/avg S_MRD clk):");
+	for (int i = 0; i < 5; i++) if (prof_dack_rd[i])
+		printf(" %s=%llu/%.1f", prof_region_name[i], (unsigned long long)prof_dack_rd[i],
+		       (double)prof_mrd_region[i] / prof_dack_rd[i]);
+	printf("
+[PROF]   data writes by region (acks/avg S_MWR clk):");
+	for (int i = 0; i < 5; i++) if (prof_dack_wr[i])
+		printf(" %s=%llu/%.1f", prof_region_name[i], (unsigned long long)prof_dack_wr[i],
+		       (double)prof_mwr_region[i] / prof_dack_wr[i]);
+	printf("
+");
 }
 static uint32_t pc_hist[1 << 24];
 static uint32_t pc_hist_pc(int i) { return (uint32_t)i << 8; }
@@ -292,13 +317,25 @@ int verilate() {
 					if (st == 9 || st == 10) {
 						uint8_t cst = SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__cst & 7;
 						uint32_t a = SIMEMU->__PVT__machine__DOT__cpu__DOT__mem_addr;
-						int r = (a < 0x10000000u) ? 0 : ((a >> 28) == 4) ? 1 : ((a >> 28) == 5) ? 2 : 3;
+						int r = prof_region(a);
 						if (st == 9) { prof_mrd_cst[cst]++; prof_mrd_region[r]++; }
 						else         { prof_mwr_cst[cst]++; prof_mwr_region[r]++; }
 					}
 					if (SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__fast_hit) {
 						if (SIMEMU->__PVT__machine__DOT__cpu__DOT__mem_instr) prof_fast_hit_i++;
 						else prof_fast_hit_d++;
+					}
+					if (st == 3) {
+						if (SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__epf_pend) prof_fetch_pend++;
+						else prof_fetch_nopend++;
+					}
+					if (SIMEMU->__PVT__machine__DOT__cpu__DOT__mem_ack) {
+						if (SIMEMU->__PVT__machine__DOT__cpu__DOT__mem_instr) prof_iack++;
+						else {
+							int r = prof_region(SIMEMU->__PVT__machine__DOT__cpu__DOT__mem_addr);
+							if (SIMEMU->__PVT__machine__DOT__cpu__DOT__mem_write) prof_dack_wr[r]++;
+							else prof_dack_rd[r]++;
+						}
 					}
 				}
 				{
