@@ -13,7 +13,8 @@ the missing local second capture from MiSTer's archive. This is +2.87687% over
 37,959 ALMs, 4,111 LABs (80 free), setup +0.330 ns / hold +0.227 ns, zero TNS.
 Compared with register dispatch it saves 171 ALMs and 13 LABs. Active CPU,
 integer tests and simulator profiling/control now match the validated isolated
-sources; final active-tree CPU checks passed. No commits/pushes yet. Main and
+sources; final active-tree CPU checks passed. Checkpoint committed and pushed
+as parent `15eeaaf` and AP `9ecf647` on their existing development branches. Main and
 golden disk remain unchanged; MiSTer is restored to MENU. Details and the exact
 RBF/source identities are in `docs/CPU_SHARED_DECODE_CHECKPOINT_20260912.md`.
 
@@ -622,8 +623,8 @@ seed-27 tree and compare both synthesis hierarchy and fitted LAB/ALM totals.
 The core is a correct multi-cycle sequencer, not a throughput pipeline. Narrow
 state bypasses shorten individual instruction latency, but do not by themselves
 provide the sustained instruction overlap of the real 68040. Reaching the
-user's Speedometer 4.02 target of about 1.9 from the measured 0.4345 requires
-roughly 4.4x throughput. That target is a benchmark proxy, not proof that every
+user's Speedometer 4.02 target of about 1.9 from the measured 0.447 requires
+roughly 4.25x throughput. That target is a benchmark proxy, not proof that every
 workload matches silicon; no individual optimization below is promised to
 deliver it.
 
@@ -633,7 +634,34 @@ execution, and writeback. The objective is sustained throughput, not executing
 all six jobs in one long combinational cycle. Preserve clock timing and
 in-order architectural behavior while adding overlap.
 
-### Ordered roadmap: profile, then broaden instruction overlap
+### Plan review after the 0.447 checkpoint (2026-09-12)
+
+The broad pipeline direction remains valid; narrow state removal is not enough
+for the remaining 4.25x target. The next experiment order is revised by evidence:
+
+1. Attribute exact Sieve FETCH/IMMF clocks by instruction PC and queue/request
+   condition on both reference and compact RTL. Compact saves 2,357,400 DECODE
+   and 1,381,800 IMMF clocks but adds 3,235,600 FETCH clocks on the repeat;
+   net savings are only 503,600/96,617,914 (0.52123%). State names and CE-stall
+   counts alone do not distinguish useful fetch work, queue starvation,
+   redirects, or internal cache service. Explain this redistribution first.
+2. Test one measured queue/extension scheduling correction if the attribution
+   supports it. Otherwise investigate brief indexed-EA setup (9.79% of this
+   fixture), preserving register-read/forwarding timing and full-format fallback.
+   Do not sum state occupancy as if every cycle were removable.
+3. Specify the forwarding/precise-retirement contract BEFORE enabling younger
+   operand access or execution. The existing register-only lookahead is a
+   completed first step, not a general in-flight instruction pipeline.
+4. Broaden common EA/operand overlap, then internal cache-hit service, using
+   full-machine measurements to establish coverage beyond the Sieve kernel.
+   Profile branch effects alongside fetch work now; defer frequency changes.
+
+Exact-kernel profiling bypasses the intermittent OS stopwatch anomaly, but
+cannot replace full-machine profiling or hardware acceptance. Keep investigating
+that anomaly separately; never accept impossible times. Tests use all three
+memory phases for correctness and matched benchmark conditions for performance.
+
+### Long-term roadmap: profile, then broaden instruction overlap
 
 1. **Profile today's Speedometer 4.02 CPU interval first.** Use the same ROM,
    restored disk, settings, and all ten one-iteration CPU tests as hardware.
@@ -693,7 +721,7 @@ in-order architectural behavior while adding overlap.
 The user-approved CD-ROM-off SKU is a temporary pipeline-development aid:
 keep both hard disks, and leave the active full-feature QSF unchanged.
 Matched synthesis estimates save 2,252 ALMs, 1,019 registers, 86,016 RAM bits,
-and 23 DSPs. The current fitted candidate still has only 67 free LABs, so
+and 23 DSPs. The current fitted checkpoint still has only 80 free LABs, so
 continue measured CPU/control-mux area reclaim where necessary. CD removal is
 not a CPU speed optimization. Do not randomly strip MMU, FPU, caches, video,
 audio, or other peripherals; restoring or compacting CD support remains a

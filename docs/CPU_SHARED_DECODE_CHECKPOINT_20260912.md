@@ -1,7 +1,8 @@
 # Compact shared-decode CPU checkpoint
 
 2026-09-12: active working-tree CPU adopted after three coherent hardware runs.
-Not committed or pushed. This is a **CDROM_OFF=1 development build**, not a
+Committed and pushed: parent `15eeaaf`, AP `9ecf647`.
+This is a **CDROM_OFF=1 development build**, not a
 full-feature release. The active full-feature QSF was not changed.
 
 ## Verified hardware result
