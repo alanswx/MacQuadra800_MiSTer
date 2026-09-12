@@ -636,6 +636,16 @@ in-order architectural behavior while adding overlap.
 
 ### Plan review after the 0.447 checkpoint (2026-09-12)
 
+Follow-up validation: branch-refill attribution produced a candidate with
+2.97% fewer full-Sieve fixture cycles, unchanged focused loop/corpus, all CPU
+tests passing and 20 more free fitted LABs. Initial hardware runs do not show
+a CPU Mix gain (final repeats 0.446/0.447/0.446); it is not adopted.
+Before another throughput patch, profile the actual
+wombat_cpu/cache/djMEMC integration (or obtain a bounded full-machine CPU Mix
+trace). The ap040_tg68k_compat kernel fixture is a useful mechanism/correctness
+test, not a reliable hardware speed predictor. See
+`docs/CPU_REFILL_EXPERIMENT_20260912.md` for final experiment status.
+
 The broad pipeline direction remains valid; narrow state removal is not enough
 for the remaining 4.25x target. The next experiment order is revised by evidence:
 

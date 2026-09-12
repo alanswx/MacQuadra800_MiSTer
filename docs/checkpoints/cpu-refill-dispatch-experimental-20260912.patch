@@ -1,0 +1,13 @@
+diff --git a/ap040_core.v b/ap040_core.v
+--- a/ap040_core.v
++++ b/ap040_core.v
+@@ -6503,3 +6503,9 @@
+ 		else if (epf_armed && !epf_pend && !epf_err &&
+ 		         (!epf_brf || (epf_count == 4'd0 &&
+-		                       (state == S_FETCH || state == S_IMMF))) &&
++		                       (state == S_FETCH || state == S_IMMF)) ||
++		          // Replenish a short seed only while dispatching another
++		          // register operation. The head descriptor is the same one
++		          // used above; DBcc/branch heads retain their quiet refill.
++		          (state == S_PIPE_REGS && epf_count <= 4'd2 &&
++		           rd_queue_pop && rd_valid && regs_alu_fire && !aux_we)) &&
