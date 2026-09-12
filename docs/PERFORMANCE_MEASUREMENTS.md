@@ -660,3 +660,34 @@ kernel was alive; Shift taps changed nothing, Returns erased a few more
 icon labels. The `20260908_3` gate used Special → Shut Down for A/UX, the
 09-02 gate used `shutdown -h now` on the `be0a662` CPU and reached "You
 may now switch off". Not yet separated between the CPU and the path.
+
+## 14. Alan's `164a376` tip and the lookup read-ahead (2026-09-12, sim)
+
+Two steps on branch `alan-perf-20260908`, both on the 20260908_3 release
+recipe (seed 21 unless noted); design note `docs/cpu-lookup-readahead.md`.
+
+**Step 1 -- Alan's tip** (`4404a15`: AP68040 `164a376` early aligned RAM
+reads while entering `S_MRD` and stores while entering `S_MWR`, plus his
+exact multiply-by-205 `bin2bcd` in `ncr53c96`/`cd_audio`). His hardware
+numbers on the same RTL: Speedometer 4.02 Benchmark Mix 0.405 vs 0.394
+for `299cb36`. Our seed-21 fit: 40,265 ALMs (96 %), 25,366 registers,
+62 % block memory, clk_sys +0.508 ns, clk_ram +1.189 ns, **HDMI PLL
+domain -0.164 ns** -- the usual placement-luck path; not deployable, seed
+walk owed. rbf `scratch/MacQuadra800_alan164_s21_6d6a6daf.rbf`.
+
+**Step 2 -- lookup read-ahead** (`d6a1815`/`7d8569d`: AP68040
+`d325967`). Simulation only so far:
+
+| `bench_loop` | 164a376 | read-ahead | change |
+|---|---:|---:|---:|
+| phase 0 (MMU translated) | 147,012 | 133,628 | **-9.1 %** |
+| phase 2 (cached) | 147,790 | 134,406 | **-9.1 %** |
+| `S_MRD` occupancy | 39,338 | 26,554 | -32 % |
+| data read request→ack | 2.0 | 1.0 | |
+| ifetch request→ack | 1.7 | 1.3 | |
+
+AP68040 suite passes; first-100 silicon corpus 0 REAL diffs (cycles
+unchanged at 31,904,073 -- the corpus runs uncached). Full-machine
+Verilator boot of the fresh 8.1 install image in progress with the new
+`--prof` sequencer profiler (`verilator/sim_main.cpp`). Quartus build in
+flight. Hardware: owed (the .92 MiSTer is shared with a live IRIX guest).

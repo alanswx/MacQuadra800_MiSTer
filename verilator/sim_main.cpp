@@ -83,6 +83,29 @@ uint32_t cpu_trace_last_pc = 0xFFFFFFFF;
 vluint64_t heartbeat_every = 10000000;
 vluint64_t next_heartbeat = 10000000;
 bool pc_hist_enable = false;    // --hist: per-cycle pc histogram (slows the sim)
+// --prof: per-state cycle histogram of the AP68040 sequencer, sampled every
+// clk_sys, plus how many S_MRD/S_MWR cycles were spent waiting for a queue
+// fetch to release the shared memory port.  Printed with every heartbeat.
+bool cpu_prof_enable = false;
+static uint64_t prof_state[256];
+static uint64_t prof_total = 0, prof_portwait = 0, prof_dispatch = 0;
+static uint8_t  prof_prev_state = 0;
+static void cpu_prof_print() {
+	int idx[256];
+	for (int i = 0; i < 256; i++) idx[i] = i;
+	std::sort(idx, idx + 256, [](int a, int b) { return prof_state[a] > prof_state[b]; });
+	printf("[PROF] %llu cycles, %llu dispatches (%.2f clk/dispatch), port-wait %llu (%.1f%%)
+",
+	       (unsigned long long)prof_total, (unsigned long long)prof_dispatch,
+	       prof_dispatch ? (double)prof_total / prof_dispatch : 0.0,
+	       (unsigned long long)prof_portwait,
+	       prof_total ? 100.0 * prof_portwait / prof_total : 0.0);
+	for (int i = 0; i < 14 && prof_state[idx[i]]; i++)
+		printf("[PROF]   state %3d: %llu (%.1f%%)
+", idx[i],
+		       (unsigned long long)prof_state[idx[i]],
+		       100.0 * prof_state[idx[i]] / prof_total);
+}
 static uint32_t pc_hist[1 << 24];
 static uint32_t pc_hist_pc(int i) { return (uint32_t)i << 8; }
 
@@ -238,6 +261,20 @@ int verilate() {
 				if (!cpu_trace_disabled && main_time >= trace_after) cpu_trace_step();
 				uint32_t hpc = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__pc_i;
 				if (pc_hist_enable) pc_hist[hpc >> 8]++;
+				if (cpu_prof_enable) {
+					uint8_t st = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__state;
+					prof_state[st]++;
+					prof_total++;
+					// S_DECODE (4) entered = one instruction dispatched
+					if (st == 4 && prof_prev_state != 4) prof_dispatch++;
+					// S_MRD (9) / S_MWR (10) with the request not yet issued
+					// because a queue fetch owns the port
+					if ((st == 9 || st == 10) &&
+					    !SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__m_issued &&
+					    SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__epf_pend)
+						prof_portwait++;
+					prof_prev_state = st;
+				}
 				{
 					// RAM write watchpoints: DrvQHdr + the DrvQEl at $B94E
 					static const uint32_t watch_addr[] =
@@ -305,6 +342,7 @@ int verilate() {
 					       (unsigned long long)main_time, hpc, cpu_trace_count,
 					       SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__regfile__DOT__areg[3],
 					       SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__regfile__DOT__dreg[7]);
+					if (cpu_prof_enable) cpu_prof_print();
 					fflush(stdout);
 				}
 			}
@@ -441,6 +479,8 @@ int main(int argc, char** argv, char** env) {
 			mouse_btn_period = atoi(argv[i] + 10);
 		} else if (!strcmp(argv[i], "--hist")) {
 			pc_hist_enable = true;
+		} else if (!strcmp(argv[i], "--prof")) {
+			cpu_prof_enable = true;
 		} else if (!strcmp(argv[i], "--screenshot") && i + 1 < argc) {
 			screenshot_mode = true;
 			std::stringstream ss(argv[++i]);

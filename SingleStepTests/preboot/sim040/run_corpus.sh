@@ -57,7 +57,7 @@ SRC="$RTL/ap040_tg68k_compat.v $RTL/ap040_core.v $RTL/ap040_bus16_adapter.v \
      $RTL/ap040_walker_cdc.v $RTL/primitives/dpram.v"
 
 if [[ "$SIM" == verilator ]]; then
-    "$VERILATOR" --binary --timing -j 8 -Wno-fatal --top-module tb_corpus \
+    "$VERILATOR" --binary --timing -j 8 -Wno-fatal -Wno-BLKLOOPINIT --top-module tb_corpus \
         -Mdir "$WORK/obj_$SUITE" -I"$RTL" tb_corpus.v $SRC \
         > "$WORK/verilate_$SUITE.log" 2>&1 || { tail -20 "$WORK/verilate_$SUITE.log"; exit 1; }
     stdbuf -oL "$WORK/obj_$SUITE/Vtb_corpus" +prog="$WORK/$SUITE.hex" \
