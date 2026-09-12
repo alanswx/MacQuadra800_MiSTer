@@ -130,21 +130,18 @@ static void cpu_prof_print() {
 	for (int i = 0; i < 5; i++) if (prof_mwr_region[i]) printf(" %s=%llu", prof_region_name[i], (unsigned long long)prof_mwr_region[i]);
 	printf("\n[PROF]   acceptance-cycle hits: instr %llu, data %llu\n",
 	       (unsigned long long)prof_fast_hit_i, (unsigned long long)prof_fast_hit_d);
-	printf("[PROF]   S_FETCH: fetch outstanding %llu, none outstanding %llu; instruction acks %llu
-",
+	printf("[PROF]   S_FETCH: fetch outstanding %llu, none outstanding %llu; instruction acks %llu\n",
 	       (unsigned long long)prof_fetch_pend, (unsigned long long)prof_fetch_nopend,
 	       (unsigned long long)prof_iack);
 	printf("[PROF]   data reads by region (acks/avg S_MRD clk):");
 	for (int i = 0; i < 5; i++) if (prof_dack_rd[i])
 		printf(" %s=%llu/%.1f", prof_region_name[i], (unsigned long long)prof_dack_rd[i],
 		       (double)prof_mrd_region[i] / prof_dack_rd[i]);
-	printf("
-[PROF]   data writes by region (acks/avg S_MWR clk):");
+	printf("\n[PROF]   data writes by region (acks/avg S_MWR clk):");
 	for (int i = 0; i < 5; i++) if (prof_dack_wr[i])
 		printf(" %s=%llu/%.1f", prof_region_name[i], (unsigned long long)prof_dack_wr[i],
 		       (double)prof_mwr_region[i] / prof_dack_wr[i]);
-	printf("
-");
+	printf("\n");
 }
 static uint32_t pc_hist[1 << 24];
 static uint32_t pc_hist_pc(int i) { return (uint32_t)i << 8; }
