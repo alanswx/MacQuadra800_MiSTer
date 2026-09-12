@@ -7,6 +7,7 @@ the CPU branch: what is on it, what was measured, what is owed.
 
 | commit | what |
 |---|---|
+| `c9219a8` | **AP68040 `9216f3e`: fill hold behind a resident redirect, short-branch target hint, one-state `MOVE Rn/#imm,(An)/(An)+/-(An)/d16(An)/abs` store (`S_PIPE_STORE`)** -- corpus -5.4 % cycles, 0 REAL diffs; building |
 | `0651e59` | docs: `docs/cpu-lookup-readahead.md`, §14 of `docs/PERFORMANCE_MEASUREMENTS.md`, sim `--prof` profiler, `run_corpus.sh` tolerates BLKLOOPINIT |
 | `7d8569d` | AP68040 `d325967`: Quartus single-driver fix for the read-ahead index |
 | `d6a1815` | **AP68040 `b80a79e` (branch `wombat-lookup-readahead`): cached hits resolve in the acceptance cycle** — idle read-ahead of the tag row and data ways in `ap040_cache`, plus a one-cycle-early lookup hint from the sequencer (`pre_valid/pre_addr/pre_fc/pre_instr`) through the MMU (ATC row read on the hint) to the cache. `rtl/wombat_cpu.sv` carries the new wires. |
@@ -42,7 +43,7 @@ data-read request→ack 2.0 → 1.0 cycles). Not yet built or run on hardware.
 | head | ALMs | timing | rbf |
 |---|---|---|---|
 | `4404a15` (Alan's tip) | 40,265 (96 %) | **HDMI PLL domain -0.164 ns**; clk_sys +0.508, clk_ram +1.189, hold +0.198 | `scratch/MacQuadra800_alan164_s21_6d6a6daf.rbf` — not deployable, seed walk owed |
-| `7d8569d` (read-ahead) | 40,584 (97 %) | **MET**: HDMI +0.256, clk_sys +0.307, clk_ram +0.884, hold +0.208 | `scratch/MacQuadra800_readahead_s21_0018d4a9.rbf`, also `/media/fat/_Unstable/MacQuadra800_readahead_0018d4a9.rbf` on .92 � **the gate candidate** |
+| `7d8569d` (read-ahead) | 40,584 (97 %) | **MET**: HDMI +0.256, clk_sys +0.307, clk_ram +0.884, hold +0.208 | `scratch/MacQuadra800_readahead_s21_0018d4a9.rbf`, also `/media/fat/_Unstable/MacQuadra800_readahead_0018d4a9.rbf` on .92 — **the gate candidate** |
 
 Alan's own seed-21 fit of the same tip RTL was 40,523 ALMs / +0.398 ns on
 his box; ours placed differently. The read-ahead flow itself died after a

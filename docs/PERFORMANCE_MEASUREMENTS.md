@@ -694,6 +694,27 @@ Verilator boot of the fresh 8.1 install image in progress with the new
 **Fit (seed 21, release recipe): 40,584 ALMs (97 %), 25,324 registers,
 477 RAM blocks, 64 DSPs, timing MET -- HDMI +0.256 ns, clk_sys +0.307,
 clk_ram +0.884, hold +0.208.** +319 ALMs over Alan's tip on the same seed.
-rbf `scratch/MacQuadra800_readahead_s21_0018d4a9.rbf` (md5 `0018d4a9…`),
+rbf `scratch/MacQuadra800_readahead_s21_0018d4a9.rbf` (md5 `0018d4a9â€¦`),
 staged on the .92 MiSTer as `/media/fat/_Unstable/MacQuadra800_readahead_0018d4a9.rbf`.
 Hardware: owed (the .92 MiSTer is shared with a live IRIX guest).
+
+**Step 3 -- fill hold, branch hint, one-state store** (`c9219a8`: AP68040
+`9216f3e`). AP suite passes; first-100 silicon corpus 0 REAL diffs and
+31,904,073 -> 30,185,494 cycles (-5.4 %, uncached, so the sequencer alone);
+`bench_loop` 134,396. Quartus build in flight (`scratch/build_store_s21.log`).
+
+**Full-machine A/B, Verilator, fresh 8.1 install image**, half-cycles from
+reset to the ROM boot's first volume write (lba 98; the same 239 sector
+reads at the sim's fixed 16,000-tick latency are inside the number):
+
+| core | half-cycles to first write | vs 164a376 |
+|---|---:|---:|
+| Alan's 164a376 | 521,367,641 | |
+| + read-ahead (d325967) | 492,953,061 | -5.5 % |
+| + fill hold and branch hint (no store path) | 491,296,965 | -5.8 % |
+| + one-state store (9216f3e) | pending | |
+
+The ROM phase after that point is the DAFB VRAM byte-lane probe at
+`$408046B6..D4` (writes and reads of `$F903D028`, uncached), which the
+sequencer changes barely touch; the OS-phase profile is still owed (the
+`--prof` boot is running).
