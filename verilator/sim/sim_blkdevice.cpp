@@ -51,6 +51,8 @@ static int blkdev_dbg() {
     return v;
 }
 
+static bool ignored_reported = false;
+
 static int blkdev_read_latency() {
     static int v = -1;
     if (v < 0) {
@@ -178,11 +180,16 @@ fprintf(stderr,"mounting flag cleared  %d\n",i);
        // set current disk here..
 //fprintf(stderr,"setting current disk %d %x ack_delay %x\n",i,*sd_rd,ack_delay);
        current_disk=i;
-      if (ack_delay && blkdev_dbg())
-        fprintf(stderr, "[BLK %lld] request on %d ignored: ack_delay=%d reading=%d writing=%d bytecnt=%d\n",
+      // a request is level-held while the latency counts down: report the
+      // first held tick only, not the sixteen thousand that follow it
+      if (ack_delay && blkdev_dbg() && !ignored_reported) {
+        ignored_reported = true;
+        fprintf(stderr, "[BLK %lld] request on %d held: ack_delay=%d reading=%d writing=%d bytecnt=%d\n",
                 cycles, i, ack_delay, reading, writing, bytecnt);
+      }
       if (!ack_delay) {
         int lba = *(sd_lba[i]);
+        ignored_reported = false;
         if (blkdev_dbg())
           fprintf(stderr, "[BLK %lld] start %s disk %d lba=%d blk_cnt=%d\n", cycles,
                   bitcheck(*sd_rd,i) ? "read" : "write", i, lba, sd_blk_cnt ? (int)*sd_blk_cnt : 0);
