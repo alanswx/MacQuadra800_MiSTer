@@ -110,8 +110,13 @@ unexplained — see "Older notes"). If the store head misbehaves, fall back
 to `_Unstable/MacQuadra800_readahead_0018d4a9.rbf`, then to the shipped
 20260908_3. Hand the driving to an Opus operator per the memory note.
 
-Boot-time lead, corrected (2026-09-12 morning): the sim's endless
-"VRAM byte-lane probe" at `$408046B6..D4` is a **fast-boot ROM artefact**,
+Boot-time lead, corrected twice (2026-09-12): the sim's endless
+"VRAM byte-lane probe" at `$408046B6..D4` is NOT the hardware black phase
+and NOT (as first thought) a fast-boot artefact -- the pristine-ROM boots
+land in the same loop after the RAM test. It is a sim-vs-hardware
+difference in what the System reads at start-up (under investigation;
+stop-at-PC runs at `$2F8E`/`$2F52`/`$2F6E` are collecting d1/d2). The
+paragraph below is the earlier reading, kept for the mechanism:
 not the hardware's black phase. The `[HB]` trail of the stuck runs shows the
 boot going through the ROM checksum, sizing, SCSI scan and into code
 running from RAM (`$8610`, the boot blocks) at ~500M cycles; only THEN

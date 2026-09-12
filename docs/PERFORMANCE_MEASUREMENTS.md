@@ -771,7 +771,7 @@ the release) is the next step before this build is released.
 After that point the fast-boot ROM runs ahead into the boot blocks and
 then parks forever in the ROM's video identification (`$40802F3A` and the
 probe-list walk from `$2F70`): the System asks for the video ID the cold
-boot saved and the patched warm path never saved one. That is a sim
-artefact of the fast-boot patch, not a hardware phase (see
-`RESUME-alan-perf.md`); the OS-phase profile is being taken with the
-pristine ROM instead.
+boot saved and the patched warm path never saved one -- except that the
+pristine ROM lands in the same loop after its RAM test, so it is a
+sim-vs-hardware difference in what the System reads at start-up, still
+unexplained (see `RESUME-alan-perf.md`); the OS-phase profile waits on it.
