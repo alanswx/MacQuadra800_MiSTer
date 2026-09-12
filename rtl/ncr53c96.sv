@@ -526,8 +526,18 @@ wire [9:0] nxt_idx = synth_on ? synth_idx : 10'd0;
 function [7:0] bcd2bin8(input [7:0] b);
 	bcd2bin8 = {4'd0, b[7:4]} * 8'd10 + {4'd0, b[3:0]};
 endfunction
-function [7:0] bin2bcd8(input [7:0] v);          // 0..99
-	bin2bcd8 = {(v / 8'd10), 4'd0} | (v % 8'd10);
+function [7:0] bin2bcd8(input [7:0] v);          // exact for every 8-bit v
+	reg [15:0] reciprocal;
+	reg  [7:0] t, u;
+	begin
+		// floor(v / 10) == (v * 205) >> 11 for all 0..255.  Derive
+		// the remainder from the same quotient instead of replicating a
+		// general divider and modulus at every concurrent response field.
+		reciprocal = v * 8'd205;
+		t = reciprocal[15:11];
+		u = v - ((t << 3) + (t << 1));
+		bin2bcd8 = {t[3:0], u[3:0]};
+	end
 endfunction
 wire [7:0] c1_trk_bin = bcd2bin8(cdb[5]);
 wire [8:0] c1_trk_k   = (c1_trk_bin == 8'd0) ? 9'd0 : (c1_trk_bin > 8'd99) ? 9'd98 : {1'b0, c1_trk_bin} - 9'd1;

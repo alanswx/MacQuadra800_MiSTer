@@ -108,10 +108,19 @@ fi
 
 touch output_files/.compile_in_progress
 if [ "$CHECK_ONLY" = 1 ]; then
+	# A fresh clone has no build_id.v because it is generated and ignored.
+	# Standalone quartus_map does not run the QSF pre-flow hook, so invoke the
+	# project generator explicitly before analysis.
+	quartus_sh -t sys/build_id.tcl "$REV" "$REV" 2>&1 | tee -a "$LOG"
+	GEN_RC=${PIPESTATUS[0]}
+	if [ "$GEN_RC" -ne 0 ]; then
+		RC=$GEN_RC
+	else
     log "Analysis & Synthesis only (quartus_map $REV) — fast syntax/multi-driver check" | tee -a "$LOG"
     SECONDS=0
-    quartus_map "$REV" 2>&1 | tee -a "$LOG"
-    RC=${PIPESTATUS[0]}
+		quartus_map --read_settings_files=on --write_settings_files=off "$REV" 2>&1 | tee -a "$LOG"
+		RC=${PIPESTATUS[0]}
+	fi
 else
     log "Full compile (quartus_sh --flow compile $REV)" | tee -a "$LOG"
     SECONDS=0
