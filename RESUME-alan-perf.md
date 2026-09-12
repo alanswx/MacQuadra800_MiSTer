@@ -44,7 +44,7 @@ data-read request→ack 2.0 → 1.0 cycles). Not yet built or run on hardware.
 |---|---|---|---|
 | `4404a15` (Alan's tip) | 40,265 (96 %) | **HDMI PLL domain -0.164 ns**; clk_sys +0.508, clk_ram +1.189, hold +0.198 | `scratch/MacQuadra800_alan164_s21_6d6a6daf.rbf` — not deployable, seed walk owed |
 | `7d8569d` (read-ahead) | 40,584 (97 %) | **MET**: HDMI +0.256, clk_sys +0.307, clk_ram +0.884, hold +0.208 | `scratch/MacQuadra800_readahead_s21_0018d4a9.rbf`, also `/media/fat/_Unstable/MacQuadra800_readahead_0018d4a9.rbf` on .92 — **the gate candidate** |
-| `c9219a8` (+ fill hold, branch hint, one-state store) | 41,096 (98 %) at seed 22 | seed 21 failed to route; **seed 22 MET**: clk_sys +0.256, HDMI +0.409, clk_ram +0.593, hold +0.225 (seed 23 in `../MacQuadra800_wt2`, `scratch/build_store_s23.log`, in flight) | `scratch/MacQuadra800_store_s22_ba54b0ee.rbf`, on .92 as `/media/fat/_Unstable/MacQuadra800_store_ba54b0ee.rbf` -- **the preferred gate candidate**; the read-ahead-only rbf is the fallback |
+| `c9219a8` (+ fill hold, branch hint, one-state store) | 41,096 (98 %) at seed 22 | seed 21 failed to route; **seed 22 MET**: clk_sys +0.256, HDMI +0.409, clk_ram +0.593, hold +0.225 (seed 23, built in `../MacQuadra800_wt2`: 41,049 ALMs but HDMI -0.092 ns, rejected; that worktree is left detached at c9219a8 with SEED 23 uncommitted in its qsf) | `scratch/MacQuadra800_store_s22_ba54b0ee.rbf`, on .92 as `/media/fat/_Unstable/MacQuadra800_store_ba54b0ee.rbf` -- **the preferred gate candidate**; the read-ahead-only rbf is the fallback |
 
 Alan's own seed-21 fit of the same tip RTL was 40,523 ALMs / +0.398 ns on
 his box; ours placed differently. The read-ahead flow itself died after a
