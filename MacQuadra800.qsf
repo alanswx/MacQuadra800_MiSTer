@@ -133,6 +133,15 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # opcode retire, resident immediates, DBcc refill dispatch, FPU regbank in MLABs)
 # fits at seed 21 first try: 41,060 ALMs (98 %), setup +0.579 (HDMI), clk_sys
 # +0.753, clk_ram +0.943, hold +0.225; 20-minute flow. md5 512cd4f8.
+# 2026-09-12 (4404a15): Alan's 164a376 (early data issue) with his NCR/CD BCD
+# reciprocal fits at seed 21 in 40,265 ALMs (96 %) but MISSES the HDMI PLL
+# domain by 0.164 ns (clk_sys +0.508, clk_ram +1.189, hold +0.198); not
+# deployable, a seed walk is owed if that head is wanted. md5 6d6a6daf.
+# 2026-09-12 (7d8569d, the lookup read-ahead on top of it): seed 21 fits in
+# 40,584 ALMs (97 %) and MEETS timing: HDMI +0.256, clk_sys +0.307, clk_ram
+# +0.884, hold +0.208. 477 RAM blocks, 64 DSPs. md5 0018d4a9. (Quartus
+# rewrote this file when a comment was edited mid-fit and dropped the notes
+# once; the STA/asm were re-run by hand on the finished db.)
 set_global_assignment -name SEED 21
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and

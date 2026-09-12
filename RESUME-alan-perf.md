@@ -42,12 +42,12 @@ data-read request→ack 2.0 → 1.0 cycles). Not yet built or run on hardware.
 | head | ALMs | timing | rbf |
 |---|---|---|---|
 | `4404a15` (Alan's tip) | 40,265 (96 %) | **HDMI PLL domain -0.164 ns**; clk_sys +0.508, clk_ram +1.189, hold +0.198 | `scratch/MacQuadra800_alan164_s21_6d6a6daf.rbf` — not deployable, seed walk owed |
-| `7d8569d` (read-ahead) | in flight since 01:13 (`scratch/build_readahead_s21.log`; the fitter was still placing at 01:55, longer than the 20-minute tip flow) | | |
+| `7d8569d` (read-ahead) | 40,584 (97 %) | **MET**: HDMI +0.256, clk_sys +0.307, clk_ram +0.884, hold +0.208 | `scratch/MacQuadra800_readahead_s21_0018d4a9.rbf`, also `/media/fat/_Unstable/MacQuadra800_readahead_0018d4a9.rbf` on .92 � **the gate candidate** |
 
 Alan's own seed-21 fit of the same tip RTL was 40,523 ALMs / +0.398 ns on
-his box; ours placed differently. If the read-ahead build also misses the
-HDMI domain, walk seeds (22, 23, …) — it is the known placement lottery, not
-the RTL (see the qsf comment block).
+his box; ours placed differently. The read-ahead flow itself died after a
+successful fit because a qsf comment was edited mid-build (memory note
+`never-edit-qsf-during-build`); `quartus_sta` + `quartus_asm` on the finished db produced the report and rbf above.
 
 ## Hardware and the .92 box
 

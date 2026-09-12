@@ -689,5 +689,11 @@ walk owed. rbf `scratch/MacQuadra800_alan164_s21_6d6a6daf.rbf`.
 AP68040 suite passes; first-100 silicon corpus 0 REAL diffs (cycles
 unchanged at 31,904,073 -- the corpus runs uncached). Full-machine
 Verilator boot of the fresh 8.1 install image in progress with the new
-`--prof` sequencer profiler (`verilator/sim_main.cpp`). Quartus build in
-flight. Hardware: owed (the .92 MiSTer is shared with a live IRIX guest).
+`--prof` sequencer profiler (`verilator/sim_main.cpp`).
+
+**Fit (seed 21, release recipe): 40,584 ALMs (97 %), 25,324 registers,
+477 RAM blocks, 64 DSPs, timing MET -- HDMI +0.256 ns, clk_sys +0.307,
+clk_ram +0.884, hold +0.208.** +319 ALMs over Alan's tip on the same seed.
+rbf `scratch/MacQuadra800_readahead_s21_0018d4a9.rbf` (md5 `0018d4a9…`),
+staged on the .92 MiSTer as `/media/fat/_Unstable/MacQuadra800_readahead_0018d4a9.rbf`.
+Hardware: owed (the .92 MiSTer is shared with a live IRIX guest).
