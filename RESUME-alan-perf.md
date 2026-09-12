@@ -44,6 +44,7 @@ data-read request→ack 2.0 → 1.0 cycles). Not yet built or run on hardware.
 |---|---|---|---|
 | `4404a15` (Alan's tip) | 40,265 (96 %) | **HDMI PLL domain -0.164 ns**; clk_sys +0.508, clk_ram +1.189, hold +0.198 | `scratch/MacQuadra800_alan164_s21_6d6a6daf.rbf` — not deployable, seed walk owed |
 | `7d8569d` (read-ahead) | 40,584 (97 %) | **MET**: HDMI +0.256, clk_sys +0.307, clk_ram +0.884, hold +0.208 | `scratch/MacQuadra800_readahead_s21_0018d4a9.rbf`, also `/media/fat/_Unstable/MacQuadra800_readahead_0018d4a9.rbf` on .92 — **the gate candidate** |
+| `c9219a8` (+ fill hold, branch hint, one-state store) | 97 %, placed | **seed 21 FAILED TO ROUTE** (congestion, hold-repair routing); seed 22 building here (`scratch/build_store_s22.log`), seed 23 in `../MacQuadra800_wt2` | none yet |
 
 Alan's own seed-21 fit of the same tip RTL was 40,523 ALMs / +0.398 ns on
 his box; ours placed differently. The read-ahead flow itself died after a
