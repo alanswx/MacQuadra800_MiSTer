@@ -701,7 +701,7 @@ Hardware: owed (the .92 MiSTer is shared with a live IRIX guest).
 **Step 3 -- fill hold, branch hint, one-state store** (`c9219a8`: AP68040
 `9216f3e`). AP suite passes; first-100 silicon corpus 0 REAL diffs and
 31,904,073 -> 30,185,494 cycles (-5.4 %, uncached, so the sequencer alone);
-`bench_loop` 134,396. Quartus build in flight (`scratch/build_store_s21.log`).
+`bench_loop` 134,396. The one-state store alone takes the ROM boot phase from 491.3M to 453.1M half-cycles (-7.8 %); the three steps together are -13.1 % against 164a376. Quartus build in flight (`scratch/build_store_s21.log`).
 
 **Full-machine A/B, Verilator, fresh 8.1 install image**, half-cycles from
 reset to the ROM boot's first volume write (lba 98; the same 239 sector
@@ -712,7 +712,7 @@ reads at the sim's fixed 16,000-tick latency are inside the number):
 | Alan's 164a376 | 521,367,641 | |
 | + read-ahead (d325967) | 492,953,061 | -5.5 % |
 | + fill hold and branch hint (no store path) | 491,296,965 | -5.8 % |
-| + one-state store (9216f3e) | pending | |
+| + one-state store (9216f3e) | 453,064,767 | **-13.1 %** |
 
 The ROM phase after that point is the DAFB VRAM byte-lane probe at
 `$408046B6..D4` (writes and reads of `$F903D028`, uncached), which the

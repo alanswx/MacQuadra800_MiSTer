@@ -177,4 +177,5 @@ fixed 16,000-tick latency:
 |---|---:|
 | Alan's 164a376 | 521,367,641 |
 | + lookup read-ahead (d325967) | 492,953,061 (-5.5 %) |
-| + fill hold / branch hint / one-state store | see section 14 of PERFORMANCE_MEASUREMENTS.md |
+| + fill hold and branch hint | 491,296,965 (-5.8 %) |
+| + one-state store (9216f3e) | 453,064,767 (-13.1 %) |
