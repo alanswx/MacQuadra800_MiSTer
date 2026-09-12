@@ -119,6 +119,12 @@ wire  [1:0] mm_size;
 wire [31:0] mm_addr, mm_wdata;
 wire  [2:0] mm_fc;
 wire        mm_ack, mm_nocache;
+// pre-lookup hint, core -> MMU -> cache (one cycle ahead of mem_req)
+wire        pre_valid, pre_instr;
+wire [31:0] pre_addr;
+wire  [2:0] pre_fc;
+wire        mm_pre_valid, mm_pre_instr;
+wire [31:0] mm_pre_addr;
 wire [31:0] mm_rdata;
 
 // MMU walker requests are held behind older buffered CPU stores. This matters
@@ -169,6 +175,10 @@ ap040_core #(
 	.mem_ack(mem_ack),
 	.mem_rdata(mem_rdata),
 	.mem_flt(mem_flt),
+	.pre_valid(pre_valid),
+	.pre_instr(pre_instr),
+	.pre_addr(pre_addr),
+	.pre_fc(pre_fc),
 
 	.tc_out(w_tc),
 	.urp_out(w_urp),
@@ -266,7 +276,15 @@ ap040_mmu mmu (
 
 	.phys_addr(),
 	.cache_inhibit(),
-	.m_nocache(mm_nocache)
+	.m_nocache(mm_nocache),
+
+	.pre_valid(pre_valid),
+	.pre_instr(pre_instr),
+	.pre_addr(pre_addr),
+	.pre_fc(pre_fc),
+	.m_pre_valid(mm_pre_valid),
+	.m_pre_instr(mm_pre_instr),
+	.m_pre_addr(mm_pre_addr)
 );
 
 assign walker_req  = mmu_walker_req && !buffered_store_pending;
@@ -349,7 +367,10 @@ if (AP040_ENABLE_CACHE != 0) begin : g_cache
 		.m_line_valid(cache_line_valid && !buffered_store_pending),
 		.m_line_tag(cache_line_tag),
 		.m_line_data(cache_line_data),
-		.m_err(berr)
+		.m_err(berr),
+		.pre_valid(mm_pre_valid),
+		.pre_instr(mm_pre_instr),
+		.pre_addr(mm_pre_addr)
 	);
 end
 else begin : g_nocache
