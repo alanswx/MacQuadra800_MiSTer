@@ -246,6 +246,79 @@ initial begin
 	ack_head();
 	repeat (3) @(posedge clk);
 
+	//------------------------------------------------------------------
+	// T6: a store into the DAFB VRAM window is posted like a RAM store;
+	// a following DAFB register write (a device transaction) and a VRAM
+	// read-back both wait until it has drained, and a ROM-window write
+	// still goes the direct way.
+	//------------------------------------------------------------------
+	buffered_store(32'hF903_D028, 32'hF0F0_0001);
+	if (!pending) fail("VRAM store was not queued");
+	expect_head(32'hF903_D028, 32'hF0F0_0001);
+	@(negedge clk);
+	s_req = 1; s_write = 1; s_addr = 32'hF980_0010; s_wdata = 32'h0000_0030;
+	repeat (2) @(posedge clk);
+	if (s_ack) fail("DAFB register write passed a queued VRAM store");
+	if (!m_req || !m_write || m_addr !== 32'hF903_D028)
+		fail("VRAM store left the drain port before its ack");
+	ack_head();
+	guard = 0;
+	while (!(m_req && m_write && m_addr == 32'hF980_0010) && guard < 30) begin
+		@(posedge clk);
+		guard = guard + 1;
+	end
+	if (guard >= 30) fail("DAFB register write did not follow the drained VRAM store");
+	if (s_ack || pending) fail("DAFB register write was buffered");
+	@(negedge clk);
+	m_ack = 1;
+	#1;
+	if (!s_ack) fail("DAFB register write did not pass downstream ack");
+	@(posedge clk);
+	@(negedge clk);
+	m_ack = 0; s_req = 0;
+	repeat (3) @(posedge clk);
+
+	buffered_store(32'hF900_1000, 32'hF0F0_0002);
+	@(negedge clk);
+	s_req = 1; s_write = 0; s_addr = 32'hF900_1000;
+	repeat (2) @(posedge clk);
+	if (s_ack) fail("VRAM read-back passed a queued VRAM store");
+	expect_head(32'hF900_1000, 32'hF0F0_0002);
+	ack_head();
+	guard = 0;
+	while (!(m_req && !m_write) && guard < 30) begin
+		@(posedge clk);
+		guard = guard + 1;
+	end
+	if (guard >= 30) fail("VRAM read-back did not follow the drained store");
+	@(negedge clk);
+	m_ack = 1; m_rdata = 32'hF0F0_0002;
+	#1;
+	if (!s_ack || s_rdata !== 32'hF0F0_0002) fail("VRAM read-back completion");
+	@(posedge clk);
+	@(negedge clk);
+	m_ack = 0; s_req = 0;
+	repeat (3) @(posedge clk);
+
+	@(negedge clk);
+	s_req = 1; s_write = 1; s_addr = 32'h4080_0000; s_wdata = 32'hD0D0_0002;
+	guard = 0;
+	while (!dut.direct_active && guard < 20) begin
+		@(posedge clk);
+		guard = guard + 1;
+	end
+	if (guard >= 20 || !m_req || !m_write)
+		fail("ROM-window write was not forwarded directly");
+	if (s_ack || pending) fail("ROM-window write was buffered");
+	@(negedge clk);
+	m_ack = 1;
+	#1;
+	if (!s_ack) fail("ROM-window write did not pass downstream ack");
+	@(posedge clk);
+	@(negedge clk);
+	m_ack = 0; s_req = 0;
+	repeat (3) @(posedge clk);
+
 	if (errors == 0) $display("ALL TESTS PASSED");
 	else $display("TEST FAILED with %0d errors", errors);
 	$finish;
