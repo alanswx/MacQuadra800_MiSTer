@@ -44,7 +44,7 @@ data-read request→ack 2.0 → 1.0 cycles). Not yet built or run on hardware.
 |---|---|---|---|
 | `4404a15` (Alan's tip) | 40,265 (96 %) | **HDMI PLL domain -0.164 ns**; clk_sys +0.508, clk_ram +1.189, hold +0.198 | `scratch/MacQuadra800_alan164_s21_6d6a6daf.rbf` — not deployable, seed walk owed |
 | `7d8569d` (read-ahead) | 40,584 (97 %) | **MET**: HDMI +0.256, clk_sys +0.307, clk_ram +0.884, hold +0.208 | `scratch/MacQuadra800_readahead_s21_0018d4a9.rbf`, also `/media/fat/_Unstable/MacQuadra800_readahead_0018d4a9.rbf` on .92 — **the gate candidate** |
-| `c9219a8` (+ fill hold, branch hint, one-state store) | 97 %, placed | **seed 21 FAILED TO ROUTE** (congestion, hold-repair routing); seed 22 building here (`scratch/build_store_s22.log`), seed 23 in `../MacQuadra800_wt2` | none yet |
+| `c9219a8` (+ fill hold, branch hint, one-state store) | 41,096 (98 %) at seed 22 | seed 21 failed to route; **seed 22 MET**: clk_sys +0.256, HDMI +0.409, clk_ram +0.593, hold +0.225 (seed 23 in `../MacQuadra800_wt2`, `scratch/build_store_s23.log`, in flight) | `scratch/MacQuadra800_store_s22_ba54b0ee.rbf`, on .92 as `/media/fat/_Unstable/MacQuadra800_store_ba54b0ee.rbf` -- **the preferred gate candidate**; the read-ahead-only rbf is the fallback |
 
 Alan's own seed-21 fit of the same tip RTL was 40,523 ALMs / +0.398 ns on
 his box; ours placed differently. The read-ahead flow itself died after a
@@ -64,11 +64,22 @@ yet — `deploy_screenshot.sh` seeds it. Its Main (`/media/fat/MiSTer`, md5
 d6d63ec4) has `mac_eth` strings but is not verified to be the 20260908 fork
 build the CD path needs.
 
-The gate for this branch, once a timing-clean rbf exists and the box is
-free: Mac OS 8.1 boot + Speedometer 4.02 Benchmark Mix (compare with
-0.395 for 299cb36 and Alan's 0.405 for 164a376), then A/UX boot +
-`shutdown -h now` (the 299cb36 gate wedged there; still unexplained — see
-"Older notes"). Hand the driving to an Opus operator per the memory note.
+The gate for this branch, once the box is free: load
+`_Unstable/MacQuadra800_store_ba54b0ee.rbf` (the `.s0` already points at
+`QuadSquad8.hda`), Mac OS 8.1 boot + Speedometer 4.02 Benchmark Mix
+(compare with 0.395 for 299cb36 and Alan's 0.405 for 164a376; the
+simulation says the boot's ROM phase is 13 % shorter than 164a376), then
+A/UX boot + `shutdown -h now` (the 299cb36 gate wedged there; still
+unexplained — see "Older notes"). If the store head misbehaves, fall back
+to `_Unstable/MacQuadra800_readahead_0018d4a9.rbf`, then to the shipped
+20260908_3. Hand the driving to an Opus operator per the memory note.
+
+Boot-time lead from the sim: the ROM spends the whole "black" phase in a
+VRAM byte-lane probe (`$408046B6..D4` writing and reading `$F903D028`,
+uncached, one byte per iteration); it runs for well over 3G half-cycles in
+the sim, the same order as the hardware's 50-second black phase. Making
+uncached VRAM byte accesses cheaper (or cacheable for that probe) would cut
+boot time far more than any sequencer change; not touched.
 
 ## Simulation infrastructure that now works
 

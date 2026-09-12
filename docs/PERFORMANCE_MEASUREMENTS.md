@@ -701,7 +701,7 @@ Hardware: owed (the .92 MiSTer is shared with a live IRIX guest).
 **Step 3 -- fill hold, branch hint, one-state store** (`c9219a8`: AP68040
 `9216f3e`). AP suite passes; first-100 silicon corpus 0 REAL diffs and
 31,904,073 -> 30,185,494 cycles (-5.4 %, uncached, so the sequencer alone);
-`bench_loop` 134,396. The one-state store alone takes the ROM boot phase from 491.3M to 453.1M half-cycles (-7.8 %); the three steps together are -13.1 % against 164a376. Quartus build in flight (`scratch/build_store_s21.log`).
+`bench_loop` 134,396. The one-state store alone takes the ROM boot phase from 491.3M to 453.1M half-cycles (-7.8 %); the three steps together are -13.1 % against 164a376. **Fit: seed 21 placed but failed to route (congestion); seed 22 fits in 41,096 ALMs (98 %) with timing met -- clk_sys +0.256 ns, HDMI +0.409, clk_ram +0.593, hold +0.225.** rbf `scratch/MacQuadra800_store_s22_ba54b0ee.rbf`, staged on .92 as `/media/fat/_Unstable/MacQuadra800_store_ba54b0ee.rbf`. Seed 23 was also launched in `../MacQuadra800_wt2` for a second placement.
 
 **Full-machine A/B, Verilator, fresh 8.1 install image**, half-cycles from
 reset to the ROM boot's first volume write (lba 98; the same 239 sector

@@ -142,7 +142,11 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # +0.884, hold +0.208. 477 RAM blocks, 64 DSPs. md5 0018d4a9. (Quartus
 # rewrote this file when a comment was edited mid-fit and dropped the notes
 # once; the STA/asm were re-run by hand on the finished db.)
-set_global_assignment -name SEED 21
+# 2026-09-12 (c9219a8, + fill hold, branch-target hint, one-state MOVE store):
+# seed 21 placed but FAILED TO ROUTE (congestion, hold-repair delay). Seed 22
+# fits in 41,096 ALMs (98 %) and meets timing: clk_sys +0.256, HDMI +0.409,
+# clk_ram +0.593. Seed 22 is the current seed for this head.
+set_global_assignment -name SEED 22
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
 # the design no longer fits with speed-directed synthesis; all-area
