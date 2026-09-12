@@ -84,15 +84,13 @@ free: Mac OS 8.1 boot + Speedometer 4.02 Benchmark Mix (compare with
   `S_MWR` split by cache FSM state and address region, and acceptance-cycle
   hit counts at every heartbeat (5M cycles). `+blkdbg` traces block-device
   requests on stderr.
-- **Known sim harness bug, not the CPU:** every long boot so far (gate
-  image on both 5aa596f and 299cb36; the fresh 8.1 install on the
-  read-ahead CPU) stops in the ROM SCSI Manager (`pc 408D21DE`/`408D22FC`)
-  after a few hundred sector reads: the last `io_rd+` never gets its
-  `io_ack+` from `verilator/sim/sim_blkdevice.cpp`. The 8.1 boot's case was
-  the second read of lba 2282, right after the boot's first *write*
-  (lba 98). The `+blkdbg` run started at 01:58 (`~/MacQuadra800/verilator/
-  sim_blk.log`) is meant to catch it. Until it is fixed the sim cannot
-  reach the Finder.
+- **The sim harness stop is fixed (`56a429a`):** every long boot used to
+  stall in the ROM SCSI Manager because a block-device *write* completed on
+  the ack's first tick with zero bytes moved (the gate results were all
+  zeros, the 8.1 boot's first volume write was lost, and `scsi_cache`, left
+  mid-transfer, never completed the next read). A write now completes only
+  after every word was consumed; the 8.1 boot passes that point (write of
+  lba 98, then the read of lba 2282 acknowledged at HB cycle 493M).
 - The earlier "bisect" trees `~/MacQuadra800_b_*` are void (all six ran the
   gate corpus to its result write and then hit the same harness stop).
 
