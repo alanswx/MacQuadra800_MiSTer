@@ -484,6 +484,7 @@ int main(int argc, char** argv, char** env) {
 	blockdevice.sd_wr          = &VERTOPINTERN->sd_wr;
 	blockdevice.sd_ack         = &VERTOPINTERN->sd_ack;
 	blockdevice.sd_buff_addr   = &VERTOPINTERN->sd_buff_addr;
+	blockdevice.sd_blk_cnt     = &VERTOPINTERN->sd_blk_cnt;
 	blockdevice.sd_buff_dout   = &VERTOPINTERN->sd_buff_dout;
 	blockdevice.sd_buff_din[0] = &VERTOPINTERN->sd_buff_din0;
 	blockdevice.sd_lba[2]      = &VERTOPINTERN->sd_lba0;        // CD-ROM: same lba / data bus

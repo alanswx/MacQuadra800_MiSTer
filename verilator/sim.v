@@ -54,8 +54,9 @@ module emu
 	output [31:0] sd_lba0,
 	output  [2:0] sd_rd,
 	output  [2:0] sd_wr,
+	output  [5:0] sd_blk_cnt,   // hps_io sd_blk_cnt: sectors - 1 in this transaction (the block cache moves 8-sector groups)
 	input   [2:0] sd_ack,
-	input   [7:0] sd_buff_addr,
+	input  [12:0] sd_buff_addr,  // 13 bits like hps_io: a group is 2048 words
 	input  [15:0] sd_buff_dout,
 	output [15:0] sd_buff_din0,
 	input         sd_buff_wr,
@@ -157,7 +158,8 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS)) machine (
 	.io_rd(sd_rd),
 	.io_wr(sd_wr),
 	.io_ack(sd_ack),
-	.sd_buff_addr({5'd0, sd_buff_addr}),
+	.io_blk_cnt(sd_blk_cnt),
+	.sd_buff_addr(sd_buff_addr),
 	.sd_buff_dout(sd_buff_dout),
 	.sd_buff_din(sd_buff_din0),
 	.sd_buff_wr(sd_buff_wr),

@@ -20,7 +20,8 @@ public:
 	CData* sd_rd;           // 2-bit in MacLC
 	CData* sd_wr;           // 2-bit in MacLC
 	CData* sd_ack;          // 2-bit in MacLC
-	CData* sd_buff_addr;    // 8-bit for MacLC
+	CData* sd_blk_cnt;      // 6-bit: sectors - 1 per transaction (hps_io sd_blk_cnt); NULL = always one sector
+	SData* sd_buff_addr;    // 13-bit like hps_io (was 8-bit for MacLC)
 	SData* sd_buff_dout;    // 16-bit for MacLC
 	SData* sd_buff_din[kVDNUM];  // 16-bit for MacLC
 	CData* sd_buff_wr;
@@ -29,6 +30,8 @@ public:
 	QData* img_size;
 
 	int bytecnt;
+	int ack_ticks;          // ticks since sd_ack rose: the first word is strobed one tick after the ack, as hps_io does
+	int xfer_bytes;         // bytes in the current transaction: (sd_blk_cnt + 1) * kBLKSZ
         long int disk_size[kVDNUM];
 	bool reading;
 	bool writing;
