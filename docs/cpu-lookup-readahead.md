@@ -128,3 +128,53 @@ Logic: four 22-bit tag compares against the live tag, a 4:1 data mux, the
 `rdy_*` registers, the hint decode in the core (a state compare and an
 alignment check) and the address muxes in the MMU/cache RAM read ports.
 Fit numbers in §14.
+
+## Follow-ups on the same branch (AP68040 `9216f3e`)
+
+**Fill hold behind a resident redirect.** The fill engine no longer starts
+a speculative fetch while the word at the head of the queue is a redirect
+whose own extension words are already resident (Bcc/BRA, DBcc, JMP/JSR in
+the fixed-length modes, RTS/RTE/RTR/RTD): the words past it are the
+fall-through path, and a fill in flight when the redirect issues its
+target fetch costs the taken branch two to three cycles (the redirect
+cannot claim the port, `issue_ifetch` only re-arms the stream and the
+engine issues later). Demand fetches are untouched: an empty queue has no
+head to classify, and an instruction whose extension words are missing is
+never classified.
+
+**Short-branch target hint.** `S_DECODE` for Bcc.B/BRA.B and `S_BCC_EXT`
+present the target through `pre_*` in the cycle they issue it, so the
+redirect fetch finds its ATC and cache rows read. BSR keeps the ordinary
+path (its redirect follows the push). A not-taken branch wastes one RAM
+read.
+
+**One-state store (`S_PIPE_STORE`).** `MOVE Dn/An/#imm` to `(An)`, `(An)+`,
+`-(An)`, `d16(An)`, `abs.W`, `abs.L`: decode points port A at the source and
+port B at the base and enters the new state (through `immf` when extension
+words are needed, which decode's resident-immediate path often makes
+free). The state captures both, adjusts An with the same restart record
+`S_EA_DISP` keeps, sets MOVE's flags (N, Z from the value, V and C clear,
+X kept) and issues the write through `mwr`, which issues it in that cycle
+when the port is free; `S_MWR` completes or faults it exactly as before.
+The generic path spent `S_PIPE_START`, `S_PIPE_SREG`, `S_PIPE_DST`,
+`S_EA_DISP`, `S_PIPE_DEA` and `S_EXEC` on the same work, so a register
+store drops from about nine cycles to about five. An An source is read in
+the cycle its register may be adjusted, so `MOVE.L An,-(An)` stores the
+original value, as the generic path does.
+
+Verification: complete AP suite; first-100 silicon corpus 0 REAL diffs,
+31,904,073 -> 30,185,494 cycles (-5.4 %, and the corpus runs uncached, so
+this is the sequencer alone); `bench_loop` 134,406 -> 134,396 (it has 64
+stores and its DBcc loop is served by the refill sector).
+
+## Full-machine A/B (Verilator, fresh Mac OS 8.1 install image)
+
+Half-cycles from reset to the ROM boot's first volume write (lba 98), a
+fixed program point that includes the same 239 sector reads at the sim's
+fixed 16,000-tick latency:
+
+| core | half-cycles to first write |
+|---|---:|
+| Alan's 164a376 | 521,367,641 |
+| + lookup read-ahead (d325967) | 492,953,061 (-5.5 %) |
+| + fill hold / branch hint / one-state store | see section 14 of PERFORMANCE_MEASUREMENTS.md |
