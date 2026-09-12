@@ -44,6 +44,13 @@ QData* img_size=NULL;
 // (slow SD) shows the REQ-low window and proceeds.  Override with
 // +blkdev_latency=<n> to sweep.  Default chosen large enough that the ~492-byte
 // read-ahead cannot hide it, so io_busy produces the same window as the FPGA.
+// +blkdbg: trace every request start/ignore/finish on stderr
+static int blkdev_dbg() {
+    static int v = -1;
+    if (v < 0) v = Verilated::commandArgsPlusMatch("blkdbg")[0] ? 1 : 0;
+    return v;
+}
+
 static int blkdev_read_latency() {
     static int v = -1;
     if (v < 0) {
@@ -124,10 +131,18 @@ void SimBlockDevice::BeforeEval(long long cycles)
         }
         bytecnt += 2;
         *sd_buff_addr = (bytecnt < xfer_bytes) ? bytecnt/2 : 0;
-      } else if(writing) {
+      } else if(writing && ack_ticks > 0 && bytecnt >= xfer_bytes) {
+        // Only once every word has been taken.  The first ack tick has
+        // ack_ticks == 0 and used to fall through to here, finishing every
+        // write with zero bytes moved: the gate corpus wrote all-zero results
+        // and the Mac OS boot's first volume write was lost, after which the
+        // scsi_cache, left mid-transfer by the early ack drop, never completed
+        // the next read (the ROM parked in its SCSI Manager, 2026-09-12).
         disk[i].flush();
         *sd_buff_addr = 0;
         writing = false;
+      } else if(writing) {
+        // the ack's first tick, or a word the core has not consumed yet
       } else {
           *sd_buff_wr=0;
 
@@ -163,8 +178,14 @@ fprintf(stderr,"mounting flag cleared  %d\n",i);
        // set current disk here..
 //fprintf(stderr,"setting current disk %d %x ack_delay %x\n",i,*sd_rd,ack_delay);
        current_disk=i;
+      if (ack_delay && blkdev_dbg())
+        fprintf(stderr, "[BLK %lld] request on %d ignored: ack_delay=%d reading=%d writing=%d bytecnt=%d\n",
+                cycles, i, ack_delay, reading, writing, bytecnt);
       if (!ack_delay) {
         int lba = *(sd_lba[i]);
+        if (blkdev_dbg())
+          fprintf(stderr, "[BLK %lld] start %s disk %d lba=%d blk_cnt=%d\n", cycles,
+                  bitcheck(*sd_rd,i) ? "read" : "write", i, lba, sd_blk_cnt ? (int)*sd_blk_cnt : 0);
         if (bitcheck(*sd_rd,i)) {
                 reading = true;
         }
@@ -201,8 +222,10 @@ fprintf(stderr,"mounting flag cleared  %d\n",i);
       }
       if((ack_delay > 1) || ((ack_delay == 1) && !reading && !writing))
         ack_delay--;
-      if (ack_delay==0 && !reading && !writing)
+      if (ack_delay==0 && !reading && !writing) {
+        if (blkdev_dbg()) fprintf(stderr, "[BLK %lld] done disk %d bytecnt=%d\n", cycles, i, bytecnt);
         current_disk=-1;
+      }
     }
   }
 }

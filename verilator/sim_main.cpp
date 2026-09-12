@@ -90,21 +90,36 @@ bool cpu_prof_enable = false;
 static uint64_t prof_state[256];
 static uint64_t prof_total = 0, prof_portwait = 0, prof_dispatch = 0;
 static uint8_t  prof_prev_state = 0;
+// S_MRD/S_MWR cycles split by where the access is (cache FSM state) and
+// what it targets (address region), plus acceptance-cycle cache hits
+static uint64_t prof_mrd_cst[8], prof_mwr_cst[8];
+static uint64_t prof_mrd_region[4], prof_mwr_region[4];   // ram, rom, io, other
+static uint64_t prof_fast_hit_i = 0, prof_fast_hit_d = 0;
+static const char* prof_cst_name[8] = {"IDLE","LOOK","FERR","WINV","FILL","TAGW","PASS","SWEEP"};
+static const char* prof_region_name[4] = {"ram","rom","io","other"};
 static void cpu_prof_print() {
 	int idx[256];
 	for (int i = 0; i < 256; i++) idx[i] = i;
 	std::sort(idx, idx + 256, [](int a, int b) { return prof_state[a] > prof_state[b]; });
-	printf("[PROF] %llu cycles, %llu dispatches (%.2f clk/dispatch), port-wait %llu (%.1f%%)
-",
+	printf("[PROF] %llu cycles, %llu dispatches (%.2f clk/dispatch), port-wait %llu (%.1f%%)\n",
 	       (unsigned long long)prof_total, (unsigned long long)prof_dispatch,
 	       prof_dispatch ? (double)prof_total / prof_dispatch : 0.0,
 	       (unsigned long long)prof_portwait,
 	       prof_total ? 100.0 * prof_portwait / prof_total : 0.0);
 	for (int i = 0; i < 14 && prof_state[idx[i]]; i++)
-		printf("[PROF]   state %3d: %llu (%.1f%%)
-", idx[i],
+		printf("[PROF]   state %3d: %llu (%.1f%%)\n", idx[i],
 		       (unsigned long long)prof_state[idx[i]],
 		       100.0 * prof_state[idx[i]] / prof_total);
+	printf("[PROF]   S_MRD by cache state:");
+	for (int i = 0; i < 8; i++) if (prof_mrd_cst[i]) printf(" %s=%llu", prof_cst_name[i], (unsigned long long)prof_mrd_cst[i]);
+	printf("\n[PROF]   S_MRD by region:");
+	for (int i = 0; i < 4; i++) if (prof_mrd_region[i]) printf(" %s=%llu", prof_region_name[i], (unsigned long long)prof_mrd_region[i]);
+	printf("\n[PROF]   S_MWR by cache state:");
+	for (int i = 0; i < 8; i++) if (prof_mwr_cst[i]) printf(" %s=%llu", prof_cst_name[i], (unsigned long long)prof_mwr_cst[i]);
+	printf("\n[PROF]   S_MWR by region:");
+	for (int i = 0; i < 4; i++) if (prof_mwr_region[i]) printf(" %s=%llu", prof_region_name[i], (unsigned long long)prof_mwr_region[i]);
+	printf("\n[PROF]   acceptance-cycle hits: instr %llu, data %llu\n",
+	       (unsigned long long)prof_fast_hit_i, (unsigned long long)prof_fast_hit_d);
 }
 static uint32_t pc_hist[1 << 24];
 static uint32_t pc_hist_pc(int i) { return (uint32_t)i << 8; }
@@ -274,6 +289,17 @@ int verilate() {
 					    SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__epf_pend)
 						prof_portwait++;
 					prof_prev_state = st;
+					if (st == 9 || st == 10) {
+						uint8_t cst = SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__cst & 7;
+						uint32_t a = SIMEMU->__PVT__machine__DOT__cpu__DOT__mem_addr;
+						int r = (a < 0x10000000u) ? 0 : ((a >> 28) == 4) ? 1 : ((a >> 28) == 5) ? 2 : 3;
+						if (st == 9) { prof_mrd_cst[cst]++; prof_mrd_region[r]++; }
+						else         { prof_mwr_cst[cst]++; prof_mwr_region[r]++; }
+					}
+					if (SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__fast_hit) {
+						if (SIMEMU->__PVT__machine__DOT__cpu__DOT__mem_instr) prof_fast_hit_i++;
+						else prof_fast_hit_d++;
+					}
 				}
 				{
 					// RAM write watchpoints: DrvQHdr + the DrvQEl at $B94E
