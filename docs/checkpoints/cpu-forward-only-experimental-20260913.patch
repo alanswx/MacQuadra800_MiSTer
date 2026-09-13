@@ -1,0 +1,43 @@
+--- a/rtl/ap68040/rtl/ap040_core.v
++++ b/rtl/ap68040/rtl/ap040_core.v
+@@ -1857,7 +1857,15 @@
+ // lookahead at an older ALU retirement. It reads opcode bits only; operands
+ // and CCR remain owned by the existing execution pipeline. Fetches initiated
+ // in S_DECODE must use the ordinary path because this decoder still sees ir.
+-wire [15:0] rd_ir = (state == S_DECODE) ? ir : epf_data[epf_head];
++// A completed register ALU operation may see the next opcode arrive on this
++// edge with an empty queue. Select that successful instruction response for
++// the SAME descriptor, without consuming it until fetch_next passes its
++// boundary checks. Selection does not depend on rd_valid (no decode loop).
++// Other producers and all non-register next opcodes retain the old path.
++wire rd_retire_fwd = (state == S_PIPE_REGS) && regs_alu_fire &&
++                     !aux_we && epf_fwd_pc && !i_err;
++wire [15:0] rd_next_word = rd_retire_fwd ? epf_fwd_word : epf_data[epf_head];
++wire [15:0] rd_ir = (state == S_DECODE) ? ir : rd_next_word;
+ wire [2:0] rd_mode = rd_ir[5:3];
+ wire [1:0] rd_sz = rd_ir[7:6];
+ reg rd_valid, rd_quick, rd_flags, rd_wbsup, rd_sextw;
+@@ -1998,17 +2006,20 @@
+ 		// A flush issued earlier in this clock (CINV/PFLUSH/MOVEC or a
+ 		// self-modifying store) wins even though epf_armed changes through a
+ 		// nonblocking assignment and still appears live here.
+-		else if (epf_ready_pc && !epf_flushed) begin
++		else if ((epf_ready_pc || (rd_retire_fwd && rd_valid)) && !epf_flushed) begin
+ 			in_exc <= 0;
+ 			epf_pop = 2'd1;
+-			ir <= epf_data[epf_head];
++			// For the retirement-only bypass the queue engine still appends
++			// the acknowledged word(s); its shared append-minus-pop update
++			// consumes exactly this opcode and retains a longword's tail.
++			ir <= rd_next_word;
+ 			perf_dispatch_toggle <= ~perf_dispatch_toggle;
+ 			pc_i <= pc;
+ 			pc <= pc + 32'd2;
+ 			tr_t1 <= sr[15];
+ 			tr_t0 <= sr[14];
+ 			flow_t0_pend <= 0;
+-			t0_force <= t0_special(epf_data[epf_head]);
++			t0_force <= t0_special(rd_next_word);
+ 			p_src <= SK_NONE; p_dst <= DK_NONE;
+ 			p_rmw <= 0; p_wbsup <= 0; p_flags <= 1; p_sextw <= 0;
+ 			p_dst_mem_bit <= 0;

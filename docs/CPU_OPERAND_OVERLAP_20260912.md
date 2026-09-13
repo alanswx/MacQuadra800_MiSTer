@@ -1,13 +1,13 @@
 # Operand extension-request overlap experiment
 
-**2026-09-13 audit:** hardware three-repeat acceptance is reopened: reported
-run 4 may only have dismissed run 3's modal. Code remains committed; fresh
-controlled repeats are required before relying on the three-run mean below.
+**2026-09-13 audit closed:** fresh runs independently confirm source-only
+overlap at **0.458 / 0.459 / 0.459**, +1.85048% over indexed-stage.
+The old ambiguous repeat is excluded; see
+`CPU_SOURCE_OVERLAP_CONFIRMATION_20260913.md`.
 
-Updated 2026-09-13: **source-only variant adopted after hardware validation**.
+**Source-only variant adopted after hardware validation**.
 The active CPU SHA256 is
-`0c3a81bd0fb46958e73138b580abfa994638756f79df71716683a1c1772c2614`,
-with Speedometer CPU Mix 0.458 / 0.460 / 0.460, +1.99852% over indexed-stage.
+`0c3a81bd0fb46958e73138b580abfa994638756f79df71716683a1c1772c2614`.
 See `CPU_SOURCE_OVERLAP_CHECKPOINT_20260913.md` for fit, hardware and cleanup.
 The remaining text records the isolated experiment and selection process;
 both-caller and destination-only variants remain unadopted.

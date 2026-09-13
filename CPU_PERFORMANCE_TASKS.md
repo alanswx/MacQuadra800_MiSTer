@@ -1,20 +1,21 @@
 # CPU performance task list and recovery record
 
-**2026-09-13 repeat-audit correction:** source-overlap run 4 may have only
-dismissed the preceding completion modal. Exclude that run and the reported
-three-run average pending fresh verification. Code is committed/pushed as
-AP `7a0306c`, parent `eb78e09`; observed independent scores are 0.458 and
-0.460. Luna owns a fresh three-run confirmation; next RTL stays isolated.
+**2026-09-13 repeat audit closed:** three fresh, visually verified independent
+runs score **0.458 / 0.459 / 0.459**, mean **0.458667**, +1.85048%.
+The ambiguous old repeat is excluded. Main and the restored disposable were
+independently verified after cleanup. Code: AP `7a0306c`, parent `eb78e09`.
+See `docs/CPU_SOURCE_OVERLAP_CONFIRMATION_20260913.md`.
 
-Latest accepted checkpoint (2026-09-13): source-only operand overlap,
-Speedometer **0.458 / 0.460 / 0.460**, mean **0.459333**, +1.99852% over
+Latest accepted checkpoint: source-only operand overlap, +1.85048% over
 indexed-stage. CPU SHA `0c3a81bd...`; CD-off seed 24 uses 38,003 ALMs and
 4,093 LABs (98 free), all reported timing TNS zero. Final active-tree directed
 CPU and simulator disk regressions pass. Full identities and evidence:
 `docs/CPU_SOURCE_OVERLAP_CHECKPOINT_20260913.md`.
 
-Next: isolated arriving-opcode/direct-decode overlap measurement and
-implementation. Older snapshot statuses below are historical, not current.
+Next: complete selected combined destination-overlap/retirement-forwarding
+gates, then full-machine compile and timing fit before hardware. Experimental
+CPU `21d408fa...` remains isolated; see `docs/CPU_OVERLAP_FOLLOWUP_20260913.md`.
+Older snapshot statuses below are historical, not current.
 
 Last updated: 2026-09-13. This is the authoritative CPU-speed queue and the
 first file to read after a power loss or a new session. Measurements and

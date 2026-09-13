@@ -1,4 +1,10 @@
-# Source-operand overlap checkpoint — repeat audit pending
+# Source-operand overlap checkpoint
+
+**Audit closed:** fresh confirmed scores are **0.458 / 0.459 / 0.459**,
+mean **0.458666667**, +1.85048% over indexed-stage. See
+[confirmation](CPU_SOURCE_OVERLAP_CONFIRMATION_20260913.md) for the accepted
+measurement table and final cleanup. The original audit and superseded table
+below are retained for traceability; do not use their three-run mean.
 
 **2026-09-13 correction:** the reported third valid run (run 4) is not
 established as independent. Run 3 still showed its completion modal; the next

@@ -1,5 +1,17 @@
 # Model routing and testing handoff
 
+## Completion-modal rule (2026-09-13)
+
+A completed Speedometer set leaves a modal completion alert. Command-B while
+that alert is open may be ignored; Return then dismisses it without starting
+another set. An unchanged results table is not evidence of another run.
+After each completed-run capture: explicitly dismiss the alert with Return,
+open setup with Command-B, capture and visually verify all ten tests at one
+iteration, then send a separate Return to start Run Set. Record start and
+capture times and obey the full quiet interval. Require a fresh completion
+alert in the post-run screenshot; flag ambiguous repeats instead of counting
+them. Never combine dismissal, setup and start without verifying setup.
+
 ## Reusable local CPU corpus gate
 
 `bash scripts/cpu_corpus100_gate.sh RTL_DIR PAYLOAD_HEX BASELINE_RESULTS`
