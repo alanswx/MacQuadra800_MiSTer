@@ -1,5 +1,20 @@
 # Performance measurements — Speedometer 4.02
 
+Latest accepted checkpoint (2026-09-13): source-only operand overlap,
+Speedometer 4.02 all-ten CPU Mix, one iteration, CD-off seed 24:
+**0.458 / 0.460 / 0.460**, mean 0.459333333, +1.99852% versus indexed-stage.
+Parent visually reviewed all three; one perturbed run excluded. 38,003 ALMs,
+4,093 LABs (98 free), positive constrained timing and zero reported TNS.
+See [checkpoint](CPU_SOURCE_OVERLAP_CHECKPOINT_20260913.md) for full evidence.
+
+The following September 12 snapshots are historical.
+
+Latest CPU Mix checkpoint (2026-09-12): indexed-address staging, CD-ROM-off
+seed 24, **0.450 / 0.451 / 0.450**, mean 0.450333, +0.7457% versus compact
+0.447. All three completion images independently verified, all FPGA timing
+passes, disposable restored and Main unchanged. Exact artifact, all ten
+absolute results and validation: [indexed-stage checkpoint](CPU_INDEXED_STAGE_CHECKPOINT_20260912.md).
+
 > **2026-09-01 follow-up:** a timing-clean related-clock SDRAM handoff now
 > measures 151 ns per isolated read and 22.0 MB/s sequentially in
 > `tb_sdram`. On hardware, Speedometer **3.23 PR Tests** improved from CPU

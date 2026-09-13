@@ -1,0 +1,26 @@
+--- a/ap040_core.v
++++ b/ap040_core.v
+@@ -2569,8 +2569,22 @@
+ 				else if (epf_ready_pc || epf_fwd_pc) begin
+ 					imm <= {imm[15:0],
+ 					        epf_fwd_pc ? epf_fwd_word : epf_data[epf_head]};
+ 					pc <= pc + 32'd2;
+ 					epf_pop = 2'd1;
+-					if (imm_n == 2'd1) state <= r_imm_ret;
++					if (imm_n == 2'd1) begin
++						// Prepare the indexed EA read port while consuming its
++						// extension. S_EA_EXTW2 retains all brief/full-format
++						// arithmetic and legality checks; no extra EA adder.
++						// Serialize any pending register/stack-bank write through
++						// the old EXTW stage rather than capturing an old base.
++						if (r_imm_ret == S_EA_EXTW && !rf_we && !aux_we) begin
++							extw <= epf_fwd_pc ? epf_fwd_word : epf_data[epf_head];
++							rr_b <= epf_fwd_pc ? epf_fwd_word[15:12] :
++							        epf_data[epf_head][15:12];
++							ea_base_v <= ea_pcmode ? ea_pcb : rf_rdata_a;
++							state <= S_EA_EXTW2;
++						end
++						else state <= r_imm_ret;
++					end
+ 					else imm_n <= imm_n - 2'd1;
+ 				end

@@ -1,0 +1,6 @@
+--- exact_sieve_monitor.sv
++++ exact_sieve_monitor.sv
+@@ -7,1 +7,3 @@
++`include "frontfetch_probe.sv"
+ module exact_sieve_monitor;
++frontfetch_probe fetch_probe();

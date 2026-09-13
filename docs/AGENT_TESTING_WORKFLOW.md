@@ -157,3 +157,18 @@ by loading the real menu.rbf through the platform loader and restarting unchange
 Main. That incident is an automation failure, not a CPU benchmark failure.
 If the guard fails, return the actual error to Astra; do not invent recovery
 commands, disable checks, rewrite Main, or try other files as bitstreams.
+
+## Mandatory checkout identity gate
+
+The environment may still default to the old `wombat33_MiSTer` checkout after
+work has moved to `MacQuadra800_MiSTer`. Never infer the test directory from the
+agent's cwd or from the word "active". Every delegated command must set an
+explicit absolute working directory. Before each test/build group, print its
+resolved directory and assert the supplied CPU source SHA256; stop immediately
+if either differs from the handoff. Use absolute RTL/payload/baseline arguments.
+Report those identities with the actual exit status and result.
+
+This caught a final-validation run against old CPU `7f688eff...` / AP `299cb36`
+instead of the intended `16fc1cc1...` / AP `9ecf647`. Its passing tests and
+36,762,676 corpus cycles were discarded, not treated as a candidate regression
+or an acceptance result. Correct-checkout validation must be rerun.

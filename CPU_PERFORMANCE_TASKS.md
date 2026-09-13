@@ -1,12 +1,48 @@
 # CPU performance task list and recovery record
 
-Last updated: 2026-09-12. This is the authoritative CPU-speed queue and the
+Latest accepted checkpoint (2026-09-13): source-only operand overlap,
+Speedometer **0.458 / 0.460 / 0.460**, mean **0.459333**, +1.99852% over
+indexed-stage. CPU SHA `0c3a81bd...`; CD-off seed 24 uses 38,003 ALMs and
+4,093 LABs (98 free), all reported timing TNS zero. Final active-tree directed
+CPU and simulator disk regressions pass. Full identities and evidence:
+`docs/CPU_SOURCE_OVERLAP_CHECKPOINT_20260913.md`.
+
+Next: isolated arriving-opcode/direct-decode overlap measurement and
+implementation. Older snapshot statuses below are historical, not current.
+
+Last updated: 2026-09-13. This is the authoritative CPU-speed queue and the
 first file to read after a power loss or a new session. Measurements and
 screenshots remain in `docs/PERFORMANCE_MEASUREMENTS.md`.
 
 ## Current checkpoint and hardware access (2026-09-12)
 
-**Latest tested CD-ROM-off checkpoint: compact shared decode, Speedometer 4.02
+**Latest tested CD-ROM-off checkpoint: indexed-address staging, Speedometer
+4.02 CPU Mix 0.450 / 0.451 / 0.450**, mean 0.450333, +0.7457% over 0.447.
+Parent viewed all three images. Seed 24 passes all timing at 38,027 ALMs and
+4,117 LABs (74 free), worst setup +0.187 ns, hold +0.246 ns, zero TNS.
+The tested CPU SHA256 begins `16fc1cc1f7f7`; it is adopted but uncommitted.
+Active QSF is unchanged; use the isolated CD-off seed-24 RBF, not an assumed
+new full-feature fit. MiSTer has been restored to MENU, disposable restored,
+and Main unchanged; parent independently verified all hashes. Full evidence:
+`docs/CPU_INDEXED_STAGE_CHECKPOINT_20260912.md`.
+
+Overlap work started: both common operand callers have an isolated prototype,
+but destination overlap regresses one code placement through fetch scheduling.
+The selected source-only variant improves 14/16 real RAM-path placements, ties
+two, and regresses none; all CPU/corpus and directed fault/restart gates pass.
+Full-machine build and original full-100 Sieve now also pass; the latter saves
+0.881% repeat cycles. It is not adopted or FPGA-tested. Next assess fit and
+three controlled hardware repeats before replacing the
+0.450333 checkpoint. Preserve ownership/fault guards; investigate destination
+overlap separately, without placement-specific exceptions. Exact source hashes,
+patches, measurements and pending gates: `docs/CPU_OPERAND_OVERLAP_20260912.md`.
+A simulator-only first-word disk-handshake fix also clears the ROM sector-0
+loop and reaches Mac OS startup; full application profiling remains next work.
+Final active-tree regressions after adoption are tracked in the new checkpoint.
+
+### Previous accepted checkpoint (preserved fallback)
+
+**Previous tested CD-ROM-off checkpoint: compact shared decode, Speedometer 4.02
 CPU Mix 0.447 / 0.447 / 0.447.** Parent visually verified all three, recovering
 the missing local second capture from MiSTer's archive. This is +2.87687% over
 0.4345 and +10.37037% over the full-feature 0.405 reference. Seed 23 fits at
@@ -645,6 +681,28 @@ wombat_cpu/cache/djMEMC integration (or obtain a bounded full-machine CPU Mix
 trace). The ap040_tg68k_compat kernel fixture is a useful mechanism/correctness
 test, not a reliable hardware speed predictor. See
 `docs/CPU_REFILL_EXPERIMENT_20260912.md` for final experiment status.
+
+Profiling follow-up: the unchanged kernel was swept across all 16 even
+alignments in a 32-byte sector. The refill experiment saves no cycles at eight
+placements, including offset 6. Actual CPU/cache/store-buffer/SDRAM integration
+also shows zero gain at offset 6, while retaining a gain at offset 0. Alignment
+alone can erase the synthetic benefit; actual MacOS allocation is still unknown.
+The RAM-only integration is deliberately not a MacOS CPU Mix profile: TC is
+off, both caches are enabled, and no devices or interrupts run. Full-ROM profiling
+is separately blocked by repeated boot-sector reads, under investigation.
+See `docs/EXACT_SIEVE_INTEGRATION.md` for controls, source hashes and reproduction.
+
+The current isolated experiment stages indexed-extension bookkeeping during
+its existing word-consumption edge, reusing the original arithmetic stage and
+falling back when a register/stack write is pending. It improves 15 of 16 kernel
+placements, regresses none, and saves 3.265% in the original full-100 Sieve.
+RAM-path gains are 3.46% at offset 0 and 2.69% at offset 6. All eleven CPU suites,
+the immutable 100-record corpus and focused loops pass; FPGA fit and Speedometer
+acceptance were pending at that measurement. Seed 23 subsequently failed HDMI
+timing; seed 24 passes every domain (74 LABs free) and is entering guarded
+Speedometer validation. Do not substitute simulation numbers for the accepted
+0.447 hardware score. Exact patch and directed tests are recorded in
+`docs/checkpoints/CPU_INDEXED_STAGE_HANDOFF_20260912.md`.
 
 The broad pipeline direction remains valid; narrow state removal is not enough
 for the remaining 4.25x target. The next experiment order is revised by evidence:

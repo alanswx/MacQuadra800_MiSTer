@@ -1,0 +1,62 @@
+--- a/scripts/fixtures/wombat_sieve/tb_wombat_sieve.sv
++++ b/scripts/fixtures/wombat_sieve/tb_wombat_sieve.sv
+@@ -169,6 +169,16 @@
+ integer srd_guard[0:7],srd_cache[0:15];
+ integer srd_pending_ack=0,srd_ack_instr=0,mrd_setup=0,mrd_wait_prefetch=0;
+ integer guard_mask;
++// Read-only attribution of the existing DBcc inline-refill guard.
++integer db_masks[0:40][0:255];
++integer shared_masks[0:40][0:255];
++integer db_slot,db_mask,db_a,db_b;
++reg [31:0] db_target;
++reg db_refill;
++initial for(db_a=0;db_a<41;db_a=db_a+1)
++ for(db_b=0;db_b<256;db_b=db_b+1) begin
++  db_masks[db_a][db_b]=0;shared_masks[db_a][db_b]=0;
++ end
+ wire srd_address_ok=(cpu.core.ea_addr[31:28]==0) &&
+  ((cpu.core.p_ssize==0) || (cpu.core.p_ssize==1 && !cpu.core.ea_addr[0]) ||
+  (cpu.core.p_ssize==2 && cpu.core.ea_addr[1:0]==0));
+@@ -192,6 +202,29 @@
+   pre_state=cpu.core.state;pre_pend=cpu.core.epf_pend;
+   if(active) begin
+    elapsed=elapsed+1;states[pre_state]=states[pre_state]+1;
++   if(pre_state==cpu.core.S_PIPE_REGS && cpu.core.regs_alu_fire) begin
++    db_slot=(cpu.core.pc_i>=kernel_pc && cpu.core.pc_i<kernel_pc+80) ? (cpu.core.pc_i-kernel_pc)/2 : 40;
++    db_mask={!cpu.core.epf_ready_pc,!cpu.core.rd_valid,cpu.core.aux_we,
++     cpu.core.irq_pend,(cpu.core.tr_t1 || (cpu.core.tr_t0 && cpu.core.t0_force)),
++     cpu.core.epf_pend,cpu.core.mem_req,cpu.core.mem_ack};
++    shared_masks[db_slot][db_mask]=shared_masks[db_slot][db_mask]+1;
++   end
++   if(pre_state==cpu.core.S_DBCC1 && !cpu.core.cond_true(cpu.core.ir[11:8]) &&
++      cpu.core.rf_rdata_a[15:0]!=0) begin
++    db_target=cpu.core.br_base+{{16{cpu.core.imm[15]}},cpu.core.imm[15:0]};
++    if(!db_target[0]) begin
++     db_refill=cpu.core.brf_tag==db_target[31:5] && cpu.core.brf_super==cpu.core.sr_s &&
++      db_target[4:1]<=12 && cpu.core.brf_valid[db_target[4:1]] &&
++      cpu.core.brf_valid[db_target[4:1]+4'd1] &&
++      cpu.core.brf_valid[db_target[4:1]+4'd2] &&
++      cpu.core.brf_valid[db_target[4:1]+4'd3];
++     db_mask={cpu.core.tr_t1,cpu.core.tr_t0,cpu.core.irq_pend,!db_refill,
++      cpu.core.epf_pend,cpu.core.mem_req,cpu.core.mem_ack,
++      (cpu.core.epf_armed && cpu.core.epf_next==db_target && cpu.core.epf_super==cpu.core.sr_s)};
++     db_slot=(cpu.core.pc_i>=kernel_pc && cpu.core.pc_i<kernel_pc+80) ? (cpu.core.pc_i-kernel_pc)/2 : 40;
++     db_masks[db_slot][db_mask]=db_masks[db_slot][db_mask]+1;
++    end
++   end
+    cache_states[cpu.g_cache.cache.cst]=cache_states[cpu.g_cache.cache.cst]+1;
+    sb_count[cpu.store_buffer.count]=sb_count[cpu.store_buffer.count]+1;
+    if(pre_state==22) begin
+@@ -269,6 +302,12 @@
+      $display("MRD_GUARD_MASK pend_req_ack=%03b count=%0d",a[2:0],srd_guard[a]);
+     for(a=0;a<16;a=a+1) if(srd_cache[a])
+      $display("MRD_GUARD_CACHE state=%0d count=%0d",a,srd_cache[a]);
++    for(db_a=0;db_a<41;db_a=db_a+1)
++     for(db_b=0;db_b<256;db_b=db_b+1) if(db_masks[db_a][db_b])
++      $display("DBCC_GUARD pc=%04x mask_t1_t0_irq_noref_pend_req_ack_same=%08b count=%0d",kernel_pc+2*db_a,db_b[7:0],db_masks[db_a][db_b]);
++    for(db_a=0;db_a<41;db_a=db_a+1)
++     for(db_b=0;db_b<256;db_b=db_b+1) if(shared_masks[db_a][db_b])
++      $display("SHARED_GUARD retiring_pc=%04x mask_noready_nodescriptor_aux_irq_trace_pend_req_ack=%08b count=%0d",kernel_pc+2*db_a,db_b[7:0],shared_masks[db_a][db_b]);
+     chip.report_timing();$finish;
+    end
+   end

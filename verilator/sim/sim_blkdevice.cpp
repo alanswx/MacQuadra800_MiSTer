@@ -95,7 +95,10 @@ void SimBlockDevice::BeforeEval(long long cycles)
     if (current_disk == i) {
     // send data - 16-bit word at a time for MacLC
     if (ack_delay==1) {
-      if (reading && (*sd_buff_wr==0) && (bytecnt < transfer_bytes)) {
+      // ACK must be sampled by the receiver before the first data beat.
+      // scsi_cache enters C_XFER on ACK's rising edge; simultaneous word0
+      // would otherwise be dropped while its write gate still sees C_REQ.
+      if (reading && bitcheck(*sd_ack,i) && (*sd_buff_wr==0) && (bytecnt < transfer_bytes)) {
          // Read 2 bytes and combine into 16-bit word
          int byte1 = disk[i].get();
          int byte2 = disk[i].get();

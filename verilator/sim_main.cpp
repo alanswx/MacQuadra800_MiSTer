@@ -136,12 +136,14 @@ static uint64_t prof_cycles, prof_state_cycles[256], prof_state_entries[256];
 static uint64_t prof_transitions[256][256], prof_opcodes[65536];
 static uint64_t prof_cache_states[8], prof_rd_accept, prof_look_hit, prof_ipred_hit;
 
+static uint64_t prof_ic_enabled, prof_dc_enabled, prof_mmu_enabled;
 static void prof_start_signal(int) { prof_start_req = 1; }
 static void prof_stop_signal(int) { prof_stop_req = 1; }
 
 static void prof_reset() {
 	prof_dispatches = 0;
 	prof_cycles = prof_rd_accept = prof_look_hit = prof_ipred_hit = 0;
+	prof_ic_enabled = prof_dc_enabled = prof_mmu_enabled = 0;
 	memset(prof_state_cycles, 0, sizeof(prof_state_cycles));
 	memset(prof_state_entries, 0, sizeof(prof_state_entries));
 	memset(prof_transitions, 0, sizeof(prof_transitions));
@@ -155,6 +157,18 @@ static void prof_dump() {
 	FILE* f = fopen(prof_file.c_str(), "w");
 	if (!f) { fprintf(stderr, "[CPU-PROFILE] cannot write %s\n", prof_file.c_str()); return; }
 	uint64_t dispatches = prof_dispatches;
+	// End configuration is explicitly labelled; enabled-cycle counts describe
+	// the complete bracket even if guest software changes CACR/TC within it.
+	fprintf(f, "CONFIG_END\tpc\tcacr\ttc\n");
+	fprintf(f, "CONFIG_END\t%08X\t%08X\t%08X\n",
+	        SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__pc_i,
+	        SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__cacr,
+	        SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__tc);
+	fprintf(f, "ENABLED_CYCLES\tic\tdc\tmmu\n");
+	fprintf(f, "ENABLED_CYCLES\t%llu\t%llu\t%llu\n",
+	        (unsigned long long)prof_ic_enabled,
+	        (unsigned long long)prof_dc_enabled,
+	        (unsigned long long)prof_mmu_enabled);
 	double cpd = dispatches ? (double)prof_cycles / dispatches : 0.0;
 	fprintf(f, "SUMMARY\tcycles\tdispatches\tclocks_per_dispatch\trd_accept\tlook_hit_cycles\tipred_hit_cycles\n");
 	fprintf(f, "SUMMARY\t%llu\t%llu\t%.6f\t%llu\t%llu\t%llu\n",
@@ -209,6 +223,10 @@ static void prof_step(bool dispatch) {
 	uint8_t cst=SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__cst;
 	prof_cycles++; prof_state_cycles[state]++; prof_cache_states[cst&7]++;
 	if (SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__rd_accept) prof_rd_accept++;
+	const uint32_t cacr = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__cacr;
+	prof_ic_enabled += (cacr >> 15) & 1;
+	prof_dc_enabled += (cacr >> 31) & 1;
+	prof_mmu_enabled += (SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__tc >> 15) & 1;
 	if (SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__look_hit) prof_look_hit++;
 	if (SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__ipred_hit) prof_ipred_hit++;
 	// The continuously sampled opcode-load toggle handles bypassed decode,
@@ -437,9 +455,27 @@ int verilate() {
 					for (int r = 0; r < 8; r++)
 						printf("[STOP] d%d=%08X a%d=%08X\n", r,
 						       SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__regfile__DOT__dreg[r], r,
+						       r == 7 ? (uint32_t)VERTOPINTERN->debug_a7 :
 						       SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__regfile__DOT__areg[r]);
 					printf("[STOP] DSErrCode($AF0)=%04X\n",
 					       SIMEMU->ram[0x0AF0 >> 2] >> 16);
+					// Bounded physical stack evidence for untranslated ROM debugging.
+					// areg contains only A0-A6; A7 is the SR-selected USP/ISP/MSP.
+					const uint32_t stop_sp = (uint32_t)VERTOPINTERN->debug_a7;
+					const uint32_t stop_tc = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__tc;
+					printf("[STOP] tc=%08X sr=%04X overlay=%u\n", stop_tc,
+					       (unsigned)VERTOPINTERN->debug_sr, (unsigned)VERTOPINTERN->debug_overlay);
+					// Raw backing RAM at this numeric address is NOT a translated
+					// architectural stack view when TC/overlay remaps the address.
+					if (!(stop_sp & 1) && stop_sp <= 0x7fffe0) {
+						printf("[STOP] raw backing RAM at numeric A7 (no translation):");
+						for (unsigned n = 0; n < 32; ++n) {
+							const uint32_t addr = stop_sp + n;
+							const uint32_t word = SIMEMU->ram[addr >> 2];
+							printf(" %02X", (word >> (24 - 8*(addr & 3))) & 255);
+						}
+						printf("\n");
+					}
 					{
 						// dump the Drive Queue (DrvQHdr $308): big-endian
 						// words packed {b0b1,b2b3} per 32-bit RAM word
