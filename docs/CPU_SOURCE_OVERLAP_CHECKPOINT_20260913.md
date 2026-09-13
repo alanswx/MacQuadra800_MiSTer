@@ -1,4 +1,14 @@
-# Accepted source-operand overlap checkpoint
+# Source-operand overlap checkpoint — repeat audit pending
+
+**2026-09-13 correction:** the reported third valid run (run 4) is not
+established as independent. Run 3 still showed its completion modal; the next
+command sent Command-B then Return without first dismissing that modal.
+The identical run-4 table without a modal is consistent with dismissal only.
+Exclude run 4 and the three-run mean below pending fresh controlled repeats.
+Runs 1 and 3 remain observed 0.458 and 0.460. The code is committed and
+architectural gates pass, but three-run hardware acceptance is reopened.
+Luna is running a fresh set with an explicit modal dismissal and visual setup
+verification before every timed start. Historical claims below are superseded.
 
 Accepted 2026-09-13 after hardware testing on September 12. Supersedes the
 indexed-stage checkpoint; both optimizations are included. Destination overlap

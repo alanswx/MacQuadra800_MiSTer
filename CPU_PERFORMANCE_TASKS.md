@@ -1,5 +1,11 @@
 # CPU performance task list and recovery record
 
+**2026-09-13 repeat-audit correction:** source-overlap run 4 may have only
+dismissed the preceding completion modal. Exclude that run and the reported
+three-run average pending fresh verification. Code is committed/pushed as
+AP `7a0306c`, parent `eb78e09`; observed independent scores are 0.458 and
+0.460. Luna owns a fresh three-run confirmation; next RTL stays isolated.
+
 Latest accepted checkpoint (2026-09-13): source-only operand overlap,
 Speedometer **0.458 / 0.460 / 0.460**, mean **0.459333**, +1.99852% over
 indexed-stage. CPU SHA `0c3a81bd...`; CD-off seed 24 uses 38,003 ALMs and

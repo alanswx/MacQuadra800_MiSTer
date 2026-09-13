@@ -1,5 +1,9 @@
 # Operand extension-request overlap experiment
 
+**2026-09-13 audit:** hardware three-repeat acceptance is reopened: reported
+run 4 may only have dismissed run 3's modal. Code remains committed; fresh
+controlled repeats are required before relying on the three-run mean below.
+
 Updated 2026-09-13: **source-only variant adopted after hardware validation**.
 The active CPU SHA256 is
 `0c3a81bd0fb46958e73138b580abfa994638756f79df71716683a1c1772c2614`,

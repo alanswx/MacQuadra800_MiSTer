@@ -1,5 +1,10 @@
 # Performance measurements — Speedometer 4.02
 
+**2026-09-13 correction:** source-overlap run 4 is not proven independent
+because Command-B preceded dismissal of run 3's modal. Exclude run 4 and
+the three-run mean below; fresh three-run confirmation is in progress.
+Observed independent runs remain 0.458 and 0.460. See the checkpoint audit.
+
 Latest accepted checkpoint (2026-09-13): source-only operand overlap,
 Speedometer 4.02 all-ten CPU Mix, one iteration, CD-off seed 24:
 **0.458 / 0.460 / 0.460**, mean 0.459333333, +1.99852% versus indexed-stage.
