@@ -72,7 +72,7 @@ always @(negedge clk) begin
   end else if(pause_left>0)begin
    pause_left=pause_left-1;if(!pause_left)ce<=1;
   end
-  if(!snoop_done && cpu.core.regfile.dreg[7]==8 && cpu.g_cache.cache.cst==1 && !cpu.g_cache.cache.r_bank)begin
+  if(!snoop_done && cpu.core.regfile.dreg[7]==8 && cpu.g_cache.cache.rd_accept && !cpu.mem_instr)begin
    snoop<=1;snoop_done<=1;
   end
  end
@@ -114,7 +114,7 @@ always @(posedge clk)begin
    direct_hit=0;prospective=0;
    for(way=0;way<4;way=way+1)begin
     if(cpu.g_cache.cache.tag_q[88+way] && cpu.g_cache.cache.tag_q[22*way+:22]==cpu.mm_addr[31:10])begin
-     direct_hit=1;prospective=shadow_data[way];
+     direct_hit=1;prospective=shadow_data[(way+cpu.mm_addr[3:2])&3];
     end
    end
    eligible=cpu.g_cache.cache.rd_accept && !cpu.g_cache.cache.ipred_hit &&
@@ -159,8 +159,8 @@ always @(posedge clk)begin
    shadow_valid=!(|cpu.g_cache.cache.cd_we && cpu.g_cache.cache.cd_widx==shadow_idx);
    shadow_current=cpu.mem_req && !cpu.mm_req;
    shadow_la=cpu.mem_addr;
-   shadow_data[0]=cpu.g_cache.cache.cdata0[shadow_idx];shadow_data[1]=cpu.g_cache.cache.cdata1[shadow_idx];
-   shadow_data[2]=cpu.g_cache.cache.cdata2[shadow_idx];shadow_data[3]=cpu.g_cache.cache.cdata3[shadow_idx];
+   shadow_data[0]=cpu.g_cache.cache.cdata0[{shadow_idx[8:2],2'd0-shadow_idx[1:0]}];shadow_data[1]=cpu.g_cache.cache.cdata1[{shadow_idx[8:2],2'd1-shadow_idx[1:0]}];
+   shadow_data[2]=cpu.g_cache.cache.cdata2[{shadow_idx[8:2],2'd2-shadow_idx[1:0]}];shadow_data[3]=cpu.g_cache.cache.cdata3[{shadow_idx[8:2],2'd3-shadow_idx[1:0]}];
   end
  end
  #1;

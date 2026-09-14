@@ -137,6 +137,11 @@ static uint64_t prof_transitions[256][256], prof_opcodes[65536];
 static uint64_t prof_cache_states[8], prof_rd_accept, prof_look_hit, prof_ipred_hit;
 
 static uint64_t prof_ic_enabled, prof_dc_enabled, prof_mmu_enabled;
+// Memory-path attribution: where the core's memory states wait.
+static uint64_t prof_mrd_cst[8], prof_mwr_cst[8], prof_mrd_sbpend, prof_mwr_sbpend;
+static uint64_t prof_fill_d, prof_fill_i, prof_sb_full, prof_read_behind_store;
+static uint64_t prof_pass_write, prof_pass_read, prof_sb_pushes;
+static uint8_t prof_prev_cst = 0;
 static void prof_start_signal(int) { prof_start_req = 1; }
 static void prof_stop_signal(int) { prof_stop_req = 1; }
 
@@ -149,6 +154,9 @@ static void prof_reset() {
 	memset(prof_transitions, 0, sizeof(prof_transitions));
 	memset(prof_opcodes, 0, sizeof(prof_opcodes));
 	memset(prof_cache_states, 0, sizeof(prof_cache_states));
+	memset(prof_mrd_cst, 0, sizeof(prof_mrd_cst)); memset(prof_mwr_cst, 0, sizeof(prof_mwr_cst));
+	prof_mrd_sbpend = prof_mwr_sbpend = prof_fill_d = prof_fill_i = prof_sb_full = 0;
+	prof_read_behind_store = prof_pass_write = prof_pass_read = prof_sb_pushes = 0;
 	prof_prev_valid = false;
 }
 
@@ -181,6 +189,18 @@ static void prof_dump() {
 		        (unsigned long long)prof_state_cycles[i],
 		        (unsigned long long)prof_state_entries[i],
 		        prof_cycles ? 100.0*prof_state_cycles[i]/prof_cycles : 0.0);
+	fprintf(f, "MEM\tname\tvalue\n");
+	for (int i=0;i<8;i++) if (prof_mrd_cst[i]) fprintf(f, "MEM\tmrd_cycles_cst%d\t%llu\n", i, (unsigned long long)prof_mrd_cst[i]);
+	for (int i=0;i<8;i++) if (prof_mwr_cst[i]) fprintf(f, "MEM\tmwr_cycles_cst%d\t%llu\n", i, (unsigned long long)prof_mwr_cst[i]);
+	fprintf(f, "MEM\tmrd_cycles_sb_pending\t%llu\n", (unsigned long long)prof_mrd_sbpend);
+	fprintf(f, "MEM\tmwr_cycles_sb_pending\t%llu\n", (unsigned long long)prof_mwr_sbpend);
+	fprintf(f, "MEM\tfills_data\t%llu\n", (unsigned long long)prof_fill_d);
+	fprintf(f, "MEM\tfills_instr\t%llu\n", (unsigned long long)prof_fill_i);
+	fprintf(f, "MEM\tsb_pushes\t%llu\n", (unsigned long long)prof_sb_pushes);
+	fprintf(f, "MEM\tsb_full_stall_cycles\t%llu\n", (unsigned long long)prof_sb_full);
+	fprintf(f, "MEM\tread_behind_store_cycles\t%llu\n", (unsigned long long)prof_read_behind_store);
+	fprintf(f, "MEM\tpass_cycles_write\t%llu\n", (unsigned long long)prof_pass_write);
+	fprintf(f, "MEM\tpass_cycles_read\t%llu\n", (unsigned long long)prof_pass_read);
 	fprintf(f, "CACHE_STATE\tid\tcycles\tpercent\n");
 	for (int i=0; i<8; i++) if (prof_cache_states[i])
 		fprintf(f, "CACHE_STATE\t%d\t%llu\t%.6f\n", i,
@@ -222,6 +242,21 @@ static void prof_step(bool dispatch) {
 	uint16_t ir=SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__ir;
 	uint8_t cst=SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__cst;
 	prof_cycles++; prof_state_cycles[state]++; prof_cache_states[cst&7]++;
+	{
+		const uint8_t sbc = SIMEMU->__PVT__machine__DOT__cpu__DOT__store_buffer__DOT__count;
+		const bool sbreq = SIMEMU->__PVT__machine__DOT__cpu__DOT__store_buffer__DOT__buffer_req;
+		const bool busreq = SIMEMU->__PVT__machine__DOT__cpu__DOT__cpu_bus_req;
+		const bool buswr = SIMEMU->__PVT__machine__DOT__cpu__DOT__cpu_bus_write;
+		const bool rbank = SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__r_bank;
+		if (state == 9) { prof_mrd_cst[cst&7]++; if (sbc) prof_mrd_sbpend++; }
+		if (state == 10) { prof_mwr_cst[cst&7]++; if (sbc) prof_mwr_sbpend++; }
+		if ((cst&7) == 5 && prof_prev_cst != 5) { if (rbank) prof_fill_i++; else prof_fill_d++; }
+		if (sbreq && sbc == 2) prof_sb_full++;
+		if (busreq && !buswr && sbc) prof_read_behind_store++;
+		if ((cst&7) == 6) { if (buswr) prof_pass_write++; else prof_pass_read++; }
+		if (SIMEMU->__PVT__machine__DOT__cpu__DOT__store_buffer__DOT__push) prof_sb_pushes++;
+		prof_prev_cst = cst&7;
+	}
 	if (SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__rd_accept) prof_rd_accept++;
 	const uint32_t cacr = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__cacr;
 	prof_ic_enabled += (cacr >> 15) & 1;

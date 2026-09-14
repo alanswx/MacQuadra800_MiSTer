@@ -1,21 +1,26 @@
 # CPU performance task list and recovery record
 
-HANDOFF: `docs/CPU_ADDR_HINT_20260913.md` is the latest checkpoint;
-`docs/CPU_LINE_RETURN_20260914.md` is the candidate in flight.
-**Checkpoints accepted 2026-09-13, all on the trimmed seed-24 profile
+HANDOFF: `docs/CPU_LINE_RETURN_20260914.md` is the latest checkpoint;
+`docs/CPU_SPEEDOMETER_PROFILE_20260914.md` is the workload profile that
+directs the next step.
+**Checkpoints accepted 2026-09-13/14, all on the trimmed seed-24 profile
 (`configs/cpu_development.tcl`, the working recipe by user decision):**
 1. Registered cache-hit admission (AP `3565aa3`): CPU Mix 0.485/0.486/0.485.
 2. One-entry ATC hit copy in the MMU (AP `402f40d`): 0.503/0.504/0.503.
-3. Core address hints + per-space ATC copies (AP `bd55a40`): **0.543/0.544/
-   0.543**, mean 0.543333, +7.95 % over 2 and +17.2 % over the source-only
-   0.4635. Fit 36,826 ALMs, 4,073 LABs (118 free), all TNS zero, CPU-domain
-   setup +1.165 ns.
-Target remains about 1.9 (4x). Per-instruction attribution in the exact
-Sieve kernel (`CPU_LINE_RETURN_20260914.md`) shows instruction supply is
-now the limiter: the prefetch queue drains during EA states and data
-transfers, so register instructions after a store wait 3 to 5 clocks for
-their opcode. The in-flight candidate returns the whole cache line to the
-queue on every instruction hit.
+3. Core address hints + per-space ATC copies (AP `bd55a40`): 0.543/0.544/0.543.
+4. Whole-line return to the prefetch queue + store/branch trims (AP
+   `ce787c4`): **0.591/0.590 and 0.590/0.590** valid runs (one anomaly per
+   set), mean 0.5903, +8.65 % over 3 and **+27.4 %** over the source-only
+   0.4635. Fit 38,126 ALMs (91 %), all TNS zero, worst slack +0.138 ns (HDMI).
+Target remains about 1.9 (4x). The full-machine simulator now runs the
+whole Speedometer CPU Mix unattended
+(`scripts/fixtures/sim_speedometer/run_speedometer_sim.sh`, about 90 min)
+and predicted this checkpoint within 2 %; its profile says memory access
+is 42 % of all cycles (reads 6.4 clocks each, writes 4.2) and is the next
+target: data-cache misses to SDRAM (a 16 KB D-cache fits the free M10K
+budget), the store path (early store acknowledge, deeper store buffer,
+read-miss bypass of queued stores). A memory-attributed profile run is
+in progress.
 
 Combined CPU remains experimental. Untrimmed seed 24 failed routing and
 seed 25 ended unexpectedly; trimmed seed 24 now fits with 36,616 ALMs,

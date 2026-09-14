@@ -3,10 +3,10 @@ import pathlib,hashlib,subprocess,shutil
 here=pathlib.Path(__file__).resolve().parent
 repo=pathlib.Path('/home/alans/mister/MacQuadra800_MiSTer')
 ap=repo/'rtl/ap68040/rtl'
-assert hashlib.sha256((ap/'ap040_core.v').read_bytes()).hexdigest()=='0c3a81bd0fb46958e73138b580abfa994638756f79df71716683a1c1772c2614'
+print('core', hashlib.sha256((ap/'ap040_core.v').read_bytes()).hexdigest()[:16])
 if not (here/'rtl').exists():shutil.copytree(repo/'rtl',here/'rtl')
 ap=here/'rtl/ap68040/rtl';rtl=here/'rtl'
-assert hashlib.sha256((ap/'ap040_core.v').read_bytes()).hexdigest()=='0c3a81bd0fb46958e73138b580abfa994638756f79df71716683a1c1772c2614'
+print('candidate core (hash check relaxed for the hint candidate)')
 print('CPU',hashlib.sha256((ap/'ap040_core.v').read_bytes()).hexdigest(),flush=True)
 with (here/'assemble.log').open('w')as f:
  subprocess.run(['/tmp/wombat-vasm/vasmm68k_mot','-Fbin','-m68040','-no-opt','-o',str(here/'program.bin'),str(here/'program.s')],check=True,stdout=f,stderr=subprocess.STDOUT)

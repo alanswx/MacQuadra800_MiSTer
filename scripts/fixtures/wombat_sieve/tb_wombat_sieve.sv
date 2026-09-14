@@ -164,6 +164,7 @@ integer total_cycles=0,elapsed=0,dispatches=0,requests=0,killed=0;
 integer ihit=0,imiss=0,ipred=0,dhit=0,dmiss=0,mem_reads=0,mem_writes=0;
 integer bus_line_hits=0,first_misses=0,store_pushes=0,store_pops=0;
 integer states[0:255],cache_states[0:15],sb_count[0:2],op_count[0:40];
+ integer op_cycles[0:40]; integer cur_slot=40; initial for(cur_slot=0;cur_slot<41;cur_slot=cur_slot+1) op_cycles[cur_slot]=0;
 integer pre_state,slot;
 integer srd_calls=0,srd_fast=0,srd_slow=0,srd_other=0;
 integer srd_guard[0:7],srd_cache[0:15];
@@ -239,10 +240,11 @@ always @(posedge clk_sys) begin
     if(cpu.core.m_issued) srd_fast=srd_fast+1;else srd_slow=srd_slow+1;
    end
    if(!pre_pend && cpu.core.epf_pend) requests=requests+1;
+   op_cycles[cur_slot]=op_cycles[cur_slot]+1;
    if(dispatch_seen!=cpu.core.perf_dispatch_toggle) begin
     dispatch_seen=cpu.core.perf_dispatch_toggle;dispatches=dispatches+1;
     slot=(cpu.core.pc_i>=kernel_pc && cpu.core.pc_i<kernel_pc+80) ? (cpu.core.pc_i-kernel_pc)/2 : 40;
-    op_count[slot]=op_count[slot]+1;
+    op_count[slot]=op_count[slot]+1;cur_slot=slot;
    end
    if(cpu.core.state==4 && cpu.core.pc_i==kernel_pc+74 && effective_d6==1) begin
     // The long final scan leaves no stores outstanding. Require that invariant
@@ -262,7 +264,7 @@ always @(posedge clk_sys) begin
     for(a=0;a<256;a=a+1) if(states[a]) $display("INTEGRATION_STATE state=%0d cycles=%0d",a,states[a]);
     for(a=0;a<16;a=a+1) if(cache_states[a]) $display("INTEGRATION_CACHE state=%0d cycles=%0d",a,cache_states[a]);
     for(a=0;a<3;a=a+1) $display("INTEGRATION_SB count=%0d cycles=%0d",a,sb_count[a]);
-    for(a=0;a<41;a=a+1) if(op_count[a]) $display("INTEGRATION_DISPATCH pc=%04x count=%0d",kernel_pc+2*a,op_count[a]);
+    for(a=0;a<41;a=a+1) if(op_count[a]) $display("INTEGRATION_DISPATCH pc=%04x count=%0d cycles=%0d per=%0d",kernel_pc+2*a,op_count[a],op_cycles[a],(op_cycles[a]*100)/op_count[a]);
     $display("MRD_GUARD calls=%0d early_issue=%0d deferred=%0d address_or_size_fail=%0d pending_with_ack=%0d instruction_ack=%0d mrd_setup=%0d mrd_wait_prefetch=%0d",
      srd_calls,srd_fast,srd_slow,srd_other,srd_pending_ack,srd_ack_instr,mrd_setup,mrd_wait_prefetch);
     for(a=0;a<8;a=a+1) if(srd_guard[a])

@@ -120,6 +120,9 @@ wire [31:0] mm_addr, mm_wdata;
 wire  [2:0] mm_fc;
 wire        mm_ack, mm_nocache;
 wire [31:0] mm_rdata;
+wire        mm_line_stb, mem_line_stb;
+wire [31:4] mm_line_tag, mem_line_tag;
+wire [127:0] mm_line_data, mem_line_data;
 
 // MMU walker requests are held behind older buffered CPU stores. This matters
 // when software writes a page-table entry and immediately incurs an ATC miss:
@@ -168,6 +171,9 @@ ap040_core #(
 	.mem_fc(mem_fc),
 	.mem_ack(mem_ack),
 	.mem_rdata(mem_rdata),
+	.mem_line_stb(mem_line_stb),
+	.mem_line_tag(mem_line_tag),
+	.mem_line_data(mem_line_data),
 	.mem_flt(mem_flt),
 
 	.tc_out(w_tc),
@@ -231,6 +237,9 @@ ap040_mmu mmu (
 	.c_fc(mem_fc),
 	.c_ack(mem_ack),
 	.c_rdata(mem_rdata),
+	.c_line_stb(mem_line_stb),
+	.c_line_tag(mem_line_tag),
+	.c_line_data(mem_line_data),
 	.c_flt(mem_flt_mmu),
 
 	.pt_req(pt_req),
@@ -255,6 +264,9 @@ ap040_mmu mmu (
 	.m_fc(mm_fc),
 	.m_ack(mm_ack),
 	.m_rdata(mm_rdata),
+	.m_line_stb(mm_line_stb),
+	.m_line_tag(mm_line_tag),
+	.m_line_data(mm_line_data),
 
 	.walker_req(mmu_walker_req),
 	.walker_we(mmu_walker_we),
@@ -334,6 +346,9 @@ if (AP040_ENABLE_CACHE != 0) begin : g_cache
 		.s_addr(snp_addr),
 		.c_ack(mm_ack),
 		.c_rdata(mm_rdata),
+		.c_line_stb(mm_line_stb),
+		.c_line_tag(mm_line_tag),
+		.c_line_data(mm_line_data),
 
 		.m_req(cpu_bus_req),
 		.m_write(cpu_bus_write),
@@ -362,6 +377,9 @@ else begin : g_nocache
 	assign cpu_bus_fc    = mm_fc;
 	assign mm_ack        = cpu_bus_ack;
 	assign mm_rdata      = cpu_bus_rdata;
+	assign mm_line_stb = 1'b0;
+	assign mm_line_tag = 28'd0;
+	assign mm_line_data = 128'd0;
 	assign cinv_done = 1'b1;
 end
 endgenerate
