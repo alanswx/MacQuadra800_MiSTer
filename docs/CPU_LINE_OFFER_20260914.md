@@ -122,3 +122,23 @@ freshly restored disk) and run 3, captured after a verified 140 s wait,
 agrees. Board restored to MENU, Main and disposable disk verified.
 The simulated Speedometer for this candidate was still running at
 acceptance; its score is recorded below when it lands.
+
+### Simulated Speedometer (profile only)
+
+The unattended run reached the completion alert (screenshot_f8534, guest
+time 13:26) but its driver was terminated before the results window was
+captured, so only the profile survives: **1,097,765,031 cycles** for the
+CPU Mix bracket against 1,123,045,543 for the write-path build (-2.25 %),
+5.545 clocks per dispatch. Scaling the write-path build's simulated 0.661
+by the cycle ratio gives about 0.676; hardware measured +1.9 %. Profile:
+`/tmp/simspeedo-sb2/profile.tsv`.
+
+**Profile finding (2026-09-14, for the next candidate):** data fills rose
+3,648,901 -> 4,128,451 (+13 %) and `S_MRD` fill cycles +7.3 M. The
+capture-cycle acknowledge reaches the cache in the first `C_PASS` cycle,
+before a spanning store's line read (`sline_read`, one cycle) is ready, so
+every spanning posted store now takes the invalidate fallback instead of
+merging both words. Fix: `m_posted = post_active && (!r_span2 ||
+sline_ready)`, which lets spanning stores keep the one-cycle-later
+acknowledge they need. Worth about 0.5 % (480 k refills); folded into the
+next cache candidate rather than refitting this one.

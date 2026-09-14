@@ -1,6 +1,6 @@
 # CPU performance task list and recovery record
 
-HANDOFF: `docs/CPU_LINE_OFFER_20260914.md` is the latest checkpoint;
+HANDOFF: `docs/CPU_IMM_DIRECT_20260914.md` is the latest checkpoint;
 `docs/CPU_SPEEDOMETER_PROFILE_20260914.md` is the workload profile that
 directs the next step.
 **Checkpoints accepted 2026-09-13/14, all on the trimmed seed-24 profile
@@ -23,10 +23,20 @@ directs the next step.
    4d707652): **0.658/0.659/0.659**, mean 0.6587, +1.91 % over 5 and
    **+42.1 %** over 0.4635. Seed 22 with `VIDEO_512_OFF`, 38,459 ALMs, all
    TNS zero, worst slack +0.039 ns (HDMI).
+7. Inline extension words with direct d16(An) reads
+   (`docs/CPU_EA_INLINE_20260914.md`) + immediate-to-register direct
+   dispatch + spanning posted-store fix (`docs/CPU_IMM_DIRECT_20260914.md`;
+   core 96178506, cache 8ea1c405): **0.684/0.685/0.684**, mean 0.6843,
+   +3.89 % over 6 and **+47.6 %** over 0.4635. Seed 23 with
+   `VIDEO_512_OFF`, 38,764 ALMs (92 %), all TNS zero, worst slack +0.057 ns
+   (clk_ram); seeds 22 and 21 missed by about 0.5 ns (HDMI / clk_ram).
 Target remains about 1.9 (4x); the user's current bar is CPU Mix above 1.0.
-Next candidate under test (`docs/CPU_FAST_READ_20260914.md`): data reads
-that hit the hinted idle read are acknowledged in their request cycle
-(one clock in S_MRD instead of two); Sieve -1.3 %, fixture 1,983 -> 1,940. The full-machine simulator now runs the
+Parked: the one-clock data-read hit (`docs/CPU_FAST_READ_20260914.md`):
+the shared-bus version fails timing by 6.6 ns, the hint-bus version does
+not route at 93 % ALMs and its profile gain is about 1 %; needs an area
+diet before another try. Next by profile: memory-destination EA path
+(PIPE_SREG/PIPE_DST/EA_DISP), indexed-mode direct reads from S_EA_EXTW2,
+LINK/UNLK/RTS/JSR trims, a 16 KB data cache, then decode overlap. The full-machine simulator now runs the
 whole Speedometer CPU Mix unattended
 (`scripts/fixtures/sim_speedometer/run_speedometer_sim.sh`, about 90 min)
 and predicted this checkpoint within 2 %; its profile says memory access
