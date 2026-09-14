@@ -136,6 +136,7 @@ wire  [1:0] cpu_bus_size;
 wire [31:0] cpu_bus_addr, cpu_bus_wdata;
 wire  [2:0] cpu_bus_fc;
 wire        cpu_bus_ack;
+wire        cpu_bus_posted;
 wire [31:0] cpu_bus_rdata;
 wire        buffered_store_pending;
 
@@ -352,6 +353,7 @@ if (AP040_ENABLE_CACHE != 0) begin : g_cache
 		.c_line_tag(mm_line_tag),
 		.c_line_data(mm_line_data),
 		.c_busy(mm_busy),
+		.m_posted(cpu_bus_posted),
 
 		.m_req(cpu_bus_req),
 		.m_write(cpu_bus_write),
@@ -384,6 +386,7 @@ else begin : g_nocache
 	assign mm_line_tag = 28'd0;
 	assign mm_line_data = 128'd0;
 	assign mm_busy = 1'b0;
+	assign cpu_bus_posted = 1'b0;
 	assign cinv_done = 1'b1;
 end
 endgenerate
@@ -395,6 +398,7 @@ wombat_store_buffer #(.ENABLE(AP040_STORE_BUFFER)) store_buffer (
 	.buffer_writes(store_buffer_ok),
 
 	.s_req(cpu_bus_req),
+	.s_posted(cpu_bus_posted),
 	.s_write(cpu_bus_write),
 	.s_instr(cpu_bus_instr),
 	.s_size(cpu_bus_size),

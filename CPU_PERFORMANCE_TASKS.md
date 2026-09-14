@@ -1,6 +1,6 @@
 # CPU performance task list and recovery record
 
-HANDOFF: `docs/CPU_WRITE_PATH_20260914.md` is the latest checkpoint;
+HANDOFF: `docs/CPU_LINE_OFFER_20260914.md` is the latest checkpoint;
 `docs/CPU_SPEEDOMETER_PROFILE_20260914.md` is the workload profile that
 directs the next step.
 **Checkpoints accepted 2026-09-13/14, all on the trimmed seed-24 profile
@@ -18,11 +18,15 @@ directs the next step.
    over 4 and **+39.4 %** over 0.4635. Needs `VIDEO_512_OFF` (now in the
    profile) to fit: seed 22, 38,525 ALMs (92 %), all TNS zero, worst slack
    +0.238 ns (HDMI); seed 23 also closes. Simulator predicted 0.661.
+6. Posted-store acknowledge in the capture cycle + whole-line instruction
+   offer held as a level (`docs/CPU_LINE_OFFER_20260914.md`, cache
+   4d707652): **0.658/0.659/0.659**, mean 0.6587, +1.91 % over 5 and
+   **+42.1 %** over 0.4635. Seed 22 with `VIDEO_512_OFF`, 38,459 ALMs, all
+   TNS zero, worst slack +0.039 ns (HDMI).
 Target remains about 1.9 (4x); the user's current bar is CPU Mix above 1.0.
-Next candidate under test (`docs/CPU_LINE_OFFER_20260914.md`): the store
-queue acknowledges posted writes in the capture cycle, and the cache holds
-its whole-line instruction offer as a level (the one-cycle pulse was being
-refused whenever a data acknowledge landed on it); Sieve -1.4..-3.1 %. The full-machine simulator now runs the
+Next candidate under test (`docs/CPU_FAST_READ_20260914.md`): data reads
+that hit the hinted idle read are acknowledged in their request cycle
+(one clock in S_MRD instead of two); Sieve -1.3 %, fixture 1,983 -> 1,940. The full-machine simulator now runs the
 whole Speedometer CPU Mix unattended
 (`scripts/fixtures/sim_speedometer/run_speedometer_sim.sh`, about 90 min)
 and predicted this checkpoint within 2 %; its profile says memory access

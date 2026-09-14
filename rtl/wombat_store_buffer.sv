@@ -24,6 +24,7 @@ module wombat_store_buffer
 
 	// CPU/cache side: level-held transaction, one-cycle acknowledgement.
 	input             s_req,
+	input             s_posted,     // the cache already acknowledged this write
 	input             s_write,
 	input             s_instr,
 	input       [1:0] s_size,
@@ -78,7 +79,11 @@ wire pop  = drain_active && (m_ack || m_err);
 wire direct_request = s_req && !buffer_req && (count == 0) && !drain_active;
 
 assign pending = (count != 0);
-assign s_ack   = buffer_req ? accept_ack : (direct_active ? m_ack : 1'b0);
+// A posted write is acknowledged in its capture cycle: nothing upstream
+// waits on it combinationally, and accept_ack still guards the held
+// request from being captured twice.
+assign s_ack   = buffer_req ? (accept_ack | (push & s_posted)) :
+                 (direct_active ? m_ack : 1'b0);
 assign s_rdata = m_rdata;
 
 assign m_req   = drain_active ? 1'b1     : direct_request;
@@ -103,7 +108,9 @@ always @(posedge clk) begin
 	end
 	else if (ce) begin
 		accept_ack <= 0;
-		if (push) accept_ack <= 1;
+		// a posted write was acknowledged in its capture cycle; the
+		// requester has moved on, so no held-request guard is needed
+		if (push) accept_ack <= !s_posted;
 
 		// Queue update. A simultaneous pop/push is included for completeness;
 		// with a full queue the waiting third store is accepted on the next
