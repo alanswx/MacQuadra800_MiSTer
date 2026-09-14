@@ -1,15 +1,19 @@
 # CPU performance task list and recovery record
 
-HANDOFF: `docs/CPU_CACHE_EARLY_REVIEW_20260913.md` is the current resume point.
-**Registered cache-hit admission is ADOPTED (2026-09-13):** AP68040 `3565aa3`
-(cache SHA256 `77882b83...`, core unchanged `0c3a81bd...`). Trimmed seed-24
-fit 36,684 ALMs, 4,078 LABs (113 free), all TNS zero, CPU-domain setup
-+0.656 ns; Speedometer 4.02 CPU Mix **0.485 / 0.486 / 0.485**, mean
-**0.485333**, +4.71% over the matched trimmed source-only build and +5.81%
-over the previous accepted 0.458667. Full-machine sim boot retires 6.0% more
-instructions per clock budget (C_LOOK occupancy 5.8% -> 0.7%). The trimmed
-feature profile (`configs/cpu_development.tcl`) is still opt-in and uncommitted;
-the full-feature QSF has not been re-fitted with this cache.
+HANDOFF: `docs/CPU_UTLB_20260913.md` (latest checkpoint) and
+`docs/CPU_ADDR_HINT_20260913.md` (candidate in flight) are the resume points.
+**Checkpoints accepted 2026-09-13, both on the trimmed seed-24 profile:**
+1. Registered cache-hit admission (AP `3565aa3`, cache `77882b83...`):
+   CPU Mix 0.485 / 0.486 / 0.485 (`CPU_CACHE_EARLY_REVIEW_20260913.md`).
+2. One-entry ATC hit copy in the MMU (AP `402f40d`, mmu `31c8f77a...`):
+   CPU Mix 0.503 / 0.504 / 0.503, mean 0.503333, +3.71 % over 1 and
+   +9.7 % over the previous accepted 0.458667. Fit 36,698 ALMs, 4,069 LABs
+   (122 free), all TNS zero, CPU-domain setup +0.885 ns.
+The trimmed profile (`configs/cpu_development.tcl`) is the working recipe
+by user decision (2026-09-13); it is still uncommitted in the QSF. Target
+remains about 1.9 (4x); the roadmap's instruction-overlap work is what
+gets there, and the Speedometer-interval simulator profile (running) picks
+the entry point.
 
 Combined CPU remains experimental. Untrimmed seed 24 failed routing and
 seed 25 ended unexpectedly; trimmed seed 24 now fits with 36,616 ALMs,
