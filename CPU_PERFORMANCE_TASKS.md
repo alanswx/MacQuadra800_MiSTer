@@ -1,19 +1,21 @@
 # CPU performance task list and recovery record
 
-HANDOFF: `docs/CPU_UTLB_20260913.md` (latest checkpoint) and
-`docs/CPU_ADDR_HINT_20260913.md` (candidate in flight) are the resume points.
-**Checkpoints accepted 2026-09-13, both on the trimmed seed-24 profile:**
-1. Registered cache-hit admission (AP `3565aa3`, cache `77882b83...`):
-   CPU Mix 0.485 / 0.486 / 0.485 (`CPU_CACHE_EARLY_REVIEW_20260913.md`).
-2. One-entry ATC hit copy in the MMU (AP `402f40d`, mmu `31c8f77a...`):
-   CPU Mix 0.503 / 0.504 / 0.503, mean 0.503333, +3.71 % over 1 and
-   +9.7 % over the previous accepted 0.458667. Fit 36,698 ALMs, 4,069 LABs
-   (122 free), all TNS zero, CPU-domain setup +0.885 ns.
-The trimmed profile (`configs/cpu_development.tcl`) is the working recipe
-by user decision (2026-09-13); it is still uncommitted in the QSF. Target
-remains about 1.9 (4x); the roadmap's instruction-overlap work is what
-gets there, and the Speedometer-interval simulator profile (running) picks
-the entry point.
+HANDOFF: `docs/CPU_ADDR_HINT_20260913.md` is the latest checkpoint;
+`docs/CPU_LINE_RETURN_20260914.md` is the candidate in flight.
+**Checkpoints accepted 2026-09-13, all on the trimmed seed-24 profile
+(`configs/cpu_development.tcl`, the working recipe by user decision):**
+1. Registered cache-hit admission (AP `3565aa3`): CPU Mix 0.485/0.486/0.485.
+2. One-entry ATC hit copy in the MMU (AP `402f40d`): 0.503/0.504/0.503.
+3. Core address hints + per-space ATC copies (AP `bd55a40`): **0.543/0.544/
+   0.543**, mean 0.543333, +7.95 % over 2 and +17.2 % over the source-only
+   0.4635. Fit 36,826 ALMs, 4,073 LABs (118 free), all TNS zero, CPU-domain
+   setup +1.165 ns.
+Target remains about 1.9 (4x). Per-instruction attribution in the exact
+Sieve kernel (`CPU_LINE_RETURN_20260914.md`) shows instruction supply is
+now the limiter: the prefetch queue drains during EA states and data
+transfers, so register instructions after a store wait 3 to 5 clocks for
+their opcode. The in-flight candidate returns the whole cache line to the
+queue on every instruction hit.
 
 Combined CPU remains experimental. Untrimmed seed 24 failed routing and
 seed 25 ended unexpectedly; trimmed seed 24 now fits with 36,616 ALMs,
