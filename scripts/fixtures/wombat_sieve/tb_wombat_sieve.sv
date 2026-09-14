@@ -246,7 +246,9 @@ always @(posedge clk_sys) begin
     slot=(cpu.core.pc_i>=kernel_pc && cpu.core.pc_i<kernel_pc+80) ? (cpu.core.pc_i-kernel_pc)/2 : 40;
     op_count[slot]=op_count[slot]+1;cur_slot=slot;
    end
-   if(cpu.core.state==4 && cpu.core.pc_i==kernel_pc+74 && effective_d6==1) begin
+   // the outer-loop compare may be dispatched by lookahead straight into
+   // S_PIPE_REGS (190) instead of S_DECODE (4), 2026-09-14
+   if((cpu.core.state==4 || cpu.core.state==190) && cpu.core.pc_i==kernel_pc+74 && effective_d6==1) begin
     // The long final scan leaves no stores outstanding. Require that invariant
     // explicitly before reading backing RAM; never mistake queued data for loss.
     if(cpu.buffered_store_pending || cpu.store_buffer.drain_active || (svc_mem && mem_write))

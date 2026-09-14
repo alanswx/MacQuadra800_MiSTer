@@ -1,6 +1,6 @@
 # CPU performance task list and recovery record
 
-HANDOFF: `docs/CPU_MEM_DST_20260914.md` is the latest checkpoint;
+HANDOFF: `docs/CPU_STORE_LOOKAHEAD_20260914.md` is the latest checkpoint;
 `docs/CPU_SPEEDOMETER_PROFILE_20260914.md` is the workload profile that
 directs the next step.
 **Checkpoints accepted 2026-09-13/14, all on the trimmed seed-24 profile
@@ -38,6 +38,14 @@ directs the next step.
    (91 %, less than 7), all TNS zero, worst slack +0.253 ns (clk_ram);
    seed 21 also closes. Lesson: a task expanded at eight call sites must
    not carry wide muxes (the unhoisted seed cost 17 k LUTs).
+9. Lookahead dispatch after a completed store, and MOVEQ plus the
+   `#imm,Dn` family added to the lookahead descriptor
+   (`docs/CPU_STORE_LOOKAHEAD_20260914.md`; core ded89c2f):
+   **0.724/0.726/0.725**, mean 0.7250, +2.55 % over 8 and **+56.4 %** over
+   0.4635. Seed 21 with `VIDEO_512_OFF`, 38,320 ALMs (91 %), all TNS zero,
+   worst slack +0.383 ns (HDMI); seeds 22 and 21 of the store producer
+   alone failed routing, the stacked tree routed at 21. The Sieve fixture's
+   end detector now accepts a lookahead-dispatched outer compare.
 Target remains about 1.9 (4x); the user's current bar is CPU Mix above 1.0.
 Parked: the one-clock data-read hit (`docs/CPU_FAST_READ_20260914.md`):
 the shared-bus version fails timing by 6.6 ns, the hint-bus version does

@@ -110,3 +110,11 @@ Mean **0.684333**, **+3.89 %** over the level-offer checkpoint 0.6587 and
 Puzzle -7.3 %, Sieve -6.1 %, Integer Matrix -5.8 %. Evidence
 `scratch/perf_ie_seed23_20260914/RESULTS.txt`. Board restored to MENU,
 Main and disposable disk verified.
+
+**Simulated Speedometer (rerun, results captured 16:38):** CPU Mix
+**0.701** (KWhetstones 524.6, Dhrystones 8315.7, Towers 1.451, Quick Sort
+0.941, Bubble Sort 1.069, Queens 0.772, Puzzle 1.941, Permutations 2.186,
+Integer Matrix 1.387, Sieve 1.715); profile 1,107,333,287 cycles, 5.318
+clocks per dispatch. Hardware measured 0.684: the simulator reads 2.5 %
+high, as it did for the write-path build (2.2 %). Screenshot
+`/tmp/simspeedo-ie/screenshot_f8724.png`.
