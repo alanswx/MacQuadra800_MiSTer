@@ -1,6 +1,6 @@
 # CPU performance task list and recovery record
 
-HANDOFF: `docs/CPU_LINE_RETURN_20260914.md` is the latest checkpoint;
+HANDOFF: `docs/CPU_WRITE_PATH_20260914.md` is the latest checkpoint;
 `docs/CPU_SPEEDOMETER_PROFILE_20260914.md` is the workload profile that
 directs the next step.
 **Checkpoints accepted 2026-09-13/14, all on the trimmed seed-24 profile
@@ -12,7 +12,17 @@ directs the next step.
    `ce787c4`): **0.591/0.590 and 0.590/0.590** valid runs (one anomaly per
    set), mean 0.5903, +8.65 % over 3 and **+27.4 %** over the source-only
    0.4635. Fit 38,126 ALMs (91 %), all TNS zero, worst slack +0.138 ns (HDMI).
-Target remains about 1.9 (4x). The full-machine simulator now runs the
+5. Write path: posted stores, misaligned reads and stores served in the
+   cache, requested-word-first fills, invalid-way-first replacement (AP
+   `ap040_cache.v` 545eb807): **0.646/0.647/0.646**, mean 0.6463, +9.49 %
+   over 4 and **+39.4 %** over 0.4635. Needs `VIDEO_512_OFF` (now in the
+   profile) to fit: seed 22, 38,525 ALMs (92 %), all TNS zero, worst slack
+   +0.238 ns (HDMI); seed 23 also closes. Simulator predicted 0.661.
+Target remains about 1.9 (4x); the user's current bar is CPU Mix above 1.0.
+Next candidate under test (`docs/CPU_LINE_OFFER_20260914.md`): the store
+queue acknowledges posted writes in the capture cycle, and the cache holds
+its whole-line instruction offer as a level (the one-cycle pulse was being
+refused whenever a data acknowledge landed on it); Sieve -1.4..-3.1 %. The full-machine simulator now runs the
 whole Speedometer CPU Mix unattended
 (`scripts/fixtures/sim_speedometer/run_speedometer_sim.sh`, about 90 min)
 and predicted this checkpoint within 2 %; its profile says memory access

@@ -42,6 +42,47 @@ start:
  bsr reads
  moveq #8,d7
  bsr reads
+ ; posted store hit-update: the core moves on (instruction hints) before
+ ; the drain acknowledges; the merge must still land in the store's row
+ lea ($4000).l,a0
+ move.l (a0),d0
+ move.l #$a5a55a5a,(a0)
+ nop
+ nop
+ nop
+ move.l (a0),d0
+ cmp.l #$a5a55a5a,d0
+ bne fail
+ move.l #$12345678,(a0)
+ nop
+ nop
+ move.l (a0),d0
+ cmp.l #$12345678,d0
+ bne fail
+ ; spanning stores merge into both words of a resident line
+ move.l #$11223344,2(a0)
+ nop
+ nop
+ nop
+ move.l 2(a0),d0
+ cmp.l #$11223344,d0
+ bne fail
+ move.l (a0),d0
+ cmp.l #$12341122,d0
+ bne fail
+ move.l 4(a0),d1
+ move.w #$abcd,7(a0)
+ nop
+ nop
+ move.l 4(a0),d0
+ and.l #$ffffff00,d1
+ or.l #$000000ab,d1
+ cmp.l d1,d0
+ bne fail
+ move.l #$12345678,(a0)
+ move.w #$9abc,6(a0)
+ nop
+ nop
  moveq #9,d7
  move.l #$0000c040,d0
  movec d0,dtt0

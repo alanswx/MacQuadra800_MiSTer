@@ -142,8 +142,8 @@ always @(posedge clk)begin
    tx_fault=cpu.core.mem_err;
    if(tx_early && tx_hit && !tx_fault && cpu.mem_rdata!==tx_early_data)
     $fatal(1,"shadow early-read data mismatch pc=%h expected=%h actual=%h",owner,tx_early_data,cpu.mem_rdata);
-   $display("LATENCY_TX id=%0d phase=%0d pc=%h addr=%h instr=%b write=%b tc=%b issue=%0d mm=%0d accept=%0d look=%0d ack_visible=%0d consume=%0d cycles=%0d ce_stalls=%0d hit=%b pred=%b miss=%b pass=%b walk=%b fault=%b early=%b current_read=%b",
-    txns,phase,owner,tx_addr,tx_instr,tx_write,cpu.core.tc[15],start_edge,mm_edge,accept_edge,look_edge,visible_edge,edge_count,edge_count-start_edge,stalls,tx_hit,tx_pred,tx_miss,tx_pass,tx_walk,tx_fault,tx_early,tx_current);
+   $display("LATENCY_TX id=%0d phase=%0d pc=%h addr=%h instr=%b write=%b tc=%b issue=%0d mm=%0d accept=%0d look=%0d ack_visible=%0d consume=%0d cycles=%0d ce_stalls=%0d hit=%b pred=%b miss=%b pass=%b walk=%b fault=%b early=%b current_read=%b data=%h",
+    txns,phase,owner,tx_addr,tx_instr,tx_write,cpu.core.tc[15],start_edge,mm_edge,accept_edge,look_edge,visible_edge,edge_count,edge_count-start_edge,stalls,tx_hit,tx_pred,tx_miss,tx_pass,tx_walk,tx_fault,tx_early,tx_current,cpu.mem_rdata);
    tracked=0;
   end
  end
