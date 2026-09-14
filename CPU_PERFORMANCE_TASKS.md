@@ -1,6 +1,6 @@
 # CPU performance task list and recovery record
 
-HANDOFF: `docs/CPU_IMM_DIRECT_20260914.md` is the latest checkpoint;
+HANDOFF: `docs/CPU_MEM_DST_20260914.md` is the latest checkpoint;
 `docs/CPU_SPEEDOMETER_PROFILE_20260914.md` is the workload profile that
 directs the next step.
 **Checkpoints accepted 2026-09-13/14, all on the trimmed seed-24 profile
@@ -30,6 +30,14 @@ directs the next step.
    +3.89 % over 6 and **+47.6 %** over 0.4635. Seed 23 with
    `VIDEO_512_OFF`, 38,764 ALMs (92 %), all TNS zero, worst slack +0.057 ns
    (clk_ram); seeds 22 and 21 missed by about 0.5 ns (HDMI / clk_ram).
+8. Memory-destination fast path (ports placed at decode, simple An
+   destinations resolved in the pipe start) + wide taken-branch refill
+   seed hoisted into one shared block (`docs/CPU_MEM_DST_20260914.md`;
+   core c2adc1ac): **0.706/0.708/0.707**, mean 0.7070, +3.32 % over 7 and
+   **+52.5 %** over 0.4635. Seed 22 with `VIDEO_512_OFF`, 38,094 ALMs
+   (91 %, less than 7), all TNS zero, worst slack +0.253 ns (clk_ram);
+   seed 21 also closes. Lesson: a task expanded at eight call sites must
+   not carry wide muxes (the unhoisted seed cost 17 k LUTs).
 Target remains about 1.9 (4x); the user's current bar is CPU Mix above 1.0.
 Parked: the one-clock data-read hit (`docs/CPU_FAST_READ_20260914.md`):
 the shared-bus version fails timing by 6.6 ns, the hint-bus version does
