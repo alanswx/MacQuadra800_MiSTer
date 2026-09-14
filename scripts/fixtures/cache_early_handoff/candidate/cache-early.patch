@@ -1,0 +1,100 @@
+--- a/rtl/ap68040/rtl/ap040_cache.v
++++ b/rtl/ap68040/rtl/ap040_cache.v
+@@ -233,10 +233,14 @@
+ wire v_w1 = tag_q[89];
+ wire v_w2 = tag_q[90];
+ wire v_w3 = tag_q[91];
+-wire h0 = v_w0 && (t_w0 == r_tag);
+-wire h1 = v_w1 && (t_w1 == r_tag);
+-wire h2 = v_w2 && (t_w2 == r_tag);
+-wire h3 = v_w3 && (t_w3 == r_tag);
++// In idle, a qualified physical request may reuse an already-settled RAM
++// read. The same comparator/mux serves this and the ordinary registered
++// lookup; no CPU acknowledgement is combinational in the MMU request.
++wire [21:0] compare_tag = (cst == C_IDLE) ? a_tag : r_tag;
++wire h0 = v_w0 && (t_w0 == compare_tag);
++wire h1 = v_w1 && (t_w1 == compare_tag);
++wire h2 = v_w2 && (t_w2 == compare_tag);
++wire h3 = v_w3 && (t_w3 == compare_tag);
+ wire      look_hit = h0 | h1 | h2 | h3;
+ wire [1:0] hit_way = h0 ? 2'd0 : h1 ? 2'd1 : h2 ? 2'd2 : 2'd3;
+ 
+@@ -456,19 +460,52 @@
+                  !(cinv_req && !cinv_done) && ipred_valid &&
+                  (c_addr[31:2] == ipred_addr);
+ 
++// Read only the page-offset-indexed arrays while idle. This is not a
++// speculative physical hit: c_req/rd_accept must still come from the MMU
++// AFTER translation, permissions and cacheability have been resolved.
++// Remember which synchronous read actually produced the RAM outputs. The
++// tag read free-runs even with ce low, whereas data reads are ce-gated.
++reg idle_data_valid, idle_tag_valid;
++reg [8:0] idle_data_idx;
++reg [6:0] idle_tag_idx;
++always @(posedge clk) begin
++	if (!nreset) begin
++		idle_data_valid <= 0;
++		idle_tag_valid <= 0;
++		idle_data_idx <= 0;
++		idle_tag_idx <= 0;
++	end else begin
++		idle_tag_idx <= tag_we ? tag_widx : tag_ridx;
++		// Reject all mixed-port writes, conservatively even to another row.
++		idle_tag_valid <= !tag_we && !inv_wren;
++		if (inv_wren || (ce && |cd_we)) idle_data_valid <= 0;
++		if (ce && cd_rd_en) begin
++			idle_data_idx <= cd_ridx;
++			idle_data_valid <= (cst == C_IDLE) && !ipred_read &&
++			                   !inv_wren && !(|cd_we);
++		end
++	end
++end
++wire idle_hit = rd_accept && !ipred_hit && !err_hold && !m_err &&
++                idle_data_valid && idle_tag_valid &&
++                (idle_data_idx == {c_instr, c_addr[9:2]}) &&
++                (idle_tag_idx == a_row) && look_hit &&
++                !tag_we && !inv_wren && !look_snooped && !snoop_look_row;
++
+ // A regular instruction hit seeds the first lookahead.  A lookahead hit can
+ // chain to the following word.  Never cross a cache-line boundary: the next
+ // line needs its own tag lookup even when its data happens to occupy the same
+ // way.
+-wire ipred_seed_read = (cst == C_LOOK) && look_hit && r_bank &&
+-                       (r_addr[3:2] != 2'd3);
++wire ipred_seed_read = ((cst == C_LOOK) && look_hit && r_bank &&
++                       (r_addr[3:2] != 2'd3));
++wire ipred_idle_read = idle_hit && c_instr && (c_addr[3:2] != 2'd3);
+ wire ipred_chain_read = ipred_hit && (c_addr[3:2] != 2'd3);
+-wire ipred_read = ipred_seed_read || ipred_chain_read;
++wire ipred_read = ipred_seed_read || ipred_chain_read || ipred_idle_read;
+ wire [5:0] ipred_read_set = ipred_seed_read ? r_row[5:0] : c_addr[9:4];
+ wire [1:0] ipred_read_word = ipred_seed_read
+ 	? (r_addr[3:2] + 2'd1) : (c_addr[3:2] + 2'd1);
+ 
+-assign cd_rd_en  = rd_accept || store_lookup_accept || ipred_read;
++assign cd_rd_en  = (cst == C_IDLE) || rd_accept || store_lookup_accept || ipred_read;
+ assign cd_ridx   = ipred_read ? {1'b1, ipred_read_set, ipred_read_word}
+                               : {c_instr, a_set, c_addr[3:2]};
+ wire store_hit_write = (cst == C_PASS) && pass_store_chk && m_ack && look_hit;
+@@ -558,6 +595,21 @@
+ 						ipred_pending <= 1;
+ 						ipred_addr <= c_addr[31:2] + 30'd1;
+ 						// ipred_way remains the known resident way.
++					end
++				end
++				else if (idle_hit) begin
++					// Identical registered response to C_LOOK, using the prior
++					// matching read rather than issuing a redundant RAM read.
++					rdata_r <= lw_extract(data_hit, c_size, c_addr[1:0]);
++					ack_r <= 1;
++					if (c_instr) begin
++						ipred_pending <= 0;
++						ipred_valid <= 0;
++						if (c_addr[3:2] != 2'd3) begin
++							ipred_pending <= 1;
++							ipred_way <= hit_way;
++							ipred_addr <= c_addr[31:2] + 30'd1;
++						end
+ 					end
+ 				end
+ 				// A cache-inhibited hit owes a row invalidate.  Accept

@@ -1,5 +1,22 @@
 # CPU performance task list and recovery record
 
+HANDOFF: `docs/CPU_CACHE_EARLY_REVIEW_20260913.md` is the current resume point.
+**Registered cache-hit admission is ADOPTED (2026-09-13):** AP68040 `3565aa3`
+(cache SHA256 `77882b83...`, core unchanged `0c3a81bd...`). Trimmed seed-24
+fit 36,684 ALMs, 4,078 LABs (113 free), all TNS zero, CPU-domain setup
++0.656 ns; Speedometer 4.02 CPU Mix **0.485 / 0.486 / 0.485**, mean
+**0.485333**, +4.71% over the matched trimmed source-only build and +5.81%
+over the previous accepted 0.458667. Full-machine sim boot retires 6.0% more
+instructions per clock budget (C_LOOK occupancy 5.8% -> 0.7%). The trimmed
+feature profile (`configs/cpu_development.tcl`) is still opt-in and uncommitted;
+the full-feature QSF has not been re-fitted with this cache.
+
+Combined CPU remains experimental. Untrimmed seed 24 failed routing and
+seed 25 ended unexpectedly; trimmed seed 24 now fits with 36,616 ALMs,
+4,072 LABs and zero reported TNS. RBF and hardware gate:
+`docs/CPU_COMBINED_TRIM_FIT_20260913.md`. Timer-anomaly diagnosis proceeds
+separately; do not average invalid runs away or assume the anomaly is fixed.
+
 **2026-09-13 repeat audit closed:** three fresh, visually verified independent
 runs score **0.458 / 0.459 / 0.459**, mean **0.458667**, +1.85048%.
 The ambiguous old repeat is excluded. Main and the restored disposable were
@@ -12,9 +29,13 @@ indexed-stage. CPU SHA `0c3a81bd...`; CD-off seed 24 uses 38,003 ALMs and
 CPU and simulator disk regressions pass. Full identities and evidence:
 `docs/CPU_SOURCE_OVERLAP_CHECKPOINT_20260913.md`.
 
-Next: complete selected combined destination-overlap/retirement-forwarding
-gates, then full-machine compile and timing fit before hardware. Experimental
-CPU `21d408fa...` remains isolated; see `docs/CPU_OVERLAP_FOLLOWUP_20260913.md`.
+Next: (1) decide whether the trimmed profile becomes the release recipe or
+whether the full-feature QSF is re-fitted with this cache (seed walk); (2)
+return to the Priority 3 roadmap with the boot profile as the workload: the
+cache now spends 72% of cycles idle and 17% in C_PASS (bypassed/uncached
+traffic), so profile what the remaining ~7.9 clocks per dispatch are spent
+on before the next RTL change. Combined CPU `21d408fa...` is not adopted; its
+0.460/0.461/INVALID hardware run showed no gain over source-only.
 Older snapshot statuses below are historical, not current.
 
 Last updated: 2026-09-13. This is the authoritative CPU-speed queue and the
