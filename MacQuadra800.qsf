@@ -163,6 +163,9 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # refill-seed cone behind the acknowledge).  Next fit: R1..R4 (8778213).
 # R1..R4 (8778213) seed 21: MET -- 38,325 ALMs (91 %), 497 M10K, CPU clock +0.361,
 # HDMI +0.429, clk_ram +0.757, hold +0.248; rbf 8c6d48b5 (the hardware candidate).
+# R1..R6 early-data form (923c544) seed 21, in ../MacQuadra800_wt2: 36,961 ALMs
+# (88 %), CPU clock -0.269 ns (HDMI +0.656, clk_ram +0.818): the 4 ns hole is
+# gone; seed walk 22.. there.
 set_global_assignment -name SEED 21
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
