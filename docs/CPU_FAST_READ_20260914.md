@@ -133,3 +133,18 @@ drop the hint-side TTR compare (a TTR-mapped hint then simply keeps the
 registered acknowledge), and consider narrowing `hq_addr` to the bits the
 match needs. A seed walk is the other lever; routing failures at this
 utilization are seed-sensitive.
+
+## Ported onto checkpoint 15 (2026-09-15, `/tmp/dovm-cand.*`)
+
+The hint-bus version (`/tmp/im-cand`, the tree with the ATC-row fix) is
+reapplied on checkpoint 15 (decode-record handover, 16 KB caches, the
+line-crossing reads): MMU, wrapper, compat wrapper and snoop bench patch
+cleanly; the core takes the two hint-bus ports and the registered
+request bus; the cache's three conflicting hunks are merged by hand
+(`x_set`/`x_row` at `SETW` width, the hint's idle read index and the
+crossing read's second-lookup redirect in `tag_ridx`/`rd_row`, the
+fast-hit tag compare against the top `TAGW` bits of the MMU's 22-bit
+hint tag).  With the area diet the expected fit is checkpoint 15's
+38,663 plus about 400 ALMs, the size at which checkpoint 14 routed at
+one seed in two.  AP, latency, corpus, Sieve and diet-base fits at seeds
+20 and 22 running.
