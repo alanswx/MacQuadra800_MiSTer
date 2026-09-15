@@ -118,3 +118,10 @@ all offsets, latency 2,037 (cache base 2,044).  Boot A/B **75,700,859
 dispatches** (stack2 with the in-place issues: 75,717,560, so those were
 worth 0.02 % of the boot bracket; cache base 75,584,400), no faults.
 Simulated Speedometer and fits at seeds 20 and 22 running.
+
+### Simulated Speedometer (stack3) and acceptance
+
+Simulated CPU Mix **0.786** (checkpoint 12 simulated 0.780), bracket
+984,273,063 cycles (-0.7 %).  Accepted 2026-09-15 as checkpoint 13
+together with the crossing reads (checkpoint 14, `CPU_XLINE_20260915.md`,
+hardware 0.830); AP68040 `f526690`.
