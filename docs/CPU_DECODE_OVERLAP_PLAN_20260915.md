@@ -290,3 +290,11 @@ KWhetstones 613.8/s, Dhrystones 9,918/s, Towers 1.232 s, Quick Sort
 producers' retire is worth about 1.7 % on top of the guard in the
 benchmark bracket (the boot's ROM-heavy bracket showed 0.3 %).  Step C
 (dovd) and C2 (dove) sims still running.
+
+Seed walk: dovi seed 20 **fits**: 38,663 ALMs, timing met, worst setup
+slacks HDMI +0.192, RAM clock +0.194, CPU clock +0.731 ns; RBF
+`a75e99f4c364cde1...` (build tree `/tmp/dovi-build-s20.path`).  dovg
+seed 20 routed at 38,866 but failed the RAM clock by 1.5 ns; dovi 21/22
+and dovg 22/23 still fitting.  Hardware Speedometer set on the dovi
+seed 20 bitstream launched (`scratch/perf_dovi_seed20_20260915`),
+against the diet baseline 0.825.
