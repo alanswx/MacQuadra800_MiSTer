@@ -187,3 +187,20 @@ real diffs (both identical to step C2, as the construction requires).
 Scripts committed as `scripts/cpu/handover_descriptor_all_retires.py`
 (step C2) and `scripts/cpu/reduce_decode_body.py` (step D); Sieve, boot
 A/B, Speedometer sim and diet-base fits at seeds 20 and 22 running.
+
+## Step C3: one handover site (2026-09-15)
+
+The step C fits answered the routing question: 46,876 / 46,850 ALMs at
+seeds 20 / 22 against the diet base's 38,482, over the device.
+`fetch_next` is inlined at its 83 call sites, and `apply_record` inside
+it became 83 copies of the 25-field record mux into the `p_*`
+registers.  Step C3 (`scripts/cpu/handover_single_site.py`, on top of
+step D) takes the handover out of `fetch_next` and puts it in the one
+lookahead arm after the state case, keyed on `rd_queue_pop`, which only
+`fetch_next`'s pop branch sets, so every retire site is still covered
+from a single mux: `if (rd_valid && (S_DECODE || rd_queue_pop &&
+n_desc_ok)) dispatch_reg_decode; else if (rd_queue_pop && n_apply_ok)
+apply_record;`.  AP 11/11, latency 1,938, corpus 33,335,739 with 0 real
+diffs (cycle-identical to C2 and D, as it must be); boot A/B,
+Speedometer sim and diet-base fits at seeds 20, 21, 22 running
+(`/tmp/dovg-cand.*`).
