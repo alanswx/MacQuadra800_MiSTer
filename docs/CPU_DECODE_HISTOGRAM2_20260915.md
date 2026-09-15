@@ -71,3 +71,26 @@ the base register into the hint (`rf_capture_a`) would add a mux to the
 hint-to-acknowledge path, the design's worst; hinting from the producer's
 retire cycle needs the base before its port is selected.  Fits stopped;
 boot A/B and simulated Speedometer left running for the record.
+
+### rm3: the same lookahead with a base-only landing guard
+
+`hint_ext_ok` and `ea_start`'s inline paths were gated on any register
+write landing (`!rf_we`); rm3 gates them on a write landing *to the base
+register* (`base_landing = rf_we && rf_waddr == rr_a`, a 4-bit compare
+into the qualifier, no data mux), since a write to another register
+leaves port A correct.  AP 11/11, corpus 33,788,472, Sieve identical,
+latency fixture **2,013** (checkpoint 14: 2,037; rm2: 2,061): the
+lookahead-dispatched operand keeps its two-clock hit.  Boot A/B,
+simulated Speedometer and fits running.
+
+Boot A/B of rm3: 75,833,599 dispatches (checkpoint 14: 75,840,887),
+1.04 M fewer decode entries but +0.64 M cycles of demand fetches and
++0.42 M of store waits in that ROM-heavy bracket.  Fits at seeds 22 and
+20 failed routing (39,596 / 39,503 ALMs, +183 over checkpoint 14), and a
+seed 22 fit with `PLACEMENT_EFFORT_MULTIPLIER 2.0`,
+`ROUTER_EFFORT_MULTIPLIER 2.0` and `ROUTER_TIMING_OPTIMIZATION_LEVEL
+MAXIMUM` (an experiment in the build tree, not in the profile) failed the
+same way in 17 minutes: fitter effort does not rescue routing at this
+utilisation; only the seed does (checkpoint 14 routed at 1 of 2 seeds,
+the cache build at 1 of 3, the fold-only stack at 0 of 4).  Any accepted
+candidate from here needs a walk of about six seeds in parallel.
