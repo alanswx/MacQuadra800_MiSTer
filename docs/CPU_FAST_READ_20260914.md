@@ -226,3 +226,9 @@ the request bus from the RAM address paths.  Behaviour identical by
 construction (the boot must reproduce 80,480,432); AP, latency, corpus,
 boot and fits at seeds 20 and 22 running, with dovm seeds 31 and 32 and
 the aggressive-area experiment still in the walk.
+
+dovn (dovm with the step C2 descriptor bound): CPU Mix **0.864**
+against dovm's 0.861 (+0.3 %; Dhrystones 10,725/s, Towers 1.175 s,
+Int. Matrix 1.000 s), the same margin C2 showed on checkpoint 15.  The
+bound is a one-line change and folds into whichever structure closes a
+seed; it is not given its own walk.
