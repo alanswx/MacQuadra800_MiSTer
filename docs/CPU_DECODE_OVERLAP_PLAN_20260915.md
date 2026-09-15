@@ -280,3 +280,13 @@ Step A closed: the DECODE_CHECK run over the full simulated Speedometer
 bracket (step A core, record unused) reports **0 mismatches** after the
 boot's 0, so the record equals the body for every record-class opcode
 the benchmark executes.
+
+## Simulated Speedometer: step B with the landing guard (dovc)
+
+CPU Mix **0.834** (checkpoint 14: 0.811; rm3, the guard alone: 0.820):
+KWhetstones 613.8/s, Dhrystones 9,918/s, Towers 1.232 s, Quick Sort
+0.843, Bubble Sort 0.921, Queens 0.704, Puzzle 1.640, Permutations
+1.955, Int. Matrix 1.043, Sieve 1.291 s.  The record handover at the
+producers' retire is worth about 1.7 % on top of the guard in the
+benchmark bracket (the boot's ROM-heavy bracket showed 0.3 %).  Step C
+(dovd) and C2 (dove) sims still running.
