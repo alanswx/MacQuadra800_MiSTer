@@ -75,3 +75,19 @@ the retire-to-dispatch path; the risk is the record's muxes into the
 the decoder duplicates part of the `S_DECODE` body until that body is
 reduced to the decode-in-place set (step C removes it), so steps A and B
 need the diet's headroom.
+
+## Step A, first result (2026-09-15)
+
+`scripts/cpu/gen_decode_record.py` rewrites the `S_DECODE` body into a
+combinational record over the queue head (`n_*` with per-field valid
+flags, `n_next` naming the pipe entry: pipe start, pipe registers,
+immediate then pipe start, immediate to register; `n_inplace` for
+everything that starts a special state, raises an exception or calls any
+other task).  1,106 generated lines, 25 fields.  Under `DECODE_CHECK`
+the record computed in the decode cycle is compared with the registers
+the body wrote.  Boot A/B with the check on: the machine boots
+identically (75,840,887 dispatches, the record is unused), and the only
+mismatches (92,335) were the port select of the immediate-to-register
+class when the immediate was not yet resident, where the body defers the
+select to a later state; the check now ignores that case.  The check
+runs again over the boot and the Speedometer bracket.
