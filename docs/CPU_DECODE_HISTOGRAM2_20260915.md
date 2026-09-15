@@ -94,3 +94,10 @@ same way in 17 minutes: fitter effort does not rescue routing at this
 utilisation; only the seed does (checkpoint 14 routed at 1 of 2 seeds,
 the cache build at 1 of 3, the fold-only stack at 0 of 4).  Any accepted
 candidate from here needs a walk of about six seeds in parallel.
+
+Simulated Speedometer: rm2 (lookahead alone) 983.6 M cycles, slower, as
+the checkpoint 9 hardware said; **rm3 CPU Mix 0.820 against checkpoint
+14's 0.811** (Dhrystones 9616/s, Puzzle 1.641 s, Int. Matrix 1.056 s;
+the bracket's cycle and dispatch totals are not comparable, the driver's
+polling window differed).  rm3 is a candidate for the diet build's seed
+walk; its own fits at seeds 22 and 20 failed routing.
