@@ -99,4 +99,21 @@ for the fit's timing.
 
 ## Gates run on the result
 
-(filled in as the steps land)
+- CPU-only, every step: AP suite 11/11, `bench_loop` 94,368 / 95,166,
+  first-100 corpus 33,335,739 cycles with 0 REAL diffs (unchanged from
+  Alan's checkpoint 15).
+- Full-machine Verilator (R1..R6, `verilator/` rebuilt, pristine ROM,
+  `/c/Temp/MacAtrium_Sys-QT_761.hda`): "Welcome to Macintosh" at 10 guest
+  seconds, the System 7.6.1 Finder desktop (volume, Trash, menu bar) at
+  20 guest seconds (`scratch/sim761_f1200.png`); the heartbeat PCs match
+  the pre-R5/R6 binary's run at every 100 M cycles.
+- Fit, R1..R6, seed 21, release recipe: 37,189 ALMs (89 %), 497 M10K,
+  timing NOT met -- the 33 MHz CPU clock misses by 4.063 ns on
+  `rr_a -> regfile -> hint adder -> mem_addr -> MMU hit copy -> cache ->
+  store-buffer acknowledge -> finish_bcc -> (go_pc/decode_dbcc_brf carrier)
+  -> refill-seed loop -> tail adder -> epf_ftail`.  R5/R6 in their first
+  form loaded the redirect target into the carrier at the call site, so
+  the acknowledge that decides between the two redirect bodies became the
+  select of the target mux and the whole seed cone ran after it.  Fix in
+  hand: the target is formed from registers by the current state
+  (`go_pc_t_early`, `dbrf_a_early`) and the carrier is enable-only.

@@ -157,6 +157,10 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # 2026-09-15: Alan's checkpoint 15 (AP68040 167c5e8) + the six task hoistings
 # (wombat-area-diet R1..R6, docs/cpu-area-consolidation.md): synthesis est.
 # 41,919 -> ~37,700 ALMs on this recipe; seed walk from 21.
+# R1..R6 seed 21: fits in 37,189 ALMs (89 %) but the CPU clock misses by 4.063 ns
+# (rr_a -> hint adder -> MMU -> cache/store-buffer ack -> finish_bcc -> the
+# hoisted go_pc/decode_dbcc_brf seed loop -> epf_ftail: the carrier put the
+# refill-seed cone behind the acknowledge).  Next fit: R1..R4 (8778213).
 set_global_assignment -name SEED 21
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
