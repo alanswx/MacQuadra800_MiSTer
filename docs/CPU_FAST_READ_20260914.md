@@ -214,3 +214,15 @@ checkpoint 15's 0.839 (+2.6 %): KWhetstones 625.4/s, Dhrystones
 1.002, Sieve 1.267 s; bracket 1,003.2 M cycles for 216.2 M dispatches
 (4.64 clocks per dispatch, from 4.81).  On hardware that is about 0.88
 if a seed closes.
+
+Seed 30 failed routing too (0 of 10; 23 hung silent like dovi's seed 22
+and was stopped).  One structural suspect is the request/hint mux the
+port left in front of every cache RAM address input (`x_addr = c_req ?
+c_addr : c_hint_addr`, about fifty address bits over four data arrays
+and the tag array): the core already repeats a presented request on the
+hint bus, so `dovq` indexes the RAMs from the hint bus alone, which is
+the same value whenever it matters and removes the mux and a fan-in of
+the request bus from the RAM address paths.  Behaviour identical by
+construction (the boot must reproduce 80,480,432); AP, latency, corpus,
+boot and fits at seeds 20 and 22 running, with dovm seeds 31 and 32 and
+the aggressive-area experiment still in the walk.
