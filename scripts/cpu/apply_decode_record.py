@@ -16,7 +16,13 @@ apply = "// Step B: enter the next instruction from the decode record at a produ
         "wire [31:0] n_immv = (n_immn == 2'd2) ? {rd_w1, rd_w2} : {16'd0, rd_w1};\n" \
         "wire        n_words_ok = ((n_next == NX_IMMF_PSTART) || (n_next == NX_IMMREG)) ?\n" \
         "                         (epf_count >= (4'd1 + {2'd0, n_immn})) : 1'b1;\n" \
-        "wire        n_apply_ok = !rd_valid && !n_inplace && (n_next != NX_NONE) && n_words_ok;\n" \
+        "// The pipe start's source-memory paths read port A unforwarded (decode\n" \
+        "// selected it a cycle earlier, so any landing write had landed); a record\n" \
+        "// applied at a producer's retire enters the pipe start while that write\n" \
+        "// lands, so a producer writing the record's base register defers the\n" \
+        "// record to S_DECODE (the memory-source lookahead's rule).\n" \
+        "wire        n_base_hazard = (regs_alu_fire || shift_fire) && !p_wbsup && (p_dreg == n_rr_a);\n" \
+        "wire        n_apply_ok = !rd_valid && !n_inplace && (n_next != NX_NONE) && n_words_ok && !n_base_hazard;\n" \
         "task apply_record;\n\tbegin\n"
 for f in RECORD:
     apply += f"\t\tif (n_{f}_v) {f} <= n_{f};\n"

@@ -109,3 +109,13 @@ flags.  Any record value taken from the condition codes or the status
 register is stale at a producer's retire; the generator now decodes
 those instructions in place (MOVE from SR, MOVE from CCR).  Gates
 rerunning.
+
+Second run (condition codes in place): the first failure moved from
+test 3 to test 207.  A cycle trace: ADDA.L (A1)+,A1 applied at the retire
+of MOVEA.L A0,A1 entered `S_PIPE_START` while the MOVEA's write to A1 was
+landing, and the pipe start's source-memory path read port A unforwarded
+(decode had always selected it a cycle earlier, so a landing write had
+always landed).  The apply now defers to `S_DECODE` when the retiring
+producer writes the record's base register (`n_base_hazard`, the
+memory-source lookahead's own rule).  Third version: AP 11/11; corpus,
+Sieve, latency, boot A/B, Speedometer sim and fits running.
