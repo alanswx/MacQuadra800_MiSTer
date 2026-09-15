@@ -95,3 +95,26 @@ AP 11/11, corpus 33,705,557 (0 REAL diffs), boot A/B **75,717,560
 dispatches** (+0.6 % over the shift candidate, +0.8 % over checkpoint
 10), no faults.  Simulated Speedometer and the seed 20 fit running; the
 hardware step follows the cache-only build's measurement.
+
+### stack2 fit (v5 + 16 KB caches, seed 20): -1.226 ns on the CPU clock
+
+TNS -42.9 ns over many paths, 39,528 ALMs.  The worst path is the
+hint-to-acknowledge chain (`pc` -> queue compare -> `issue_ifetch` ->
+`hint_pipe_dst` -> `mem_addr` -> MMU `lk_fresh`/`need_walk` -> store
+buffer -> cache `c_ack` -> `fetch_next` -> `brf_seed_n` -> nine levels of
+`mem_addr_q` mux -> `mem_addr_q` enable), 30.8 ns of data path.  The
+four in-place issue extensions (mrd from `S_DECODE` and `S_UNLK1`, mwr
+from `S_JSR1` and `S_LINK2`) each add a source to that mux.  Version 6
+drops them and keeps the state folds: RTS still issues from decode into
+`S_MRD`'s own setup cycle (S_RET1 gone, -1), LINK keeps -2 (S_LINK1,
+S_LINK3), UNLK -2 (S_UNLK2, and S_UNLK3 folded into the acknowledge),
+JSR is unchanged.
+
+### stack3 (v6 + 16 KB caches v2)
+
+`/tmp/stack3-cand.*`, core a4c0d07c: AP 11/11, corpus 33,738,108 (0 REAL
+diffs; the cache base is 33,738,226), Sieve identical to the cache base at
+all offsets, latency 2,037 (cache base 2,044).  Boot A/B **75,700,859
+dispatches** (stack2 with the in-place issues: 75,717,560, so those were
+worth 0.02 % of the boot bracket; cache base 75,584,400), no faults.
+Simulated Speedometer and fits at seeds 20 and 22 running.

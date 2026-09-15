@@ -1,6 +1,6 @@
 # CPU performance task list and recovery record
 
-HANDOFF: `docs/CPU_CACHE16K_20260914.md` (with `docs/CPU_SHIFT_RETIRE_20260914.md`)
+HANDOFF: `docs/CPU_XLINE_20260915.md` (with `docs/CPU_CTRL_FLOW_20260914.md`)
 is the latest checkpoint;
 `docs/CPU_SPEEDOMETER_PROFILE_20260914.md` is the workload profile that
 directs the next step.
@@ -77,13 +77,30 @@ directs the next step.
    -14 %, instruction fills -14 %. The hardware gain is well above the
    boot-bracket estimate; the Speedometer working sets (Sieve's 8 KB
    flags, the sort arrays) fit the larger cache where the boot's do not.
-   Next in the queue: the RTS/LINK/UNLK/JSR trims
-   (`docs/CPU_CTRL_FLOW_20260914.md`, stacked as `/tmp/stack2-cand`,
-   fitting) and the parked two-sector refill buffer
-   (`docs/CPU_BRF2_20260914.md`, +2,300 ALMs, needs a diet). The
-   simulator's Speedometer driver killed every simulator on the box each
-   time a run finished (`pkill -f` on the binary name); fixed in
+   The simulator's Speedometer driver killed every simulator on the box
+   each time a run finished (`pkill -f` on the binary name); fixed in
    `scripts/fixtures/sim_speedometer/run_speedometer_sim.sh`.
+13. RTS, LINK and UNLK bookkeeping states folded
+   (`docs/CPU_CTRL_FLOW_20260914.md`; AP `f526690`, core a4c0d07c): boot
+   A/B +0.25 %, corpus -0.1 %; measured on hardware only together with
+   14. Two withdrawn versions taught two rules: a redirect from inside
+   an acknowledge cycle is deferred to the fill engine and never seeds
+   the branch refill sector; and every in-place issue site is a source
+   on the mem_addr_q mux of the hint-to-acknowledge path (-1.2 ns for
+   four of them).
+14. Line-crossing data reads served from the cache, second line filled
+   on a miss (`docs/CPU_XLINE_20260915.md`; AP `4632da4`, cache e920ab5f): **0.829/0.831/0.831**, mean
+   0.830, **+6.59 %** over 12 and **+79.1 %** over 0.4635, three valid
+   runs, no anomaly (`scratch/perf_stack4_seed22_20260915`). Seed 22 with
+   `VIDEO_512_OFF`, 39,413 ALMs (94 %), all TNS zero, worst slack
+   +0.133 ns (HDMI); seed 20 failed routing, and the fold-only stack
+   failed at seeds 21/22/24 (routing or one HDMI path). Every test
+   moved: Dhrystones 9190 -> 9461/s, KWhetstones 571 -> 625/s, Int.
+   Matrix 1.31 -> 1.08 s, Puzzle 1.92 -> 1.66 s, Towers 1.29 -> 1.22 s.
+   Parked for area: the two-sector refill buffer
+   (`docs/CPU_BRF2_20260914.md`, +2,300 ALMs). Next: the reads waiting
+   behind pending stores (49.6 M cycles in the bracket), the remaining
+   decode entries, and the demand fetches after taken branches.
 Target remains about 1.9 (4x); the user's current bar is CPU Mix above 1.0.
 Parked: the one-clock data-read hit (`docs/CPU_FAST_READ_20260914.md`):
 the shared-bus version fails timing by 6.6 ns, the hint-bus version does
