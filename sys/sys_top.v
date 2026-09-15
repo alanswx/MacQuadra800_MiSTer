@@ -1197,6 +1197,14 @@ cyclonev_hps_interface_peripheral_i2c hdmi_i2c
 	wire [23:0] hdmi_data_osd;
 	wire        hdmi_de_osd, hdmi_vs_osd, hdmi_hs_osd;
 
+	`ifdef MISTER_DISABLE_HDMI_OSD
+	// Development builds only (CPU work at 92 % of the device): no OSD
+	// overlay on the HDMI output; the video passes straight through.
+	assign hdmi_data_osd = hdmi_data_mask;
+	assign hdmi_hs_osd   = hdmi_hs_mask;
+	assign hdmi_vs_osd   = hdmi_vs_mask;
+	assign hdmi_de_osd   = hdmi_de_mask;
+	`else
 	osd hdmi_osd
 	(
 		.clk_sys(clk_sys),
@@ -1216,6 +1224,7 @@ cyclonev_hps_interface_peripheral_i2c hdmi_i2c
 		.vs_out(hdmi_vs_osd),
 		.de_out(hdmi_de_osd)
 	);
+	`endif
 
 	wire hdmi_cs_osd;
 	csync csync_hdmi(clk_hdmi, hdmi_hs_osd, hdmi_vs_osd, hdmi_cs_osd);
@@ -1417,6 +1426,15 @@ scanlines #(0) VGA_scanlines
 
 wire [23:0] vga_data_osd;
 wire        vga_vs_osd, vga_hs_osd, vga_de_osd;
+`ifdef MISTER_DISABLE_VGA_OSD
+// Development builds only: no OSD overlay on the analog output (and no
+// OSD-open status to the core); the video passes straight through.
+assign vga_data_osd = vga_data_sl;
+assign vga_hs_osd   = vga_hs_sl;
+assign vga_vs_osd   = vga_vs_sl;
+assign vga_de_osd   = vga_de_sl;
+assign osd_status   = 1'b0;
+`else
 osd vga_osd
 (
 	.clk_sys(clk_sys),
@@ -1437,6 +1455,7 @@ osd vga_osd
 	.vs_out(vga_vs_osd),
 	.de_out(vga_de_osd)
 );
+`endif
 
 wire vga_cs_osd;
 csync csync_vga(clk_vid, vga_hs_osd, vga_vs_osd, vga_cs_osd);
