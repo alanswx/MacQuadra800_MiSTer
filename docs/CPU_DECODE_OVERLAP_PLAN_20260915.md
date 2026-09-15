@@ -227,3 +227,13 @@ ROM-heavy bracket.  Whether that holds in the Speedometer bracket
 Speedometer sims decide; `dovi` (the C3/D structure with step C's
 producer-bounded descriptor dispatch) is prepared for either outcome:
 AP, corpus and boot running.
+
+dovi: AP 11/11, corpus 33,335,739 with 0 real diffs, boot A/B
+76,218,560 dispatches with every state count equal to step C's: the
+C3/D structure reproduces step C exactly when the descriptor dispatch
+keeps step C's producer bound.  Two exact candidates now exist for the
+Speedometer decision: dovi (step C semantics) and dovg (step C2
+semantics); the dovd and dove Speedometer sims stand for them, and
+diet-base fits of both are running (dovg seeds 20, 21, 22; dovi seeds
+20, 22).  The redundant sims (dovf, dovg, dovh, dovi Speedometer; dovb)
+were stopped.
