@@ -214,3 +214,16 @@ cycle-identically to C2 (76,043,525, every state count equal), as
 required; its Speedometer sim was stopped as redundant.  `dovh` (C3
 with the guard removed from the record apply only, the step C
 semantics for records) separates the two: AP 11/11, boot running.
+
+Step C3 (dovg) boots cycle-identically to C2 and D (76,043,525).  dovh
+(the guard off the record apply) differs from C2 by four records: the
+system-state guard is irrelevant; the boot loss is the descriptor
+dispatch at every retire.  Against step C the boot profile shows the
+rm3 pattern: `S_DECODE` -582 K cycles, `S_FETCH` +401 K, `S_MWR`
++249 K, `S_PIPE_START` -148 K.  The decode cycle after a read or store
+retire was the fetch engine's slot and the store drain's slot in this
+ROM-heavy bracket.  Whether that holds in the Speedometer bracket
+(I-cache resident, RAM stores) is what the dovd (step C) and dove (C2)
+Speedometer sims decide; `dovi` (the C3/D structure with step C's
+producer-bounded descriptor dispatch) is prepared for either outcome:
+AP, corpus and boot running.
