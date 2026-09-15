@@ -25,9 +25,28 @@ recipe keeps everything):
 Measured: checkpoint 14's RTL fits at seed 22 with **38,482 ALMs
 (91.8 %)**, 931 fewer than without the diet, all TNS zero, worst slack
 +0.186 ns (RAM clock), HDMI +0.353, CPU +0.569; RBF
-`5c88b7ea9845ba16...`.  Hardware run of that build: pending (expected
-identical to checkpoint 14's 0.830; the run also confirms the machine
-boots and benchmarks without the two blocks).
+`5c88b7ea9845ba16...`.  Hardware, two sets on that build
+(`scratch/perf_diet_seed22_20260915`, `_set2`): 0.824 / invalid / 0.826
+and 0.824 / 0.826 / 0.826, five valid runs, mean **0.825**, against
+0.829 / 0.831 / 0.831 for the identical CPU in the checkpoint 14 build.
+The machine boots and benchmarks normally without audio and video
+measurement.  The one invalid run is the known negative-time anomaly
+(1 of 6 here).
+
+The 0.5 % is uniform across all ten tests (Dhrystones 9409 against
+9461/s, KWhetstones 619 against 624/s, Towers 1.230 against 1.223 s) with
+cycle-identical CPU logic, so it is a property of the bitstream, not of
+the RTL: the likeliest place is the 33 to 99 MHz SDRAM handoff, whose
+latency on some transfers can depend on placement if a crossing is not
+constrained as a fixed multi-cycle path (the cross-domain survey of
+2026-09-14 looked at its margin against the negative-time runs, not
+against throughput).  Two consequences: comparisons across bitstreams
+carry about half a percent of placement noise (the memory-source
+lookahead's 0.6 % hardware loss at checkpoint 9 was inside it), and the
+diet base's own baseline is **0.825**, which is what candidates built on
+it compare against.  The handoff itself is worth a look as a candidate
+in its own right: a deterministic crossing would recover the half
+percent on unlucky placements and remove one source of the anomaly.
 
 Still on the table if more is needed: the SCC's second channel and its
 FIFOs (400 to 600 ALMs, needs the boot's serial probing checked), the

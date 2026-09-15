@@ -89,8 +89,9 @@ the body wrote.  Boot A/B with the check on: the machine boots
 identically (75,840,887 dispatches, the record is unused), and the only
 mismatches (92,335) were the port select of the immediate-to-register
 class when the immediate was not yet resident, where the body defers the
-select to a later state; the check now ignores that case.  The check
-runs again over the boot and the Speedometer bracket.
+select to a later state; the check now ignores that case.  Second
+check run over the boot: **0 mismatches** in 75.8 M dispatches; the
+Speedometer bracket check is running.
 
 ## Step B, first result (2026-09-15)
 
