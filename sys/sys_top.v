@@ -1433,7 +1433,6 @@ assign vga_data_osd = vga_data_sl;
 assign vga_hs_osd   = vga_hs_sl;
 assign vga_vs_osd   = vga_vs_sl;
 assign vga_de_osd   = vga_de_sl;
-assign osd_status   = 1'b0;
 `else
 osd vga_osd
 (
@@ -1772,7 +1771,11 @@ wire uart_rts;
 wire uart_rxd;
 wire uart_txd;
 
+`ifdef MISTER_DISABLE_VGA_OSD
+wire osd_status = 1'b0;   // no OSD: never reported open to the core
+`else
 wire osd_status;
+`endif
 
 wire        fb_en;
 wire  [4:0] fb_fmt;
