@@ -238,3 +238,34 @@ Area-synthesis experiment (build tree only: `OPTIMIZATION_MODE
 explicit balanced technique having overridden the mode alone): 38,468
 ALMs against 38,650, and the seed 22 fit still fails routing.  Not a
 lever at this size.
+
+## The real worst path, and dovr (2026-09-15)
+
+With the OSD overlays out (`CPU_AREA_DIET_20260915.md`, 37,536 ALMs)
+dovq seed 20 routes and misses the CPU clock by 1.85 ns; the flow's
+STA rerun with `TIMEQUEST_REPORT_WORST_CASE_TIMING_PATHS ON` (the
+project setting; a bare `project_open` script analysed something else)
+shows the ten worst paths all from the MMU's ATC RAM or `mem_addr_q`
+to the core's `epf_ftail`, 30.9 ns of data delay: ATC RAM read -> hit
+compare -> pipe entry -> physical address -> the cache's hit and
+`c_rdata` mux -> core ALU -> flags -> next state -> the fetch queue's
+tail.  The one-clock acknowledge was still qualified by the request's
+live translation: `c_req` is the MMU's `m_req = pass_ok` (needs the ATC
+hit), `rd_accept` has `!bypass` (`c_nocache` from the translation), and
+`c_addr` is the translated address.  In the passing checkpoint 15 fit
+the same clock's worst paths are ordinary register-file-to-state paths
+at +0.19 ns, so the 2 ns is the fast hit's own.
+
+dovr removes the translation from the fast hit: the MMU registers the
+hint's cacheability and read protection into `hq_ok` (TTR cache mode,
+entry CM bit, supervisor-only pages never vouch), and the cache's
+`fast_hit` uses `fast_accept` (idle state, no acknowledge pending, a
+data read, D-cache enabled, no invalidate pending) with `c_hint_match`
+carrying "a request is presented, it is the registered hint, it
+translated, it is cacheable and readable", the lane check, the index
+and tag-row compares and the data offset all taken from the hint bus
+(`c_hint_addr`, which repeats the registered request address), never
+from `c_req`, `bypass`, `ipred_hit` or `c_addr`.  Behaviour: the same
+reads hit in one clock (a cache-inhibited or protected page never did),
+so the boot must reproduce 80,480,432.  AP, latency, corpus, boot and
+no-OSD fits at seeds 20 and 22 (with path tables) running.
