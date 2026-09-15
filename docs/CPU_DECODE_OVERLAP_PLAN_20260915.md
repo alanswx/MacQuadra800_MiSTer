@@ -298,3 +298,13 @@ seed 20 routed at 38,866 but failed the RAM clock by 1.5 ns; dovi 21/22
 and dovg 22/23 still fitting.  Hardware Speedometer set on the dovi
 seed 20 bitstream launched (`scratch/perf_dovi_seed20_20260915`),
 against the diet baseline 0.825.
+
+## Simulated Speedometer: step C (dovd, the dovi semantics)
+
+CPU Mix **0.839** (checkpoint 14: 0.811, +3.5 %; step B with the
+guard: 0.834): KWhetstones 615.5/s, Dhrystones 9,942/s, Towers
+1.223 s, Quick Sort 0.839, Bubble Sort 0.921, Queens 0.699, Puzzle
+1.601, Permutations 1.960, Int. Matrix 1.023, Sieve 1.291 s.  The
+handover at every retire adds 0.6 % over the producers-only handover in
+the benchmark bracket.  The hardware set on dovi seed 20 (this RTL's
+behaviour) is running; the step C2 sim (dove) is still to come.
