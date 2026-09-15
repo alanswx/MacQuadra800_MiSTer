@@ -318,7 +318,7 @@ int verilate() {
 						if (st == 9) { prof_mrd_cst[cst]++; prof_mrd_region[r]++; }
 						else         { prof_mwr_cst[cst]++; prof_mwr_region[r]++; }
 					}
-					if (SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__fast_hit) {
+					if (SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__idle_hit) {
 						if (SIMEMU->__PVT__machine__DOT__cpu__DOT__mem_instr) prof_fast_hit_i++;
 						else prof_fast_hit_d++;
 					}
