@@ -269,3 +269,7 @@ from `c_req`, `bypass`, `ipred_hit` or `c_addr`.  Behaviour: the same
 reads hit in one clock (a cache-inhibited or protected page never did),
 so the boot must reproduce 80,480,432.  AP, latency, corpus, boot and
 no-OSD fits at seeds 20 and 22 (with path tables) running.
+
+dovr gates: AP 11/11, latency 1,902, corpus 33,335,739 with 0 real
+diffs, boot A/B 80,480,432 with the state profile byte-identical to
+dovm's, as required.  No-OSD fits at seeds 20, 21, 22 running.
