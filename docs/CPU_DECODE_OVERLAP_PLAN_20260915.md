@@ -91,3 +91,21 @@ mismatches (92,335) were the port select of the immediate-to-register
 class when the immediate was not yet resident, where the body defers the
 select to a later state; the check now ignores that case.  The check
 runs again over the boot and the Speedometer bracket.
+
+## Step B, first result (2026-09-15)
+
+`scripts/cpu/apply_decode_record.py` adds `apply_record` (every record
+field with its valid flag into the `p_*` group, then the pipe entry; the
+immediate forms consume their words as the descriptor's immediate class
+does) and a new arm of the lookahead block: at an ALU, shift or store
+retire, when the head is not a descriptor class, the record is not
+in-place and its words are resident, the record is applied instead of
+entering `S_DECODE`.  First run: the AP integer and mmu tests and the
+corpus (308 diffs) failed on the descriptor-covered register classes.  A
+dispatch trace of the integer test showed the mechanism: an ADD applied
+by the record was correct, but the MOVE from CCR applied at the ADD's
+retire took `sr` before the ADD's flag write landed and read the old
+flags.  Any record value taken from the condition codes or the status
+register is stale at a producer's retire; the generator now decodes
+those instructions in place (MOVE from SR, MOVE from CCR).  Gates
+rerunning.

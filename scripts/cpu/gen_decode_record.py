@@ -60,6 +60,11 @@ def repl_assign(mo):
     name, sel, expr = mo.group(1), mo.group(2) or '', mo.group(3)
     if name in RECORD:
         if sel: sys.exit(f'bit-select assignment to record field {name}')
+        # a value taken from the condition codes or the status register is
+        # stale at a producer's retire (its flag write lands on that edge):
+        # such instructions decode in place
+        if re.search(r'\bsr\b', expr) or re.search(r'\bsr\[', expr):
+            return 'n_inplace = 1;'
         return f'begin n_{name} = {expr}; n_{name}_v = 1; end'
     return 'n_inplace = 1;'
 INPLACE_REGS = ['sr', 'md_isdiv', 'md_sign', 'mm_size', 'mm_predec', 'mm_postinc', 'mm_dir', 'm16_form',
