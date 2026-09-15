@@ -181,3 +181,16 @@ the 33 MHz clock network (8.6 ns launch against 7.2 ns latch on the
 worst path above).  That budget is spent on every build; whether the
 remaining routing closes is then the seed's luck, about one in four at
 this size.
+
+Seeds 27 and 28 failed routing, seed 29 routed and missed the CPU clock
+by 0.95 ns; the worst path there (TimeQuest re-run on the tree) runs
+`state[5] -> epf_count -> hint_pipe_dst -> the hint address -> mmu
+Equal1 (the hint-equals-request compare) -> lk_fresh -> pipe_ent ->
+m_addr -> store_buffer buffer_req -> cache c_ack -> core mwr ->
+mem_wdata enable`: the hint bus's own path into the acknowledge through
+the MMU's pipe entry (`hn_pipe`, the case where the hint translates
+through the request being resolved), about 22 ns of logic before the
+hold-fix delay the fitter added on the enable.  The re-run reports the
+hold-padded path at -18 ns where the flow's summary says -0.95, so the
+re-run's absolute numbers are not trusted, only the path shape.  Seeds
+30, 31, 32 and the aggressive-area experiment running.
