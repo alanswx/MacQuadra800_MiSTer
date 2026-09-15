@@ -53,3 +53,22 @@ FIFOs (400 to 600 ALMs, needs the boot's serial probing checked), the
 sound chip (308, risky), and `MISTER_DEBUG_NOHDMI` (the scaler, 1,800)
 only if the hardware runs move to a capture that does not need the
 framebuffer.
+
+## Second round: the OSD overlays (2026-09-15)
+
+The one-clock-hit candidate (`docs/CPU_FAST_READ_20260914.md`) failed
+routing or the CPU clock on 13 seeds at 38.65 to 38.87 K ALMs.  Per
+entity in the checkpoint 15 fit, the framework still carries two OSD
+overlay instances, `osd:hdmi_osd` 545 ALMs and `osd:vga_osd` 533, that
+the hardware runs never open (the screenshots read the scaler's
+framebuffer, upstream of the overlay; the guard deploys by `load_core`,
+not through the OSD).  `MISTER_DISABLE_HDMI_OSD` and
+`MISTER_DISABLE_VGA_OSD` (sys/sys_top.v) replace each instance by a
+pass-through of its video and tie the OSD-open status to zero; both are
+now in `configs/cpu_development.tcl` and never in a release build.
+Other candidates seen in the same table, kept for now: `scsi_cache`
+842 (disk slots would need a pass-through mode; the CD slot has one),
+`pll_hdmi_adj` + `pll_cfg_hdmi` 727 (the runtime HDMI PLL
+reconfiguration; stubbing it fixes the HDMI mode at the compile-time
+default, untested), `scc` 635, `easc` 242.  Fits of the candidate with
+the OSDs out at seeds 22 and 20 running.
