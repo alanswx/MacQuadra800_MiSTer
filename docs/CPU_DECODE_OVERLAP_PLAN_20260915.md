@@ -263,3 +263,15 @@ the descriptor for those classes; a DECODE_CHECK boot on the step C2
 core with both guards opened and the descriptor disabled (`dovchk2`)
 compares the record with the body's own decode of them.  AP, corpus,
 boots and a seed 22 fit of dovj running.
+
+Step E withdrawn: the corpus of both variants hung at `B1C9` (CMPA.L
+A1,A0).  The body's register-form leaves were removed when the
+descriptor was introduced (submodule commit 9ecf647, "Compact shared
+CPU decode"), so opening the guards makes the record decode those
+opcodes through the memory-form branches.  Re-creating the leaves from
+the descriptor's own fields would merge two mux sources into one and
+save little; re-creating them from the pre-9ecf647 body would give
+back the logic the descriptor compacted.  The record stays at about
++420 ALMs over the diet base, and the candidates go through a seed
+walk instead: dovg (C2 semantics) seeds 20, 22, 23 and dovi (C
+semantics) seeds 20, 21, 22 running.
