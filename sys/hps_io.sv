@@ -217,6 +217,11 @@ end
 /////////////////////////////////////////////////////////
 
 wire [15:0] vc_dout;
+`ifdef MISTER_DISABLE_VIDEO_CALC
+// Development profile: no video measurement (the OSD's video info and
+// the vsync_adjust source read zeros), about 260 ALMs.
+assign vc_dout = 16'd0;
+`else
 video_calc video_calc
 (
 	.clk_100(HPS_BUS[43]),
@@ -234,6 +239,7 @@ video_calc video_calc
 	.par_num(byte_cnt[4:0]),
 	.dout(vc_dout)
 );
+`endif
 
 /////////////////////////////////////////////////////////
 

@@ -364,7 +364,9 @@ always@(posedge clk_sys) begin
 	sl_r <= FB_EN ? 2'b00 : scanlines;
 
 `ifndef MISTER_DEBUG_NOHDMI
+	`ifndef MISTER_DISABLE_SHADOWMASK
 	shadowmask_wr <= 0;
+	`endif
 `endif
 
 	if(~io_uio) begin
@@ -500,7 +502,9 @@ always@(posedge clk_sys) begin
 				endcase
 			end
 `ifndef MISTER_DEBUG_NOHDMI
+			`ifndef MISTER_DISABLE_SHADOWMASK
 			if(cmd == 'h3E) {shadowmask_wr,shadowmask_data} <= {1'b1, io_din};
+			`endif
 			if(cmd == 'h40) begin
 				case(cnt[3:0])
 					0: io_dout_sys <= {arxy, arx};
@@ -1153,6 +1157,18 @@ cyclonev_hps_interface_peripheral_i2c hdmi_i2c
 	wire [23:0] hdmi_data_mask;
 	wire        hdmi_de_mask, hdmi_vs_mask, hdmi_hs_mask;
 
+	`ifdef MISTER_DISABLE_SHADOWMASK
+	// Match shadowmask's C1..C5 latency for RGB and all raster qualifiers.
+	// Keep framebuffer forced blanking before the still-enabled OSD.
+	reg [26:0] mask_bypass[0:4];
+	integer mask_bypass_idx;
+	always @(posedge clk_hdmi) begin
+		mask_bypass[0] <= {dis_output ? 24'd0 : hdmi_data, hdmi_vs, hdmi_hs, hdmi_de};
+		for (mask_bypass_idx = 1; mask_bypass_idx < 5; mask_bypass_idx = mask_bypass_idx + 1)
+			mask_bypass[mask_bypass_idx] <= mask_bypass[mask_bypass_idx-1];
+	end
+	assign {hdmi_data_mask, hdmi_vs_mask, hdmi_hs_mask, hdmi_de_mask} = mask_bypass[4];
+	`else
 	reg [15:0] shadowmask_data;
 	reg        shadowmask_wr = 0;
 
@@ -1176,6 +1192,7 @@ cyclonev_hps_interface_peripheral_i2c hdmi_i2c
 		.vs_out(hdmi_vs_mask),
 		.de_out(hdmi_de_mask)
 	);
+	`endif
 
 	wire [23:0] hdmi_data_osd;
 	wire        hdmi_de_osd, hdmi_vs_osd, hdmi_hs_osd;
@@ -1577,6 +1594,16 @@ pll_audio pll_audio
 );
 
 wire spdif;
+`ifdef MISTER_DISABLE_AUDIO_OUT
+// Development profile: no audio path at all (audio_out, its filters,
+// mixers, DC blockers, I2S and SPDIF encoders), about 850 ALMs.  The
+// HDMI audio pins idle and the analog outputs are silent.
+assign HDMI_SCLK = 0; assign HDMI_LRCLK = 0; assign HDMI_I2S = 0;
+assign spdif = 0;
+`ifndef MISTER_DUAL_SDRAM
+assign analog_l = 0; assign analog_r = 0;
+`endif
+`else
 audio_out audio_out
 (
 	.reset(reset | areset),
@@ -1614,6 +1641,7 @@ audio_out audio_out
 `endif
 	.spdif(spdif)
 );
+`endif
 
 
 `ifndef MISTER_DISABLE_ALSA
