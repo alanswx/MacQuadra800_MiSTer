@@ -204,3 +204,13 @@ apply_record;`.  AP 11/11, latency 1,938, corpus 33,335,739 with 0 real
 diffs (cycle-identical to C2 and D, as it must be); boot A/B,
 Speedometer sim and diet-base fits at seeds 20, 21, 22 running
 (`/tmp/dovg-cand.*`).
+
+Boot A/B: step C2 (dove) 76,043,525 dispatches in the bracket against
+step C's 76,218,560, with fewer decode entries (51.7 M against 52.1 M):
+the descriptor dispatch at every retire and the system-state guard on
+both handovers were introduced together, and one of them costs more
+than the other gains in this ROM-heavy bracket.  Step D (dovf) boots
+cycle-identically to C2 (76,043,525, every state count equal), as
+required; its Speedometer sim was stopped as redundant.  `dovh` (C3
+with the guard removed from the record apply only, the step C
+semantics for records) separates the two: AP 11/11, boot running.
