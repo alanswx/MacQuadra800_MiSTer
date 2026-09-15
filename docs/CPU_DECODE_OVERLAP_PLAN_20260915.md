@@ -275,3 +275,8 @@ back the logic the descriptor compacted.  The record stays at about
 +420 ALMs over the diet base, and the candidates go through a seed
 walk instead: dovg (C2 semantics) seeds 20, 22, 23 and dovi (C
 semantics) seeds 20, 21, 22 running.
+
+Step A closed: the DECODE_CHECK run over the full simulated Speedometer
+bracket (step A core, record unused) reports **0 mismatches** after the
+boot's 0, so the record equals the body for every record-class opcode
+the benchmark executes.
