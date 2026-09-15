@@ -237,3 +237,29 @@ semantics); the dovd and dove Speedometer sims stand for them, and
 diet-base fits of both are running (dovg seeds 20, 21, 22; dovi seeds
 20, 22).  The redundant sims (dovf, dovg, dovh, dovi Speedometer; dovb)
 were stopped.
+
+## Step D's area, and step E (2026-09-15)
+
+The step C3 fit at seed 21 needed **38,902 ALMs** (diet base 38,482,
+step B 38,981) and failed routing: the body reduction recovered
+nothing measurable, so the fitter had already shared the record's
+expressions with the body's, and the remaining 420 ALMs are the
+record's own: its 25 fields as one more source into each `p_*`
+register, the immediate mux, the handover arm.  Per entity the core's
+own combinational ALUTs are +412 (27,649 against 27,237), registers
+equal.
+
+Step E (`scripts/cpu/retire_descriptor.py`) removes the older
+register-class descriptor (`rd_valid`, `dispatch_reg_decode`, one more
+source into every `p_*` register plus its own field logic), which the
+record subsumes: the record block's `if (rd_valid) begin end` guards
+are opened so the record decodes those classes from the body's original
+leaves, and the single handover arm applies the record alone.  Two
+bounds: `c` keeps step C's semantics (the former descriptor classes
+hand over at ALU/shift/store producers only, `dovj`), `c2` hands every
+record over at every retire (`dovk`).  Their boots should reproduce
+dovi's 76,218,560 and dovg's 76,043,525 exactly if the record equals
+the descriptor for those classes; a DECODE_CHECK boot on the step C2
+core with both guards opened and the descriptor disabled (`dovchk2`)
+compares the record with the body's own decode of them.  AP, corpus,
+boots and a seed 22 fit of dovj running.
