@@ -181,3 +181,9 @@ deferred `S_IMMF` case are unchanged.  378 statements removed, 179 kept
 on in-place paths; the body's comments are lost in the regenerated text
 (the history keeps them).  Cycle behaviour is unchanged by construction;
 the gates check it (`/tmp/dovf-cand.*`).
+
+Step D first results: AP 11/11, latency 1,938, corpus 33,335,739 with 0
+real diffs (both identical to step C2, as the construction requires).
+Scripts committed as `scripts/cpu/handover_descriptor_all_retires.py`
+(step C2) and `scripts/cpu/reduce_decode_body.py` (step D); Sieve, boot
+A/B, Speedometer sim and diet-base fits at seeds 20 and 22 running.
