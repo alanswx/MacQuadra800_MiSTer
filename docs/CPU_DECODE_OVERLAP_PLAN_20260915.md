@@ -120,3 +120,12 @@ always landed).  The apply now defers to `S_DECODE` when the retiring
 producer writes the record's base register (`n_base_hazard`, the
 memory-source lookahead's own rule).  Third version: AP 11/11; corpus,
 Sieve, latency, boot A/B, Speedometer sim and fits running.
+
+Third version (base-register hazard deferred): AP 11/11, corpus
+33,348,379 (checkpoint 14: 33,738,108, -1.2 %), latency 2,020, Sieve
+identical, boot A/B 75,940,170 dispatches (+0.13 %; 4.1 M of the boot's
+57.1 M decode entries removed, most of the saving absorbed by the fetch
+and read states in that ROM-heavy bracket).  With rm3's base-only
+landing guard on top (`/tmp/dovc-cand.*`): AP 11/11, corpus
+33,345,713, latency **1,967**, boot A/B **76,100,398** (+0.34 %).
+Speedometer sims and fits on the diet base running for both.
