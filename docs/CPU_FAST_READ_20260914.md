@@ -206,3 +206,11 @@ summaries (dovm seed 20 -2.0 ns and seed 29 -0.95 ns on the CPU clock,
 seven other seeds unroutable), and that dovg, without the hint bus,
 failed the same clock on three seeds.  A path report needs the flow's
 own STA run with a path table enabled, not a bare `project_open`.
+
+**Simulated Speedometer of the port (dovm): CPU Mix 0.861** against
+checkpoint 15's 0.839 (+2.6 %): KWhetstones 625.4/s, Dhrystones
+10,693/s (from 9,942), Towers 1.188 s, Quick Sort 0.819, Bubble Sort
+0.891, Queens 0.672, Puzzle 1.571, Permutations 1.919, Int. Matrix
+1.002, Sieve 1.267 s; bracket 1,003.2 M cycles for 216.2 M dispatches
+(4.64 clocks per dispatch, from 4.81).  On hardware that is about 0.88
+if a seed closes.
