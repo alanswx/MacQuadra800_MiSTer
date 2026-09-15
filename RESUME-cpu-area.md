@@ -56,9 +56,12 @@ The late-data pair is kept as submodule branch `wombat-area-diet-late-data`.
 
 ## Open
 
-- Fit of the R1..R6 tree: seed 21 launched 18:23 in the main tree
-  (`scratch/build_diet_s21.log`); then the hardware gate (the .92 box is in
-  the MiSTer menu, free).
+- **R1..R4 fits at seed 21 with timing met** (38,325 ALMs, 91 %; rbf
+  `scratch/MacQuadra800_diet_r4_s21_8c6d48b5.rbf`, md5 8c6d48b5): the
+  hardware gate on the .92 box runs on it (`scratch/gate_diet/`).  The
+  late-data R1..R6 fit at 37,189 ALMs but missed the CPU clock by 4.06 ns;
+  the early-data R5/R6 (`923c544`) are fitting in `../MacQuadra800_wt2`
+  (`scratch/build_r56e_s21.log` there).
 - The one-clock data hit (`6e65192`) as the next increment once there is
   routing headroom; Alan's hand-off plan (`docs/CPU_PIPELINE_REWRITE_HANDOFF_20260915.md`
   in his tree) lists the levers after it.

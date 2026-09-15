@@ -117,3 +117,8 @@ for the fit's timing.
   select of the target mux and the whole seed cone ran after it.  Fix in
   hand: the target is formed from registers by the current state
   (`go_pc_t_early`, `dbrf_a_early`) and the carrier is enable-only.
+- Fit, R1..R4 (`8778213`), seed 21, release recipe: **38,325 ALMs (91 %)**,
+  497 M10K, timing MET on every clock (CPU +0.361 ns, HDMI +0.429,
+  RAM +0.757, hold +0.248); rbf `scratch/MacQuadra800_diet_r4_s21_8c6d48b5.rbf`,
+  the hardware candidate.  The early-data R5/R6 (`923c544`) are being
+  fitted in the worktree for the remaining ~2,200 ALUTs.
