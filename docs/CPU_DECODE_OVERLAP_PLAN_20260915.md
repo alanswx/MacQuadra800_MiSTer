@@ -321,3 +321,18 @@ Sort 0.812, Bubble Sort 0.887, Queens 0.687, Puzzle 1.597, Permutations
 (core 47454825…).  Still running: the step C2 Speedometer sim (dove) and
 the dovg seed walk; if C2 wins the sim and a seed closes, it goes to
 hardware as the next checkpoint.
+
+## Simulated Speedometer: step C2 (dove, the dovg semantics)
+
+CPU Mix **0.841** against step C's 0.839 (+0.2 %): KWhetstones 617.0/s,
+Dhrystones 9,970/s, Towers 1.210 s, Quick Sort 0.833, Bubble Sort 0.921,
+Queens 0.694, Puzzle 1.601, Permutations 1.948, Int. Matrix 1.022,
+Sieve 1.292 s; bracket 1,033.9 M cycles for 216.5 M dispatches (step C:
+1,043.6 M for 217.0 M).  In the benchmark bracket the descriptor
+dispatch at every retire gains slightly (the fetch slot it removes
+matters less with the I-cache resident) where the ROM-heavy boot lost
+0.2 %.  Below the hardware's placement noise (0.5 %), so it is not worth
+a board run of its own; it folds into the next candidate whose base is
+checkpoint 15 (`scripts/cpu/handover_descriptor_all_retires.py`'s
+`n_desc_ok` without the producer bound), and the dovg seed walk is left
+to finish only for the routing statistics.
