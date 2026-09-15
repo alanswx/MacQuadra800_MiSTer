@@ -1,6 +1,7 @@
 # CPU performance task list and recovery record
 
-HANDOFF: `docs/CPU_BRANCH_LOOKAHEAD_20260914.md` is the latest checkpoint;
+HANDOFF: `docs/CPU_CACHE16K_20260914.md` (with `docs/CPU_SHIFT_RETIRE_20260914.md`)
+is the latest checkpoint;
 `docs/CPU_SPEEDOMETER_PROFILE_20260914.md` is the workload profile that
 directs the next step.
 **Checkpoints accepted 2026-09-13/14, all on the trimmed seed-24 profile
@@ -58,6 +59,31 @@ directs the next step.
    fast-flag ALU output (`/tmp/bl5-cand`, same behaviour) is the robust
    timing variant to carry forward; the anomaly diagnosis should retest
    this bitstream (2 of 6 runs corrupted).
+11. One-cycle register shift retire with the shift class in the lookahead
+   descriptor and the ALU's early compare-class flags
+   (`docs/CPU_SHIFT_RETIRE_20260914.md`; AP `586d09e`, core 67b95ed0):
+   simulated CPU Mix 0.762 against 0.752; measured on hardware only
+   together with 12. The S_PIPE_REGS fallback capture had to move to the
+   forwarded ports (a lookahead dispatch lands one cycle after its
+   producer's write).
+12. 16 KB instruction and data caches (SETW parameter, two-row bank-
+   restricted invalidate sweep; `docs/CPU_CACHE16K_20260914.md`; AP
+   `265415c`, cache 37aca38e): **0.778/0.780/0.779**, mean 0.779,
+   **+5.60 %** over 10 and **+68.1 %** over 0.4635, three valid runs, no
+   anomaly (`scratch/perf_dc16b_seed22_20260914`). Seed 22 with
+   `VIDEO_512_OFF`, 39,130 ALMs (93 %), 479 M10K, all TNS zero, worst
+   slack +0.194 ns (CPU clock); seed 20 closed for the one-row-sweep
+   version and failed routing for this one. Boot A/B +0.4 %, data fills
+   -14 %, instruction fills -14 %. The hardware gain is well above the
+   boot-bracket estimate; the Speedometer working sets (Sieve's 8 KB
+   flags, the sort arrays) fit the larger cache where the boot's do not.
+   Next in the queue: the RTS/LINK/UNLK/JSR trims
+   (`docs/CPU_CTRL_FLOW_20260914.md`, stacked as `/tmp/stack2-cand`,
+   fitting) and the parked two-sector refill buffer
+   (`docs/CPU_BRF2_20260914.md`, +2,300 ALMs, needs a diet). The
+   simulator's Speedometer driver killed every simulator on the box each
+   time a run finished (`pkill -f` on the binary name); fixed in
+   `scripts/fixtures/sim_speedometer/run_speedometer_sim.sh`.
 Target remains about 1.9 (4x); the user's current bar is CPU Mix above 1.0.
 Parked: the one-clock data-read hit (`docs/CPU_FAST_READ_20260914.md`):
 the shared-bus version fails timing by 6.6 ns, the hint-bus version does

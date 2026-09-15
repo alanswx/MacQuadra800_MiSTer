@@ -38,5 +38,8 @@ until grep -q "CPU-PROFILE\] wrote" run.log; do sleep 2; done
 python3 "$send" control.txt "wait 3300000" "down 5a" "wait 330000" "up 5a" "wait 66000000" "shot"
 sleep 60; until [ "$(ls screenshot_f*.png | wc -l)" -gt "$seen" ]; do sleep 2; done
 ls -t screenshot_f*.png | head -1 > results_shot.txt
-pkill -f "$out/Vemu" || pkill -f "./Vemu" || true
+# Kill only this run's simulator (matched by working directory): a
+# pkill -f on the binary name kills every Vemu on the box, including other
+# sessions' boot and Speedometer runs (2026-09-14).
+for p in $(pgrep -x Vemu); do [ "$(readlink /proc/$p/cwd)" = "$out" ] && kill "$p"; done; true
 grep "CPU-PROFILE\] wrote" run.log; cat results_shot.txt; echo "done $(date +%T)"
