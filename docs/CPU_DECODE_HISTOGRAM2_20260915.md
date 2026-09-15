@@ -54,3 +54,20 @@ showed the naive fixes lose), a second refill sector (demand fetches,
 area).  Beyond them the cost is structural: every instruction still
 serialises fetch queue, decode, pipe start, register capture and
 retire, and the device is at 94 % with the fitter failing most seeds.
+
+## Memory-source lookahead, retested on checkpoint 14 (`/tmp/rm2-cand.*`)
+
+The checkpoint 9 patch (`CPU_BRANCH_LOOKAHEAD_20260914.md`) reapplied:
+AP 11/11, corpus 33,790,558 (+52 K over 33,738,108), Sieve identical,
+latency fixture **2,061 against 2,037**.  The loss is structural, not
+the fetch slot: an operand dispatched by lookahead reaches
+`S_PIPE_START` in the cycle the producer's register write lands, and
+both the direct-read paths (`ext_inline`, the (An)/(An)+/-(An) inline)
+and the address hint (`hint_ext_ok`) are gated on no write landing, so
+the read issues a cycle later without a preceding hint and takes the
+three-clock lookup instead of the two-clock idle hit.  The decode cycle
+it removes is the cycle in which the hint precedes the read.  Forwarding
+the base register into the hint (`rf_capture_a`) would add a mux to the
+hint-to-acknowledge path, the design's worst; hinting from the producer's
+retire cycle needs the base before its port is selected.  Fits stopped;
+boot A/B and simulated Speedometer left running for the record.
