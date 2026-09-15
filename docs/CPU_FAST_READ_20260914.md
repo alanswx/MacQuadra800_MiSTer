@@ -148,3 +148,13 @@ hint tag).  With the area diet the expected fit is checkpoint 15's
 38,663 plus about 400 ALMs, the size at which checkpoint 14 routed at
 one seed in two.  AP, latency, corpus, Sieve and diet-base fits at seeds
 20 and 22 running.
+
+Gates on checkpoint 15: AP 11/11 (the snoop bench's one-clock settled
+read included), latency fixture 1,938 -> **1,902**, corpus identical
+(33,335,739, 0 real diffs), Sieve 422,007 / 410,671 / 519,654 / 434,671
+-> 414,327 / 402,985 / 511,980 / 426,997 (-1.8 %), boot A/B 76,218,560
+-> **80,480,432 dispatches (+5.6 %)**, `S_MRD` 144.1 M -> 132.3 M
+cycles.  The seed 22 fit needs **38,650 ALMs**, checkpoint 15's own
+size (38,663): on the diet base the hint bus costs nothing measurable;
+it failed routing at that seed, seeds 20, 21 and 23 running.
+Speedometer sim running.
