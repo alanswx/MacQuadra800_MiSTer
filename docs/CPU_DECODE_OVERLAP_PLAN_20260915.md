@@ -129,3 +129,14 @@ and read states in that ROM-heavy bracket).  With rm3's base-only
 landing guard on top (`/tmp/dovc-cand.*`): AP 11/11, corpus
 33,345,713, latency **1,967**, boot A/B **76,100,398** (+0.34 %).
 Speedometer sims and fits on the diet base running for both.
+
+## Step C, first result (2026-09-15)
+
+`scripts/cpu/handover_decode_record.py`: the record is applied inside
+`fetch_next`'s pop branch, so every retire site (83 calls in about 40
+states) hands the next opcode over when the record covers it; the
+producer-side base-register guard goes away because the pipe start's
+(An), (An)+ and -(An) source paths now take the base from the forwarded
+port (`rf_capture_a`), which is correct under a landing write from any
+retire.  AP suite 11/11; corpus, Sieve, latency, boot A/B, Speedometer
+sim and fits on the diet base running (`/tmp/dovd-cand.*`).
