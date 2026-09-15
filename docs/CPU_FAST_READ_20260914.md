@@ -158,3 +158,14 @@ cycles.  The seed 22 fit needs **38,650 ALMs**, checkpoint 15's own
 size (38,663): on the diet base the hint bus costs nothing measurable;
 it failed routing at that seed, seeds 20, 21 and 23 running.
 Speedometer sim running.
+
+Seed walk of the port: seed 22 failed routing (38,650 ALMs); seed 20
+routed (38,737) but the **CPU clock** (`general[0]`, 33 MHz; `general[1]`
+is the 99 MHz RAM clock, earlier notes had the two swapped) failed by
+2.0 ns, and its worst path is not the new one-clock acknowledge: it is
+`dst_addr[31]` into the `mwr` in-place issue and the `mem_addr_q` mux,
+with a single 17.4 ns interconnect hop on the first element, a routing
+detour rather than logic depth (the logic itself sums to about 14 ns).
+The dovg walk showed the same signature (seed 24 -0.56 ns, seed 23
+-8.0 ns, seed 20 -1.5 ns on the CPU clock).  Seeds 21, 23, 24, 25
+running.

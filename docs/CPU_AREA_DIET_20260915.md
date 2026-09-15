@@ -24,7 +24,7 @@ recipe keeps everything):
 
 Measured: checkpoint 14's RTL fits at seed 22 with **38,482 ALMs
 (91.8 %)**, 931 fewer than without the diet, all TNS zero, worst slack
-+0.186 ns (RAM clock), HDMI +0.353, CPU +0.569; RBF
++0.186 ns (CPU clock), HDMI +0.353, RAM clock +0.569; RBF
 `5c88b7ea9845ba16...`.  Hardware, two sets on that build
 (`scratch/perf_diet_seed22_20260915`, `_set2`): 0.824 / invalid / 0.826
 and 0.824 / 0.826 / 0.826, five valid runs, mean **0.825**, against
