@@ -232,3 +232,9 @@ against dovm's 0.861 (+0.3 %; Dhrystones 10,725/s, Towers 1.175 s,
 Int. Matrix 1.000 s), the same margin C2 showed on checkpoint 15.  The
 bound is a one-line change and folds into whichever structure closes a
 seed; it is not given its own walk.
+
+Area-synthesis experiment (build tree only: `OPTIMIZATION_MODE
+"AGGRESSIVE AREA"` with `OPTIMIZATION_TECHNIQUE AREA`, the recipe's
+explicit balanced technique having overridden the mode alone): 38,468
+ALMs against 38,650, and the seed 22 fit still fails routing.  Not a
+lever at this size.
