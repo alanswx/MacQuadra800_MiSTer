@@ -152,3 +152,32 @@ ordinary retire as well, with both handovers guarded against retires
 from the system states (SR, USP, MOVEC, MOVES, CINV, PFLUSH, RTE, STOP,
 exception sequences), which can change the A7 bank or an auxiliary
 register on that edge.
+
+Step C2 (`/tmp/dove-cand.*`): AP 11/11, latency 1,938, corpus
+33,335,739 (identical to step C: the corpus retires almost nothing from
+a non-producer into a descriptor class), Sieve identical; boot A/B and
+Speedometer sim running.
+
+## Step D: the decode cycle consumes the record (2026-09-15)
+
+The fits of steps B and C fail routing more often than the diet base
+(seed 20: 38,981 ALMs against 38,482; dovc seed 23: 38,730): the record
+block duplicates the part of the `S_DECODE` body it covers.  Step D
+removes the duplicate.  `rd_ir` already selects `ir` in `S_DECODE`, so
+the record describes the instruction being decoded there, and the
+equivalence check proved it equal to the body for every record-class
+opcode.  `scratchpad/step_d.py` (to become
+`scripts/cpu/reduce_decode_body.py`) parses the body into its
+if/case/begin tree and removes each record-field assignment and each
+pipe-entry call (`pipe_go`, `pipe_go_regpair`, `pipe_go_regdst`,
+`immf(n, S_PIPE_START)`, `immf_reg`) that lies on no execution path
+containing an in-place statement; the in-place paths keep everything.
+`S_DECODE` then ends with `if (!n_inplace) apply_record_decode`, which
+writes the record fields (after the body, so its values win over the
+statements kept for shared prefixes, and the body's own `rr_a` default
+stays underneath) and takes the pipe entry through the body's own
+`immf`/`immf_reg` inline paths, so the queue ownership rules and the
+deferred `S_IMMF` case are unchanged.  378 statements removed, 179 kept
+on in-place paths; the body's comments are lost in the regenerated text
+(the history keeps them).  Cycle behaviour is unchanged by construction;
+the gates check it (`/tmp/dovf-cand.*`).
