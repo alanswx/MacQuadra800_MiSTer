@@ -1,6 +1,6 @@
 # CPU performance task list and recovery record
 
-HANDOFF: `docs/CPU_STORE_LOOKAHEAD_20260914.md` is the latest checkpoint;
+HANDOFF: `docs/CPU_BRANCH_LOOKAHEAD_20260914.md` is the latest checkpoint;
 `docs/CPU_SPEEDOMETER_PROFILE_20260914.md` is the workload profile that
 directs the next step.
 **Checkpoints accepted 2026-09-13/14, all on the trimmed seed-24 profile
@@ -46,6 +46,18 @@ directs the next step.
    worst slack +0.383 ns (HDMI); seeds 22 and 21 of the store producer
    alone failed routing, the stacked tree routed at 21. The Sieve fixture's
    end detector now accepts a lookahead-dispatched outer compare.
+10. Branch lookahead: a short Bcc at the queue head is resolved at the
+   producer's retire on the producer's flags, taken branches dispatch
+   through the refill buffer, not-taken ones dispatch the following word
+   (`docs/CPU_BRANCH_LOOKAHEAD_20260914.md`; core 1cffa827): set 1
+   0.737 + two negative-time runs, set 2 **0.737/0.738/0.738**, mean
+   0.7377, +1.75 % over 9 and **+59.1 %** over 0.4635. Seed 20 with
+   `VIDEO_512_OFF`, 38,692 ALMs, all TNS zero, worst slack +0.276 ns
+   (clk_ram); seeds 21/22/24 missed by 0.04-0.19 ns or failed routing.
+   The memory-source lookahead was rejected on hardware (-0.6 %). The
+   fast-flag ALU output (`/tmp/bl5-cand`, same behaviour) is the robust
+   timing variant to carry forward; the anomaly diagnosis should retest
+   this bitstream (2 of 6 runs corrupted).
 Target remains about 1.9 (4x); the user's current bar is CPU Mix above 1.0.
 Parked: the one-clock data-read hit (`docs/CPU_FAST_READ_20260914.md`):
 the shared-bus version fails timing by 6.6 ns, the hint-bus version does

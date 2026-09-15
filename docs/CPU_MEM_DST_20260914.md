@@ -118,3 +118,10 @@ dispatches overstated the benchmark gain: boot code is store-heavy in a
 way the CPU Mix is not. Evidence `scratch/perf_md4_seed22_20260914/`.
 Seed 21 also closes (+0.270 ns HDMI). Board restored to MENU, Main and
 disposable disk verified.
+
+**Simulated Speedometer (probe run, results captured 18:15):** CPU Mix
+**0.723** (KWhetstones 531.0, Dhrystones 8972.4, Towers 1.387, Quick Sort
+0.928, Bubble Sort 1.028, Queens 0.739, Puzzle 1.930, Permutations 2.111,
+Integer Matrix 1.339, Sieve 1.636); profile 1,094,144,167 cycles, 5.185
+clocks per dispatch. Hardware measured 0.707: the simulator reads 2.3 %
+high, as before.
