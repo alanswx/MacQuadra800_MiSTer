@@ -151,7 +151,13 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # Store head + posted VRAM writes (800a94f): seed 22 fits in 41,109 ALMs but misses
 # the HDMI domain by 0.036 ns (clk_sys +0.743, clk_ram +0.789, hold +0.246);
 # walking seed 23 here and seed 24 in ../MacQuadra800_wt2.
-set_global_assignment -name SEED 23
+# Both met: seed 23 41,116 ALMs (HDMI +0.463, clk_sys +0.766, clk_ram +0.966,
+# hold +0.246; rbf 469a8936), seed 24 41,115 ALMs (HDMI +0.236, clk_sys +0.660,
+# clk_ram +0.639; rbf 03492463).  Neither went to hardware: the CPU moved on.
+# 2026-09-15: Alan's checkpoint 15 (AP68040 167c5e8) + the six task hoistings
+# (wombat-area-diet R1..R6, docs/cpu-area-consolidation.md): synthesis est.
+# 41,919 -> ~37,700 ALMs on this recipe; seed walk from 21.
+set_global_assignment -name SEED 21
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
 # the design no longer fits with speed-directed synthesis; all-area
