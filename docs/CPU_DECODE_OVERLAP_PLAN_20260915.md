@@ -308,3 +308,16 @@ guard: 0.834): KWhetstones 615.5/s, Dhrystones 9,942/s, Towers
 handover at every retire adds 0.6 % over the producers-only handover in
 the benchmark bracket.  The hardware set on dovi seed 20 (this RTL's
 behaviour) is running; the step C2 sim (dove) is still to come.
+
+## Checkpoint 15: hardware (2026-09-15)
+
+dovi seed 20 on the DE10-Nano, three valid runs, no anomaly
+(`scratch/perf_dovi_seed20_20260915/RESULTS.txt`): CPU Mix
+**0.853 / 0.856 / 0.855, mean 0.855**, +3.6 % over the diet build's
+0.825 on the same profile, +3.0 % over checkpoint 14's 0.830.  Per test
+(run 2): KWhetstones 635.4/s, Dhrystones 9,963/s, Towers 1.203 s, Quick
+Sort 0.812, Bubble Sort 0.887, Queens 0.687, Puzzle 1.597, Permutations
+1.885, Int. Matrix 1.011, Sieve 1.296 s.  Adopted: submodule `167c5e8`
+(core 47454825…).  Still running: the step C2 Speedometer sim (dove) and
+the dovg seed walk; if C2 wins the sim and a seed closes, it goes to
+hardware as the next checkpoint.

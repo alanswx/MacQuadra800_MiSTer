@@ -101,6 +101,28 @@ directs the next step.
    (`docs/CPU_BRF2_20260914.md`, +2,300 ALMs). Next: the reads waiting
    behind pending stores (49.6 M cycles in the bracket), the remaining
    decode entries, and the demand fetches after taken branches.
+15. Decode overlap on the sequencer: the S_DECODE body generated into a
+   combinational record over the queue head, handed over at every retire
+   from the single lookahead arm, the decode body reduced to its
+   in-place paths (`docs/CPU_DECODE_OVERLAP_PLAN_20260915.md`; AP
+   `167c5e8`, core 47454825; scripts/cpu/gen_decode_record.py,
+   apply_decode_record.py, handover_decode_record.py,
+   handover_single_site.py, reduce_decode_body.py): **0.853/0.856/0.855**,
+   mean 0.855, **+3.6 %** over the diet build's 0.825 (the same profile,
+   `docs/CPU_AREA_DIET_20260915.md`), **+3.0 %** over 14's 0.830 and
+   **+84.5 %** over 0.4635, three valid runs, no anomaly
+   (`scratch/perf_dovi_seed20_20260915`). Seed 20 on the diet profile
+   (audio path and video measurement compiled out), 38,663 ALMs (92 %),
+   all TNS zero, worst slack +0.192 ns (HDMI); seed 21 failed routing.
+   Simulated CPU Mix 0.839 against 0.811 (step B with the landing guard
+   0.834). Rules learned: a record value taken from the condition codes
+   is stale at a producer's retire (MOVE from SR/CCR decode in place);
+   the pipe start must read the forwarded base under a landing write;
+   the handover inlined in fetch_next's 83 sites costs 8,400 ALMs; the
+   descriptor classes keep their producer bound because the decode cycle
+   after a read or store retire is the fetch engine's and the store
+   drain's slot; the fitter already shares the record with the body, so
+   reducing the body recovers no area (+420 ALMs net for the record).
 Target remains about 1.9 (4x); the user's current bar is CPU Mix above 1.0.
 Parked: the one-clock data-read hit (`docs/CPU_FAST_READ_20260914.md`):
 the shared-bus version fails timing by 6.6 ns, the hint-bus version does
