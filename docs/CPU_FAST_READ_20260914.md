@@ -194,3 +194,15 @@ hold-fix delay the fitter added on the enable.  The re-run reports the
 hold-padded path at -18 ns where the flow's summary says -0.95, so the
 re-run's absolute numbers are not trusted, only the path shape.  Seeds
 30, 31, 32 and the aggressive-area experiment running.
+
+Correction: the two TimeQuest re-runs above (dovm seeds 20 and 29) and
+a third on the passing dovi seed 20 tree produced byte-identical path
+tables (-18.7 ns on `state[5] -> mem_wdata[25]`, a 25 ns hold-fix hop
+on the enable) although the flow's own summaries say -2.0, -0.95 and
++0.19 ns, so those re-runs did not analyse the fitted netlists and the
+path shapes quoted from them, including the "hint through the MMU pipe
+entry" reading, are withdrawn.  What stands: the flow's per-clock
+summaries (dovm seed 20 -2.0 ns and seed 29 -0.95 ns on the CPU clock,
+seven other seeds unroutable), and that dovg, without the hint bus,
+failed the same clock on three seeds.  A path report needs the flow's
+own STA run with a path table enabled, not a bare `project_open`.
