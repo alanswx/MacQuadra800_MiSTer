@@ -66,3 +66,9 @@ next to today's hint-to-acknowledge path (30.8 ns in one cycle).
 
 Each step lands on hardware before the next starts; each is its own
 checkpoint.  Steps 1 to 3 are weeks; step 4 is months.
+
+The self-contained hand-off version of this plan, written for an
+engineer or LLM session without this project's context (the machine as
+it is, the interfaces to keep, the stages, hazards, exceptions, the
+gates and their commands, the order of work and the rules learned), is
+`docs/CPU_PIPELINE_REWRITE_HANDOFF_20260915.md`.
