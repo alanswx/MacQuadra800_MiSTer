@@ -169,3 +169,15 @@ detour rather than logic depth (the logic itself sums to about 14 ns).
 The dovg walk showed the same signature (seed 24 -0.56 ns, seed 23
 -8.0 ns, seed 20 -1.5 ns on the CPU clock).  Seeds 21, 23, 24, 25
 running.
+
+Seed walk so far: 20 (CPU clock -2.0 ns), 21, 22, 24, 25, 26 (routing),
+none closed; 23, 27, 28, 29, 30 running.  The failed fits say why
+routing is so tight at 92 %: "Design requires adding a large amount of
+routing delay for some signals to meet hold time requirements", and the
+hold summary charges about 800 to 970 ns of inserted delay to paths
+inside the 33 MHz domain itself (the same on the diet base and on the
+passing dovi seed 20: 975 and 968 ns), a consequence of the skew across
+the 33 MHz clock network (8.6 ns launch against 7.2 ns latch on the
+worst path above).  That budget is spent on every build; whether the
+remaining routing closes is then the seed's luck, about one in four at
+this size.
