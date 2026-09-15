@@ -1,0 +1,63 @@
+--- a/verilator/sim_main.cpp
++++ b/verilator/sim_main.cpp
+@@ -137,6 +137,8 @@
+ static uint64_t prof_cache_states[8], prof_rd_accept, prof_look_hit, prof_ipred_hit;
+ 
+ static uint64_t prof_ic_enabled, prof_dc_enabled, prof_mmu_enabled;
++#include "speedometer_adapter.inc"
++
+ static void prof_start_signal(int) { prof_start_req = 1; }
+ static void prof_stop_signal(int) { prof_stop_req = 1; }
+ 
+@@ -410,6 +412,7 @@
+ 				input.BeforeEval();
+ 				if (!scsi_disk_file.empty()) blockdevice.BeforeEval(main_time);
+ 			}
++			if (clk_sys.clk) speedometer_before_eval();
+ 			top->eval();
+ 			if (clk_sys.clk && !scsi_disk_file.empty()) blockdevice.AfterEval();
+ 			bool cpu_dispatch = false;
+@@ -422,6 +425,7 @@
+ 				if (VERTOPINTERN->reset) prof_prev_valid = false;
+ 			}
+ 			if (clk_sys.clk && !VERTOPINTERN->reset) {
++				speedometer_after_eval(cpu_dispatch);
+ 				prof_step(cpu_dispatch);
+ 				machine_events();
+ 				if (cpu_dispatch && !cpu_trace_disabled && main_time >= trace_after)
+@@ -637,7 +641,14 @@
+ 	for (int i = 1; i < argc; i++) {
+ 		if (!strcmp(argv[i], "--headless") || !strcmp(argv[i], "--no-gui")) {
+ 			headless = true;
+-		} else if (!strcmp(argv[i], "--control")) {
++		 } else if (!strcmp(argv[i], "--speedometer-observe")) {
++            if(i+1>=argc) { fprintf(stderr,"--speedometer-observe requires FILE\n");return 1; }
++            speedometer_path=argv[++i];
++        } else if (!strcmp(argv[i], "--speedometer-limit")) {
++            if(i+1>=argc) return 1;
++            speedometer_limit=strtoull(argv[++i],nullptr,0);
++            if(!speedometer_limit || speedometer_limit>4096) return 1;
++        } else if (!strcmp(argv[i], "--control")) {
+ 			if (i + 1 >= argc) {
+ 				fprintf(stderr, "--control requires an existing regular file or FIFO path\n");
+ 				return 1;
+@@ -679,6 +690,11 @@
+ 		}
+ 	}
+ 
++    if(!speedometer_path.empty()) {
++        speedometer_file.open(speedometer_path);
++        if(!speedometer_file) { fprintf(stderr,"cannot open observer output\n");return 1; }
++        speedometer_observer.reset(new speedometer::Observer(speedometer_file,speedometer_limit));
++    }
+ #ifndef _WIN32
+ 	if (!prof_file.empty()) {
+ 		std::signal(SIGUSR1, prof_start_signal);
+@@ -928,6 +944,7 @@
+ 		if (headless && Verilated::gotFinish()) done = true;
+ 	}
+ 
++	if (speedometer_observer) speedometer_observer->summary();
+ 	if (prof_gate.active()) { prof_dump(); prof_gate.stop(); }
+ 	if (cpu_trace_file) {
+ 		printf("CPU trace: %ld opcode dispatches, last pc=%08X (%s)\n",
