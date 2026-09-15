@@ -36,7 +36,7 @@ The user asked for Alan's newest CPU work with every feature kept and
 | `5bd2ca7` | R3 `exc` + the SBCD reduced-body artefact fix | 59,165 | 38,222 |
 | `8778213` | R4 `immf` | 58,786 | 37,951 |
 | `c789ffe` | R5 `go_pc`, early-data form (the late-data form `0e8314b` measured 57,329 / 36,952 but missed timing) | | |
-| `923c544` | R6 `decode_dbcc_brf`, early-data form (late-data `6fd4e88`: 56,595 / 36,504, timing miss -4.06 ns on the CPU clock) | | |
+| `923c544` | R6 `decode_dbcc_brf`, early-data form (late-data `6fd4e88`: 56,595 / 36,504, timing miss -4.06 ns on the CPU clock) | 56,255 | 36,135 |
 
 The late-data pair is kept as submodule branch `wombat-area-diet-late-data`.
 

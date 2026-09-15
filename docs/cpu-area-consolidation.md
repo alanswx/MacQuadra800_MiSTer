@@ -65,10 +65,11 @@ brf_seed_data, fill engine, queue bookkeeping (Alan's)
 | R4 `immf` (50 sites) | `igo_*`, `immf_now` | 58,786 | 20,921 | 37,951 |
 | R5 `go_pc` (12 sites) | `pgo_*`, `go_pc_now` | 57,329 | 19,578 | 36,952 |
 | R6 `decode_dbcc_brf` (7 sites) | `dgo_*`, `decode_dbcc_brf_now` | 56,595 | 18,679 | 36,504 |
+| R5+R6 early-data form (`c789ffe`, `923c544`): targets from registers by state | `pgo`/`dgo` enable-only, `go_pc_t_early`, `dbrf_a_early` | 56,255 | 18,586 | 36,135 |
 
-Cumulative: -8,128 ALUTs (-12.6 %), the core's own logic 26,701 -> 18,679
-(-30 %), an estimated 5,400 ALMs freed; the CPU hierarchy 40,819 -> 32,762
-ALUTs.  The FPU (7,056), ALU (2,644), MMU (1,349) and cache (1,816) are
+Cumulative (early-data form): -8,468 ALUTs (-13.1 %), the core's own logic
+26,701 -> 18,586 (-30 %), an estimated 5,800 ALMs freed; the CPU hierarchy
+40,819 -> 32,507 ALUTs.  The FPU (7,056), ALU (2,644), MMU (1,349) and cache (1,816) are
 untouched.
 
 For reference, the store head we ship today is 62,527 ALUTs / 41,116
