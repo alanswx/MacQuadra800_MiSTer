@@ -140,3 +140,15 @@ producer-side base-register guard goes away because the pipe start's
 port (`rf_capture_a`), which is correct under a landing write from any
 retire.  AP suite 11/11; corpus, Sieve, latency, boot A/B, Speedometer
 sim and fits on the diet base running (`/tmp/dovd-cand.*`).
+
+Step C results: corpus 33,335,739 (0 REAL diffs), latency **1,942**,
+Sieve identical, boot A/B **76,218,560** (+0.5 % over checkpoint 14).
+The boot's decode entries fall only 57.1 M -> 52.1 M: the descriptor
+classes (register ALU, MOVE reg, ADDQ, MOVEQ, register shifts) still
+take the decode cycle after every non-producer retire, since
+`dispatch_reg_decode` was bounded to the ALU/shift/store producers.
+Step C2 (`/tmp/dove-cand.*`) dispatches them from `fetch_next` at every
+ordinary retire as well, with both handovers guarded against retires
+from the system states (SR, USP, MOVEC, MOVES, CINV, PFLUSH, RTE, STOP,
+exception sequences), which can change the A7 bank or an auxiliary
+register on that edge.
