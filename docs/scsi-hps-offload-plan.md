@@ -292,8 +292,13 @@ Core phase 1 (responses from the ARM, playback stays), branch `optimize-SCSI`:
       HDMI -0.076 (one `sys_top` video register)** = the hardware
       candidate, `scratch/MacQuadra800_phase1_s21_58653a0c.rbf`, staged on
       .143 as `_Unstable/MacQuadra800_phase1_s21.rbf`; seed 21 is now the
-      qsf default. Hardware gate on .143 (both OSes, OT ISO, retail ISO CD
-      boot, CHD audio) in progress
+      qsf default. Hardware gate on .143 so far: retail ISO CD boot PASS,
+      the slot-1 disk mounts, A/UX boot PASS with the CD mounted, `uname`
+      matches; A/UX `shutdown -h now` wedges, and does so identically on
+      the shipped 20260915 with a CD in slot 4 (pre-existing, see the log).
+      Still owed: 8.1 from disk (the Quad Squad volume repaired, or the
+      slot-1 image as startup), OT ISO mount/eject, CHD audio, and a
+      rebuild with the serialized forwards (`f612084`) for the shipped rbf
 - [ ] C6 commit + measured numbers in this file and `docs/area-budget.md`
 
 Core phase 2 (playback on the ARM), gated on C5's numbers:
@@ -411,6 +416,19 @@ Core phase 2 (playback on the ARM), gated on C5's numbers:
   later on a 3000-cycle device: both blocks reach the ARM, GOOD, TUR then
   CHECKs) added. Whether this is the A/UX wedge is still open: the control
   run on 20260915 decides whether phase 1 is implicated at all.
+- 2026-09-16 09:55, **control run on the shipped 20260915 rbf** (operator,
+  `scratch/aux_control/`): same boot (desktop at 554 s incl. fsck, the
+  retail ISO mounted on the A/UX desktop, `uname` identical), same
+  `shutdown -h now` **wedge**: `callrpc RPC: Port mapper failure`, five
+  `kill: pid=` lines, then the VRAM streaks and a stopped CPU, frozen
+  376 s with flat I/O; the phase-1 core had frozen a few lines earlier.
+  **The A/UX shutdown wedge is pre-existing in 20260915, not phase 1.**
+  The release gate that passed this shutdown in 127 s ran with no CD in
+  slot 4; both wedged runs had the retail ISO mounted, so the CD's
+  presence at shutdown (A/UX unmounting / ejecting it) is the prime
+  suspect. A no-CD control run would settle it, at the cost of another
+  reload of a wedged guest (the A/UX volume fscks each time). Box left
+  wedged on 20260915, `.s0` = A/UX, `.s4` = retail ISO.
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build
