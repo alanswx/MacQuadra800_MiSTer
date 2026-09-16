@@ -5,6 +5,19 @@ work lands, **the user pushes** (their ssh key is not in the tool shells; a
 `github` HTTPS remote exists and pushed up to 1043e4c once). `main` untouched
 at cba1490.
 
+## RELEASED 2026-09-16 01:10: `releases/MacQuadra800_20260915.rbf`
+
+md5 `4c80a3be…`, seed 22, R1..R4 (submodule 8778213) + the 53C96 fix, built
+from ce78378. Both hardware gates PASS on the .92 box: Mac OS 8.1 Finder
+106 s, **Speedometer Mix 0.858** (store head 0.462, 20260908_3 0.360), CQD
+0.605, FPU 0.449, clean Shut Down 48 s; A/UX 3.1 desktop 148 s, `uname -a`
+= `A/UX localhos 3.1 SVR2 mc68040`, `shutdown -h now` halt in 127 s.
+Timing: clk_sys +0.712, clk_ram +0.998, HDMI -0.095 on one `sys_top`
+register (shipped as marginal by the user's 2026-09-16 policy; deploy with
+`ALLOW_TIMING_VIOLATION=1`). `releases/README.md` has the row + section.
+Box left at the A/UX halt screen, `.s0` = QuadSquad8.hda, candidate loaded
+as `/media/fat/_Unstable/MacQuadra800_fix_r4_s22.rbf`.
+
 ## One-paragraph state
 
 Alan's AP68040 **checkpoint 15** is integrated and made ~5,500 ALUTs smaller
