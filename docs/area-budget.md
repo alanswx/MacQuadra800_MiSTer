@@ -75,3 +75,33 @@ are the next two levers; CD audio itself does not need to be cut.
 
 Order of work, each step regressed on both guests: (1) multi-ID with two
 hard disks; (2) CD-ROM data + Toolbox + changer + Main change; (3) CD audio.
+
+## 5. The CD-ROM target after the ARM offload (phase 1, 2026-09-16)
+
+`optimize-SCSI`, build `1eae0fb7` (seed 21, timing met at +0.247 ns; the
+release recipe of section 4 plus Alan's checkpoint-15 CPU). The CD-ROM
+target's SCSI responses (INQUIRY, MODE SENSE, READ TOC, the Apple/Sony
+status commands) now come from Main through window reads of the CD slot,
+and MODE SELECT / eject / resets are forwarded through a command-block
+write; playback is still in the RTL (`docs/scsi-hps-offload-plan.md`).
+Fitter "ALMs needed" by entity, against the shipped `20260915` (seed 22):
+
+| entity | 20260915 | phase 1 | delta |
+|---|---:|---:|---:|
+| whole design | 38,711 (92 %) | **38,128 (91 %)** | **-583** |
+| `ncr53c96` (controller + 3 targets) | 2,870 | 2,568 (self 1,569) | -302 |
+| of which `cd_audio` | 1,346 | 999 | -347 |
+| `scsi_cache` | 854 | 854 | 0 |
+| `iosb` (incl. the SCSI) | | 4,827 | |
+| `quadra800` (the machine) | | 29,880 | |
+| `wombat_cpu` (AP68040 + wrapper) | | 23,414 | |
+| RAM blocks | 497 | 491 | -6 |
+| DSP blocks | 64 | 59 | -5 |
+| registers | 25,605 | 25,659 | +54 |
+
+The three response-table planes and the builders left `cd_audio`
+(Analysis & Synthesis 2,566 -> 1,535 ALUTs); the `ncr53c96` self cost went
+up by the window/forward sequencer (the serialized forwards `f612084`).
+Phase 2 (playback on the ARM: the MAIN FSM, dividers and the volume LUT
+with its two multipliers) is the next lever, estimated at another ~700
+ALMs and the last 5 DSP blocks of the CD path.
