@@ -292,4 +292,10 @@ Core phase 2 (playback on the ARM), gated on C5's numbers:
   auto-opened (17 items). The Main read the disc through the flat-file run
   path (track fd at 1.89 MB). Two icons were the 20260908_3 behaviour on the
   generic path; the 20260915 rbf was gated on .92 with no CD in slot 4, so
-  the control run (same core + disc on the old Main `916829ff`) follows.
+  the control run (same core + disc on the old Main `916829ff`) follows
+  (an Opus operator is running the A/B on .143).
+- 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
+  476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
+  707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build
+  launched 07:38 (`scratch/build_phase1.log`, sgiindy fitting alongside);
+  full-machine sim rebuilt after a WSL restart, CD boot run pending.

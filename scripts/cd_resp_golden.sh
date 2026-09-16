@@ -22,7 +22,8 @@ g++ -O1 -Wall -Wextra -o "$OUT/cdrom_resp_test" \
 echo "== blobs"
 "$OUT/cdrom_resp_test" gen "$OUT"
 
-echo "== RTL dumps"
+echo "== RTL dumps (against the pre-phase-1 cd_audio.sv, the last that built the tables)"
+git -C "$HERE" show c6f5ebf:rtl/cd_audio.sv > "$OUT/cd_audio_ref.sv"
 (cd "$HERE/verilator" && make -s tb_cd_audio_dump >"$OUT/verilator_build.log" 2>&1) || { tail -30 "$OUT/verilator_build.log"; exit 1; }
 for b in "$OUT"/*.blob.hex; do
 	n=$(basename "$b" .blob.hex)

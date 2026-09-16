@@ -148,8 +148,11 @@ tb_scsi_cache_mbcd:
 # cd_audio table dump for the golden-bytes test of Main's response builders
 # (scripts/cd_resp_golden.sh builds it and runs it once per TOC shape):
 #   make tb_cd_audio_dump && ./obj_dir_tb/tb_cd_audio_dump +blob=x.blob.hex +out=x.rtl.bin
+# CD_AUDIO_REF is the pre-2026-09-16 cd_audio.sv (the last one that built the
+# tables); scripts/cd_resp_golden.sh extracts it from git into scratch/.
+CD_AUDIO_REF ?= ../scratch/cd_resp_golden/cd_audio_ref.sv
 tb_cd_audio_dump:
-	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME -Wno-CASEINCOMPLETE -Wno-BLKSEQ +define+SIMULATION=1 +define+VERILATOR=1 -Wno-MULTIDRIVEN -Wno-SYNCASYNCNET -Wno-COMBDLY -Wno-PINMISSING -Wno-UNUSEDSIGNAL +incdir+$(RTL) --top-module tb_cd_audio_dump --Mdir ./obj_dir_tb -o tb_cd_audio_dump tb_cd_audio_dump.sv $(RTL)/cd_audio.sv
+	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME -Wno-CASEINCOMPLETE -Wno-BLKSEQ +define+SIMULATION=1 +define+VERILATOR=1 -Wno-MULTIDRIVEN -Wno-SYNCASYNCNET -Wno-COMBDLY -Wno-PINMISSING -Wno-UNUSEDSIGNAL +incdir+$(RTL) --top-module tb_cd_audio_dump --Mdir ./obj_dir_tb -o tb_cd_audio_dump tb_cd_audio_dump.sv $(CD_AUDIO_REF)
 
 tb_ncr53c96:
 	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME -Wno-CASEINCOMPLETE -Wno-BLKSEQ +define+SIMULATION=1 +define+VERILATOR=1 -Wno-MULTIDRIVEN -Wno-SYNCASYNCNET -Wno-COMBDLY +incdir+$(RTL) -CFLAGS "-I$(abspath sim) -I$(abspath sim/mac)" --top-module tb_ncr53c96 --Mdir ./obj_dir_tb -o tb_ncr53c96 tb_ncr53c96.sv $(RTL)/ncr53c96.sv $(RTL)/cd_audio.sv cd_win_dpi.cpp sim/cd_window.cpp $(MAINMAC)/mac_cdrom_resp.cpp $(MAINMAC)/mac_cdrom_play.cpp
