@@ -525,6 +525,24 @@ gate had no CD):
   frames ran the real script through 26 cases (scale 1.2-2.5 px/event,
   jitter, coalescing, a window behind the menu, refusals, dead capture,
   signals mid-walk) with no wrong selection. Not yet run on .143.
+- 2026-09-16 11:35, **the reload (user go-ahead) and the walker on
+  hardware**: the wedged A/UX guest (write_bytes flat 30 s, frame
+  unchanged since 11:12) was reloaded with `.s0` -> Quad Squad (the A/UX
+  name saved as `.s0.aux`) into the phase-1 core `1eae0fb7`
+  (`load_core _Unstable/MacQuadra800_phase1_s21b.rbf` at 11:35:08).
+  Quad Squad booted to the Finder by 11:37:26 with the retail ISO in slot
+  4 (its window auto-opened, the two guest-side CD icons as before), no
+  dialogs; write_bytes flat for 60 s and the menu-bar clock ticking.
+  `bash scripts/mac_shutdown.sh` then shut it down on the first try in
+  58 s: pointer on Special at (181,8) at 1.49 px/event, the panel border
+  read at y=112 with the CD window behind it, one 64-event walk onto Shut
+  Down (96..111), halt screen 22 s after the release, exit 0
+  (`scratch/walker_hw/`). Box: phase-1 core loaded, at the "safe to
+  switch off" screen, I/O idle; `.s0` = Quad Squad, `.s1` FreshTest,
+  `.s4` retail ISO. For the 8.1 gate on phase 1 this covers boot to the
+  Finder, a 2-minute idle and the mouse-driven shutdown; the
+  several-minute idle clock, keyboard, CD icons and the OT ISO hot
+  mount/eject are still to do.
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build
