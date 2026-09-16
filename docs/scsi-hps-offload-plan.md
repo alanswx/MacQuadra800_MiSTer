@@ -740,6 +740,17 @@ gate had no CD):
   no CD, pristine image) is queued to the operator behind P1c. The
   operator was cut off twice by API overloads (14:55, 15:12) and resumed
   each time; the wedged W1c guest is provably dead and may be reloaded.
+- 2026-09-16 15:15, the user: **use ONLY the .143 box** from now on (the
+  .92 box belongs to another session; today's read-only looks at it and
+  the copy of its Main binary are the last access). The operator's own
+  comparison adds two variables shared by every hanging run and absent
+  from the passing .92 gate besides the Main build: **the slot-1 disk
+  (`.s1` FreshTest) mounted, and the RAM setting (128 MB here, 32 MB in
+  the passing gate)**. Queued to the operator after P1c, cheapest first:
+  W1e = 20260915, no CD, no `.s1`, pristine image; W1f = the same with
+  RAM (on reset) = 32 MB (OSD, verified by About This Macintosh); then
+  W1d = the Main swap. Then everything back (`.s1`, Quad Squad, retail ISO,
+  today's Main).
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build
