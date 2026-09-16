@@ -236,18 +236,33 @@ wire        ca_toc_ready, ca_disc_audio;
 reg         ca_fwd_stb, ca_read_stb, ca_eject_stb, ca_bus_rst;
 reg         fwd_poke;              // the forward in flight is a transport command: tell the engine when it lands
 reg   [1:0] ca_mount_d;            // the CD mount pulse, after tgt_blocks has latched
-assign io_blk_cnt = ca_io_blk_cnt;
 
-// The forward's write (and the probe's read) may be RAISED while the audio
-// engine's own transaction is still in flight; they are not shown to the
-// platform until it has ended, because io_lba follows ca_io_active and the
-// platform (scsi_cache's E_IDLE, hps_io) samples the address in the very
-// cycle it sees the request bit -- one cycle before ca_io_active drops.  A
-// PAUSE forwarded during a frame fetch went out at the frame window's
-// address and never reached the ARM (tb_ncr53c96 T19, 2026-09-16).
-assign io_rd = (io_rd_i ? (3'b001 << cur_tgt) : 3'b000) | {ca_io_rd | (io_rd_fwd && !ca_io_active), 2'b00};
-assign io_wr = (io_wr_i ? (3'b001 << cur_tgt) : 3'b000) | {io_wr_fwd && !ca_io_active, 2'b00};
-assign io_lba = ca_io_active ? ca_io_lba : io_lba_e;
+// Who owns the platform channel.  The engine's block requests (io_rd_i /
+// io_wr_i / io_rd_fwd / io_wr_fwd) and the audio engine's (ca_io_rd) are
+// decided in the same cycle from the same registered state -- the nexus
+// raises on !io_busy, the audio engine on ca_grant -- so both can go up
+// together.  Then the platform (scsi_cache's E_IDLE, hps_io) saw one merged
+// slot-2 request bit with the audio engine's address and block count, or
+// the DISK's request with io_lba pointing at the frame window (a write
+// lost into nowhere: the Quad Squad image with system error 41 after the
+// first phase-2 audio session, 2026-09-16), and the nexus's ack stayed
+// masked (the Apple CD-ROM driver's "drive not responding" 7 s into
+// Play).  So the channel has an explicit owner: the nexus has priority,
+// the audio engine's request is shown to the platform only once eng_owns
+// has been granted (the cycle after it was raised with no nexus request
+// up), io_lba / io_blk_cnt / the ack mask follow eng_owns, and the audio
+// engine simply keeps its request up until it is granted (io_busy includes
+// ca_io_active, so the nexus does not raise another request meanwhile).
+reg         eng_owns;
+wire        nexus_req = io_rd_i || io_wr_i || io_rd_fwd || io_wr_fwd;
+assign io_blk_cnt = eng_owns ? ca_io_blk_cnt : 6'd0;
+assign io_rd = (io_rd_i ? (3'b001 << cur_tgt) : 3'b000) | {(ca_io_rd && eng_owns) | (io_rd_fwd && !eng_owns), 2'b00};
+assign io_wr = (io_wr_i ? (3'b001 << cur_tgt) : 3'b000) | {io_wr_fwd && !eng_owns, 2'b00};
+assign io_lba = eng_owns ? ca_io_lba : io_lba_e;
+// the audio engine sees its ack and its data only while it owns the channel
+wire        ca_io_ack  = io_ack[2] && eng_owns;
+wire        ca_buff_wr = sd_buff_wr && eng_owns;
+reg         ca_io_ack_d;
 // While a write flush is outstanding, io_ack must keep watching the slot
 // the flush was ISSUED on, not cur_tgt: a new selection (the ROM issuing a
 // CD READ right after a disk WRITE) switches cur_tgt, and if io_ack followed
@@ -258,7 +273,7 @@ assign io_lba = ca_io_active ? ca_io_lba : io_lba_e;
 // and the CD slot for a forward or the probe), so the ack always follows
 // the slot the strobe went to.
 reg  [1:0] flush_tgt;
-wire   io_ack_i = io_ack[flush_tgt] && !ca_io_active;
+wire   io_ack_i = io_ack[flush_tgt] && !eng_owns;
 reg [31:0] lba;
 reg [31:0] blocks_left;            // read: blocks not yet fetched; write: not yet flushed
 reg  [9:0] sbuf_len;               // valid bytes in sbuf
@@ -586,7 +601,7 @@ ncr_sbuf sbuf
 	.q_e    (q_e),
 	.addr_s (sd_buff_addr[7:0]),
 	.din_s  (plat_din_s),
-	.we_s   (sd_buff_wr && !ca_io_active && !probe_act),   // the audio engine's transfers are its own; the probe's block never lands
+	.we_s   (sd_buff_wr && !eng_owns && !probe_act),   // the audio engine's transfers are its own; the probe's block never lands
 	.q_s    (q_s)
 );
 
@@ -643,6 +658,7 @@ always @(posedge clk) begin
 		cd_present <= 0; cd_ejected <= 0;
 		msel_pend <= 0; msel_st <= 0; msel_bd <= 0; iccs_pend <= 0; msel_fin <= 0; io_discard <= 0;
 		ca_fwd_stb <= 0; ca_read_stb <= 0; ca_eject_stb <= 0; ca_bus_rst <= 0; ca_mount_d <= 0; fwd_poke <= 0;
+		eng_owns <= 0; ca_io_ack_d <= 0;
 		dbg_op <= 0; dbg_op_stb <= 0; dbg_op_cd <= 0; dbg_st <= 0; dbg_st_stb <= 0;
 		io_lba_e <= 0; io_rd_i <= 0; io_wr_i <= 0;
 		dma_active <= 0;
@@ -671,6 +687,12 @@ always @(posedge clk) begin
 		dma_valid <= 0;
 		ca_fwd_stb <= 0; ca_read_stb <= 0; ca_eject_stb <= 0; ca_bus_rst <= 0;
 		ca_mount_d <= {ca_mount_d[0], img_mounted[2] && !cd_same_disc};
+		// channel ownership: granted to the audio engine's pending request
+		// once no nexus request is up and nothing of the nexus's is in
+		// flight; released the cycle after its ack fell
+		ca_io_ack_d <= ca_io_ack;
+		if (!eng_owns && ca_io_rd && !nexus_req && !io_ack_i && !io_ack_d) eng_owns <= 1;
+		else if (eng_owns && ca_io_ack_d && !ca_io_ack) eng_owns <= 0;
 		if (img_mounted[2]) probe_pend <= 1;       // a (re)mount: the Main may have changed
 		// the cycle after a MODE SELECT verdict: run the ICCS the initiator
 		// already sent (status + COMMAND COMPLETE, FC), or tell an initiator
@@ -772,7 +794,7 @@ always @(posedge clk) begin
 		// the probe block streams past the buffer; only its first two words
 		// are kept (the CDU-8004 identity starts 05 80 02 02; the platform
 		// word order is disk byte 0 in the high half, as sbuf keeps it)
-		if (probe_act && sd_buff_wr && !ca_io_active) begin
+		if (probe_act && sd_buff_wr && !eng_owns) begin
 			if (sd_buff_addr[7:0] == 8'd0) probe_w0 <= plat_din_s;
 			if (sd_buff_addr[7:0] == 8'd1) probe_w1 <= plat_din_s;
 		end
@@ -1761,9 +1783,9 @@ cd_audio #(.CLK_HZ(32'd33_000_000)) cd_audio_i (
 	.ch_grant(ca_grant),
 	.ca_io_active(ca_io_active), .ca_io_rd(ca_io_rd), .ca_io_lba(ca_io_lba),
 	.ca_io_blk_cnt(ca_io_blk_cnt),
-	.io_ack(io_ack[2]),
+	.io_ack(ca_io_ack),
 	.sd_buff_addr(sd_buff_addr[7:0]), .sd_buff_addr_hi(sd_buff_addr[12:8]),
-	.sd_buff_dout(sd_buff_dout), .sd_buff_wr(sd_buff_wr),
+	.sd_buff_dout(sd_buff_dout), .sd_buff_wr(ca_buff_wr),
 	.toc_ready(ca_toc_ready),
 	.disc_audio(ca_disc_audio),
 	.snd_l(cd_snd_l), .snd_r(cd_snd_r),

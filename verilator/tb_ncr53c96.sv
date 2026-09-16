@@ -120,8 +120,10 @@ integer frame_reads = 0;                     // next-frame window reads (the eng
 integer frame_blk = -1;                      // ...and the block count the last one asked for
 integer stat_reads = 0;                      // $CC status-window reads (the engine's pokes and the guest's own)
 integer poke_stbs = 0;                       // fwd_stb pulses: one per forwarded transport command
+integer collisions = 0;                      // cycles in which the nexus and the audio engine both hold a request while nobody owns the channel
 
 always @(posedge clk) if (dut.ca_fwd_stb) poke_stbs <= poke_stbs + 1;
+always @(posedge clk) if (dut.nexus_req && dut.ca_io_rd && !dut.eng_owns) collisions <= collisions + 1;
 
 always @(posedge clk) begin
 	sd_buff_wr <= 0;
@@ -2233,6 +2235,79 @@ initial begin
 	pdma_rd(b); expect8("T19 astat idle after STOP", b, 8'h05);
 	for (k = 0; k < 5; k = k + 1) pdma_rd(b);
 	wait_irq(500, ok); reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	sel_id = 8'h00;
+
+	// The nexus and the audio engine decide their channel requests in the
+	// same cycle from the same registered state.  Force the collision: PLAY
+	// the whole disc (frames keep coming), then a 4-block CD READ(10) on a
+	// SLOW device (150,000 cycles per block): a frame is consumed inside the
+	// read, so at a block boundary the engine's next fetch and the nexus's
+	// next block are raised together.  The read must complete with the right
+	// bytes, the frame must arrive, the status must still answer.  Before the
+	// owner register, the disk's request went out with the engine's LBA (a
+	// lost write) and the nexus's ack stayed masked (the AppleCD player's
+	// "drive not responding", 2026-09-16).
+	$display("-- T20 CD-ROM: a nexus block request colliding with the engine's frame fetch (owner register)");
+	sel_id = 8'h03;
+	k2 = frame_reads; byi = collisions;
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h47; cdb[1]=0; cdb[2]=0; cdb[3]=8'd0; cdb[4]=8'd2; cdb[5]=8'd0; cdb[6]=8'd0; cdb[7]=8'd2; cdb[8]=8'd16; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	reg_wr(R_CMD, 8'h11); wait_irq(2000, ok);
+	reg_rd(R_FIFO, b); expect8("T20 play status GOOD", b, 8'h00); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	guard = 0;
+	while (dut.g_cd_audio.cd_audio_i.fr_valid != 2'b11 && guard < 40000) begin @(negedge clk); guard = guard + 1; end
+	expect8("T20 playing with both halves valid", {6'd0, dut.g_cd_audio.cd_audio_i.fr_valid}, 8'h03);
+	// a slow 4-block read: the frame boundary lands inside it
+	dev_lat = 150000;
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h28; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=8'd2; cdb[6]=0; cdb[7]=0; cdb[8]=8'd1; cdb[9]=0;   // logical block 2 = HPS blocks 8..11
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	expect8("T20 read phase DATA IN", {5'd0, st[2:0]}, {5'd0, PH_DIN});
+	set_tc(16'd2048); reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 2048; k = k + 1) begin
+		guard = 0;
+		while (!drq && guard < 400000) begin @(negedge clk); guard = guard + 1; end
+		if (!drq) begin fails = fails + 1; $display("  FAIL T20 read stalled at byte %0d (no DRQ in 400k cycles)", k); k = 2048; end
+		else begin
+			pdma_rd(b);
+			if (b !== (((8 + k/512)*7 + (k%512)) & 8'hFF)) begin
+				fails = fails + 1; $display("  FAIL T20 byte %0d: got %02X want %02X", k, b, ((8 + k/512)*7 + (k%512)) & 8'hFF); k = 2048;
+			end
+			checks = checks + 1;
+		end
+	end
+	wait_irq(400000, ok); reg_wr(R_CMD, 8'h11); wait_irq(400000, ok);
+	reg_rd(R_FIFO, b); expect8("T20 read status GOOD", b, 8'h00); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	dev_lat = 40;
+	$display("   T20 collision cycles seen: %0d, frame reads during the read: %0d", collisions - byi, frame_reads - k2);
+	if (collisions - byi == 0) $display("   T20 NOTE: no collision occurred in this run (timing); the data checks still hold");
+	// the engine is still fine: its frames arrive and the status answers
+	guard = 0;
+	while (frame_reads - k2 < 3 && guard < 1500000) begin @(negedge clk); guard = guard + 1; end
+	if (frame_reads - k2 < 3) begin fails = fails + 1; $display("  FAIL T20 frames stopped arriving after the collision (%0d)", frame_reads - k2); end
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'hCC; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0; cdb[6]=0; cdb[7]=0; cdb[8]=8'd6; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	set_tc(16'd6); reg_wr(R_CMD, 8'h90);
+	pdma_rd(b); expect8("T20 astat after the collision: play or end", (b == 8'h00 || b == 8'h03) ? 8'h00 : b, 8'h00);
+	for (k = 0; k < 5; k = k + 1) pdma_rd(b);
+	wait_irq(500, ok); reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T20 astat status GOOD", b, 8'h00); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	// STOP, so the engine is idle for whatever follows
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h4E; cdb[8]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	reg_wr(R_CMD, 8'h11); wait_irq(2000, ok);
 	reg_rd(R_FIFO, b); reg_rd(R_FIFO, b);
 	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
 	sel_id = 8'h00;
