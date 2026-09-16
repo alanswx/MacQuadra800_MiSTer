@@ -1737,7 +1737,15 @@ task abort_nexus;
 	if (fwd_st == 2'd1) fwd_st <= 0;
 	fwd_q <= 0; fwd_own <= 0; fwd_poke <= 0;           // a queued forward dies with its nexus; one in flight completes unowned
 	iccs_pend <= 0;                                    // a status the old nexus never collected
-	if (io_busy && !flush_pending && !fwd_xfer) io_discard <= 1;
+	// Only the old nexus's own READ in flight is discarded: its request up
+	// or its words streaming (a flush completes on its own, so do a probe
+	// and a forward).  io_busy also covers the audio engine's transfer
+	// (ca_io_active), and arming the discard on that threw away the NEW
+	// nexus's first block instead: the AppleCD player's status poll,
+	// selected while a frame fetch was out, got no bytes and its DATA IN
+	// ended empty -- "drive not responding" 7 s into Play (2026-09-16,
+	// tb_ncr53c96 T20 part d).
+	if ((io_rd_i || io_ack_i) && !flush_pending && !fwd_xfer) io_discard <= 1;
 endtask
 
 // CHECK CONDITION with the sense the next REQUEST SENSE will report
