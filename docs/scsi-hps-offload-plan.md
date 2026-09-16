@@ -830,6 +830,18 @@ gate had no CD):
   nexus request is up, `io_lba`/`io_blk_cnt` follow the nexus when it has
   one, and the engine withdraws a request raised in the collision cycle
   and retries.
+- 2026-09-16 18:40, hand-off (`RESUME-optimize-scsi-20260916.md`): the
+  collision fix is a WIP commit (`97ea3eb`): `eng_owns` in `ncr53c96.sv`
+  (nexus priority; the engine's request shown only once granted; io_lba,
+  io_blk_cnt, the ack mask, the engine's ack/data strobes and the sector
+  buffer's platform port follow it) and T20 in the bench (PLAY, then a
+  4-block CD READ(10) on a 150,000-cycle device). **T20 fails**: block 3 of
+  the read comes back stale (byte 1024 got 03, want 46) and the completion
+  interrupt never comes, with "collision cycles seen: 0" -- i.e. the grant
+  between two nexus blocks, not a same-cycle collision, breaks the next
+  block (suspects in the resume file). Everything before T20 passes. The
+  box: MENU core, RAM 32 MB, images clean, remote mouse motion dead (mrext
+  restart at the menu core is the lever), Main relaunched with logging.
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build
