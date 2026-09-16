@@ -82,7 +82,10 @@ inside `sys/`, not our RTL; the next HDMI paths are `ascal` at +0.117. The
 CPU clock's worst path is `rr_a[0] -> epf_data[6][1]` (the hint adder cone).
 Seeds were the lever; policy since 2026-09-16 00:05 (user): try the best
 marginal rbf on hardware instead of walking seeds (CLAUDE.md reworded).
-Seeds 25 (main) and 26 (wt3) were left running as a hedge; no more launched.
+Seeds 25 (main) and 26 (wt3) were left running as a hedge: 26 did not place,
+25 took 2.5 h and gave up on timing (CPU clock -9.159 ns). The walk is over;
+seed 22 is the recipe for this head (qsf restored to it). wt3 removed; wt2
+is a detached build dir at 15be2a2 with the R1..R4 files and seed 27.
 
 R1..R4 and R1..R6 are cycle-identical; R1..R6 is ~1,300 ALMs smaller but its
 CPU-clock path is a lottery with the fix in (three misses, growing). R1..R4's

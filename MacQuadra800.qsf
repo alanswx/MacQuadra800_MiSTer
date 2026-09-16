@@ -179,7 +179,11 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # R1..R4 + fix seed 21 (wt2): CPU +0.267, HDMI -0.766.  Seed 22 (here): CPU +0.712, HDMI -0.095
 # (one endpoint, 38,7xx ALMs).  The HDMI endpoint is the usual seed lottery: 23 in wt2, 24 here.
 # Seed 24 (R1..R4 + fix): the fitter could not place the design at all (Error 11802). Seed 25 next.
-set_global_assignment -name SEED 25
+# Seed 25: fitter took 2.5 h and gave up on timing (CPU clock -9.159 ns); 26 and 27 did not place.
+# RELEASED 2026-09-16 as MacQuadra800_20260915.rbf: seed 22 (clk_sys +0.712, clk_ram +0.998, HDMI
+# -0.095 on sys_top hdmi_dv_hs -> hs), shipped marginal by policy (CLAUDE.md), both gates pass,
+# Speedometer Mix 0.858.  Seed 22 is the recipe for this head.
+set_global_assignment -name SEED 22
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
 # the design no longer fits with speed-directed synthesis; all-area
