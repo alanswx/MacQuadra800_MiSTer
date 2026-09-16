@@ -107,7 +107,12 @@ blob / raw-audio windows unchanged.
   forwards an accepted MODE SELECT (Main mirrors the page $0E ports for its
   MODE SENSE), an eject, and the pseudo-ops `$FF` (machine reset) and `$FE`
   (SCSI bus reset).  STATUS is held until the write is acked, through the
-  same `iccs_pend` deferral a judged MODE SELECT used.
+  same `iccs_pend` deferral a judged MODE SELECT used.  Forwards serialize:
+  a nexus forward raised while a reset notice is still being written queues
+  behind it (`fwd_q`), STATUS waits for both, and only a forward the current
+  nexus owns (`fwd_own`) holds its status -- a notice, or a forward whose
+  nexus was abandoned, completes without holding the next command
+  (`tb_ncr53c96` T18: bus reset, then the eject a shutdown sends).
 - **Next frame, read, 5 blocks:** `$7C000000`: one volume-scaled 2352-byte
   frame at Main's playhead, the audio status at byte 2352, a frame-present
   flag at 2353 and a flush generation at 2354..2357.  Defined and served;
