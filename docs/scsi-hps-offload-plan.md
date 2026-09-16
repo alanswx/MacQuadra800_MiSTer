@@ -315,6 +315,42 @@ Core phase 2 (playback on the ARM), gated on C5's numbers:
   generic path; the 20260915 rbf was gated on .92 with no CD in slot 4, so
   the control run (same core + disc on the old Main `916829ff`) follows
   (an Opus operator is running the A/B on .143).
+- 2026-09-16 08:10, the A/B (operator report, screenshots in
+  `scratch/ab_cd/`): **the two icons are guest-side and identical on both
+  Mains** (two independently mountable volumes from the one flat ISO; my
+  "one icon" was the second hidden behind the open windows). **The new
+  Main hung the old core's boot**: with flat ISOs now HANDLED the 60 s
+  boot repulse fires for them too, its re-insert landed at T0+54 s while
+  the extensions loaded, and the boot froze one icon short of the Apple
+  CD-ROM extension (10 min, zero I/O); the old Main never repulses a flat
+  ISO and booted to the Finder both times. Fix: no repulse for optimized
+  cores (fork `ae708d3`; the Quadra core replays mounts after reset
+  itself), Main `898854ef` installed 08:15 with a forced core reload of
+  the hung guest (backup `QuadSquad8.hda.gz` of Aug 31 on the box). Also
+  from the run: the remote mouse was dead on the first new-Main session
+  and fine after the core reload (a wedged ADB mouse, not a Main change,
+  most likely); `mac_shutdown.sh` / `shutdown_finder.sh` aim at Help
+  (x=229) where this Finder has Special at x=181.
+- 2026-09-16 08:20, **the repulse-as-cause story is withdrawn** (the user:
+  look at MAME instead). MAME `nscsi_cdrom_device` (`src/devices/bus/
+  nscsi/cd.cpp`): `device_reset` syncs a media sequence counter, so a
+  disc present at boot raises nothing and the driver finds it by TEST
+  UNIT READY = GOOD; any later load/unload makes the next non-INQUIRY
+  command CHECK with sense key 06 UNIT ATTENTION (the Apple variant
+  inherits this through its default arm); no disc = NOT READY / $B0.
+  There is no re-insert timer anywhere: a re-mount of the same image IS a
+  media change to MAME and the driver would re-examine the disc. What the
+  evidence actually supports: the old core on the new Main booted to the
+  Finder twice and hung once at the Apple CD-ROM extension's INIT; the
+  RTL ignores a same-disc mount pulse and `hps_io` 'h1c is a plain pulse,
+  so the repulse has no path into an in-flight transfer; the hang is
+  unexplained and may be the checkpoint-15 boot race family
+  (`ck15-hardware-boot-hang`, "~15 %" before 15be2a2). The repulse stays
+  off for optimized cores because MAME has no such thing, not because it
+  is proven guilty. The forced reload (08:14) left the Quad Squad volume
+  unbootable: the ROM booted the retail CD instead (its Finder, one
+  volume icon); `QuadSquad8.hda` needs Disk First Aid or the Aug 31
+  backup -- the user's call.
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build
