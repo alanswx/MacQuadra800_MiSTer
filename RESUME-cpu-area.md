@@ -76,6 +76,18 @@ one. Ship the first R1..R4 seed that meets both. Failed rbfs are kept as
 `scratch/MacQuadra800_fix_r6_s2{2,3,4}_TIMINGFAIL.rbf` (main/wt2) and
 `../MacQuadra800_wt2/scratch/MacQuadra800_fix_r4_s21_HDMIFAIL.rbf`.
 
+## Speedometer experiment on the seed-22 rbf (launched 2026-09-15 23:59)
+
+At the user's request the best rbf so far -- R1..R4 + fix, seed 22, CPU
++0.712 ns, HDMI -0.095 ns (one `sys_top` register) -- was pushed by hand as
+`/media/fat/_Unstable/MacQuadra800_fix_r4_s22.rbf` (md5 `4c80a3be…`,
+`scratch/gate_fix/candidate.md5`); `deploy_screenshot.sh` refuses it, so it
+is an experiment, not a release. The Opus operator runs
+`scratch/gate_fix/BRIEF_speedometer.md` (8.1 boot, liveness, Mix ×3 + CQD +
+FPU, clean shutdown, no A/UX); report in `scratch/gate_fix/report.md`.
+Box state before: store head at the 8.1 halt screen (`00_before.png`),
+`.s0` = QuadSquad8.hda.
+
 ## Next
 
 1. Hardware gate of the timing-met rbf on the .92 box (Opus operator):
