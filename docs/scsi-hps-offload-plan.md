@@ -89,7 +89,7 @@ end below 0x401C0000). Old cores keep working unchanged. LBAs are in
 
 | window | LBA | direction | contents |
 |---|---|---|---|
-| disc info / capability | `0x7E000000` | read, 1 block | `"MCDR"`, version, flags (has data track, has audio tracks), sectors, first/last track. The core reads it once after every `img_mounted`; no magic = old Main or generic path: **the CD target stops answering selection** (no hang, no garbage INQUIRY). |
+| capability probe | the INQUIRY response window (`0x7E120000`) | read, 1 block | the core reads it after every machine reset and CD mount pulse, while the bus is free, and arms `cd_hps_ok` only if the block starts with the CDU-8004 identity (`05 80 02 02`). Without it the CD target does not answer selection: an old Main or the generic path yields no garbage identity and no hang. The has-data flag rides in the MCDA blob (version 2, byte 12). |
 | response | `0x7E000000 + op<<16 + a<<8 + b` | read, 1 block | the DATA IN payload of CD command `op` with the two CDB bytes it depends on: `$12` INQUIRY (54 B); `$1A` MODE SENSE, a = page; `$43` READ TOC, a = cdb[9] format, b = cdb[6] start track; `$C1`, a = cdb[9], b = cdb[5] BCD track; `$42`, a = cdb[3] format, b = cdb[6]; `$C2`; `$CC`, a = cdb[3]. The core serves exactly `clamp(alloc)` bytes from the block, zero-filled, as it does now. |
 | command | `0x7D000000 + op<<16` | write, 1 block | the DATA OUT parameter list (MODE SELECT `$15`, AUDIO CONTROL `$CE`) at bytes 0.. exactly where the core's drain left it, the 12-byte CDB at bytes 496..507. For every audio-transport opcode ($45/$47/$48/$4B/$4E/$A5/$01/$0B/$2B, $C8-$CB, $CD), MODE SELECT, eject ($1B LoEj, $C0), PREVENT $1E, SET CD SPEED $BB; pseudo-ops $FF machine reset and $FE SCSI bus reset. The core holds STATUS until the write is acked (the MODE SELECT deferred-ICCS mechanism), so the guest sees one Main poll of extra latency and nothing else. |
 | next frame | `0x7C000000` | read, 5 blocks (2560 B, `sd_blk_cnt` 4) | the 2352-byte frame at the ARM playhead, volume applied, then the playhead advances; the pad (bytes 2352..) carries the playback state (playing / paused / end / idle) so the fetch loop knows when to stop without a second transaction. `mac_cdda_window()`'s upper bound tightens to this window so it is served in 512-byte blocks. |
@@ -249,16 +249,22 @@ Core phase 1 (responses from the ARM, playback stays), branch `optimize-SCSI`:
       capability probe = an INQUIRY window read after reset and on every
       mount, "SONY" at bytes 8..11 arms `cd_hps_ok`, without which the CD
       target does not answer selection (old Main: no garbage identity)
-- [ ] C2 `cd_audio.sv`: builders and the three table planes removed; blob v2
-      header parse keeps n_tracks / lead-out / has-data; version check hides
-      the target on an old Main
-- [ ] C3 `MacQuadra800.sv` / `quadra800.sv`: CD slot `sd_wr` untied for the
-      command block; `scsi_cache` pass-through checked for writes
-- [ ] C4 `tb_ncr53c96` device serves the windows through a DPI-C shim over
-      the Main builders (same code as the box); T16 passes;
-      `sim_blkdevice.cpp` gets a CD-window device (blob v2, responses,
-      command block, next frame) over the same files; full sim boots 8.1
-      with a CD
+- [x] C2 `cd_audio.sv`: builders and the three table planes removed; blob v2
+      header parse keeps n_tracks / lead-out / has-data (the version byte
+      guards the flag; the probe in C1 is what hides the target on an old
+      Main)
+- [x] C3 `MacQuadra800.sv`: CD slot `sd_wr` untied for the command block
+      (`scsi_cache` already passes slot-2 writes at LBA bit 30/31 through)
+- [x] C4 (bench half) `tb_ncr53c96` serves the windows through
+      `cd_win_dpi.cpp` -> `sim/cd_window.cpp` -> the Main fork's own
+      builders (mirrored by `scripts/sync_main_mac.sh`): **476,837 checks,
+      0 failures**; the same device is in `sim_blkdevice.cpp` for disk 2.
+      Found on the way: a forwarded write must not pose as the nexus's
+      flush (`nexus_io`), the probe must never touch the buffer, and a
+      held ICCS must die with its nexus.
+- [ ] C4 (sim half) full sim boots the gate image with `cd.iso` on the
+      CD-ROM: ROM scan (probe, INQUIRY window, MODE SELECT forward), then
+      the Apple CD-ROM extension's mount
 - [ ] C5 `build_only.sh --check` logic-cell delta recorded here; full fit;
       hardware gate on .143 (both OSes, OT ISO, retail ISO CD boot, CHD audio)
 - [ ] C6 commit + measured numbers in this file and `docs/area-budget.md`
