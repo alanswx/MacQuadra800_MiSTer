@@ -339,8 +339,11 @@ entry and a commit; the sim is only for short directed reproductions.
 
 **Phase 1 close-out (core rbf `1eae0fb7` staged, timing met):**
 
-- [ ] P1a `.s0` back to Quad Squad (`cp -p .s0.quadsquad .s0`), load
-      `_Unstable/MacQuadra800_phase1_s21b.rbf`, the 8.1 gate: Finder,
+- [~] P1a `.s0` back to Quad Squad (`cp -p .s0.quadsquad .s0`), load
+      `_Unstable/MacQuadra800_phase1_s21b.rbf` (both DONE 11:35; the box
+      was found at 12:05 on that core at the halt screen with `.s0` Quad
+      Squad, `.s4` retail ISO), the 8.1 gate (operator run from 12:15,
+      brief `scratch/p1a/BRIEF.md`, evidence `scratch/p1a/`): Finder,
       clock ticking for several minutes, the retail ISO's icons, open the
       CD, hot-mount the OT ISO from the OSD (a new disc: the probe re-arms,
       the driver must see it by TEST UNIT READY), eject it from the Finder
@@ -543,6 +546,26 @@ gate had no CD):
   Finder, a 2-minute idle and the mouse-driven shutdown; the
   several-minute idle clock, keyboard, CD icons and the OT ISO hot
   mount/eject are still to do.
+- 2026-09-16 12:05, resume: the box was already on the phase-1 core
+  `1eae0fb7` (the MiSTer process command line names
+  `_Unstable/MacQuadra800_phase1_s21b.rbf`), at the Mac OS 8.1 halt screen
+  from the 11:39 walker run, `write_bytes` flat, `.s0` Quad Squad, `.s1`
+  FreshTest, `.s4` retail ISO, Main `898854ef`. So P1a's reload half is
+  done; the rest of the 8.1 gate (idle clock, keyboard, CD icons/window, a
+  Finder eject = the eject forward, the OT ISO hot mount from the OSD = the
+  probe re-arming on a different-size disc, its eject, the retail re-mount,
+  three Speedometer Mixes against 0.858, `mac_shutdown.sh`) went to an Opus
+  operator at 12:15 (`scratch/p1a/BRIEF.md`). Facts for the brief: Main's
+  stdout is `/media/fat/nohup.out` (every CD mount logs `Mac CD: raw image,
+  1 track(s), leadout N`; the OT ISO is 3473 sectors, the retail ISO
+  205343, NetBSD 176484; forwarded ejects/MODE SELECTs are not logged, only
+  the audio-transport set), screenshots do not show the OSD (it is overlaid
+  after the scaler buffer the capture reads), the OSD opens with its cursor
+  on the first item and the slot-4 browser on the mounted file, so the hot
+  mount is the blind sequence F12, Down x2, Enter, Down x2, Enter, F12. In
+  the RTL a Finder eject leaves the disc out until the next bus reset or a
+  different-size mount pulse (a same-size re-mount is a no-op), hence the
+  order eject retail, mount OT, eject OT, re-mount retail.
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build
