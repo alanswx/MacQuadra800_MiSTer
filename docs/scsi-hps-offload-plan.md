@@ -512,6 +512,19 @@ gate had no CD):
   branch. Next session: `.s0` -> Quad Squad, `load_core
   _Unstable/MacQuadra800_phase1_s21b.rbf` (1eae0fb7), the 8.1 gate, then
   A/UX with `.s4` empty, then the release entry; phase 2 after that.
+- 2026-09-16 11:10, the shutdown walkers recalibrated (the 08:40
+  follow-up): `scripts/mac_shutdown.sh` is the one walker
+  (`guest/shutdown_finder.sh` and `guest/shutdown.sh` run it) and follows
+  the operator's closed loop: the pointer is found against the pinned frame
+  and put on Special (x=181) with the button up, the press comes only then,
+  and the release happens in place only when the lit row sits on the panel's
+  bottom border (Shut Down). Exit 0 means the halt screen was seen; every
+  trappable exit sends `left_up`, and `--release` frees the button after a
+  kill. A/UX's Finder is refused (its Special menu ends in Logout). New
+  `scripts/finder_probe.py`. Offline, a simulated guest built from today's
+  frames ran the real script through 26 cases (scale 1.2-2.5 px/event,
+  jitter, coalescing, a window behind the menu, refusals, dead capture,
+  signals mid-walk) with no wrong selection. Not yet run on .143.
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build

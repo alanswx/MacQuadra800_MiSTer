@@ -12,6 +12,11 @@ Exists because the event-to-pixel scale of mrext motion is not stable -- it
 depends on how many moves get coalesced into one ADB report -- so a script that
 walks a fixed number of steps to a menu will sometimes land one menu over.
 Callers should step and re-probe rather than trust a step count.
+
+A pointer resting on the open title breaks the dark run, so the span can come
+back as only the part left or right of the pointer (149..182 or 180..212 for
+Special, whose full span is 149..212): test whether a target x falls inside
+it, do not take the left edge as the title's.
 """
 import sys
 
@@ -23,23 +28,31 @@ from PIL import Image
 ROWS = [2, 3, 16, 17]
 DARK = 100
 
-im = np.array(Image.open(sys.argv[1]).convert("L")).astype(int)
-col_dark = (im[ROWS, :] < DARK).mean(axis=0) > 0.9
 
-best_len = 0
-best = None
-run = None
-for x, v in enumerate(list(col_dark) + [False]):
-    if v and run is None:
-        run = x
-    elif not v and run is not None:
-        if x - run > best_len:
-            best_len, best = x - run, (run, x - 1)
-        run = None
+def open_title(gray):
+    """(left, right) columns of the pulled-down title in a greyscale frame
+    (a 2-D int array), or None.  Also used by scripts/finder_probe.py."""
+    col_dark = (gray[ROWS, :] < DARK).mean(axis=0) > 0.9
+    best_len = 0
+    best = None
+    run = None
+    for x, v in enumerate(list(col_dark) + [False]):
+        if v and run is None:
+            run = x
+        elif not v and run is not None:
+            if x - run > best_len:
+                best_len, best = x - run, (run, x - 1)
+            run = None
+    if best is None or best_len < 8:
+        return None
+    return best
 
-if best is None or best_len < 8:
-    print("NONE")
-else:
-    # the LEFT edge identifies the title; measured on a 640x480 Mac OS 8 Finder:
-    # apple 9 | View 105 | Special 149 | Help 208
-    print("OPEN %d %d" % (best[0], best[1]))
+
+if __name__ == "__main__":
+    t = open_title(np.array(Image.open(sys.argv[1]).convert("L")).astype(int))
+    if t is None:
+        print("NONE")
+    else:
+        # measured on a 640x480 Mac OS 8.1 Finder: apple 9 | View 105 |
+        # Special 149..212 | Help 208
+        print("OPEN %d %d" % t)

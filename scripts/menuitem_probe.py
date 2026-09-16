@@ -15,9 +15,11 @@ B - R is large), and the desktop below the panel is teal (G,B > R). Brightness
 alone cannot separate a blue highlight from the dark desktop, which is what an
 earlier greyscale version of this got wrong.
 
-Used by scripts/mac_shutdown.sh to confirm that Shut Down -- the LAST item of
-the Special menu -- is the highlighted row before the button is released,
-because Restart is the row directly above it.
+Used by scripts/guest/menu.sh. scripts/mac_shutdown.sh used it until
+2026-09-16 and now reads the panel with scripts/finder_probe.py instead:
+panel_bottom here follows grey, so it runs on into a grey Finder window behind
+the menu (219 against a panel ending at 112), and "gap" goes wrong with it.
+The band itself stays reliable.
 """
 import sys
 

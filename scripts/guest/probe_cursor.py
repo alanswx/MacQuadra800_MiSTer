@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """Where is the mouse pointer, in screen pixels?
 
-  python3 probe_cursor.py <background.png> <withcursor.png>
+  python3 probe_cursor.py <background.png> <withcursor.png> [--min-y N]
   -> "CURSOR x=246 y=142"   or   "NOCURSOR"
+
+--min-y N ignores every change above row N. scripts/mac_shutdown.sh uses it
+with the button held: its background is then the frame taken right after the
+press, with the pointer on the menu title, so the spot the pointer left is a
+change of the same size as the pointer and has to be cut out.
 
 mrext only sends RELATIVE motion and Mac OS accelerates it, so there is no
 absolute position to read back and the event-to-pixel scale is not stable
@@ -31,11 +36,17 @@ TOL = 40           # per-channel difference that counts as "changed"
 
 
 def main():
-    if len(sys.argv) < 3:
-        print("usage: probe_cursor.py bg.png cur.png", file=sys.stderr)
+    args = sys.argv[1:]
+    min_y = 0
+    if "--min-y" in args:
+        i = args.index("--min-y")
+        min_y = int(args[i + 1])
+        del args[i:i + 2]
+    if len(args) < 2:
+        print("usage: probe_cursor.py bg.png cur.png [--min-y N]", file=sys.stderr)
         return 2
-    bg = np.asarray(Image.open(sys.argv[1]).convert("RGB")).astype(np.int16)
-    cur = np.asarray(Image.open(sys.argv[2]).convert("RGB")).astype(np.int16)
+    bg = np.asarray(Image.open(args[0]).convert("RGB")).astype(np.int16)
+    cur = np.asarray(Image.open(args[1]).convert("RGB")).astype(np.int16)
     if bg.shape != cur.shape:
         print("NOCURSOR")
         return 0
@@ -51,6 +62,7 @@ def main():
     use = diff.copy()
     use[:20, 540:] = False
     use[:20, :20] = False
+    use[:min_y, :] = False
 
     if use.sum() < MIN_PIXELS:
         print("NOCURSOR")

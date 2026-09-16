@@ -129,9 +129,17 @@ Target is the DE10-Nano at the address in `scripts/local.env`
 bash scripts/deploy_screenshot.sh       # md5-verified scp + load_core (refuses a timing-failed build)
 bash scripts/grab.sh out.png            # screenshot (grab_fresh.sh fails loudly on a stale frame)
 python scripts/mister_ws.py raw:<kc> …  # keyboard/mouse injection (see its docstring)
-bash scripts/mac_shutdown.sh            # Mac OS: Special -> Shut Down from the host
-bash scripts/guest/shutdown_finder.sh   # same, screenshot-verified menu walker
+bash scripts/mac_shutdown.sh            # Mac OS 8.1 Finder: Special -> Shut Down; exit 0 = halt screen seen
+bash scripts/mac_shutdown.sh --release  # free a held mouse button after a killed walker
 ```
+
+`mac_shutdown.sh` is the one menu walker (`guest/shutdown_finder.sh` and
+`guest/shutdown.sh` run it): it checks the pointer against a screenshot before
+pressing and the lit row before releasing, and refuses A/UX's Finder (its
+Special menu ends in Logout; shut A/UX down with `shutdown -h now`). Guest
+Command is keycode **56** (Left Alt, `rtl/adb.sv:530`); 125 is Option, so cmd-W
+is `down:56 raw:17 up:56`. A bare `mister_ws.py` call needs `MISTER_HOST` in
+its environment (`. scripts/local.env`).
 
 Disks live in `/media/fat/games/MacQuadra800/`: `QuadSquad8.hda` (Mac OS 8.1),
 `HD60_512-AUX3.1-Installed.hda` (A/UX 3.1), `boot.rom`, and `backup/`.
@@ -153,9 +161,10 @@ CD-ROM (`.s4`). CUE/CHD discs and the Toolbox need the Main fork
    not hot-plug input; remote keyboard/mouse goes dead until the next
    `load_core`. Silence then says nothing about the guest.
 4. **Always send an explicit `mousebtn:left_up` after any guest-menu
-   operation**, and never let `menu.sh` / `click.sh` be killed by a timeout
-   with the button down — a held button wedges the Finder in a menu track and
-   looks exactly like a hung CPU.
+   operation**, and never let `menu.sh` / `click.sh` / `mac_shutdown.sh` be
+   killed by a timeout with the button down — a held button wedges the Finder
+   in a menu track and looks exactly like a hung CPU. (`mac_shutdown.sh`
+   releases on every trappable exit; a SIGKILL or tree-kill needs `--release`.)
 5. **Hash or back up a disk image only after a clean guest shutdown** and
    after the core has released the file. A mounted image's md5 means nothing.
 6. Do not `push_disk.sh` from the NAS to "refresh" — the MiSTer's image is the

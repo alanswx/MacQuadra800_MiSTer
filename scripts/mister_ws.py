@@ -23,9 +23,21 @@ DOWN across the whole splash, which a tap can't do. Left shift is keycode 42:
 Careful: a held key stays held on the MiSTer until you send the matching
 up:<code> (or reload the core), so always pair them.
 
+Modifiers, as this core's ADB keyboard maps them (rtl/adb.sv, PS/2 set 2 ->
+ADB):
+    Command  Left Alt  56   (PS/2 0x11 -> ADB $37, adb.sv:530; Right Alt 100 too)
+    Option   Left Meta 125  (PS/2 E0 1F -> ADB $3A, adb.sv:800)
+    Control  Left Ctrl 29,  Shift  Left Shift 42
+Command is 56, NOT 125: "cmd-W" sent with 125 holds Option instead and the W
+lands in the Finder's type-select. Close the front window with
+
+    python scripts/mister_ws.py down:56 raw:17 up:56
+
 The default host/port come from the MISTER_HOST / MISTER_HTTP_PORT
 environment variables (set those in scripts/local.env or your shell
-profile). Falls back to MiSTer.local : 8182 if neither is set.
+profile). Falls back to MiSTer.local : 8182 if neither is set. The helper
+scripts source scripts/local.env themselves; a bare call from a fresh shell
+needs `. scripts/local.env` first, MISTER_HOST=<ip> in front of it, or --host.
 """
 import asyncio, sys, os, argparse, json
 import websockets
