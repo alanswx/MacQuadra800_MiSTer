@@ -265,8 +265,15 @@ Core phase 1 (responses from the ARM, playback stays), branch `optimize-SCSI`:
 - [ ] C4 (sim half) full sim boots the gate image with `cd.iso` on the
       CD-ROM: ROM scan (probe, INQUIRY window, MODE SELECT forward), then
       the Apple CD-ROM extension's mount
-- [ ] C5 `build_only.sh --check` logic-cell delta recorded here; full fit;
-      hardware gate on .143 (both OSes, OT ISO, retail ISO CD boot, CHD audio)
+- [~] C5 `build_only.sh --check`: `cd_audio` 2,566 -> 1,535 ALUTs. **Full
+      fit (seed 22, the release recipe, 2026-09-16 08:00): 38,070 ALMs
+      (91 %), -568 vs the shipped 38,638; `ncr53c96` 2,469 (was 2,870),
+      of which `cd_audio` 994 (was 1,346); RAM 491/553 (was 497); DSP 59
+      (was 64); registers 25,471 (was 25,605). Timing: clk_sys (33 MHz CPU
+      clock) VIOLATED -0.931 ns, TNS -2.585; HDMI +0.003; clk_ram +1.054.**
+      The shipped build had clk_sys at +0.712, so the miss is being traced
+      to the new logic before any hardware run; hardware gate on .143
+      (both OSes, OT ISO, retail ISO CD boot, CHD audio) follows
 - [ ] C6 commit + measured numbers in this file and `docs/area-budget.md`
 
 Core phase 2 (playback on the ARM), gated on C5's numbers:
