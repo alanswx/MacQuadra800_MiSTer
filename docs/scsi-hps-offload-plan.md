@@ -344,7 +344,14 @@ Core phase 2 (playback on the ARM), gated on C5's numbers:
       `_Unstable/MacQuadra800_phase2_s22.rbf`; seed 22 is the qsf default**;
       **gate 18:15: 8.1 + retail ISO PASS, A/UX (32 MB) PASS, the AppleCD
       Audio Player FAILS ("not responding" ~7 s into Play, 2/2) -- see the
-      log; a channel-collision fix follows**. Still owed after the fix: the
+      log**. **Fixed 2026-09-16 19:35 (`3ec22e4`, on top of the owner
+      register `97ea3eb`): the real bite was `abort_nexus` arming
+      `io_discard` on io_busy = also the engine's transfer, so a guest
+      command selected during a frame fetch lost its own first read (the
+      player's status poll read nothing); T20 rewritten as a forced
+      same-cycle collision on a slot-faithful platform model, 477,415 / 0,
+      and 527 failures against the pre-owner RTL; fit at seed 22 launched
+      19:38 (`scratch/build_phase2b.log`)**. Still owed after the fix: the
       AppleCD Audio Player gate on .143 (play/pause/scan/volume/status) with
       the 4-track `AudioTest.cue` the operator built (the PC Engine CHDs
       are mixed-mode and do not mount); old note:
@@ -847,3 +854,51 @@ gate had no CD):
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build
   launched 07:38 (`scratch/build_phase1.log`, sgiindy fitting alongside);
   full-machine sim rebuilt after a WSL restart, CD boot run pending.
+- 2026-09-16 19:40, **T20 rewritten, the real hardware bug found and
+  fixed (`3ec22e4`)**. The WIP T20 was chasing a phantom: (1) a CD data
+  READ raises `read_stb`, which idles the engine (ast 5, both halves
+  dropped), so no frame fetch could collide with the read -- "collision
+  cycles seen: 0" was the truth; (2) its "stale" byte 1024 was HPS block
+  10, which T14's WRITE(6) at LBA 10 had overwritten earlier in the same
+  run; the read path was fine.  The rewritten T20 forces the same-cycle
+  collision on purpose: the engine's status poke in flight on a
+  300,000-cycle platform, the cadence frees a half meanwhile so the frame
+  fetch waits in F_REQ, a nexus request waits on io_busy (part c: a disk
+  WRITE(6) flush pushed as one TC=512 TI -- the chunk's bus service waits
+  on nexus_io too; part d: a guest $CC window read); both fire the cycle
+  the poke's ack falls, and the test asserts each precondition (hk_act,
+  fst == F_REQ, sbuf_pos == 512 / blocks_left == 1 with no request up)
+  so a cadence drift fails loudly.  The bench's platform model is now
+  faithful to scsi_cache + hps_io: the lowest slot holding a request is
+  served with the address and block count on the bus in that cycle, the
+  ack goes to that slot only, and a disk-slot request carrying a window
+  address or a block count is counted as astray.  Against the pre-owner
+  RTL (`450445b`, `scratch/t20/prewip.log`) the new T20 fails the way the
+  hardware did: the flush went out at the frame window's address with
+  the engine's block count (`bad_disk_req` 1), its ack stayed masked and
+  it was served again for ever -- 527 failures.  With the owner register,
+  part c passed and part d still failed: the guest's six $CC bytes came
+  back $FF (the chip's idle-PDMA answer) and the DATA IN ended empty when
+  the engine's fetch behind it finished -- because **`abort_nexus` arms
+  `io_discard` on io_busy, which includes the engine's transfer
+  (`ca_io_active`), so a selection that lands while a frame fetch or the
+  poke is out throws away the NEW nexus's first read** (`26b5e67`,
+  2026-09-02; every release since carries it, the phase-2 fetches every
+  13 ms made it bite at once).  On hardware that is every AppleCD status
+  poll that selects during a fetch: the poll's DATA IN ends with no
+  bytes, and a disk READ selected the same way comes back one block off
+  (the Quad Squad image with error 41 has a candidate cause).  The same-
+  cycle collision, by contrast, needs two requesters waking on the same
+  transfer end, which the PLAY-then-poll sequence on hardware does not
+  produce (only one poke, before frames flow) -- the owner register stays
+  (correct by construction, T20 proves it), the discard fix is the one
+  that matters for the player.  Fix: only the old nexus's own read in
+  flight (`io_rd_i || io_ack_i`) arms the discard.  Bench 477,415 / 0.
+  Full fit at seed 22 launched 19:38 (`scratch/build_phase2b.log`).
+  Box facts (read-only look 19:20): MENU core, Main `898854ef` started by
+  hand at 18:04 with stdout to `nohup.out` (holds event8..18 but NOT
+  event15, created 18:04 -- the remote mouse's uinput node, hence "motion
+  dead": relaunching Main at the menu core, not the remote service, is the
+  cure; inittab starts Main once at sysinit, no respawn), `.s0` Quad
+  Squad, `.s1` FreshTest, `.s4` retail ISO, cfg byte 0 = 0 (32 MB), the
+  damaged copy is the pristine size (no file extension by the lost write).
