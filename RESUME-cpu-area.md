@@ -56,7 +56,7 @@ that arms), `--trace-max N`, `@main_time` stamps on trace lines.
 | main | R1..R4 (8778213) + fix | 22 | CPU clock +0.712, **HDMI -0.095** (one endpoint), 38,711 ALMs; rbf kept as `scratch/MacQuadra800_fix_r4_s22_HDMI-0.095.rbf` |
 | main | R1..R4 (8778213) + fix | 24 | fitter could not place (error 11802) |
 | wt2 | R1..R4 (8778213) + fix | 23 | HDMI -0.774, CPU -0.004 (52 min fit) |
-| wt2 | R1..R4 (8778213) + fix | 27 | fitting since 22:56 (`../MacQuadra800_wt2/scratch/build_fix_r4_s27.log`) |
+| wt2 | R1..R4 (8778213) + fix | 27 | fitter could not place (error 11802, 80 min) |
 | main | R1..R4 (8778213) + fix | 25 | fitting since 22:49 (`scratch/build_fix_r4_s25.log`) |
 | wt3 | R1..R4 (8778213) + fix | 26 | fitting since 22:49 (`../MacQuadra800_wt3`, a third detached worktree at 378e3a8 with the 8778213 files copied in; `scratch/build_fix_r4_s26.log`) |
 
@@ -67,7 +67,9 @@ seed-23 db (`../MacQuadra800_wt2/scratch/hdmi_worst_*.txt`, script
 placed at FF_X37_Y2 with 2.3 ns of clock insertion) -- a placement artefact
 inside `sys/`, not our RTL; the next HDMI paths are `ascal` at +0.117. The
 CPU clock's worst path is `rr_a[0] -> epf_data[6][1]` (the hint adder cone).
-Seeds are the lever; three trees walk in parallel.
+Seeds were the lever; policy since 2026-09-16 00:05 (user): try the best
+marginal rbf on hardware instead of walking seeds (CLAUDE.md reworded).
+Seeds 25 (main) and 26 (wt3) were left running as a hedge; no more launched.
 
 R1..R4 and R1..R6 are cycle-identical; R1..R6 is ~1,300 ALMs smaller but its
 CPU-clock path is a lottery with the fix in (three misses, growing). R1..R4's
