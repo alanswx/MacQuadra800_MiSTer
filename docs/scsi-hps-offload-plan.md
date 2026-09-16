@@ -271,9 +271,12 @@ Core phase 1 (responses from the ARM, playback stays), branch `optimize-SCSI`:
       of which `cd_audio` 994 (was 1,346); RAM 491/553 (was 497); DSP 59
       (was 64); registers 25,471 (was 25,605). Timing: clk_sys (33 MHz CPU
       clock) VIOLATED -0.931 ns, TNS -2.585; HDMI +0.003; clk_ram +1.054.**
-      The shipped build had clk_sys at +0.712, so the miss is being traced
-      to the new logic before any hardware run; hardware gate on .143
-      (both OSes, OT ISO, retail ISO CD boot, CHD audio) follows
+      TimeQuest (`scratch/clk_sys_paths.tcl`): all 40 worst paths are
+      inside `ap040_core` (`rr_a` -> `epf_data`, `pc` -> `state`), none in
+      the SCSI logic: the placement lottery, not the change. Policy
+      (CLAUDE.md): try it on hardware, walk a seed for the shipped rbf.
+      Hardware gate on .143 (both OSes, OT ISO, retail ISO CD boot, CHD
+      audio) follows once the A/B operator frees the box
 - [ ] C6 commit + measured numbers in this file and `docs/area-budget.md`
 
 Core phase 2 (playback on the ARM), gated on C5's numbers:
