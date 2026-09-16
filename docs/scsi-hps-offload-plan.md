@@ -386,6 +386,21 @@ Core phase 2 (playback on the ARM), gated on C5's numbers:
   the halt screen; the A/UX half of the gate started on the phase-1 core
   with `.s0` switched to `HD60_512-AUX3.1-Installed.hda` (the Quad Squad
   name saved as `.s0.quadsquad`).
+- 2026-09-16 09:30, **A/UX gate on the phase-1 core (seed 21)**: boot PASS
+  (551 s with a 357 s fsck of the unclean volume, ~194 s otherwise vs the
+  148 s reference), `uname -a` = `A/UX localhos 3.1 SUR2 mc68040`, the
+  retail ISO mounted under A/UX's Finder (17 items) through the windows;
+  **`shutdown -h now` WEDGED** after the RPC port-mapper message: screen
+  frozen 19.5 min with white streaks of random coloured pixels in VRAM
+  (`scratch/p1_aux/71_zoom_streaks.png`), read/write bytes flat, cursor
+  dead (operator report, `scratch/p1_aux/`). The 20260915 release passed
+  this shutdown in 127 s, and Alan's unreleased 299cb36 had an A/UX
+  shutdown wedge, so a control run of the same boot + shutdown on the
+  shipped 20260915 rbf is running before phase 1 is blamed. No `Mac CD:`
+  forwards in the Main log (a data-only disc logs none). Possible
+  suspects if it is phase 1: the ROM's shutdown eject of the CD ($1B/$C0)
+  now forwarded with STATUS held, or a bus-reset notice ($FE) issued while
+  the halt path expects the channel.
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build
