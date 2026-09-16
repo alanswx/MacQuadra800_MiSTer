@@ -74,8 +74,17 @@ always #5 clk = ~clk;
 // (the CD-ROM) with the same bytes, so a CD read of logical block N must
 // return HPS blocks 4N..4N+3.  Target 1 is mounted late (T16g).
 wire [2:0] io_rd_v, io_wr_v;
-assign io_rd = io_rd_v[0] | io_rd_v[1] | io_rd_v[2];
-assign io_wr = io_wr_v[0] | io_wr_v[1];
+assign io_rd = |io_rd_v;
+assign io_wr = |io_wr_v;                     // slot 2 writes its command block
+
+// The CD slot's windows (LBA >= $40000000: the MCDA blob, the response
+// window, the command block, the next-frame window) are served by the Main
+// fork's own builders through sim/cd_window.cpp (cd_win_dpi.cpp).
+import "DPI-C" function int  cdwin_dpi_read(input int lba, input int sz);
+import "DPI-C" function int  cdwin_dpi_rbyte(input int i);
+import "DPI-C" function void cdwin_dpi_wbyte(input int i, input int b);
+import "DPI-C" function void cdwin_dpi_write(input int lba);
+import "DPI-C" function void cdwin_dpi_mount(input int bytes);
 reg        cd_mount = 0, d1_mount = 0;
 reg  [7:0] sel_id = 8'h00;                   // R_SELID the helpers write
 ncr53c96 dut (
@@ -100,9 +109,10 @@ reg [7:0] disk [0:NBLK*512-1];
 
 integer k2;
 reg [7:0] it2;
-integer d_state = 0, d_lat = 0, d_i = 0, d_lba = 0;
+integer d_state = 0, d_lat = 0, d_i = 0, d_lba = 0, d_win = 0, d_r = 0;
+reg [7:0] d_b0, d_b1;
 integer dev_lat = 40;                        // device round trip, settable per test
-integer wr_blocks = 0;                       // blocks the device has accepted
+integer wr_blocks = 0;                       // disk blocks the device has accepted (window writes not counted)
 
 always @(posedge clk) begin
 	sd_buff_wr <= 0;
@@ -111,6 +121,8 @@ always @(posedge clk) begin
 		if (io_rd || io_wr) begin
 			d_lba   <= io_lba;
 			d_lat   <= dev_lat;              // short but non-zero round trip (default 40)
+			d_win   = (io_lba >= 32'h4000_0000);
+			if (d_win && io_rd) d_r = cdwin_dpi_read(io_lba, 512);
 			d_state <= io_rd ? 1 : 3;
 		end
 	end
@@ -122,7 +134,13 @@ always @(posedge clk) begin
 	2: begin
 		if (d_i < 256) begin
 			sd_buff_addr <= d_i[7:0];
-			sd_buff_dout <= (d_lba < NBLK) ? {disk[d_lba*512 + d_i*2], disk[d_lba*512 + d_i*2 + 1]} : 16'h0000;
+			if (d_win) begin
+				// the DPI bytes come back as 32-bit ints: narrow them first
+				d_b0 = cdwin_dpi_rbyte(d_i*2);
+				d_b1 = cdwin_dpi_rbyte(d_i*2 + 1);
+				sd_buff_dout <= {d_b0, d_b1};
+			end
+			else sd_buff_dout <= (d_lba < NBLK) ? {disk[d_lba*512 + d_i*2], disk[d_lba*512 + d_i*2 + 1]} : 16'h0000;
 			sd_buff_wr   <= 1;
 			d_i          <= d_i + 1;
 		end
@@ -145,14 +163,24 @@ always @(posedge clk) begin
 		// address one cycle, and sbuf's q_s read register delays the data a
 		// second, so sd_buff_din reflects the address driven TWO cycles ago.
 		if (d_i >= 2 && d_i < 258) begin
-			disk[d_lba*512 + (d_i-2)*2]     <= sd_buff_din[15:8];
-			disk[d_lba*512 + (d_i-2)*2 + 1] <= sd_buff_din[7:0];
+			if (d_win) begin
+				cdwin_dpi_wbyte((d_i-2)*2,     sd_buff_din[15:8]);
+				cdwin_dpi_wbyte((d_i-2)*2 + 1, sd_buff_din[7:0]);
+			end
+			else if (d_lba < NBLK) begin
+				disk[d_lba*512 + (d_i-2)*2]     <= sd_buff_din[15:8];
+				disk[d_lba*512 + (d_i-2)*2 + 1] <= sd_buff_din[7:0];
+			end
 		end
 		if (d_i < 258) begin
 			if (d_i < 256) sd_buff_addr <= d_i[7:0];
 			d_i <= d_i + 1;
 		end
-		else begin io_ack <= 0; wr_blocks <= wr_blocks + 1; d_state <= 0; end
+		else begin
+			io_ack <= 0; d_state <= 0;
+			if (d_win) cdwin_dpi_write(d_lba);
+			else wr_blocks <= wr_blocks + 1;
+		end
 	end
 	endcase
 end
@@ -1084,6 +1112,7 @@ initial begin
 
 	$display("-- T16c CD-ROM: mount 16 x 2048 (the 64-block device), READ CAPACITY");
 	img_size = 64*512;
+	cdwin_dpi_mount(64*512);                     // the window device follows the disc
 	cd_mount = 1; @(negedge clk); @(negedge clk); cd_mount = 0;
 	// the audio engine fetches its TOC blob (the device serves zeros there,
 	// so it synthesizes the single-track TOC) and grinds the M:S:F divider

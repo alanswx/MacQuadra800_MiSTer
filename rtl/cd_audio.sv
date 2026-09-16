@@ -71,38 +71,9 @@ module cd_audio #(
 	output reg  [7:0] abs_m, abs_s, abs_f,   // BINARY, no +150
 	output reg  [7:0] rel_m, rel_s, rel_f,
 
-	// 0xC1 READ TOC response RAM: bytes at toc_base .. toc_base+3.
-	// Layout: [0..3]   mode-00 header {01, last BCD, 00, 00}
-	//         [4..7]   mode-40 lead-out {M, S, F BCD, 00}
-	//         [8+4k..] track k+1 descriptor {ctrl, M, S, F BCD}, k = 0..98
-	input       [8:0] toc_base,
-	output      [7:0] toc_q0, toc_q1, toc_q2, toc_q3,
+	// the blob header has been parsed since the last mount pulse (the
+	// response tables the RTL used to build from it now come from Main)
 	output reg        toc_ready,
-
-	// standard 0x43 READ TOC response RAM (MMC format 0, MSF form, BINARY
-	// values): {u16be data-len, first=1, last=N} + 8-byte descriptors
-	// {00, adr_ctrl, track#, 00, 00, M, S, F(+150)} + 0xAA lead-out row.
-	// Built by M_T43_* right after the 0xC1 table; toc_ready covers both.
-	input       [8:0] toc43_base,
-	output      [7:0] toc43_q0, toc43_q1, toc43_q2, toc43_q3,
-	output reg  [9:0] toc43_len,
-
-	// 0x43 format-2 (old-style FULL TOC, cmd[9]=0x80) response RAM — the
-	// AppleCD driver's actual TOC dialect on the CDU-8004 identity
-	// (2026-07-19; oracles: Snow read_toc format 2 + BlueSCSI apple-quirks).
-	// Pre-rendered response image, MMC4 6.40.3.4.1 BCD rule (POINT/TNO/
-	// MIN/SEC/FRAME binary; PMIN/PSEC/PFRAME BCD, +150 MSF):
-	//   [0..3]     {u16be dlen, first session=01, last session=01}
-	//   [4+11r..]  11-byte rows: A0 {01,ctrl,00,A0,0*4, bcd(first)=01,
-	//              disc type=00, 00}, A1 {.., A2=0xA1, .., bcd(last),0,0},
-	//              A2 {.., 0xA2, .., bcd leadout M,S,F}, then track rows
-	//              {01, ctrl, 00, tno BIN, 0*4, bcd M, bcd S, bcd F}
-	//   [496..507] format-1 SESSION INFO page (cmd[9]=0x40, MMC-identical,
-	//              hex): {00,0A,01,01, 00,ctrl,01,00, 00,M,S,F(+150 bin)}
-	// Built by M_T2_* after the 0x43 table; toc_ready covers all three.
-	input       [8:0] toc2_base,
-	output      [7:0] toc2_q0, toc2_q1, toc2_q2, toc2_q3,
-	output reg  [9:0] toc2_len,
 
 	// 1 = the mounted disc has NO data track (every track's control bit 2
 	// clear). Data READs against such a disc must CHECK with ILLEGAL
@@ -163,110 +134,6 @@ wire [15:0] blob_q = blob_q_ram;
 wire [7:0] blob_b0 = blob_q[7:0];      // even byte (LE lane order on FPGA)
 wire [7:0] blob_b1 = blob_q[15:8];
 
-// 0xC1 response: two byte planes x 256, two read ports each = 4 serve lanes.
-// Four mirrored 1w1r cd_sdp instances (same write, distinct read address)
-// rather than scsi_dpram: with a constant-zero wren on one port, Quartus 17
-// drops the TDP template and silently falls back to ~2000 LUTs of register
-// fabric per plane (the 2026-07-07 BRAM-inference lesson; verified in
-// map.rpt on the first fit attempt of this file).
-reg        resp_we;
-reg  [8:0] resp_wa;
-reg  [7:0] resp_wd;
-reg        t43_we;            // 0x43 plane write port (driven by M_T43_*)
-reg  [8:0] t43_wa;
-reg  [7:0] t43_wd;
-wire [7:0] re_q0, re_q1, ro_q0, ro_q1;
-// even byte at/after addr x lives at plane index (x + x[0]) >> 1;
-// odd  byte at/after addr x lives at plane index  x >> 1
-wire [8:0] tb0 = toc_base;
-wire [8:0] tb2 = toc_base + 9'd2;
-wire       resp_we_e = resp_we && !resp_wa[0];
-wire       resp_we_o = resp_we &&  resp_wa[0];
-wire [8:0] tb0_e = (tb0 + {8'd0, tb0[0]}) >> 1;
-wire [8:0] tb2_e = (tb2 + {8'd0, tb2[0]}) >> 1;
-cd_sdp_mlab #(.DW(8), .AW(8)) resp_e0 (
-	.clock(clk), .waddr(resp_wa[8:1]), .wdata(resp_wd), .wr(resp_we_e),
-	.raddr(tb0_e[7:0]), .q(re_q0)
-);
-cd_sdp_mlab #(.DW(8), .AW(8)) resp_e1 (
-	.clock(clk), .waddr(resp_wa[8:1]), .wdata(resp_wd), .wr(resp_we_e),
-	.raddr(tb2_e[7:0]), .q(re_q1)
-);
-cd_sdp_mlab #(.DW(8), .AW(8)) resp_o0 (
-	.clock(clk), .waddr(resp_wa[8:1]), .wdata(resp_wd), .wr(resp_we_o),
-	.raddr(tb0[8:1]), .q(ro_q0)
-);
-cd_sdp_mlab #(.DW(8), .AW(8)) resp_o1 (
-	.clock(clk), .waddr(resp_wa[8:1]), .wdata(resp_wd), .wr(resp_we_o),
-	.raddr(tb2[8:1]), .q(ro_q1)
-);
-assign toc_q0 = tb0[0] ? ro_q0 : re_q0;
-assign toc_q1 = tb0[0] ? re_q0 : ro_q0;   // byte at tb0+1: opposite plane, same pair
-assign toc_q2 = tb2[0] ? ro_q1 : re_q1;
-assign toc_q3 = tb2[0] ? re_q1 : ro_q1;
-
-// 0x43 response planes: identical structure to the resp planes above.
-wire [7:0] t43e_q0, t43e_q1, t43o_q0, t43o_q1;
-wire [8:0] t43b0 = toc43_base;
-wire [8:0] t43b2 = toc43_base + 9'd2;
-wire       t43_we_e = t43_we && !t43_wa[0];
-wire       t43_we_o = t43_we &&  t43_wa[0];
-wire [8:0] t43b0_e = (t43b0 + {8'd0, t43b0[0]}) >> 1;
-wire [8:0] t43b2_e = (t43b2 + {8'd0, t43b2[0]}) >> 1;
-cd_sdp_mlab #(.DW(8), .AW(8)) t43_e0 (
-	.clock(clk), .waddr(t43_wa[8:1]), .wdata(t43_wd), .wr(t43_we_e),
-	.raddr(t43b0_e[7:0]), .q(t43e_q0)
-);
-cd_sdp_mlab #(.DW(8), .AW(8)) t43_e1 (
-	.clock(clk), .waddr(t43_wa[8:1]), .wdata(t43_wd), .wr(t43_we_e),
-	.raddr(t43b2_e[7:0]), .q(t43e_q1)
-);
-cd_sdp_mlab #(.DW(8), .AW(8)) t43_o0 (
-	.clock(clk), .waddr(t43_wa[8:1]), .wdata(t43_wd), .wr(t43_we_o),
-	.raddr(t43b0[8:1]), .q(t43o_q0)
-);
-cd_sdp_mlab #(.DW(8), .AW(8)) t43_o1 (
-	.clock(clk), .waddr(t43_wa[8:1]), .wdata(t43_wd), .wr(t43_we_o),
-	.raddr(t43b2[8:1]), .q(t43o_q1)
-);
-assign toc43_q0 = t43b0[0] ? t43o_q0 : t43e_q0;
-assign toc43_q1 = t43b0[0] ? t43e_q0 : t43o_q0;
-assign toc43_q2 = t43b2[0] ? t43o_q1 : t43e_q1;
-assign toc43_q3 = t43b2[0] ? t43e_q1 : t43o_q1;
-
-// format-2 (full TOC) response planes: identical structure again.
-reg        t2_we;             // format-2 plane write port (driven by M_T2_*)
-reg  [8:0] t2_wa;
-reg  [7:0] t2_wd;
-wire [7:0] t2e_q0, t2e_q1, t2o_q0, t2o_q1;
-wire [8:0] t2b0 = toc2_base;
-wire [8:0] t2b2 = toc2_base + 9'd2;
-wire       t2_we_e = t2_we && !t2_wa[0];
-wire       t2_we_o = t2_we &&  t2_wa[0];
-wire [8:0] t2b0_e = (t2b0 + {8'd0, t2b0[0]}) >> 1;
-wire [8:0] t2b2_e = (t2b2 + {8'd0, t2b2[0]}) >> 1;
-cd_sdp_mlab #(.DW(8), .AW(8)) t2_e0 (
-	.clock(clk), .waddr(t2_wa[8:1]), .wdata(t2_wd), .wr(t2_we_e),
-	.raddr(t2b0_e[7:0]), .q(t2e_q0)
-);
-cd_sdp_mlab #(.DW(8), .AW(8)) t2_e1 (
-	.clock(clk), .waddr(t2_wa[8:1]), .wdata(t2_wd), .wr(t2_we_e),
-	.raddr(t2b2_e[7:0]), .q(t2e_q1)
-);
-cd_sdp_mlab #(.DW(8), .AW(8)) t2_o0 (
-	.clock(clk), .waddr(t2_wa[8:1]), .wdata(t2_wd), .wr(t2_we_o),
-	.raddr(t2b0[8:1]), .q(t2o_q0)
-);
-cd_sdp_mlab #(.DW(8), .AW(8)) t2_o1 (
-	.clock(clk), .waddr(t2_wa[8:1]), .wdata(t2_wd), .wr(t2_we_o),
-	.raddr(t2b2[8:1]), .q(t2o_q1)
-);
-assign toc2_q0 = t2b0[0] ? t2o_q0 : t2e_q0;
-assign toc2_q1 = t2b0[0] ? t2e_q0 : t2o_q0;
-assign toc2_q2 = t2b2[0] ? t2o_q1 : t2e_q1;
-assign toc2_q3 = t2b2[0] ? t2e_q1 : t2o_q1;
-
-
 // frame ping-pong: 2 x 2048 x 16 (1176 words = one 2352 B frame per half).
 // Each half is filled by ONE whole-frame HPS transaction (Main forces
 // blksz=2352 for the AUDIO window, PSX-style): a single sd_ack window with
@@ -291,24 +158,6 @@ cd_sdp #(.DW(16), .AW(12)) frame_ram (
 function [7:0] bcd2bin;
 	input [7:0] b;
 	bcd2bin = {4'd0, b[7:4]} * 8'd10 + {4'd0, b[3:0]};
-endfunction
-function [7:0] bin2bcd;                // 0..99
-	// Was {4'd1, v - 8'd10} etc.: a 12-bit concatenation truncated to the
-	// 8-bit result, which dropped the tens digit for every value >= 10
-	// (16 -> $06).  Found by tb_ncr53c96 T17 against the Apple $C1 lead-out.
-	input [7:0] v;
-	reg  [15:0] reciprocal;
-	reg   [7:0] t, u;
-	begin
-		// floor(v / 10) == (v * 205) >> 11 for every 8-bit v.  Expressing
-		// the constant product once and deriving the remainder avoids the
-		// separate general divider and modulus circuits Quartus otherwise
-		// creates at each concurrent call site.
-		reciprocal = v * 8'd205;
-		t = reciprocal[15:11];
-		u = v - ((t << 3) + (t << 1));
-		bin2bcd = {t[3:0], u[3:0]};
-	end
 endfunction
 function [31:0] msf2lba;               // BCD M/S/F -> LBA
 	input [7:0] m, s, f;
@@ -364,21 +213,12 @@ end
 localparam [4:0]
 	M_IDLE     = 5'd0,
 	M_ACQ_REQ  = 5'd1,  M_ACQ_WAIT = 5'd2,
-	M_HDR_RD   = 5'd3,                      // stream words 0..5 into hdr regs
-	M_EMIT_H   = 5'd4,                      // header slot bytes 0..3
-	M_LO_DIV   = 5'd5,  M_EMIT_LO  = 5'd6,  // lead-out MSF -> slots 4..7
-	M_TRK_RD   = 5'd7,                      // stream entry words (4) of track t_idx
-	M_TRK_DIV  = 5'd8,  M_EMIT_TRK = 5'd9,
-	M_BUILT    = 5'd10,
+	M_HDR_RD   = 5'd3,                      // stream words 0..6 into hdr regs
 	M_CMD      = 5'd11,                     // decode a pending command
 	M_CTRK_RD  = 5'd12,                     // track-mode: read start(k), start(k+1)
 	M_APPLY    = 5'd13,
 	M_REF_SCAN = 5'd14,                     // find track containing cur_lba
 	M_REF_DIVA = 5'd15, M_REF_DIVR = 5'd16,
-	// standard 0x43 MMC TOC table build (dialect-switch mission 2026-07-19)
-	M_T43_HDR  = 5'd17, M_T43_RD = 5'd18, M_T43_DIV = 5'd19, M_T43_EMIT = 5'd20,
-	M_T2_HDR   = 5'd21, M_T2_RD  = 5'd22, M_T2_DIV  = 5'd23, M_T2_TRK  = 5'd24,
-	M_T2_A2    = 5'd25, M_T2_A01 = 5'd26, M_T2_SESS = 5'd27,
 	M_SCAN_GO  = 5'd28;                     // 0xCD standard-form audio scan
 reg [4:0] mst;
 
@@ -394,9 +234,6 @@ reg        scan_x;
 reg        scan_dir;                        // 1 = rewind
 
 reg  [2:0] step;                        // word-stream step within a state
-reg  [6:0] t_idx;
-reg [LBW-1:0] t_start;
-reg  [7:0] t_ctrl;
 reg [LBW-1:0] div_v;                       // shared iterative M/S/F divider
 reg  [6:0] div_m, div_s;
 // One step of the LBA -> M/S/F divider, computed ONCE: every state that
@@ -409,29 +246,13 @@ wire        div_done   = !div_ge4500 && !div_ge75;
 wire [LBW-1:0] div_v_next = div_ge4500 ? div_v - 32'd4500 : div_v - 32'd75;
 wire  [6:0] div_m_next = div_m + {6'd0, div_ge4500};
 wire  [6:0] div_s_next = div_s + {6'd0, !div_ge4500};
-reg  [2:0] emit_k;   // widened for the 8-byte 0x43 descriptors
 
 reg        toc_valid;
+reg  [7:0] blob_ver;           // blob byte 4: 2 carries the has-data flag at byte 12
 reg  [6:0] n_tracks;
 
 // probe counters (CDA0): how many blob-block fetches / audio-frame fetches
 // actually fired — distinguishes "fetch never ran" from "ran, parse failed".
-reg        t43_lo;            // building the 0xAA lead-out row
-// 0x43 build sizing (cap 60 descriptors; the last-track byte stays honest)
-wire [6:0] w_t43_nreal = (n_tracks > 7'd60) ? 7'd60 : n_tracks;
-wire [9:0] w_t43_dlen  = {{2'd0, w_t43_nreal} + 9'd1, 3'b000} + 10'd2;
-// format-2 build sizing: rows = 3 lead-in (A0/A1/A2) + tracks, 11 B each;
-// cap 41 tracks so rows end at 4+44*11=488 < the session page at [496..]
-reg        t2_lo;             // building the A2 (lead-out) row
-reg        t2_has_data;       // any track with the data control bit (0x04)
-reg  [4:0] t2_ek;             // 0..21 (A0+A1 pass is 22 writes)
-reg  [8:0] t2_wbase;          // running track-row base (4 + 11*(3+k))
-reg  [7:0] t2_fctrl;          // first track's adr/ctrl (A-rows + session page)
-reg  [7:0] t2_fm, t2_fs, t2_ff; // first track start MSF, BINARY (session page)
-wire [6:0] w_t2_n    = (n_tracks > 7'd41) ? 7'd41 : n_tracks;
-wire [9:0] w_t2_rows = {3'd0, w_t2_n} + 10'd3;
-wire [9:0] w_t2_dlen = {w_t2_rows[6:0], 3'b000} + {w_t2_rows[8:0], 1'b0}
-                     + w_t2_rows + 10'd2;   // rows*11 + 2
 reg  [7:0] dbg_toc_fetch_cnt = 8'd0;
 reg  [4:0] dbg_fr_fetch_cnt  = 5'd0;
 reg [LBW-1:0] leadout_lba;
@@ -458,31 +279,20 @@ reg [LBW-1:0] scan_best_start;
 reg  [6:0] refm_hold, refs_hold;
 reg [15:0] ref_cnt;
 
-// track entry k lives at blob words 8+4k .. 11+4k
-// (bytes 16+8k: +0 ctrl, +1 resv, +2..5 start LE, +6..7 pregap)
-wire [8:0] entry_w = 9'd8 + {t_idx, 2'b00};
 
 always @(posedge clk) begin
 	if (rst) begin
-		mst <= M_IDLE; step <= 0; emit_k <= 0;
-		t43_lo <= 0; t43_we <= 0; t43_wa <= 0; t43_wd <= 0; toc43_len <= 0;
-		t2_lo <= 0; t2_we <= 0; t2_wa <= 0; t2_wd <= 0; toc2_len <= 0;
-		t2_ek <= 0; t2_wbase <= 0; t2_fctrl <= 8'h14;
-		t2_fm <= 0; t2_fs <= 0; t2_ff <= 0;
-		t2_has_data <= 0; disc_audio <= 0;
+		mst <= M_IDLE; step <= 0;
+		disc_audio <= 0; blob_ver <= 0;
 		blob_cap <= 0; blob_blk <= 0; blob_ra <= 0;
 		toc_rd <= 0; toc_act <= 0; toc_lba <= 0;
-		resp_we <= 0; resp_wa <= 0; resp_wd <= 0;
 		toc_valid <= 0; toc_ready <= 0; n_tracks <= 7'd1; leadout_lba <= 0;
 		cmd_pend <= 0; pstate <= ST_IDLE; cur_lba <= 0; stop_lba <= 0; flush <= 0;
 		cur_ctrl <= 8'h14; cur_trk <= 8'h01;
 		scan_x <= 1'b0; scan_dir <= 1'b0;
 		abs_m <= 0; abs_s <= 0; abs_f <= 0; rel_m <= 0; rel_s <= 0; rel_f <= 0;
-		ref_cnt <= 0; t_idx <= 0;
+		ref_cnt <= 0;
 	end else begin
-		resp_we <= 1'b0;
-		t43_we  <= 1'b0;
-		t2_we   <= 1'b0;
 		flush   <= 1'b0;
 
 		// command capture: never lost, executed from M_IDLE
@@ -582,7 +392,7 @@ always @(posedge clk) begin
 			case (step)
 			3'd1: toc_valid <= (blob_b0 == "M") && (blob_b1 == "C");       // word0
 			3'd2: if (!((blob_b0 == "D") && (blob_b1 == "A"))) toc_valid <= 1'b0; // word1
-			3'd3: ;                                                        // word2: version/first
+			3'd3: blob_ver <= blob_b0;                                     // word2: version/first
 			3'd4: begin                                                    // word3: {data_trk, last}
 				if (toc_valid)
 					n_tracks <= (blob_b0 == 8'd0) ? 7'd1 :
@@ -595,322 +405,13 @@ always @(posedge clk) begin
 					n_tracks    <= 7'd1;
 					leadout_lba <= img_blocks[LBW+1:2];                    // 2048-blocks
 				end
-				step <= 0; emit_k <= 0;
-				mst <= M_EMIT_H;
 			end
-			default: ;
-			endcase
-		end
-
-		// ------------------------------------------ response header [0..3]
-		M_EMIT_H: begin
-			resp_we <= 1'b1;
-			emit_k  <= emit_k + 3'd1;
-			case (emit_k)
-			3'd0: begin resp_wa <= 9'd0; resp_wd <= 8'h01; end
-			3'd1: begin resp_wa <= 9'd1; resp_wd <= bin2bcd({1'b0, n_tracks}); end
-			3'd2: begin resp_wa <= 9'd2; resp_wd <= 8'h00; end
-			default: begin
-				resp_wa <= 9'd3; resp_wd <= 8'h00;
-				div_v <= leadout_lba; div_m <= 0; div_s <= 0;
-				mst <= M_LO_DIV;
-			end
-			endcase
-		end
-		M_LO_DIV: begin
-			if (!div_done) begin
-				div_v <= div_v_next; div_m <= div_m_next; div_s <= div_s_next;
-			end
-			else begin emit_k <= 0; mst <= M_EMIT_LO; end
-		end
-		M_EMIT_LO: begin
-			resp_we <= 1'b1;
-			emit_k  <= emit_k + 3'd1;
-			case (emit_k)
-			3'd0: begin resp_wa <= 9'd4; resp_wd <= bin2bcd({1'b0, div_m}); end
-			3'd1: begin resp_wa <= 9'd5; resp_wd <= bin2bcd({1'b0, div_s}); end
-			3'd2: begin resp_wa <= 9'd6; resp_wd <= bin2bcd(div_v[7:0]); end
-			default: begin
-				resp_wa <= 9'd7; resp_wd <= 8'h00;
-				t_idx <= 0; step <= 0;
-				mst <= M_TRK_RD;
-			end
-			endcase
-		end
-
-		// ---------------------------------- per-track descriptors, k = 0..98
-		// stream entry words +0..+2 (ctrl, start lo, start hi); clamp index
-		M_TRK_RD: begin
-			if (!toc_valid) begin
-				// synthesized single data track at LBA 0
-				t_ctrl <= 8'h14; t_start <= 32'd0;
-				div_v <= 32'd0; div_m <= 0; div_s <= 0;
-				mst <= M_TRK_DIV;
-			end else begin
-				step <= step + 3'd1;
-				case (step)
-				3'd0: blob_ra <= 9'd8  + {(t_idx < n_tracks ? t_idx : n_tracks - 7'd1), 2'b00};
-				3'd1: blob_ra <= blob_ra + 9'd1;
-				3'd2: begin t_ctrl        <= blob_b0; blob_ra <= blob_ra + 9'd1; end
-				3'd3: t_start[15:0]  <= blob_q;
-				default: begin
-					t_start[LBW-1:16] <= blob_q[LBW-17:0];
-					div_v <= {blob_q[LBW-17:0], t_start[15:0]};
-					div_m <= 0; div_s <= 0; step <= 0;
-					mst <= M_TRK_DIV;
-				end
-				endcase
-			end
-		end
-		M_TRK_DIV: begin
-			if (!div_done) begin
-				div_v <= div_v_next; div_m <= div_m_next; div_s <= div_s_next;
-			end
-			else begin emit_k <= 0; mst <= M_EMIT_TRK; end
-		end
-		M_EMIT_TRK: begin
-			resp_we <= 1'b1;
-			emit_k  <= emit_k + 3'd1;
-			case (emit_k)
-			3'd0: begin resp_wa <= 9'd8  + {t_idx, 2'b00}; resp_wd <= t_ctrl; end
-			3'd1: begin resp_wa <= 9'd9  + {t_idx, 2'b00}; resp_wd <= bin2bcd({1'b0, div_m}); end
-			3'd2: begin resp_wa <= 9'd10 + {t_idx, 2'b00}; resp_wd <= bin2bcd({1'b0, div_s}); end
-			default: begin
-				resp_wa <= 9'd11 + {t_idx, 2'b00}; resp_wd <= bin2bcd(div_v[7:0]);
-				if (t_idx == 7'd98) mst <= M_BUILT;
-				else begin t_idx <= t_idx + 7'd1; step <= 0; mst <= M_TRK_RD; end
-			end
-			endcase
-		end
-		M_BUILT: begin
-			// 0xC1 table done; build the standard 0x43 table from the same
-			// blob before declaring the TOC ready (toc_ready covers both).
-			emit_k <= 0;
-			mst <= M_T43_HDR;
-		end
-
-		// ---------------- standard 0x43 MMC TOC table (format 0, MSF form) ----
-		M_T43_HDR: begin
-			t43_we <= 1'b1;
-			emit_k <= emit_k + 3'd1;
-			case (emit_k)
-			3'd0: begin t43_wa <= 9'd0; t43_wd <= {6'd0, w_t43_dlen[9:8]}; end
-			3'd1: begin t43_wa <= 9'd1; t43_wd <= w_t43_dlen[7:0]; end
-			3'd2: begin t43_wa <= 9'd2; t43_wd <= 8'h01; end
-			default: begin
-				t43_wa <= 9'd3; t43_wd <= {1'b0, n_tracks};
-				toc43_len <= w_t43_dlen + 10'd2;
-				t_idx <= 0; t43_lo <= 1'b0; step <= 0;
-				mst <= M_T43_RD;
-			end
-			endcase
-		end
-		M_T43_RD: begin
-			if (!toc_valid) begin
-				// synthesized single data track at LBA 0
-				t_ctrl <= 8'h14; t_start <= 32'd0;
-				div_v <= 32'd150; div_m <= 0; div_s <= 0;
-				mst <= M_T43_DIV;
-			end else begin
-				step <= step + 3'd1;
-				case (step)
-				3'd0: blob_ra <= 9'd8  + {(t_idx < n_tracks ? t_idx : n_tracks - 7'd1), 2'b00};
-				3'd1: blob_ra <= blob_ra + 9'd1;
-				3'd2: begin t_ctrl <= blob_b0; blob_ra <= blob_ra + 9'd1; end
-				3'd3: t_start[15:0] <= blob_q;
-				default: begin
-					t_start[LBW-1:16] <= blob_q[LBW-17:0];
-					div_v <= {blob_q[LBW-17:0], t_start[15:0]} + 32'd150;
-					div_m <= 0; div_s <= 0; step <= 0;
-					mst <= M_T43_DIV;
-				end
-				endcase
-			end
-		end
-		M_T43_DIV: begin
-			if (!div_done) begin
-				div_v <= div_v_next; div_m <= div_m_next; div_s <= div_s_next;
-			end
-			else begin emit_k <= 0; mst <= M_T43_EMIT; end
-		end
-		M_T43_EMIT: begin
-			t43_we <= 1'b1;
-			t43_wa <= 9'd4 + {(t43_lo ? w_t43_nreal : t_idx), 3'b000} + {6'd0, emit_k};
-			emit_k <= emit_k + 3'd1;
-			case (emit_k)
-			3'd0: t43_wd <= 8'h00;
-			3'd1: t43_wd <= t_ctrl;
-			3'd2: t43_wd <= t43_lo ? 8'hAA : ({1'b0, t_idx} + 8'd1);
-			3'd3: t43_wd <= 8'h00;
-			3'd4: t43_wd <= 8'h00;
-			3'd5: t43_wd <= {1'b0, div_m};
-			3'd6: t43_wd <= {1'b0, div_s};
-			default: begin
-				t43_wd <= div_v[7:0];
-				if (t43_lo) begin
-					// 0x43 format-0 table done; build the format-2 (full
-					// TOC) table + session-info page before toc_ready.
-					t2_ek <= 0; t2_lo <= 0; t2_wbase <= 9'd37;
-					t2_has_data <= 0;
-					t_idx <= 0; step <= 0;
-					mst <= M_T2_HDR;
-				end
-				else if ((t_idx + 7'd1) < w_t43_nreal) begin
-					t_idx <= t_idx + 7'd1; step <= 0; mst <= M_T43_RD;
-				end
-				else begin
-					t43_lo <= 1'b1;
-					div_v <= leadout_lba + 32'd150; div_m <= 0; div_s <= 0;
-					mst <= M_T43_DIV;
-				end
-			end
-			endcase
-		end
-
-		// ---------------- format-2 FULL TOC table + session-info page --------
-		// (see the toc2 port comment for the layout; +150 MSF, BCD PMSF)
-		M_T2_HDR: begin
-			t2_we <= 1'b1;
-			t2_ek <= t2_ek + 5'd1;
-			case (t2_ek)
-			5'd0: begin t2_wa <= 9'd0; t2_wd <= {6'd0, w_t2_dlen[9:8]}; end
-			5'd1: begin t2_wa <= 9'd1; t2_wd <= w_t2_dlen[7:0]; end
-			5'd2: begin t2_wa <= 9'd2; t2_wd <= 8'h01; end
-			default: begin
-				t2_wa <= 9'd3; t2_wd <= 8'h01;
-				t_idx <= 0; step <= 0;
-				mst <= M_T2_RD;
-			end
-			endcase
-		end
-		M_T2_RD: begin
-			if (!toc_valid) begin
-				// synthesized single data track at LBA 0 (+150 MSF)
-				t_ctrl <= 8'h14; t_start <= 32'd0;
-				div_v <= 32'd150; div_m <= 0; div_s <= 0;
-				mst <= M_T2_DIV;
-			end else begin
-				step <= step + 3'd1;
-				case (step)
-				3'd0: blob_ra <= 9'd8  + {(t_idx < n_tracks ? t_idx : n_tracks - 7'd1), 2'b00};
-				3'd1: blob_ra <= blob_ra + 9'd1;
-				3'd2: begin t_ctrl <= blob_b0; blob_ra <= blob_ra + 9'd1; end
-				3'd3: t_start[15:0] <= blob_q;
-				default: begin
-					t_start[LBW-1:16] <= blob_q[LBW-17:0];
-					div_v <= {blob_q[LBW-17:0], t_start[15:0]} + 32'd150;
-					div_m <= 0; div_s <= 0; step <= 0;
-					mst <= M_T2_DIV;
-				end
-				endcase
-			end
-		end
-		M_T2_DIV: begin
-			if (!div_done) begin
-				div_v <= div_v_next; div_m <= div_m_next; div_s <= div_s_next;
-			end
-			else begin
-				t2_ek <= 0;
-				mst <= t2_lo ? M_T2_A2 : M_T2_TRK;
-			end
-		end
-		M_T2_TRK: begin
-			t2_we <= 1'b1;
-			t2_wa <= t2_wbase + {4'd0, t2_ek};
-			t2_ek <= t2_ek + 5'd1;
-			case (t2_ek)
-			5'd0: t2_wd <= 8'h01;                       // session
-			5'd1: t2_wd <= t_ctrl;                      // ADR/control
-			5'd2: t2_wd <= 8'h00;                       // TNO
-			5'd3: t2_wd <= {1'b0, t_idx} + 8'd1;        // POINT = track#, BINARY
-			5'd4, 5'd5, 5'd6, 5'd7: t2_wd <= 8'h00;     // ATIME + zero
-			5'd8: t2_wd <= bin2bcd({1'b0, div_m});      // PMIN (BCD)
-			5'd9: t2_wd <= bin2bcd({1'b0, div_s});      // PSEC (BCD)
-			default: begin
-				t2_wd <= bin2bcd(div_v[7:0]);           // PFRAME (BCD)
-				t2_has_data <= t2_has_data | t_ctrl[2]; // 0x04 = data track
-				if (t_idx == 7'd0) begin
-					// first track: A-rows' ctrl + session-info page values
-					t2_fctrl <= t_ctrl;
-					t2_fm <= {1'b0, div_m}; t2_fs <= {1'b0, div_s};
-					t2_ff <= div_v[7:0];
-				end
-				t2_wbase <= t2_wbase + 9'd11;
-				if ((t_idx + 7'd1) < w_t2_n) begin
-					t_idx <= t_idx + 7'd1; step <= 0; mst <= M_T2_RD;
-				end
-				else begin
-					t2_lo <= 1'b1;
-					div_v <= leadout_lba + 32'd150; div_m <= 0; div_s <= 0;
-					mst <= M_T2_DIV;
-				end
-			end
-			endcase
-		end
-		M_T2_A2: begin                                  // lead-out row at [26..36]
-			t2_we <= 1'b1;
-			t2_wa <= 9'd26 + {4'd0, t2_ek};
-			t2_ek <= t2_ek + 5'd1;
-			case (t2_ek)
-			5'd0: t2_wd <= 8'h01;
-			5'd1: t2_wd <= t2_fctrl;
-			5'd2: t2_wd <= 8'h00;
-			5'd3: t2_wd <= 8'hA2;                       // POINT
-			5'd4, 5'd5, 5'd6, 5'd7: t2_wd <= 8'h00;
-			5'd8: t2_wd <= bin2bcd({1'b0, div_m});      // lead-out M (BCD)
-			5'd9: t2_wd <= bin2bcd({1'b0, div_s});
-			default: begin
-				t2_wd <= bin2bcd(div_v[7:0]);
-				t2_ek <= 0;
-				mst <= M_T2_A01;
-			end
-			endcase
-		end
-		M_T2_A01: begin                                 // A0 at [4..14], A1 at [15..25]
-			t2_we <= 1'b1;
-			t2_wa <= 9'd4 + {4'd0, t2_ek};
-			t2_ek <= t2_ek + 5'd1;
-			case (t2_ek)
-			5'd0:  t2_wd <= 8'h01;
-			5'd1:  t2_wd <= t2_fctrl;
-			5'd2:  t2_wd <= 8'h00;
-			5'd3:  t2_wd <= 8'hA0;                      // POINT: first track#
-			5'd8:  t2_wd <= 8'h01;                      // PMIN = bcd(first)=01
-			5'd9:  t2_wd <= 8'h00;                      // PSEC = disc type 00
-			5'd11: t2_wd <= 8'h01;
-			5'd12: t2_wd <= t2_fctrl;
-			5'd13: t2_wd <= 8'h00;
-			5'd14: t2_wd <= 8'hA1;                      // POINT: last track#
-			5'd19: t2_wd <= bin2bcd({1'b0, w_t2_n});    // PMIN = bcd(last)
-			5'd21: begin
-				t2_wd <= 8'h00;
-				t2_ek <= 0;
-				mst <= M_T2_SESS;
-			end
-			default: t2_wd <= 8'h00;                    // ATIME/zero/pad bytes
-			endcase
-		end
-		M_T2_SESS: begin                                // session-info page [496..507]
-			t2_we <= 1'b1;
-			t2_wa <= 9'd496 + {4'd0, t2_ek};
-			t2_ek <= t2_ek + 5'd1;
-			case (t2_ek)
-			5'd0: t2_wd <= 8'h00;                       // u16be len = 10
-			5'd1: t2_wd <= 8'h0A;
-			5'd2: t2_wd <= 8'h01;                       // first session
-			5'd3: t2_wd <= 8'h01;                       // last session
-			5'd4: t2_wd <= 8'h00;
-			5'd5: t2_wd <= t2_fctrl;                    // ADR/control
-			5'd6: t2_wd <= 8'h01;                       // first track in last session
-			5'd7: t2_wd <= 8'h00;
-			5'd8: t2_wd <= 8'h00;                       // MSF form: 00,M,S,F (hex)
-			5'd9: t2_wd <= t2_fm;
-			5'd10: t2_wd <= t2_fs;
-			default: begin
-				t2_wd <= t2_ff;
-				toc2_len <= w_t2_dlen + 10'd2;
-				disc_audio <= toc_valid && !t2_has_data;
-				toc_ready <= 1'b1;
+			default: begin                                                 // word6: blob v2 flags
+				// bit 0 = the disc has a data track; a v1 blob (no flag) can
+				// only come from a Main the ncr53c96 probe has already refused
+				disc_audio <= toc_valid && (blob_ver >= 8'd2) && !blob_b0[0];
+				toc_ready  <= 1'b1;
+				step <= 0;
 				mst <= M_IDLE;
 			end
 			endcase
@@ -1401,29 +902,6 @@ module cd_sdp #(parameter DW = 16, AW = 12)
 // forced "M10K" (overrides the small-RAM heuristic that silently turned the
 // 2 Kbit response planes into ~2000 registers each — fit attempts #1-#3 of
 // this file) + no_rw_check, with write and read in SEPARATE always blocks.
-(* ramstyle = "M10K,no_rw_check" *) reg [DW-1:0] ram [0:(1<<AW)-1];
-always @(posedge clock) if (wr) ram[waddr] <= wdata;
-always @(posedge clock) q <= ram[raddr];
-endmodule
-
-// MLAB variant for the small (2 Kbit) planes. Same contract as cd_sdp; the
-// forced-M10K recipe above exists because AUTO turned these into ~2000
-// registers each — MLAB is the third option that recipe predates: ALM-based
-// distributed RAM, zero M10K blocks. Motivation (2026-08-03): the device is
-// at 513/553 M10K blocks (93%) while only 71% of memory BITS are used —
-// M10K placement pressure is the per-seed fit-marginality driver, and the
-// twelve 256x8 planes burned 12 whole blocks at 20% fill. Their ping-pong
-// usage never reads a plane being written (write one half, read the other),
-// so MLAB read-during-write semantics are safe with no_rw_check.
-module cd_sdp_mlab #(parameter DW = 16, AW = 12)
-(
-	input           clock,
-	input  [AW-1:0] waddr,
-	input  [DW-1:0] wdata,
-	input           wr,
-	input  [AW-1:0] raddr,
-	output reg [DW-1:0] q
-);
 (* ramstyle = "M10K,no_rw_check" *) reg [DW-1:0] ram [0:(1<<AW)-1];
 always @(posedge clock) if (wr) ram[waddr] <= wdata;
 always @(posedge clock) q <= ram[raddr];

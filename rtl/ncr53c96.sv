@@ -183,7 +183,8 @@ wire [31:0] disk_blocks = tgt_blocks[cur_tgt];
 // answers always (the AppleCD driver polls TEST UNIT READY for a disc)
 wire [1:0] sel_tgt = (dest_id == 4'd0) ? 2'd0 : (dest_id == 4'd1) ? 2'd1 :
                      (dest_id == 4'd3) ? 2'd2 : 2'd3;
-wire       sel_ok  = (sel_tgt == 2'd2) ? (CDROM != 0) :
+// ...but only once the probe (below) has seen the ARM answer its window
+wire       sel_ok  = (sel_tgt == 2'd2) ? (CDROM != 0 && cd_hps_ok) :
                      (sel_tgt != 2'd3) && tgt_mounted[sel_tgt];
 // REQUEST SENSE state per target: latched when a command CHECKs, cleared by
 // the next command that is not REQUEST SENSE (SCSI-1 semantics, scsi.v)
@@ -231,16 +232,13 @@ wire        ca_io_active, ca_io_rd;
 wire [31:0] ca_io_lba;
 wire  [7:0] ca_ast_code, ca_cur_ctrl, ca_cur_trk;
 wire  [7:0] ca_abs_m, ca_abs_s, ca_abs_f, ca_rel_m, ca_rel_s, ca_rel_f;
-wire  [7:0] ca_toc_q0, ca_t43_q0, ca_t2_q0;
-wire  [9:0] ca_t43_len, ca_t2_len;
 wire        ca_toc_ready, ca_disc_audio;
 reg         ca_cmd_stb, ca_read_stb, ca_eject_stb, ca_bus_rst;
 reg   [1:0] ca_mount_d;            // the CD mount pulse, after tgt_blocks has latched
 reg   [7:0] ap_ch0, ap_vol0, ap_ch1, ap_vol1;   // MODE SELECT page $0E output ports
-wire  [8:0] toc_addr, t43_addr, t2_addr;        // table reads: address now, byte next cycle
 
-assign io_rd = (io_rd_i ? (3'b001 << cur_tgt) : 3'b000) | {ca_io_rd, 2'b00};
-assign io_wr = io_wr_i ? (3'b001 << cur_tgt) : 3'b000;
+assign io_rd = (io_rd_i ? (3'b001 << cur_tgt) : 3'b000) | {ca_io_rd | io_rd_fwd, 2'b00};
+assign io_wr = (io_wr_i ? (3'b001 << cur_tgt) : 3'b000) | {io_wr_fwd, 2'b00};
 assign io_lba = ca_io_active ? ca_io_lba : io_lba_e;
 // While a write flush is outstanding, io_ack must keep watching the slot
 // the flush was ISSUED on, not cur_tgt: a new selection (the ROM issuing a
@@ -248,8 +246,11 @@ assign io_lba = ca_io_active ? ca_io_lba : io_lba_e;
 // it the flush's ack on the old slot would never be seen -- flush_pending
 // would wedge io_busy and the next command would deadlock (the Mac OS
 // installer, 2026-09-03).
+// flush_tgt is now set for every transfer the engine issues (reads too,
+// and the CD slot for a forward or the probe), so the ack always follows
+// the slot the strobe went to.
 reg  [1:0] flush_tgt;
-wire   io_ack_i = io_ack[flush_pending ? flush_tgt : cur_tgt] && !ca_io_active;
+wire   io_ack_i = io_ack[flush_tgt] && !ca_io_active;
 reg [31:0] lba;
 reg [31:0] blocks_left;            // read: blocks not yet fetched; write: not yet flushed
 reg  [9:0] sbuf_len;               // valid bytes in sbuf
@@ -270,12 +271,24 @@ reg        io_ack_d;               // for the ack falling edge = transfer done
 // behind, same-cycle writes included.  A registered read loses that race
 // for the first byte (and real hps_io streams far slower than the fill
 // drains, so rising-edge publication was a hardware bug waiting).
-wire io_busy = io_rd_i || io_wr_i || io_ack_i || io_ack_d || ca_io_active;
+wire io_busy = io_rd_i || io_wr_i || io_rd_fwd || io_wr_fwd || io_ack_i || io_ack_d || ca_io_active;
+// ...and the nexus's own transfer (a sector for the buffer): what a data
+// phase's completion waits for.  A forwarded command block or the probe in
+// flight is the ARM's business and must not hold a phase open.
+wire fwd_xfer  = (fwd_st == 2'd2) || probe_act;
+wire nexus_io  = io_rd_i || io_wr_i || ((io_ack_i || io_ack_d) && !fwd_xfer) || ca_io_active;
 // the audio engine may use the channel while nothing of the engine's is in
 // flight; an active CD read's data-in serving is fine (its fetches are
 // interleaved between the engine's own, which wait on ca_io_active)
-wire ca_grant = tgt_mounted[2] && !io_rd_i && !io_wr_i && !io_ack_i && !io_ack_d &&
-                !flush_pending && (cur_tgt != 2'd2 || !(xfer_out || xfer_pio_out));
+wire ca_grant = tgt_mounted[2] && !io_rd_i && !io_wr_i && !io_rd_fwd && !io_wr_fwd &&
+                !io_ack_i && !io_ack_d && !flush_pending && !probe_pend && !fwd_pend_rst &&
+                !fwd_pend_bus && (cur_tgt != 2'd2 || !(xfer_out || xfer_pio_out));
+// nothing on the bus and nothing in flight: the ARM housekeeping (a reset
+// notice, the capability probe) may use the CD slot and the sector buffer
+wire bus_free = (phase == PH_DOUT) && !cdb_active && !exec_pending &&
+                !xfer_out && !xfer_pio_out && !xfer_msg_out && !xfer_in && !xfer_pio_in &&
+                blocks_left == 0 && dout_len == 0 && !msel_pend &&
+                !flush_pending && !io_busy && fwd_st == 0 && synth_len == 0;
 
 `ifdef VERILATOR
 // bring-up taps: command writes, CDB executions, interrupt edges — with
@@ -420,11 +433,23 @@ wire arm_msg_out = !fifo_ext && no_dma_arm && !arm_cdb_ff && !arm_drain &&
 // streams one byte per clock into port E, publishing buf_valid with the
 // last byte.  The ROM is still waiting on the select interrupt / phase
 // when it lands, so the extra cycles are invisible.
+// The CD-ROM's INQUIRY, MODE SENSE and both TOC forms are not synthesized
+// here any more: Main builds them (support/mac/mac_cdrom_resp.cpp) and the
+// target reads the finished block through the CD slot's response window
+// (rtl/scsi_cache.sv passes LBAs >= $40000000 straight through):
+//   $7E000000 + (op << 16) + (a << 8) + b, a/b the CDB bytes the response
+//   depends on.  That read IS a one-block READ (fetch below) whose serve
+//   length is the CDB's clamped allocation, so the initiator sees exactly
+//   what the synthesized response gave it: the bytes, zero-filled past the
+//   payload, behind one platform round trip -- the same wait a READ's
+//   first sector takes.  CDBs the ARM must see (MODE SELECT with its list,
+//   an eject, the machine and bus resets) go the other way as a one-block
+//   write of the sector buffer at $7D000000 + (op << 16): the list where
+//   the drain left it, the CDB at bytes 496..507 (SY_CDB copies it there).
 localparam [3:0] SY_SENSE = 4'd0, SY_INQ = 4'd1, SY_MODE = 4'd2, SY_CAP = 4'd3,
-                 SY_CDINQ = 4'd4, SY_CDMODE = 4'd5, SY_TOC43 = 4'd6,
-                 SY_TOC43F2 = 4'd7, SY_TOC43F1 = 4'd8, SY_TOCC1 = 4'd9,
-                 SY_SUBQ = 4'd10, SY_ASTAT = 4'd11, SY_SUBCH = 4'd12,
-                 SY_HDR = 4'd13, SY_HDMODE = 4'd14;
+                 SY_SUBQ = 4'd4, SY_ASTAT = 4'd5, SY_SUBCH = 4'd6,
+                 SY_HDR = 4'd7, SY_HDMODE = 4'd8, SY_CDB = 4'd9;
+localparam [31:0] WIN_RESP = 32'h7E00_0000, WIN_CMD = 32'h7D00_0000;
 reg  [3:0] synth_kind;
 reg  [9:0] synth_idx;
 reg  [9:0] synth_len;               // != 0 while synthesizing
@@ -432,105 +457,42 @@ reg  [7:0] sense_r;                 // sense key latched at exec (it clears)
 reg  [7:0] asc_r;                   // additional sense code, same
 reg [31:0] cap_r;                   // last LBA latched at exec
 reg        cap_cd;                  // READ CAPACITY block length 2048, not 512
-reg  [5:0] cd_page;                 // MODE SENSE page requested
 reg [31:0] hdr_lba;                 // READ HEADER echo
 wire       synth_on = synth_len != 0;
+reg  [9:0] rd_len;                  // bytes the next platform block serves (512, or a window response's clamp)
+// command-block forwarding: SY_CDB copies the CDB into the buffer, the
+// block is written, STATUS is held (iccs_pend) until the write is acked
+reg  [1:0] fwd_st;                  // 0 idle, 1 copying the CDB, 2 write in flight
+reg  [7:0] fwd_op;
+reg        fwd_fin;                 // one-cycle pulse: the forwarded write completed
+reg        fwd_pend_rst, fwd_pend_bus;   // pseudo-ops $FF / $FE owed to the ARM
+reg        io_wr_fwd, io_rd_fwd;    // the CD slot's strobes for a forward / the probe (no nexus needed)
+// capability probe: the INQUIRY window is read after reset and on every CD
+// mount pulse; the CDU-8004 identity in it arms cd_hps_ok, without which
+// the CD target does not answer selection (an old Main, or the generic
+// path, serves no identity: better no drive than garbage)
+reg        probe_pend, probe_act;
+reg [15:0] probe_w0, probe_w1;      // words 0 and 1 of the probe block, latched off the platform stream
+reg        cd_hps_ok;
 
-// AppleCD identity, byte-exact from MAME nscsi_cdrom_apple_device (via
-// MacLC scsi.v): the stock Apple CD-ROM extension binds only to known
-// Apple-shipped drives, so SONY CD-ROM CDU-8004 is required, not cosmetic.
-function [7:0] cd_inq_byte(input [5:0] i);
-	case (i)
-	6'd0:  cd_inq_byte = 8'h05;  6'd1:  cd_inq_byte = 8'h80;
-	6'd2:  cd_inq_byte = 8'h02;  6'd3:  cd_inq_byte = 8'h02;
-	6'd4:  cd_inq_byte = 8'h31;
-	6'd8:  cd_inq_byte = "S";  6'd9:  cd_inq_byte = "O";
-	6'd10: cd_inq_byte = "N";  6'd11: cd_inq_byte = "Y";
-	6'd16: cd_inq_byte = "C";  6'd17: cd_inq_byte = "D";
-	6'd18: cd_inq_byte = "-";  6'd19: cd_inq_byte = "R";
-	6'd20: cd_inq_byte = "O";  6'd21: cd_inq_byte = "M";
-	6'd23: cd_inq_byte = "C";  6'd24: cd_inq_byte = "D";
-	6'd25: cd_inq_byte = "U";  6'd26: cd_inq_byte = "-";
-	6'd27: cd_inq_byte = "8";  6'd28: cd_inq_byte = "0";
-	6'd29: cd_inq_byte = "0";  6'd30: cd_inq_byte = "4";
-	6'd32: cd_inq_byte = "1";  6'd33: cd_inq_byte = ".";
-	6'd34: cd_inq_byte = "9";  6'd35: cd_inq_byte = "a";
-	6'd39: cd_inq_byte = 8'hd0; 6'd40: cd_inq_byte = 8'h90;
-	6'd41: cd_inq_byte = 8'h27; 6'd42: cd_inq_byte = 8'h3e;
-	6'd43: cd_inq_byte = 8'h01; 6'd44: cd_inq_byte = 8'h04;
-	6'd45: cd_inq_byte = 8'h91; 6'd47: cd_inq_byte = 8'h18;
-	6'd48: cd_inq_byte = 8'h06; 6'd49: cd_inq_byte = 8'hf0;
-	6'd50: cd_inq_byte = 8'hfe;
-	6'd12, 6'd13, 6'd14, 6'd15, 6'd22, 6'd31: cd_inq_byte = " ";
-	default: cd_inq_byte = 8'h00;
+// The Apple firmware-ID text, "APPLE COMPUTER, INC" padded to 22 bytes at
+// page offsets 14..35: the hard disk's MODE SENSE page $B0 carries it (the
+// CD-ROM's page $30 did too; that page now comes from the window)
+function [7:0] apple_id_byte(input [5:0] k);
+	case (k)
+	6'd14: apple_id_byte = "A"; 6'd15: apple_id_byte = "P"; 6'd16: apple_id_byte = "P";
+	6'd17: apple_id_byte = "L"; 6'd18: apple_id_byte = "E"; 6'd19: apple_id_byte = " ";
+	6'd20: apple_id_byte = "C"; 6'd21: apple_id_byte = "O"; 6'd22: apple_id_byte = "M";
+	6'd23: apple_id_byte = "P"; 6'd24: apple_id_byte = "U"; 6'd25: apple_id_byte = "T";
+	6'd26: apple_id_byte = "E"; 6'd27: apple_id_byte = "R"; 6'd28: apple_id_byte = ",";
+	6'd29: apple_id_byte = " "; 6'd30: apple_id_byte = "I"; 6'd31: apple_id_byte = "N";
+	6'd32: apple_id_byte = "C"; 6'd33, 6'd34, 6'd35: apple_id_byte = " ";
+	default: apple_id_byte = 8'h00;
 	endcase
 endfunction
 
-// CD MODE SENSE(6): 12-byte header + block descriptor (WP, 2048-byte
-// blocks, capacity), then the page: $30 Apple magic (24), $0E audio
-// control (16, default ports), $2A capabilities (26); other pages
-// header+descriptor only.  Lengths: 36 / 28 / 38 / 12.
-function [7:0] cd_mode_byte(input [5:0] pg, input [5:0] i);
-	if (i < 6'd12) begin
-		case (i)
-		6'd0:  cd_mode_byte = (pg == 6'h30) ? 8'd35 : (pg == 6'h0E) ? 8'd27 :
-		                      (pg == 6'h2A) ? 8'd37 : 8'd11;
-		6'd2:  cd_mode_byte = 8'h80;
-		6'd3:  cd_mode_byte = 8'd8;
-		6'd5:  cd_mode_byte = cap_r[23:16];
-		6'd6:  cd_mode_byte = cap_r[15:8];
-		6'd7:  cd_mode_byte = cap_r[7:0];
-		6'd10: cd_mode_byte = cd_blk512 ? 8'h02 : 8'h08;
-		default: cd_mode_byte = 8'h00;
-		endcase
-	end
-	else if (pg == 6'h30) begin
-		case (i)
-		6'd12: cd_mode_byte = 8'h30;
-		6'd14: cd_mode_byte = "A"; 6'd15: cd_mode_byte = "P"; 6'd16: cd_mode_byte = "P";
-		6'd17: cd_mode_byte = "L"; 6'd18: cd_mode_byte = "E"; 6'd19: cd_mode_byte = " ";
-		6'd20: cd_mode_byte = "C"; 6'd21: cd_mode_byte = "O"; 6'd22: cd_mode_byte = "M";
-		6'd23: cd_mode_byte = "P"; 6'd24: cd_mode_byte = "U"; 6'd25: cd_mode_byte = "T";
-		6'd26: cd_mode_byte = "E"; 6'd27: cd_mode_byte = "R"; 6'd28: cd_mode_byte = ",";
-		6'd29: cd_mode_byte = " "; 6'd30: cd_mode_byte = "I"; 6'd31: cd_mode_byte = "N";
-		6'd32: cd_mode_byte = "C"; 6'd33, 6'd34, 6'd35: cd_mode_byte = " ";
-		default: cd_mode_byte = 8'h00;
-		endcase
-	end
-	else if (pg == 6'h0E) begin
-		case (i)
-		6'd12: cd_mode_byte = 8'h0E; 6'd13: cd_mode_byte = 8'h0E;
-		6'd14: cd_mode_byte = 8'h04;
-		6'd18, 6'd19: cd_mode_byte = 8'd75;
-		6'd20: cd_mode_byte = ap_ch0; 6'd21: cd_mode_byte = ap_vol0;   // the AppleCD
-		6'd22: cd_mode_byte = ap_ch1; 6'd23: cd_mode_byte = ap_vol1;   // player's slider
-		default: cd_mode_byte = 8'h00;
-		endcase
-	end
-	else if (pg == 6'h2A) begin
-		case (i)
-		6'd12: cd_mode_byte = 8'h2A; 6'd13: cd_mode_byte = 8'h18;
-		6'd16: cd_mode_byte = 8'h71; 6'd18: cd_mode_byte = 8'h28;
-		6'd19: cd_mode_byte = 8'h03; 6'd22: cd_mode_byte = 8'h01;
-		default: cd_mode_byte = 8'h00;
-		endcase
-	end
-	else cd_mode_byte = 8'h00;
-endfunction
-
-// ---- table-sourced responses (cd_audio's RAMs).  Each table is a pair of
-// byte planes addressed so that after a read at address x the planes hold
-// bytes x and x+1, and the q0 output is muxed by the CURRENT address's low
-// bit -- for a sequential serve that is a zero-latency read of the current
-// byte.  So the sequencer presents the index it is writing now (byte 0 is
-// presented while exec_cdb's cycle still has synth_len == 0).
-wire [9:0] nxt_idx = synth_on ? synth_idx : 10'd0;
-// Apple $C1: [0..3] header, [4..7] lead-out, [8+4k..] track k+1; the
-// control byte picks the base, cdb[5] (BCD) the first track; reads past the
-// 99 descriptors clamp to the last one (MAME "keep returning the last track").
-function [7:0] bcd2bin8(input [7:0] b);
-	bcd2bin8 = {4'd0, b[7:4]} * 8'd10 + {4'd0, b[3:0]};
-endfunction
+// The position responses ($42 / $C2 / $CC) stay here while the RTL
+// playhead owns the position (phase 1); BCD for the Apple forms.
 function [7:0] bin2bcd8(input [7:0] v);          // exact for every 8-bit v
 	reg [15:0] reciprocal;
 	reg  [7:0] t, u;
@@ -544,24 +506,6 @@ function [7:0] bin2bcd8(input [7:0] v);          // exact for every 8-bit v
 		bin2bcd8 = {t[3:0], u[3:0]};
 	end
 endfunction
-wire [7:0] c1_trk_bin = bcd2bin8(cdb[5]);
-wire [8:0] c1_trk_k   = (c1_trk_bin == 8'd0) ? 9'd0 : (c1_trk_bin > 8'd99) ? 9'd98 : {1'b0, c1_trk_bin} - 9'd1;
-wire [8:0] c1_base    = (cdb[9][7:6] == 2'b01) ? 9'd4 :
-                        (cdb[9][7:6] == 2'b10) ? (9'd8 + {c1_trk_k[6:0], 2'b00}) : 9'd0;
-wire [8:0] c1_raw     = c1_base + nxt_idx[8:0];
-assign toc_addr = (c1_raw < 9'd404) ? c1_raw : (9'd400 + {7'd0, c1_raw[1:0]});
-// standard $43 format 0: the table is full from track 1; serve from the
-// requested start track (cdb[6]; $AA = lead-out row only) with the u16be
-// length rewritten, zero past the filtered payload
-wire [6:0] t43_nreal = (ca_t43_len >= 10'd14) ? ((ca_t43_len - 10'd14) >> 3) + 7'd1 : 7'd1;
-wire [6:0] t43_soff  = (cdb[6] == 8'h00 || cdb[6] == 8'h01) ? 7'd0 :
-                       (cdb[6] == 8'hAA) ? t43_nreal :
-                       (cdb[6] > {1'b0, t43_nreal}) ? t43_nreal : cdb[6][6:0] - 7'd1;
-wire [9:0] t43_flen  = {(7'd1 + t43_nreal - t43_soff), 3'b000} + 10'd2;
-wire [9:0] t43_tot   = t43_flen + 10'd2;
-assign t43_addr = (nxt_idx < 10'd4) ? nxt_idx[8:0] : (9'd4 + {t43_soff, 3'b000} + (nxt_idx[8:0] - 9'd4));
-// format 2 (full TOC) is the table image from 0; format 1 (session) at 496
-assign t2_addr = ((synth_kind == SY_TOC43F1) ? 9'd496 : 9'd0) + nxt_idx[8:0];
 // standard audio-status codes for $42: $11 play, $12 paused, $13 stopped
 wire [7:0] ca_ast_std = (ca_ast_code == 8'd0) ? 8'h11 : (ca_ast_code == 8'd1) ? 8'h12 : 8'h13;
 
@@ -571,15 +515,6 @@ function [7:0] synth_byte(input [3:0] kind, input [9:0] idx);
 	                       (idx == 2) ? sense_r :
 	                       (idx == 7) ? 8'h0A :
 	                       (idx == 12) ? asc_r : 8'h00;
-	SY_CDINQ:   synth_byte = cd_inq_byte(idx[5:0]);
-	SY_CDMODE:  synth_byte = cd_mode_byte(cd_page, idx[5:0]);
-	SY_TOCC1:   synth_byte = ca_toc_ready ? ca_toc_q0 : 8'h00;
-	SY_TOC43:   synth_byte = !ca_toc_ready ? 8'h00 :
-	                         (idx >= t43_tot) ? 8'h00 :
-	                         (idx == 0) ? {6'd0, t43_flen[9:8]} :
-	                         (idx == 1) ? t43_flen[7:0] : ca_t43_q0;
-	SY_TOC43F2: synth_byte = (ca_toc_ready && idx < ca_t2_len) ? ca_t2_q0 : 8'h00;
-	SY_TOC43F1: synth_byte = (ca_toc_ready && idx < 10'd12) ? ca_t2_q0 : 8'h00;
 	// Apple READ Q SUBCODE (9): {ctrl, trk, idx=1, rel M,S,F, abs M,S,F} BCD
 	SY_SUBQ:    synth_byte = (idx == 0) ? ca_cur_ctrl :
 	                         (idx == 1) ? bin2bcd8(ca_cur_trk) : (idx == 2) ? 8'h01 :
@@ -619,7 +554,7 @@ function [7:0] synth_byte(input [3:0] kind, input [9:0] idx);
 	// drive only if this page carries "APPLE COMPUTER, INC" (MAME
 	// nscsi_harddisk_device, QEMU q800's quirk_mode_page_apple_vendor).
 	// 4-byte header, 8-byte descriptor (512-byte blocks, not write
-	// protected), page $B0 (PS set) of 22 bytes = the CD's page $30 text.
+	// protected), page $B0 (PS set) of 22 bytes = the text above.
 	SY_HDMODE: synth_byte = (idx == 0)  ? 8'd35 :
 	                        (idx == 2)  ? 8'h00 :
 	                        (idx == 3)  ? 8'd8 :
@@ -629,7 +564,9 @@ function [7:0] synth_byte(input [3:0] kind, input [9:0] idx);
 	                        (idx == 10) ? 8'h02 :
 	                        (idx == 12) ? 8'hB0 :
 	                        (idx == 13) ? 8'h16 :
-	                        (idx >= 14 && idx < 36) ? cd_mode_byte(6'h30, idx[5:0]) : 8'h00;
+	                        (idx >= 14 && idx < 36) ? apple_id_byte(idx[5:0]) : 8'h00;
+	// the CDB being forwarded, copied to buffer bytes 496..507
+	SY_CDB:   synth_byte = (idx < 10'd12) ? cdb[idx[3:0]] : 8'h00;
 	default:  case (idx[5:0])                  // SY_CAP: 512 / 2048-byte blocks
 	          6'd0: synth_byte = cap_r[31:24];
 	          6'd1: synth_byte = cap_r[23:16];
@@ -648,7 +585,8 @@ endfunction
 // it out (a stall only on word crossings; within a word the address is
 // unchanged).  Completion logic keeps the pure byte_avail.
 wire        we_e    = synth_on || arm_drain;
-wire  [7:0] addr_e  = synth_on ? synth_idx[8:1] :
+// SY_CDB lands at bytes 496..507 (word 248)
+wire  [7:0] addr_e  = synth_on ? ((synth_kind == SY_CDB) ? (8'd248 + synth_idx[8:1]) : synth_idx[8:1]) :
                       (msel_st != 0) ? msel_addr : sbuf_pos[8:1];
 wire  [7:0] wbyte_e = synth_on ? synth_byte(synth_kind, synth_idx) : fifo[0];
 // MODE SELECT parse: word 1 (block descriptor length), word 5 (block
@@ -673,7 +611,7 @@ ncr_sbuf sbuf
 	.q_e    (q_e),
 	.addr_s (sd_buff_addr[7:0]),
 	.din_s  (plat_din_s),
-	.we_s   (sd_buff_wr && !ca_io_active),   // the audio engine's transfers are its own
+	.we_s   (sd_buff_wr && !ca_io_active && !probe_act),   // the audio engine's transfers are its own; the probe's block never lands
 	.q_s    (q_s)
 );
 
@@ -747,13 +685,19 @@ always @(posedge clk) begin
 		data_dir_in <= 0; scsi_status <= 0;
 		synth_kind <= 0; synth_idx <= 0; synth_len <= 0;
 		sense_r <= 0; asc_r <= 0; cap_r <= 0; cap_cd <= 0;
-		cd_page <= 0; hdr_lba <= 0;
+		hdr_lba <= 0;
+		rd_len <= 10'd512;
+		fwd_st <= 0; fwd_op <= 0; fwd_fin <= 0;
+		fwd_pend_rst <= 1; fwd_pend_bus <= 0;      // tell the ARM the machine reset
+		io_wr_fwd <= 0; io_rd_fwd <= 0;
+		probe_pend <= 1; probe_act <= 0; probe_w0 <= 0; probe_w1 <= 0; cd_hps_ok <= 0;
 	end
 	else begin
 		i_new = 8'h00;
 		dma_valid <= 0;
 		ca_cmd_stb <= 0; ca_read_stb <= 0; ca_eject_stb <= 0; ca_bus_rst <= 0;
 		ca_mount_d <= {ca_mount_d[0], img_mounted[2] && !cd_same_disc};
+		if (img_mounted[2]) probe_pend <= 1;       // a (re)mount: the Main may have changed
 		// the cycle after a MODE SELECT verdict: run the ICCS the initiator
 		// already sent (status + COMMAND COMPLETE, FC), or tell an initiator
 		// that has not sent it yet that the phase moved (BS)
@@ -764,7 +708,7 @@ always @(posedge clk) begin
 `endif
 			raise(I_BUS);
 		end
-		if (msel_fin && iccs_pend) begin
+		if ((msel_fin || fwd_fin) && iccs_pend) begin
 `ifdef TB_DEBUG
 			$display("[ICCS] deferred push status=%02x fifo_cnt=%0d", scsi_status, fifo_cnt);
 `endif
@@ -842,16 +786,48 @@ always @(posedge clk) begin
 		if (io_ack_i) begin
 			io_rd_i <= 0;
 			io_wr_i <= 0;
+			io_rd_fwd <= 0;
+			io_wr_fwd <= 0;
+		end
+		fwd_fin <= 0;
+		// the probe block streams past the buffer; only its first two words
+		// are kept (the CDU-8004 identity starts 05 80 02 02; the platform
+		// word order is disk byte 0 in the high half, as sbuf keeps it)
+		if (probe_act && sd_buff_wr && !ca_io_active) begin
+			if (sd_buff_addr[7:0] == 8'd0) probe_w0 <= plat_din_s;
+			if (sd_buff_addr[7:0] == 8'd1) probe_w1 <= plat_din_s;
 		end
 		if (io_ack_d && !io_ack_i) begin
-			if (!flush_pending && !io_discard) begin
+			if (probe_act) begin
+				// the verdict: a nexus that started meanwhile is unaffected
+				// (nothing of the probe touched the buffer)
+				probe_act <= 0;
+				cd_hps_ok <= (probe_w0 == 16'h0580) && (probe_w1 == 16'h0202);
+`ifdef VERILATOR
+				$display("[NCR %0d] probe words %04x %04x -> cd_hps_ok=%b", dbg_cyc, probe_w0, probe_w1,
+				         (probe_w0 == 16'h0580) && (probe_w1 == 16'h0202));
+`endif
+			end
+			else if (fwd_st == 2'd2) begin
+				// the forwarded block is with the ARM: release the held status
+				fwd_st  <= 0;
+				fwd_fin <= 1;
+			end
+			else if (!flush_pending && !io_discard) begin
 				buf_valid <= 1;
-				sbuf_len <= 10'd512;
+				sbuf_len <= rd_len;
 				sbuf_pos <= 0;
 			end
+			if (fwd_st != 2'd2) rd_len <= 10'd512;
 			flush_pending <= 0;
 			io_discard <= 0;
 		end
+`ifdef VERILATOR
+		if (bus_free && (fwd_pend_rst || fwd_pend_bus || probe_pend))
+			$display("[NCR %0d] housekeeping: rst=%b bus=%b probe=%b", dbg_cyc, fwd_pend_rst, fwd_pend_bus, probe_pend);
+		if (synth_on && synth_kind == SY_CDB && synth_idx == 10'd11)
+			$display("[NCR %0d] forward op=%02x -> lba=%08x", dbg_cyc, fwd_op, WIN_CMD | {8'd0, fwd_op, 16'd0});
+`endif
 
 		//---------------------------------------------------- block prefetch
 		// data-in: fetch the next sector whenever the current one is spent
@@ -862,6 +838,22 @@ always @(posedge clk) begin
 			lba <= lba + 1'b1;
 			blocks_left <= blocks_left - 1'b1;
 			io_rd_i <= 1;
+			flush_tgt <= cur_tgt;
+		end
+
+		//---------------------------------------------------- ARM housekeeping
+		// with the bus free: an owed reset notice goes out first, then a
+		// pending capability probe (both on the CD slot, no nexus involved)
+		if (bus_free) begin
+			if (fwd_pend_rst)      begin fwd_pend_rst <= 0; fwd_cdb(8'hFF); end
+			else if (fwd_pend_bus) begin fwd_pend_bus <= 0; fwd_cdb(8'hFE); end
+			else if (probe_pend) begin
+				probe_pend <= 0;
+				probe_act  <= 1;
+				io_lba_e   <= WIN_RESP | 32'h0012_0000;
+				io_rd_fwd  <= 1;
+				flush_tgt  <= 2'd2;
+			end
 		end
 
 		//---------------------------------------------------- FIFO engine
@@ -924,7 +916,7 @@ always @(posedge clk) begin
 			fifo_push(sbuf_byte);
 			sbuf_pos <= sbuf_pos + 1'b1;
 			xfer_pio_in <= 0;
-			if (sbuf_pos == sbuf_len - 1'b1 && blocks_left == 0 && !io_busy)
+			if (sbuf_pos == sbuf_len - 1'b1 && blocks_left == 0 && !nexus_io)
 				phase <= PH_STAT;
 			raise(I_BUS);
 		end
@@ -946,7 +938,14 @@ always @(posedge clk) begin
 			synth_idx <= synth_idx + 1'b1;
 			if (synth_idx == synth_len - 1'b1) begin
 				synth_len <= 0;
-				buf_valid <= 1;
+				if (synth_kind == SY_CDB) begin
+					// the CDB is in the buffer: write the block to the ARM
+					io_lba_e      <= WIN_CMD | {8'd0, fwd_op, 16'd0};
+					io_wr_fwd     <= 1;
+					flush_tgt     <= 2'd2;
+					fwd_st        <= 2'd2;          // in flight: not a flush, not the nexus's
+				end
+				else buf_valid <= 1;
 			end
 		end
 
@@ -979,13 +978,13 @@ always @(posedge clk) begin
 		if (xfer_in && chunk_irq_armed && tc_zero && fifo_cnt < 5'd2) begin
 			chunk_irq_armed <= 0;
 			xfer_in <= 0;
-			if (!byte_avail && blocks_left == 0 && !io_busy && !synth_on)
+			if (!byte_avail && blocks_left == 0 && !nexus_io && !synth_on)
 				phase <= PH_STAT;
 			raise(I_BUS);
 		end
 		// data-in underflow: source exhausted before TC — go to status
 		if (xfer_in && chunk_irq_armed && !tc_zero && !byte_avail &&
-		    blocks_left == 0 && !io_busy && !synth_on) begin
+		    blocks_left == 0 && !nexus_io && !synth_on) begin
 			chunk_irq_armed <= 0;
 			xfer_in <= 0;
 			phase <= PH_STAT;
@@ -1065,9 +1064,14 @@ always @(posedge clk) begin
 			end else msel_st <= 4'd5;
 		end
 		4'd5: msel_st <= 4'd6;                              // page word addressed
+		// An accepted list is forwarded to the ARM (it mirrors the page $0E
+		// ports for its MODE SENSE): the phase moves to STATUS now, the bus
+		// service is raised now, and the status byte itself waits for the
+		// write's ack (iccs_pend, released by fwd_fin).
 		4'd6: begin                                         // page code (only if the list reaches it)
 			if ({2'd0, msel_base} + 10'd2 > dout_len || q_e[15:8] != 8'h0E) begin
-				phase <= PH_STAT; msel_fin <= 1; msel_st <= 0; msel_pend <= 0;
+				phase <= PH_STAT; msel_st <= 0; msel_pend <= 0;
+				fwd_cdb(8'h15); raise(I_BUS);
 			end
 			else msel_st <= 4'd7;
 		end
@@ -1075,7 +1079,7 @@ always @(posedge clk) begin
 		4'd8: begin ap_ch0 <= q_e[15:8]; ap_vol0 <= q_e[7:0]; msel_st <= 4'd9; end
 		4'd9: msel_st <= 4'd10;                             // page word 5 addressed
 		4'd10: begin ap_ch1 <= q_e[15:8]; ap_vol1 <= q_e[7:0]; msel_st <= 0; msel_pend <= 0;
-		       phase <= PH_STAT; msel_fin <= 1; end
+		       phase <= PH_STAT; fwd_cdb(8'h15); raise(I_BUS); end
 		default: ;
 		endcase
 		// data-out chunk complete: TC expired and the FIFO drained.  A TC
@@ -1095,7 +1099,7 @@ always @(posedge clk) begin
 		// initiator sends exactly blocks x 512 bytes, so a genuine
 		// trailing partial sector cannot exist.
 		if (xfer_out && chunk_irq_armed && tc_zero && fifo_cnt == 0 &&
-		    !flush_pending && !io_busy) begin
+		    !flush_pending && !nexus_io) begin
 			chunk_irq_armed <= 0;
 			xfer_out <= 0;
 			// A judged CD MODE SELECT list that has fully arrived gets its
@@ -1171,7 +1175,7 @@ always @(posedge clk) begin
 		// 02a3ce56a7 notes that this is precisely what makes EMILE boot on
 		// m68k -- i.e. a Mac bootloader hitting the identical stall.
 		// docs/scsi/qemu-esp-behavior.md:357-369.
-		if (xfer_pio_in && !byte_avail && blocks_left == 0 && !io_busy &&
+		if (xfer_pio_in && !byte_avail && blocks_left == 0 && !nexus_io &&
 		    !synth_on) begin
 			xfer_pio_in <= 0;
 			phase <= PH_STAT;
@@ -1246,6 +1250,7 @@ task exec_command(input [7:0] c);
 			fifo_cnt <= 0; istatus <= 0; irq <= 0;
 			phase <= PH_DOUT; seq_step <= 0;
 			cdb_active <= 0; exec_pending <= 0; skip_cnt <= 0;
+			iccs_pend <= 0;                            // nobody is waiting for that status any more
 			xfer_in <= 0; xfer_out <= 0;
 			xfer_pio_in <= 0; xfer_pio_out <= 0;
 			xfer_msg_out <= 0; msg_first_seen <= 0;
@@ -1256,6 +1261,7 @@ task exec_command(input [7:0] c);
 		7'h03: begin                                   // reset SCSI bus
 			if (!conf1[6]) raise(I_RST);               // CONFIG1 DISR gates INT
 			ca_bus_rst <= 1;                           // stops playback; TOC survives
+			fwd_pend_bus <= 1;                         // ...on the ARM too
 			abort_nexus;                               // every target goes bus free
 			if (cd_ejected && cd_present) begin        // the disc is back in the drive
 				tgt_mounted[2] <= 1;
@@ -1366,13 +1372,16 @@ task exec_command(input [7:0] c);
 				// the DMA/TC latch above re-arms it; nothing else to do
 			end
 			else if (phase == PH_STAT) begin
-				// treated like ICCS by some drivers
-				fifo[0] <= scsi_status;
-				fifo[1] <= 8'h00;
-				fifo_cnt <= 5'd2;
-				phase <= PH_MIN;
-				dbg_st <= scsi_status; dbg_st_stb <= 1;
-				raise(I_FC);
+				// treated like ICCS by some drivers (and held like it)
+				if (msel_pend || fwd_st != 0) iccs_pend <= 1;
+				else begin
+					fifo[0] <= scsi_status;
+					fifo[1] <= 8'h00;
+					fifo_cnt <= 5'd2;
+					phase <= PH_MIN;
+					dbg_st <= scsi_status; dbg_st_stb <= 1;
+					raise(I_FC);
+				end
 			end
 			else if (phase == PH_MIN) begin
 				// one message byte per TI, completing with FC (NetBSD
@@ -1395,11 +1404,11 @@ task exec_command(input [7:0] c);
 			end
 			else raise(I_ILL);
 		end
-		7'h11: if (msel_pend) begin iccs_pend <= 1;
+		7'h11: if (msel_pend || fwd_st != 0) begin iccs_pend <= 1;
 `ifdef TB_DEBUG
 			$display("[ICCS] HELD");
 `endif
-		end else begin      // initiator cmd complete (held while a list is judged)
+		end else begin      // initiator cmd complete (held while a list is judged or a CDB is forwarded)
 `ifdef TB_DEBUG
 			$display("[ICCS] status=%02x msel_st=%0d msel_pend=%0d iccs_pend=%0d", scsi_status, msel_st, msel_pend, iccs_pend);
 `endif
@@ -1491,17 +1500,15 @@ task exec_cdb;
 			synth(SY_SENSE, is_cd ? clamp(10'd18, alloc) : 10'd18);
 		end
 		8'h12: begin                                   // INQUIRY
-			if (is_cd) synth(SY_CDINQ, clamp(10'd54, alloc));
+			if (is_cd) fetch(WIN_RESP | 32'h0012_0000, clamp(10'd54, alloc));
 			else       synth(SY_INQ, 10'd36);
 		end
 		8'h1A: begin                                   // MODE SENSE(6)
-			if (is_cd) begin
-				cd_page <= cdb[2][5:0];
-				cap_r   <= (cd_blk512 ? disk_blocks : {2'b00, disk_blocks[31:2]}) - 32'd1;
-				synth(SY_CDMODE, clamp((cdb[2][5:0] == 6'h30) ? 10'd36 :
-				                       (cdb[2][5:0] == 6'h0E) ? 10'd28 :
-				                       (cdb[2][5:0] == 6'h2A) ? 10'd38 : 10'd12, alloc));
-			end
+			if (is_cd)                                 // page in the window address
+				fetch(WIN_RESP | 32'h001A_0000 | {16'd0, cdb[2], 8'd0},
+				      clamp((cdb[2][5:0] == 6'h30) ? 10'd36 :
+				            (cdb[2][5:0] == 6'h0E) ? 10'd28 :
+				            (cdb[2][5:0] == 6'h2A) ? 10'd38 : 10'd12, alloc));
 			else if (cdb[2][5:0] == 6'h30) begin       // Apple firmware ID page
 				cap_r <= disk_blocks - 32'd1;
 				synth(SY_HDMODE, clamp(10'd36, alloc));
@@ -1594,18 +1601,16 @@ task exec_cdb;
 		// zero-filled past the payload: the Mac's blind transfer arms the
 		// whole allocation and a target that stops early leaves it waiting
 		// (MacLC scsi.v, the 2026-07-19 boot wedge).  Caps: 512 = the table.
-		8'h43: begin                                   // READ TOC
+		8'h43: begin                                   // READ TOC: format + start track in the window address
 			if (!is_cd) check(4'h5, 8'h20);
-			else if (cdb[9][7:6] == 2'b10) synth(SY_TOC43F2, clamp(10'd512, alloc16));
-			else if (cdb[9][7:6] == 2'b01) synth(SY_TOC43F1, clamp(10'd512, alloc16));
-			else                            synth(SY_TOC43, clamp(10'd512, alloc16));
+			else fetch(WIN_RESP | 32'h0043_0000 | {16'd0, cdb[9], cdb[6]}, clamp(10'd512, alloc16));
 		end
-		8'hC1: begin                                   // Apple READ TOC
+		8'hC1: begin                                   // Apple READ TOC: control + BCD track in the address
 			// header / lead-out: 4 bytes (MAME); descriptors: the allocation,
 			// whole descriptors
 			if (!is_cd) check(4'h5, 8'h20);
-			else if (cdb[9][7]) synth(SY_TOCC1, clamp(10'd400, {alloc16[15:2], 2'b00}));
-			else                synth(SY_TOCC1, clamp(10'd4, alloc16));
+			else fetch(WIN_RESP | 32'h00C1_0000 | {16'd0, cdb[9], cdb[5]},
+			           cdb[9][7] ? clamp(10'd400, {alloc16[15:2], 2'b00}) : clamp(10'd4, alloc16));
 		end
 		8'hC2: begin                                   // Apple READ Q SUBCODE
 			if (is_cd) synth(SY_SUBQ, 10'd9); else check(4'h5, 8'h20);
@@ -1665,6 +1670,28 @@ task synth(input [3:0] kind, input [9:0] len);
 	end
 endtask
 
+// a DATA IN response the ARM builds: one platform block from the response
+// window, served for len bytes (the block prefetch below fetches it exactly
+// like a READ's first sector; rd_len replaces the sector's 512)
+task fetch(input [31:0] wlba, input [9:0] len);
+	if (len == 0) phase <= PH_STAT;
+	else begin
+		lba <= wlba;
+		blocks_left <= 32'd1;
+		rd_len <= len;
+		data_dir_in <= 1;
+		phase <= PH_DIN;
+	end
+endtask
+
+// forward the CDB (and whatever DATA OUT list the drain left in the buffer)
+// to the ARM as a command-block write; STATUS is held until the ack
+task fwd_cdb(input [7:0] op);
+	synth_kind <= SY_CDB; synth_idx <= 0; synth_len <= 10'd12;
+	fwd_op <= op;
+	fwd_st <= 2'd1;
+endtask
+
 // a parameter-list DATA OUT of n bytes, absorbed into the sector buffer
 task param_out(input [11:0] n);
 	if (n == 0) phase <= PH_STAT;
@@ -1688,7 +1715,13 @@ task abort_nexus;
 	chunk_irq_armed <= 0;
 	buf_valid <= 0; sbuf_pos <= 0; blocks_left <= 0; dout_len <= 0;
 	synth_len <= 0; msel_pend <= 0; msel_st <= 0; msel_bd <= 0;
-	if (io_busy && !flush_pending) io_discard <= 1;
+	rd_len <= 10'd512;
+	// a CDB copy not yet written is abandoned with its nexus (a write in
+	// flight completes on its own, like any flush; so does a probe read,
+	// which touches nothing of the nexus)
+	if (fwd_st == 2'd1) fwd_st <= 0;
+	iccs_pend <= 0;                                    // a status the old nexus never collected
+	if (io_busy && !flush_pending && !fwd_xfer) io_discard <= 1;
 endtask
 
 // CHECK CONDITION with the sense the next REQUEST SENSE will report
@@ -1718,6 +1751,7 @@ task eject;
 		tgt_asc[2]  <= 8'h3A;                          // medium not present
 		ca_eject_stb <= 1;
 		phase <= PH_STAT;
+		fwd_cdb(cdb[0]);                               // the ARM's playhead stops too
 	end
 endtask
 
@@ -1741,12 +1775,7 @@ cd_audio #(.CLK_HZ(32'd33_000_000)) cd_audio_i (
 	.ast_code(ca_ast_code), .cur_ctrl(ca_cur_ctrl), .cur_trk(ca_cur_trk),
 	.abs_m(ca_abs_m), .abs_s(ca_abs_s), .abs_f(ca_abs_f),
 	.rel_m(ca_rel_m), .rel_s(ca_rel_s), .rel_f(ca_rel_f),
-	.toc_base(toc_addr), .toc_q0(ca_toc_q0), .toc_q1(), .toc_q2(), .toc_q3(),
 	.toc_ready(ca_toc_ready),
-	.toc43_base(t43_addr), .toc43_q0(ca_t43_q0), .toc43_q1(), .toc43_q2(), .toc43_q3(),
-	.toc43_len(ca_t43_len),
-	.toc2_base(t2_addr), .toc2_q0(ca_t2_q0), .toc2_q1(), .toc2_q2(), .toc2_q3(),
-	.toc2_len(ca_t2_len),
 	.disc_audio(ca_disc_audio),
 	.snd_l(cd_snd_l), .snd_r(cd_snd_r),
 	.dbg_cda0(), .dbg_cdur()
@@ -1757,8 +1786,6 @@ end else begin : g_no_cd
 	assign ca_ast_code = 8'h00; assign ca_cur_ctrl = 8'h00; assign ca_cur_trk = 8'h00;
 	assign ca_abs_m = 8'h00; assign ca_abs_s = 8'h00; assign ca_abs_f = 8'h00;
 	assign ca_rel_m = 8'h00; assign ca_rel_s = 8'h00; assign ca_rel_f = 8'h00;
-	assign ca_toc_q0 = 8'h00; assign ca_t43_q0 = 8'h00; assign ca_t2_q0 = 8'h00;
-	assign ca_t43_len = 10'd0; assign ca_t2_len = 10'd0;
 	assign ca_toc_ready = 1'b0; assign ca_disc_audio = 1'b0;
 	assign cd_snd_l = 16'sd0; assign cd_snd_r = 16'sd0;
 end endgenerate

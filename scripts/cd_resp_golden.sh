@@ -13,6 +13,7 @@ MAIN=${MAIN:-$HERE/../Main_MiSTer}
 OUT=${OUT:-$HERE/scratch/cd_resp_golden}
 mkdir -p "$OUT"
 
+bash "$HERE/scripts/sync_main_mac.sh"
 echo "== host test build"
 g++ -O1 -Wall -Wextra -o "$OUT/cdrom_resp_test" \
     "$MAIN/support/mac/test/cdrom_resp_test.cpp" \

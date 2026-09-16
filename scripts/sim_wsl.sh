@@ -47,6 +47,7 @@ build)
     wsl_run "set -e
         mkdir -p $WSL_DIR
         cd \"\$(wslpath '$(pwd -W 2>/dev/null || pwd)')\"
+        bash scripts/sync_main_mac.sh
         cp -r --parents rtl verilator docs/tools releases $WSL_DIR/
         find $WSL_DIR -name '*.sh' -exec sed -i 's/\r\$//' {} +
         cd $WSL_DIR/verilator

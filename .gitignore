@@ -90,3 +90,4 @@ __pycache__/
 .claude/settings.local.json
 verilator/obj_dir_*/
 scripts/guest/*.png
+verilator/sim/mac/
