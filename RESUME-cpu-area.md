@@ -89,11 +89,17 @@ Hedge: a **posting-off R1..R4 Quartus build** (befb4fd + 8778213 +
   evidence kept as `sim_run_hang.log` / `cpu_trace_hang.log`); tree B (store
   head control) still running; tree C killed; the posting-off Quartus hedge
   killed (moot).
-- Quartus: R1..R6 (923c544) + the fix, seed 22 in the main tree, seed 23 in
-  `../MacQuadra800_wt2`. Whichever meets timing is the hardware candidate;
-  gate it on the .92 box (Opus operator, `scratch/gate_diet/BRIEF.md` recipe)
-  once the sim boot clears the extension load.
-- `tb_ncr53c96` must still pass (run in tree A, `tb_ncr.log`).
+- Quartus (fits now take ~25 min): R1..R6 (923c544) + the fix MISSED at
+  seed 22 (CPU clock -0.619 ns) and seed 23 (-1.426 ns, TNS -86.6); seed 24
+  is fitting in the main tree.  `../MacQuadra800_wt2` builds the more robust
+  **R1..R4 (8778213) + fix at seed 21** (its pre-fix fit had +0.361 ns;
+  cycle-identical to R1..R6, +1,300 ALMs).  Whichever meets timing is the
+  hardware candidate; gate it on the .92 box (Opus operator,
+  `scratch/gate_fix/BRIEF.md`, fill in CANDIDATE_RBF and candidate.md5)
+  once the sim boot clears the extension load.  Failed rbfs are kept as
+  `scratch/MacQuadra800_fix_r6_s22_TIMINGFAIL.rbf` (main) and
+  `scratch/MacQuadra800_fix_r6_s23_TIMINGFAIL.rbf` (wt2).
+- `tb_ncr53c96` PASSES with the fix (476,837 checks, 0 failures; tree A `tb_ncr.log`).
 
 ## Git / artifacts
 
