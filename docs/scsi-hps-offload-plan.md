@@ -277,10 +277,13 @@ Core phase 1 (responses from the ARM, playback stays), branch `optimize-SCSI`:
       clock) VIOLATED -0.931 ns, TNS -2.585; HDMI +0.003; clk_ram +1.054.**
       TimeQuest (`scratch/clk_sys_paths.tcl`): all 40 worst paths are
       inside `ap040_core` (`rr_a` -> `epf_data`, `pc` -> `state`), none in
-      the SCSI logic: the placement lottery, not the change. Policy
-      (CLAUDE.md): try it on hardware, walk a seed for the shipped rbf.
-      Hardware gate on .143 (both OSes, OT ISO, retail ISO CD boot, CHD
-      audio) follows once the A/B operator frees the box
+      the SCSI logic: the placement lottery, not the change. **Seed 21
+      (worktree wt2, 08:26): 38,012 ALMs, clk_sys +0.712, clk_ram +0.914,
+      HDMI -0.076 (one `sys_top` video register)** = the hardware
+      candidate, `scratch/MacQuadra800_phase1_s21_58653a0c.rbf`, staged on
+      .143 as `_Unstable/MacQuadra800_phase1_s21.rbf`; seed 21 is now the
+      qsf default. Hardware gate on .143 (both OSes, OT ISO, retail ISO CD
+      boot, CHD audio) in progress
 - [ ] C6 commit + measured numbers in this file and `docs/area-budget.md`
 
 Core phase 2 (playback on the ARM), gated on C5's numbers:

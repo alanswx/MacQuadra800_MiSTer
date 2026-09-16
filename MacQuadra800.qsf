@@ -183,7 +183,12 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # RELEASED 2026-09-16 as MacQuadra800_20260915.rbf: seed 22 (clk_sys +0.712, clk_ram +0.998, HDMI
 # -0.095 on sys_top hdmi_dv_hs -> hs), shipped marginal by policy (CLAUDE.md), both gates pass,
 # Speedometer Mix 0.858.  Seed 22 is the recipe for this head.
-set_global_assignment -name SEED 22
+# 2026-09-16 (optimize-SCSI phase 1, 3d5e32d + docs): the CD responses now come
+# from Main; 38,070 ALMs at seed 22 but clk_sys MISSED by 0.931 ns (all 40 worst
+# paths inside ap040_core: the placement lottery). Seed 21 (../MacQuadra800_wt2):
+# 38,012 ALMs, clk_sys +0.712, clk_ram +0.914, HDMI -0.076 (one sys_top video
+# register) -- the hardware candidate (rbf 58653a0c). Seed 21 is the default.
+set_global_assignment -name SEED 21
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
 # the design no longer fits with speed-directed synthesis; all-area
