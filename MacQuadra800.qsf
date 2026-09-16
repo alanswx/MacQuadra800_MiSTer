@@ -172,7 +172,8 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # MODE SELECT's bus service raised ~12 cycles before the phase moved to STATUS;
 # the faster CPU's poll read the stale phase).  The ncr53c96 fix is in this build:
 # seed 22 here, seed 23 in ../MacQuadra800_wt2.
-set_global_assignment -name SEED 22
+# Seed 22 with the fix: MISSED, CPU clock -0.619 ns (TNS -10.9), HDMI +0.513; walking 24 here.
+set_global_assignment -name SEED 24
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
 # the design no longer fits with speed-directed synthesis; all-area
