@@ -43,7 +43,9 @@ bash scripts/build_only.sh --check    # Analysis & Synthesis only (~13 min), no 
   `C:\Program Files\Git\bin\bash.exe`. From PowerShell, launch it detached with
   `Start-Process` so a tool timeout cannot kill Quartus mid-fit.
 - **Never run two builds of this project at once** — they share `db/` and
-  corrupt each other. Other cores are built on this box by other sessions
+  corrupt each other. **And never two Quartus flows on this box at all,
+  worktrees included** (user, 2026-09-16): a seed walk runs one seed after
+  another; check `Get-CimInstance Win32_Process` for `quartus*` first. Other cores are built on this box by other sessions
   (sgiindy, MacLC…): `build_only.sh`'s wait-gate blocks on *any* `quartus_*`,
   so launch with `--no-wait` only after checking that no MacQuadra800 flow is
   running, and never kill a `quartus_*` process without matching its command
@@ -124,6 +126,8 @@ ROM + A/UX disk and is the golden reference for SCSI/ESP behaviour.
 
 Target is the DE10-Nano at the address in `scripts/local.env`
 (`192.168.99.143`, ssh key `~/.ssh/mister_only`, mrext remote on `:8182`).
+**Use only this box** (user, 2026-09-16): the second MiSTer at `.92` belongs
+to another session and is not to be touched, not even read-only.
 
 ```bash
 bash scripts/deploy_screenshot.sh       # md5-verified scp + load_core (refuses a timing-failed build)
@@ -178,8 +182,13 @@ candidate bitstream:
 - **Mac OS 8.1** (`QuadSquad8.hda`): Finder desktop, keyboard + mouse respond,
   menu-bar clock ticks at idle for several minutes, Special → Shut Down reaches
   the "safe to switch off" screen.
-- **A/UX 3.1** (`HD60_512-AUX3.1-Installed.hda`): boots through to the
-  multiuser Finder desktop (a long fsck after an unclean halt is normal),
+- **A/UX 3.1** (`HD60_512-AUX3.1-Installed.hda`), **with the OSD RAM option
+  at 32 MB** (at 128 MB A/UX 3.1 hangs `shutdown -h now` after the
+  port-mapper line on every build tested, 2026-09-16; the cause is a
+  follow-up): boots through to the multiuser Finder desktop (after an
+  unclean halt do not wait for the ~6 min fsck: load the menu core and
+  `unzip -o backup/HD60_512-AUX3.1-Installed.zip` in `games/MacQuadra800/`
+  instead, user rule 2026-09-16),
   CommandShell responds, `shutdown -h now` reaches "You may now switch off".
 
 Then: copy the rbf to `releases/MacQuadra800_YYYYMMDD.rbf`, add a table row and
