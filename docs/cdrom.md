@@ -1,8 +1,11 @@
 # SCSI: two hard disks and an AppleCD-class CD-ROM on the 53C96
 
-Status 2026-09-02: phase A (targets, CD data command layer) and phase B (the
-TOC/audio engine) are in `rtl/ncr53c96.sv` + `rtl/cd_audio.sv`; the BlueSCSI
-Toolbox and CD-changer transports (hps_io slots 3 and 5) are not yet wired.
+Status 2026-09-16: phase A (targets, CD data command layer) and phase B (the
+TOC/audio engine) are in `rtl/ncr53c96.sv` + `rtl/cd_audio.sv`; since the
+`optimize-SCSI` work the CD target's identity, mode pages and TOC responses
+are built by Main and read through a response window (section "Responses
+from Main" below), and the playhead is next. The BlueSCSI Toolbox and
+CD-changer transports (hps_io slots 3 and 5) are not yet wired.
 
 ## Shape
 
@@ -44,8 +47,9 @@ only to drives it knows, so the INQUIRY says `SONY CD-ROM CDU-8004 1.9a`.
 - No disc: media commands CHECK with NOT READY / ASC `$B0` (the AppleCD
   answer; `$3A` makes Mac OS nag to format). Eject is START/STOP LoEj or Apple
   `$C0`, honouring PREVENT. Writes CHECK DATA PROTECT / `$27`.
-- READ TOC (`$43` formats 0/1/2) and Apple `$C1` come from `cd_audio`'s
-  pre-rendered tables; `$42`/`$C2`/`$CC` from its live position registers;
+- READ TOC (`$43` formats 0/1/2) and Apple `$C1` come from Main through the
+  response window (they were `cd_audio`'s pre-rendered tables until
+  2026-09-16); `$42`/`$C2`/`$CC` from its live position registers;
   data READs on a disc with no data track CHECK with `$64`, which the Audio
   CD Access extension relies on.
 - `$43`/`$42` serve **exactly the allocation length**, zero-filled past the
@@ -65,19 +69,72 @@ keeps its acks and sector-buffer writes out of the engine's accounting.
 Its PCM leaves as `cd_snd_l/r` up through `iosb` and `quadra800` and is
 summed with the ASC output at the top (`audio_mix_*`, saturating).
 
-## Block size: 2048 by default, 512 on request
+## Block size: 2048, and only 2048
 
 An AppleCD answers READ CAPACITY and MODE SENSE with 2048-byte blocks and
 serves READ in those units (four HPS blocks each).  The Mac ROM's CD boot
-and the Apple CD-ROM driver then send a MODE SELECT(6) whose block
-descriptor asks for 512-byte blocks and read the disc like a hard disk;
-MAME's `nscsi_cdrom_device::set_block_size` is the model.  `cd_blk512` in
-`ncr53c96.sv` latches that request (0x0200 sets it, 0x0800 clears it), and
-while it is set READ addresses HPS blocks directly, READ CAPACITY reports
-`blocks - 1` with a 512-byte length and the MODE SENSE descriptor follows.
-The MODE SELECT parser takes the page $0E ports at either offset (with or
-without the descriptor).  Like MAME, the setting survives a bus reset and
-is dropped only by a machine reset.  `tb_ncr53c96` T16h covers it.
+and the Apple CD-ROM driver send a MODE SELECT(6) whose block descriptor
+asks for 512-byte blocks; since 2026-09-08 the target refuses it with
+ILLEGAL REQUEST / invalid field in parameter list (05/26/00), exactly as
+QEMU's scsi-cd does, because honouring it made the ROM re-walk the retail
+disc's dual partition map at 512-byte granularity and register the one HFS
+volume twice.  A descriptor that does not fit the list is refused the same
+way.  The MODE SELECT parser still takes the page $0E ports at either
+offset (with or without the descriptor).  `tb_ncr53c96` T16h covers it.
+
+## Responses from Main (2026-09-16, `optimize-SCSI`)
+
+The design note is `docs/scsi-hps-offload-plan.md`; this is the contract as
+built.  Everything below is served by the Main fork
+(`support/mac/mac_cdrom.cpp`, `mac_cdrom_resp.cpp`, `mac_cdrom_play.cpp`)
+only for cores that pass its `is_mac_scsi_optimized()`; the other Mac cores
+and older MacQuadra800 bitstreams never address these LBAs and see the old
+blob / raw-audio windows unchanged.
+
+- **Response window, read, 1 block:** `$7E000000 + (op << 16) + (a << 8) + b`
+  holds the DATA IN of CD command `op` for the two CDB bytes it depends on:
+  `$12` INQUIRY; `$1A` MODE SENSE, a = cdb[2] (page); `$43` READ TOC,
+  a = cdb[9], b = cdb[6]; `$C1` Apple READ TOC, a = cdb[9], b = cdb[5];
+  `$42`, a = cdb[3], b = cdb[6]; `$C2`; `$CC`, a = cdb[3].  The target
+  fetches it as a one-block READ (`fetch` in `ncr53c96.sv`) whose serve
+  length is the CDB's clamped allocation, so the initiator sees the bytes,
+  zero-filled past the payload, behind one Main poll -- the wait a READ's
+  first sector already takes.  In phase 1 the position forms ($42/$C2/$CC)
+  are still synthesized in RTL from `cd_audio`'s playhead.
+- **Command block, write, 1 block:** `$7D000000 + (op << 16)`: the DATA OUT
+  list (MODE SELECT, AUDIO CONTROL) at bytes 0.. where the drain left it,
+  the 12-byte CDB at bytes 496..507 (`SY_CDB` copies it there).  Phase 1
+  forwards an accepted MODE SELECT (Main mirrors the page $0E ports for its
+  MODE SENSE), an eject, and the pseudo-ops `$FF` (machine reset) and `$FE`
+  (SCSI bus reset).  STATUS is held until the write is acked, through the
+  same `iccs_pend` deferral a judged MODE SELECT used.
+- **Next frame, read, 5 blocks:** `$7C000000`: one volume-scaled 2352-byte
+  frame at Main's playhead, the audio status at byte 2352, a frame-present
+  flag at 2353 and a flush generation at 2354..2357.  Defined and served;
+  the core uses it from phase 2.
+- **Capability probe:** after every machine reset and CD mount pulse, once
+  the bus is free, the target reads the INQUIRY window and latches its
+  first two words straight off the platform stream (nothing lands in the
+  sector buffer).  `05 80 02 02` arms `cd_hps_ok`; without it the CD target
+  does not answer selection, so an older Main or the generic path gives no
+  drive rather than a garbage identity.
+- **The MCDA blob** is version 2: byte 12 bit 0 says the disc has a data
+  track (`cd_audio` derives `disc_audio` from it instead of scanning the
+  tracks); Main writes version 1 with the flag clear for the other cores.
+- **Flat 2048-byte images** are `HANDLED` (served through `mac_cdrom_fill`)
+  for optimized cores, so the blob and the windows are live for every disc;
+  a flat file's data window is read in one run per request.
+
+Stays in RTL: TEST UNIT READY, REQUEST SENSE, READ CAPACITY, READ HEADER,
+the no-disc and audio-only CHECKs, eject / PREVENT state, the READ data
+path, the MODE SELECT parse (the refusal rules above), and in phase 1 the
+playhead.
+
+Sims: `verilator/sim/cd_window.cpp` serves the windows for both
+`tb_ncr53c96` (through the DPI-C shim `cd_win_dpi.cpp`) and the
+full-machine block-device model, over the very Main files mirrored into
+`verilator/sim/mac/` by `scripts/sync_main_mac.sh`.  The builders are
+proven against the old RTL tables by `scripts/cd_resp_golden.sh`.
 
 ## What only hardware showed (2026-09-03)
 
