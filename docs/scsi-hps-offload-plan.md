@@ -272,7 +272,18 @@ Core phase 1 (responses from the ARM, playback stays), branch `optimize-SCSI`:
 Core phase 2 (playback on the ARM), gated on C5's numbers:
 
 - [ ] D1 transport CDBs forwarded; status ops from the response window;
-      FETCH from the next-frame window; MAIN FSM, dividers, volume LUT gone
+      FETCH from the next-frame window; MAIN FSM, dividers, volume LUT gone.
+      Sketch from the phase-1 mechanics: every opcode that today raises
+      `ca_cmd_stb` calls `fwd_cdb(cdb[0])` instead (STATUS held until the
+      ack, as MODE SELECT is now); `$42`/`$C2`/`$CC` become `fetch` calls
+      (a = cdb[3], b = cdb[6]); `cd_audio.sv` keeps only the blob header
+      parse (mounted / has-data), a fetch loop that reads `$7C000000` as a
+      5-block transaction into the free frame half whenever the last pad
+      said "playing" (byte 2352 = 0) or a transport command was just
+      forwarded, drops both halves when the pad's flush generation
+      (2354..2357) changes, and the SAMPLE cadence + interpolation as is;
+      the ARM applies volume, so the LUT and its two multipliers go. The
+      raw-audio window and the MODE SELECT page-$0E ports leave the RTL.
 - [ ] D2 sim + bench; AppleCD Audio Player gate on .143 (play/pause/scan/
       volume/status) with a mixed-mode CHD
 - [ ] D3 `--check` delta, fit, gate, release entry, `docs/cdrom.md`,
