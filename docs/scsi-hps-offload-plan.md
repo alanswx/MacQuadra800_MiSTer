@@ -271,7 +271,14 @@ Core phase 1 (responses from the ARM, playback stays), branch `optimize-SCSI`:
       *sim's block-device model*, not the RTL: its mount countdown shares
       `ack_delay` with transfers and, expiring while the probe was held,
       raised an ack for nothing and never dropped it (fixed, `+blkdbg` now
-      traces ack edges)
+      traces ack edges). With the fix, 1.5 G cycles of the Quad Squad copy
+      + `cd.iso`: reset notice ($FF) and both ROM bus resets ($FE) written
+      to the command block, the probe read the INQUIRY window after reset
+      and after the mount pulse (`0580 0202 -> cd_hps_ok=1`), blob v2
+      fetched, the ROM's CD block-0 read served in one 8-block group, the
+      hard-disk boot streaming. The ROM scan issues no INQUIRY/TOC; the
+      response window's first use is the Apple CD-ROM extension (~90 s
+      of machine time): a 4.8 G-cycle run is in flight for it
 - [~] C5 `build_only.sh --check`: `cd_audio` 2,566 -> 1,535 ALUTs. **Full
       fit (seed 22, the release recipe, 2026-09-16 08:00): 38,070 ALMs
       (91 %), -568 vs the shipped 38,638; `ncr53c96` 2,469 (was 2,870),
