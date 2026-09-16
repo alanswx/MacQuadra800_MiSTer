@@ -414,7 +414,9 @@ gate had no CD):
       Main (`/media/fat/MiSTer.aug28_d6d63ec4`, staged on .143) installed
       -- a halt there pins the Main; and the W3 trace run, which shows
       whether a disk write is left without its ack (a hung `sync` with a
-      live console is exactly that)
+      live console is exactly that). **W1c (20260908_3 + retail ISO, the
+      older CPU) wedged as well (15:02)**: three cores, two CPU
+      generations, with and without a CD -- not the core.
 - [x] W2 DONE 13:20 but NOT a golden reference for the halt path: QEMU's
       A/UX stalls at `INIT: New run level: S` with and without the CD (31
       min), before the teardown the MiSTer reaches; what it did establish
@@ -726,6 +728,18 @@ gate had no CD):
   Main on .143 as `/media/fat/MiSTer.aug28_d6d63ec4` for a swap test.
   The operator was cut off by an API overload at 14:55 mid-W1c and resumed
   at 14:58.
+- 2026-09-16 15:05, **W1c wedged too**: the 20260908_3 release (the
+  older CPU, pre-checkpoint-15) with the retail ISO, on the pristine image
+  and today's Main, shows the same port-mapper line and 1-bpp console
+  streaks (`scratch/p1b/zz_check_1502.png`). So the wedge does not care
+  about the core (phase 1, 20260915, 20260908_3), the CPU generation, or
+  the CD; on .143 every `shutdown -h now` hangs, on .92 the same rbf, ROM
+  and image halted. The environment is the variable and the Main build
+  is the one difference found (`d6d63ec4` of Aug 28 on .92, pre-`dbae5ff`,
+  vs today's `898854ef`): W1d (the .92 Main installed on .143, 20260915,
+  no CD, pristine image) is queued to the operator behind P1c. The
+  operator was cut off twice by API overloads (14:55, 15:12) and resumed
+  each time; the wedged W1c guest is provably dead and may be reloaded.
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build
