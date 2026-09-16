@@ -37,7 +37,8 @@ Fix: the data-out drain (PIO and DMA paths) withholds Bus Service when the
 drained byte completes a judged CD MODE SELECT list; the verdict's `msel_fin`
 raises it with the phase already STATUS. `tb_ncr53c96` passes (476,837
 checks). Fixed sim (tree A): the poll sees no INT until STATUS, then ICCS,
-message accept, next READ(10) -- the boot continues.
+message accept, next READ(10) -- and the boot reaches the **full Finder
+desktop at 90 s of guest time** (frame 5400; `scratch/ck15_hang/`).
 
 Sim tooling added (all `ifdef VERILATOR` / sim_main.cpp): `[NCRREG]`
 register-level 53C96 trace armed by the first MODE SELECT to the CD (cap
