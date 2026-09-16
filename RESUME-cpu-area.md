@@ -53,8 +53,14 @@ that arms), `--trace-max N`, `@main_time` stamps on trace lines.
 | wt2 | R1..R6 (923c544) + fix | 23 | MISSED, CPU clock -1.426 ns (TNS -86.6) |
 | main | R1..R6 (923c544) + fix | 24 | MISSED, CPU clock -1.669 ns (TNS -85.4) -- R1..R6 PARKED |
 | wt2 | R1..R4 (8778213) + fix | 21 | CPU clock MET +0.267, **HDMI -0.766** (one endpoint), 38,788 ALMs (93 %) |
-| main | **R1..R4 (8778213) + fix** | 22 | fitting since 21:49 (`scratch/build_fix_r4_s22.log`); HEAD 7aac11e carries this submodule + seed |
-| wt2 | **R1..R4 (8778213) + fix** | 23 | fitting since 22:03 (`../MacQuadra800_wt2/scratch/build_fix_r4_s23.log`) |
+| main | R1..R4 (8778213) + fix | 22 | CPU clock +0.712, **HDMI -0.095** (one endpoint), 38,711 ALMs; rbf kept as `scratch/MacQuadra800_fix_r4_s22_HDMI-0.095.rbf` |
+| main | R1..R4 (8778213) + fix | 24 | fitter could not place (error 11802) |
+| wt2 | R1..R4 (8778213) + fix | 23 | fitting since 22:03 (`../MacQuadra800_wt2/scratch/build_fix_r4_s23.log`), slow |
+| main | R1..R4 (8778213) + fix | 25 | fitting since 22:49 (`scratch/build_fix_r4_s25.log`) |
+| wt3 | R1..R4 (8778213) + fix | 26 | fitting since 22:49 (`../MacQuadra800_wt3`, a third detached worktree at 378e3a8 with the 8778213 files copied in; `scratch/build_fix_r4_s26.log`) |
+
+The HDMI clock is the framework's 148.5 MHz pixel clock (Fmax 146.5 at seed
+22); the miss is one endpoint in the scaler path, seed-sensitive, not ours.
 
 R1..R4 and R1..R6 are cycle-identical; R1..R6 is ~1,300 ALMs smaller but its
 CPU-clock path is a lottery with the fix in (three misses, growing). R1..R4's
