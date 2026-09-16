@@ -12,6 +12,7 @@ must never be flashed (`scripts/deploy_screenshot.sh` refuses one).
 
 | build | md5 | timing | notes |
 |---|---|---|---|
+| `MacQuadra800_20260916.rbf` | `1eae0fb7ed8de620751af3efb94047fb` | met, **+0.247 ns setup** (HDMI +0.442, `clk_sys` +0.729, `clk_ram` +0.732) | **The CD-ROM target's responses come from the ARM (SCSI offload phase 1): -510 ALMs, timing met.** INQUIRY, MODE SENSE, READ TOC and the Apple status commands are served by the Main fork through window reads of the CD slot; MODE SELECT, eject and the resets are forwarded through a command block with STATUS held until the ARM acks. **Requires the Main fork `ae708d3` or later for any CD image.** Mac OS 8.1: Finder in 126 s with the retail ISO, idle clock in step over 4 min, keyboard, the CD's window, both guest volumes of the retail disc put away from the Finder, the OT ISO hot-mounted from the OSD and put away, the retail disc re-mounted, `mac_shutdown.sh` to the halt screen in 61 s; Speedometer not re-measured (the restored Quad Squad image lacks it; the CPU/SDRAM path is unchanged from 20260915). A/UX 3.1 at **32 MB**: desktop in 120 s, `uname -a` = `A/UX localhos 3.1 SVR2 mc68040`, `shutdown -h now` to the halt screen in 131 s. **Known: A/UX 3.1 hangs its shutdown when the RAM option is 128 MB, on this build and on 20260915 / 20260908_3 alike (six runs); run A/UX at 32 MB.** Seed 21; 38,128 ALMs (91 %). |
 | `MacQuadra800_20260915.rbf` | `4c80a3be96cb46992d00002484f9f67a` | **VIOLATED by 0.095 ns on the HDMI domain** (one `sys_top` `hdmi_dv_hs -> hs` register); `clk_sys` +0.712 ns, `clk_ram` positive | **Alan Steremberg's checkpoint-15 AP68040 (`167c5e8`) with the multi-site sequencer tasks hoisted (R1..R4, `8778213`), and the 53C96 fix for the Mac OS 8.1 boot hang it exposed.** Speedometer 4.02 Benchmark Mix **0.858** (0.462 on the 2026-09-12 store head, 0.360 on 20260908_3), CQD 0.605, FPU 0.449. Mac OS 8.1 Finder in 106 s, clean shutdown; A/UX 3.1: multiuser desktop in 148 s, `uname -a` = `A/UX localhos 3.1 SVR2 mc68040`, `shutdown -h now` to the halt screen in 127 s. Shipped as a marginal build by decision (2026-09-16): the miss is on the framework's video output register, not on the CPU clock. Seed 22; 38,711 ALMs (92 %). |
 | `MacQuadra800_20260908_3.rbf` | `71102b391b375ebc9614d80432136611` | met, **+0.444 ns setup** (clk_sys +0.797, clk_ram +0.927) | **The CD-ROM refuses MODE SELECT block-length changes like QEMU; ships with the rebased Main fork binary (`MiSTer_20260908`, upstream 20260907 + Mac SCSI family + multi-block CD fill).** Same CPU, CD and multi-block cache as 20260908_2. Both OSes pass the gate. The retail CD shows twice on the Quad Squad desktop: traced to that system folder (QEMU reproduces it from the same disk image; a fresh 8.1 install shows one icon), not the core. Seed 21; 98 % ALMs, 476 RAM blocks. |
 | `MacQuadra800_20260908_2.rbf` | `61da22443a3a66ac385eaa3ddc53e3de` | met, **+0.171 ns setup** (clk_sys +0.358, clk_ram +1.008, hold +0.243) | **The same CPU and CD, plus the multi-block SCSI cache, with composite Y/C back in.** Every hps_io transaction moves an aligned 8-sector group instead of one sector; the cache's tag bitmaps are sized to the slot (32/32/16 sectors here); the framework's ALSA path and two scaler refinements are compiled out, Y/C stays. Mac OS 8.1 desktop in 136 s (151), ROM CD boot in 107 s (146). Both OSes and the CD boot pass the gate. Seed 19; 98 % ALMs, 476 RAM blocks. |
@@ -24,6 +25,81 @@ must never be flashed (`scripts/deploy_screenshot.sh` refuses one).
 | `wombat33_20260831_1.rbf` | `3901ef5705f58dba3279c0417412f5f8` | met, +0.243 ns | **Sound works.** Fixes the watch-cursor wedge (ASC FIFOSTAT reported an empty FIFO as full) and hooks up the $806 volume slider. |
 | `wombat33_20260830.rbf` | `64c79dfb93ceefb549200c78671cdc31` | met, +0.248 ns | **ADB actually works** — the mouse button reaches the guest and motion stops inventing input. |
 | `wombat33_20260829.rbf` | `4c46a65c3a48b44ddb6f4fd6808d0422` | met, +0.245 ns | First build that boots Mac OS unattended. |
+
+## `MacQuadra800_20260916.rbf`
+
+md5 `1eae0fb7ed8de620751af3efb94047fb`, seed 21, timing met at **+0.247 ns**
+(HDMI +0.442 ns, `clk_sys` +0.729 ns, `clk_ram` +0.732 ns). 38,128 ALMs
+(91 %, -510 against 20260915), 25,659 registers, 491 of 553 RAM blocks, 59
+DSP blocks. Built from `f612084` on `optimize-SCSI` with the qsf-default
+recipe (balanced synthesis, register duplication off, `CACHE_CD_OFF`,
+`CACHE_SMALL`, `MISTER_DISABLE_ALSA`, `MISTER_DOWNSCALE_NN`,
+`MISTER_DISABLE_ADAPTIVE`; composite Y/C kept; tracer off). The commits
+after `f612084` on the branch up to this entry are tooling and notes,
+except the phase-2 RTL (`d5442fe`, playback on the ARM), which is NOT in
+this bitstream.
+
+**Ships with a Main binary:** the Main fork branch
+`mac-ethernet-pr-with-SCSI-Optimizations` at `ae708d3` (binary md5
+`898854ef18882048b409127f7fb562f8`). It is required for every CD image on
+this core: the core reads its CD responses from Main and forwards commands
+to it. On an older Main the CD drive does not answer selection (the
+capability probe finds no `SONY CDU-8004` identity in the INQUIRY window),
+so the guest simply sees no CD-ROM; nothing hangs. The other Mac cores are
+byte-identical on this Main (`is_mac_scsi_optimized()` is `macquadra800`
+only).
+
+What changed since `20260915` (design note `docs/scsi-hps-offload-plan.md`,
+contract `docs/cdrom.md`):
+
+- **`rtl/ncr53c96.sv`** -- the CD-ROM target's DATA IN responses (INQUIRY,
+  MODE SENSE pages, READ TOC formats 0/1/2, Apple `$C1` TOC) are one-block
+  reads of a response window on the CD slot, served for the CDB's clamped
+  allocation; MODE SELECT (after the RTL's own refusal rules), eject
+  (`$1B` LoEj / `$C0`), machine reset and SCSI bus reset are forwarded as a
+  command-block write (the CDB at bytes 496..507) with STATUS held until
+  the ARM acks; forwards serialize behind a reset notice in flight; a
+  capability probe after every reset and mount pulse arms the target.
+- **`rtl/cd_audio.sv`** -- the response builders and the three table
+  planes (12 M10Ks) are gone; the playhead still runs in RTL in this build.
+- **`MacQuadra800.sv`** -- the CD slot's `sd_wr` is wired for the command
+  block.
+- **`scripts/mac_shutdown.sh`** -- the one closed-loop Mac OS 8.1 shutdown
+  walker (pointer checked before the press, the lit row before the
+  release).
+- Bench: `tb_ncr53c96` serves the windows through the Main fork's own
+  builders (`verilator/sim/cd_window.cpp`), 476,841 checks; the golden
+  test `scripts/cd_resp_golden.sh` proves the builders byte-identical to
+  the old RTL tables (6,304 checks).
+
+Hardware (2026-09-16, the .143 box, operator runs, `scratch/p1a/`,
+`scratch/p1b/`, `scratch/p2/`): Mac OS 8.1 (QuadSquad8) Finder at 126 s
+from `load_core` with the retail ISO in slot 4 (its window auto-opened,
+17 items), the menu-bar clock in step with wall time over 4 min with
+`write_bytes` flat, Cmd+W / type-select / Cmd+O (a directory read through
+the response windows), both guest volumes of the retail disc put away
+from the Finder within 9 s each (the eject forward; no dialog, no freeze),
+the Open Transport ISO hot-mounted from the OSD (the probe re-armed, the
+driver found it, the Finder icon within 30 s, its window 9 items) and put
+away, the retail disc re-mounted, `mac_shutdown.sh` to "It is now safe to
+switch off" in 61 s. Speedometer was not re-measured: the Quad Squad image
+restored from the Aug 31 backup does not carry it, and nothing on the
+CPU/SDRAM path changed since 20260915 (0.858). A/UX 3.1 at 32 MB:
+multiuser Finder desktop at 120 s, `uname -a` =
+`A/UX localhos 3.1 SVR2 mc68040`, `shutdown -h now` to "You may now
+switch off your Macintosh safely" in 131 s. Old-core check: the
+20260915 rbf on this Main boots 8.1 with the retail ISO (Finder at 130 s)
+and shuts down cleanly.
+
+**Known: A/UX 3.1 hangs `shutdown -h now` when the core's RAM option is
+128 MB** -- after the port-mapper line the kernel console keeps echoing
+(drawn at 1 bpp into the 8-bpp frame, which looks like coloured streaks)
+but the shutdown never completes. Six runs today, on this build, on
+20260915 and on 20260908_3, with and without a CD, with and without the
+slot-1 disk, and with an older Main, all at 128 MB; the one run at 32 MB
+halted in 126 s, as did every earlier A/UX gate (all at 32 MB). Not a
+change of this release; run A/UX with the RAM option at 32 MB until the
+128 MB case is understood (`docs/scsi-hps-offload-plan.md`, W track).
 
 ## `MacQuadra800_20260915.rbf`
 
