@@ -2,7 +2,9 @@
 
 Plan written 2026-09-16, before any code. The Main side lives on
 `../Main_MiSTer` branch `mac-ethernet-pr-with-SCSI-Optimizations`; the core
-side on this branch. Nothing here is implemented yet.
+side on this branch. Section 9 is the live checklist and section 10 the
+dated log; sections 1-8 are the design as planned that morning (the
+contract in section 4 was updated as built).
 
 ## 1. Why, and how much there is to win
 
@@ -96,10 +98,11 @@ end below 0x401C0000). Old cores keep working unchanged. LBAs are in
 
 Kept as-is for old cores: the data window, the `MCDA` blob, the raw audio
 window. Stays in RTL: TEST UNIT READY, REQUEST SENSE (sense is RTL state),
-READ CAPACITY, READ HEADER `$44` (needs the 32-bit LBA; uses the disc-info
-flag), the no-disc / audio-only CHECKs, eject/prevent state, the
-`cd_blk512` MODE SELECT bit (READ address scaling must be in RTL; the ARM
-mirrors it from the forwarded list for the mode page).
+READ CAPACITY, READ HEADER `$44` (needs the 32-bit LBA; uses the blob's
+has-data flag), the no-disc / audio-only CHECKs, eject/prevent state, and
+the MODE SELECT parse with its refusal rules (the drive has been
+2048-byte-only since 2026-09-08; the ARM mirrors only the page $0E ports
+from the forwarded list, for its MODE SENSE).
 
 Latency: a window read is one Main poll (~0.1-1 ms), the same wait the
 first sector of every READ already takes; the 53C96 model holds the phase
