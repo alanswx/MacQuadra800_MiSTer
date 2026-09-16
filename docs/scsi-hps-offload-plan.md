@@ -264,7 +264,11 @@ Core phase 1 (responses from the ARM, playback stays), branch `optimize-SCSI`:
       held ICCS must die with its nexus.
 - [ ] C4 (sim half) full sim boots the gate image with `cd.iso` on the
       CD-ROM: ROM scan (probe, INQUIRY window, MODE SELECT forward), then
-      the Apple CD-ROM extension's mount
+      the Apple CD-ROM extension's mount. First attempts stalled in the
+      *sim's block-device model*, not the RTL: its mount countdown shares
+      `ack_delay` with transfers and, expiring while the probe was held,
+      raised an ack for nothing and never dropped it (fixed, `+blkdbg` now
+      traces ack edges)
 - [~] C5 `build_only.sh --check`: `cd_audio` 2,566 -> 1,535 ALUTs. **Full
       fit (seed 22, the release recipe, 2026-09-16 08:00): 38,070 ALMs
       (91 %), -568 vs the shipped 38,638; `ncr53c96` 2,469 (was 2,870),
