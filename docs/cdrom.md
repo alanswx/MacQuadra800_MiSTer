@@ -4,7 +4,8 @@ Status 2026-09-16: phase A (targets, CD data command layer) and phase B (the
 TOC/audio engine) are in `rtl/ncr53c96.sv` + `rtl/cd_audio.sv`; since the
 `optimize-SCSI` work the CD target's identity, mode pages and TOC responses
 are built by Main and read through a response window (section "Responses
-from Main" below), and the playhead is next. The BlueSCSI Toolbox and
+from Main" below), and since phase 2 the playhead runs there too (the
+next-frame window and the status poke, same section). The BlueSCSI Toolbox and
 CD-changer transports (hps_io slots 3 and 5) are not yet wired.
 
 ## Shape
@@ -63,9 +64,27 @@ presented last cycle, muxed by the current address's low bit — for the
 sequencer that is a zero-latency read of the byte being written, so it
 presents the current index (`nxt_idx`), not the next.
 
-`cd_audio` shares the CD target's hps_io channel: it may fetch (TOC blob,
-audio frames) whenever the engine has nothing in flight; `ca_io_active`
-keeps its acks and sector-buffer writes out of the engine's accounting.
+`cd_audio` shares the CD target's hps_io channel, and the channel has one
+owner at a time (`eng_owns` in `ncr53c96.sv`, 2026-09-16).  The nexus has
+priority: the audio engine's request (the blob header, the status poke, a
+frame) is shown to the platform only once granted -- the cycle after it
+was raised with no nexus request up and nothing of the nexus's in flight
+-- and `io_lba`, `io_blk_cnt`, the ack mask (`io_ack_i`), the engine's own
+ack and data strobes and the sector buffer's platform port all follow the
+owner.  Before that, a nexus request and an engine request raised in the
+same cycle (both decide from the same registered state: the nexus on
+`!io_busy`, the engine on `ch_grant`) reached the platform as one merged
+request carrying the engine's address and block count -- for a disk
+flush, a write into nowhere served again for ever because the disk's ack
+stayed masked (`tb_ncr53c96` T20 forces the case on purpose).  Its
+counterpart on the nexus side: a new selection while the engine's
+transfer is in flight must not arm `io_discard` -- that flag drops the
+OLD nexus's read in flight, and armed on the engine's transfer it ate the
+NEW nexus's first block instead (the AppleCD player's status polls,
+selected during frame fetches, read nothing: "drive not responding").
+`ca_io_active` (the engine's transfer in flight) stays part of `io_busy`,
+so a nexus request waits behind it, and of `nexus_io`, so a DATA IN phase
+completes only once the channel is quiet.
 Its PCM leaves as `cd_snd_l/r` up through `iosb` and `quadra800` and is
 summed with the ASC output at the top (`audio_mix_*`, saturating).
 
