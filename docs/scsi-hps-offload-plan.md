@@ -902,3 +902,11 @@ gate had no CD):
   cure; inittab starts Main once at sysinit, no respawn), `.s0` Quad
   Squad, `.s1` FreshTest, `.s4` retail ISO, cfg byte 0 = 0 (32 MB), the
   damaged copy is the pristine size (no file extension by the lost write).
+- 2026-09-16 19:58, phase 2b fit: seed 22 (the qsf default since the
+  13:50 phase-2 fit) FAILED in routing on the 3ec22e4 netlist
+  (congestion, placement fine, 18 min; Analysis and Synthesis: ncr53c96
+  self 2,317 ALUTs, with the engine 2,689, cd_audio 372 / 320 regs, DSP
+  43, i.e. the fix costs nothing). Seed 23 launched 19:58
+  (scratch/build_phase2b_s23.log), one flow at a time; if it fails too,
+  the next lever is FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
+  rather than a fourth seed.
