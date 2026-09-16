@@ -451,6 +451,14 @@ Core phase 2 (playback on the ARM), gated on C5's numbers:
   `backup/QuadSquad8.hda.gz` (the damaged image kept as
   `QuadSquad8_damaged_20260916.hda`); next: `.s0` back to Quad Squad,
   load the timing-clean phase-1 rbf, the 8.1 gate with the OT ISO.
+- 2026-09-16 10:25, session hand-off: the restore completed
+  (`QuadSquad8.hda` 2,146,461,696 bytes, md5 `1a40aa8a77af35cabfe76d4dea9ccf13`
+  = the Aug 31 backup). Box: 20260915 rbf loaded, A/UX wedged
+  mid-shutdown, `.s0` = A/UX image (`.s0.quadsquad` = the Quad Squad
+  name), `.s4` = retail ISO, Main `898854ef`. Nothing pushed on either
+  branch. Next session: `.s0` -> Quad Squad, `load_core
+  _Unstable/MacQuadra800_phase1_s21b.rbf` (1eae0fb7), the 8.1 gate, then
+  A/UX with `.s4` empty, then the release entry; phase 2 after that.
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build
