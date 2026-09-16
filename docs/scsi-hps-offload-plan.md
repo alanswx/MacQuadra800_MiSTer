@@ -352,17 +352,28 @@ entry and a commit; the sim is only for short directed reproductions.
 
 **Phase 1 close-out (core rbf `1eae0fb7` staged, timing met):**
 
-- [~] P1a `.s0` back to Quad Squad (`cp -p .s0.quadsquad .s0`), load
-      `_Unstable/MacQuadra800_phase1_s21b.rbf` (both DONE 11:35; the box
-      was found at 12:05 on that core at the halt screen with `.s0` Quad
-      Squad, `.s4` retail ISO), the 8.1 gate (operator run from 12:15,
-      brief `scratch/p1a/BRIEF.md`, evidence `scratch/p1a/`): Finder,
+- [x] P1a **PASSED 13:11** (operator run 12:13-13:13, `scratch/p1a/report.md`):
+      Finder at T0+126 s (the retail CD's window auto-open, 17 items, the two
+      guest-side icons), the idle clock in step with wall time over 4 min
+      (`write_bytes` flat), Cmd+W / Cmd+O (the directory read through the
+      response windows), both guest volumes of the retail disc put away
+      from the Finder within 9 s each (the eject forward: no dialog, no
+      freeze), the OT ISO hot-mounted from the OSD (`Mac CD: ... leadout
+      3473`, the Finder icon within 30 s, its window 9 items), put away,
+      the retail disc re-mounted (one icon this time), `mac_shutdown.sh`
+      exit 0 in 61 s. **Speedometer NOT run: the app is not on the restored
+      Aug 31 Quad Squad image** (Find File: 0 items; the 0.858 runs used
+      the .92 box's image) -- the CPU/SDRAM path is unchanged from 20260915,
+      so the release entry says "not re-measured". Lesson: after a file is
+      chosen the OSD closes itself; a trailing F12 re-opens it and eats the
+      keyboard. The plan text was: Finder,
       clock ticking for several minutes, the retail ISO's icons, open the
       CD, hot-mount the OT ISO from the OSD (a new disc: the probe re-arms,
       the driver must see it by TEST UNIT READY), eject it from the Finder
       (the eject forward), Speedometer Mix unchanged (0.858 reference),
       Special -> Shut Down to the halt screen
-- [ ] P1b A/UX with `.s4` EMPTY: boot, `uname -a`, `shutdown -h now` to the
+- [~] P1b (operator launched 13:30 with W1a/W1b/W1c/P1c in one sitting,
+      brief `scratch/p1b/BRIEF.md`) A/UX with `.s4` EMPTY: boot, `uname -a`, `shutdown -h now` to the
       halt screen (the 20260915 gate conditions); with a CD it wedges on
       the shipped core too, see the W track
 - [ ] P1c old-core compatibility: the 20260915 rbf on Main `898854ef` still
@@ -626,6 +637,22 @@ gate had no CD):
   retail disc put away from the Finder within 5-10 s each: the eject
   forward with STATUS held works on hardware, no dialog, no beachball)
   and was on the OT hot mount.
+- 2026-09-16 13:30, **P1a passed** (see the checklist) except Speedometer,
+  which is not on the restored Quad Squad image. **W2 is in**: QEMU's
+  A/UX never completes a shutdown at all -- with or without the CD it
+  stalls at `INIT: New run level: S` after the port-mapper line, so QEMU
+  is no golden reference for the halt path; what it did show is that A/UX
+  sends the CD nothing during the shutdown, keeps it PREVENT-locked from
+  mount to the end, and that the "streaks" in QEMU are the kernel's 1-bpp
+  text console drawn into a 24-bpp frame (the operator decoded them).
+  Applied to the MiSTer wedge frames: inverting the screenshot through the
+  Apple 256-colour CLUT gives glyph-like bytes at x = 0, 128, 256, 384, 512
+  on paired frame rows -- exactly a 1-bpp console at the DAFB's 1-bpp pitch
+  (128 bytes) written into the 8-bpp frame (1024-byte pitch). So the
+  MiSTer's streaks are the kernel console's last lines (a halt message, or
+  a panic) drawn at the wrong depth; decoding them is in progress
+  (`scratch/w3/decode_streaks*.py`). The A/UX operator (P1b + the three
+  controls) is on the box from 13:30.
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build
