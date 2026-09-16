@@ -677,9 +677,13 @@ gate had no CD):
   ("Fitter routing phase terminated due to routing congestion", peak 92 %
   in X56_Y11..X66_Y22; placement had succeeded) -- the placement lottery,
   not capacity (the design is 1,400 ALUTs smaller). Seeds 22 (wt2) and 23
-  (main tree, the qsf edited in place) launched in parallel 13:17
-  (`scratch/build_phase2_s22.log` there, `scratch/build_phase2_s23.log`);
-  the aggressive-routability switch is the next lever if both fail.
+  (main tree) were launched in parallel at 13:17 -- **wrong: the user's
+  rule is one Quartus flow at a time, worktrees included**; the seed-23
+  flow was killed at 13:40 (its fitter, shell and launch chain matched to
+  the main-tree command), the main tree's qsf restored to seed 21, and
+  seed 22 runs alone in `../MacQuadra800_wt2` (`scratch/build_phase2_s22.log`
+  there). Seeds walk one after another from now on; the
+  aggressive-routability switch is the lever after that.
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build
