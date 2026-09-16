@@ -368,6 +368,14 @@ Core phase 2 (playback on the ARM), gated on C5's numbers:
   (Initialize the default button); cancelled with Escape via
   `MISTER_HOST=192.168.99.143 python scripts/mister_ws.py raw:1`. The
   volume is damaged, not just dirty.
+- 2026-09-16 08:40: the CD-booted Finder shut down cleanly by an Opus
+  operator (Special -> Shut Down driven closed-loop against
+  `scripts/guest/probe_cursor.py`; both scripted walkers fail on this
+  Finder, a follow-up task chip carries the calibration). Command is
+  Left Alt (keycode 56) in this core's ADB map, not keycode 125. Box at
+  the halt screen; the A/UX half of the gate started on the phase-1 core
+  with `.s0` switched to `HD60_512-AUX3.1-Installed.hda` (the Quad Squad
+  name saved as `.s0.quadsquad`).
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build
