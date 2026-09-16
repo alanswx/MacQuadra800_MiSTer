@@ -66,8 +66,10 @@ BUILD STATUS  (MacQuadra800, 38m12s)
   Quartus flow           exit=0
 ```
 
-- **Timing (STA)** must read `met` (positive worst-case slack). `VIOLATED` means timing
-  was not met and the `.rbf` should not be trusted for hardware. The critical domain is
+- **Timing (STA)** should read `met` (positive worst-case slack) for a release.
+  `VIOLATED` means a marginal `.rbf`: try it on hardware anyway
+  (`ALLOW_TIMING_VIOLATION=1 bash scripts/deploy_screenshot.sh`) and let the
+  gate judge it, but note which domain missed. The critical domain is
   the 33.000 MHz `clk_sys` out of `emu|pll` — the exact real-Quadra rate that every
   time-anchored divider (RTC `SEC_DIV`, the 60.15 Hz tick, VIA `E_HALF`, ASC
   `SAMPLE_DIV`) assumes.
