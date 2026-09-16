@@ -332,8 +332,16 @@ Core phase 2 (playback on the ARM), gated on C5's numbers:
       the ARM applies volume, so the LUT and its two multipliers go. The
       raw-audio window and the MODE SELECT page-$0E ports leave the RTL.
 - [~] D2 bench: `tb_ncr53c96` 476,872 / 0 (T19), `tb_scsi_cache` 279,315 / 0
-      x2; `--check` running 12:53; still owed: the AppleCD Audio Player
-      gate on .143 (play/pause/scan/volume/status) with a mixed-mode CHD
+      x2; **`--check` 12:59 clean: `cd_audio` 371 ALUTs / 320 regs (phase 1:
+      1,535 / 707; before the offload 2,566 / 852), `ncr53c96` self 2,329
+      (was 2,571), the target with its engine 2,700 (was 4,106), DSP 43 (was
+      59), block memory -8 Kbit (the blob RAM)**; full fit launched 13:01
+      (seed 21, `scratch/build_phase2.log`); still owed: the AppleCD Audio Player
+      gate on .143 (play/pause/scan/volume/status) with a mixed-mode disc:
+      `TIM_3-mac.chd` is on neither box, but .143 has PC Engine CD CHDs with
+      audio tracks in `games/TGFX16-CD/` (Valis II/III/IV, Rainbow Islands,
+      Prince of Persia) that the Audio CD Access extension mounts as an
+      Audio CD
 - [ ] D3 `--check` delta, fit, gate, release entry, `docs/cdrom.md`,
       `releases/README.md`, commit
 
@@ -590,6 +598,20 @@ gate had no CD):
   hps_io is little-endian (byte 0 in [7:0]), the sim/bench models
   big-endian, and both `ncr53c96` and now `cd_audio` swap under
   `ifdef VERILATOR`.
+- 2026-09-16 13:15: phase-2 Analysis & Synthesis clean (0 errors): the
+  target + engine 4,106 -> 2,700 ALUTs, DSP 59 -> 43, one M10K fewer;
+  full fit launched (seed 21) alongside the W3 trace build (which is in
+  its fitter).  W2 first read (run 1, CD mounted and read by A/UX's
+  Finder: PREVENT, ~30 READ(6)s of the HFS structures, TEST UNIT READY
+  polling between them): **A/UX sends the CD nothing at all during
+  `shutdown -h now`** -- no eject, no ALLOW, no TUR, no bus reset; only
+  WRITE(6)s to the root disk until the log goes quiet.  If QEMU halted
+  (the operator's report decides), the MiSTer wedge is not CD command
+  traffic at shutdown; a mounted CD then differs only in the kernel's
+  memory layout / process set at halt, i.e. a CPU-side suspect (the
+  checkpoint-15 core in 20260915 and phase 1).  Cheap control added to the
+  next hardware brief (`scratch/p1b/BRIEF.md` step 3b): the same A/UX +
+  retail-ISO shutdown on `20260908_3` (the older CPU).
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build

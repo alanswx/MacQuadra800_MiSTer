@@ -102,6 +102,8 @@ Fitter "ALMs needed" by entity, against the shipped `20260915` (seed 22):
 The three response-table planes and the builders left `cd_audio`
 (Analysis & Synthesis 2,566 -> 1,535 ALUTs); the `ncr53c96` self cost went
 up by the window/forward sequencer (the serialized forwards `f612084`).
-Phase 2 (playback on the ARM: the MAIN FSM, dividers and the volume LUT
-with its two multipliers) is the next lever, estimated at another ~700
-ALMs and the last 5 DSP blocks of the CD path.
+Phase 2 (playback on the ARM, `d5442fe`): Analysis & Synthesis puts
+`cd_audio` at 371 ALUTs / 320 registers (from 1,535 / 707), `ncr53c96` self
+at 2,329 (from 2,571), the target with its engine at 2,700 (from 4,106),
+and the design's DSP blocks at 43 (from 59); the blob RAM (one M10K) is
+gone too.  The fitted numbers follow with the phase-2 build.
