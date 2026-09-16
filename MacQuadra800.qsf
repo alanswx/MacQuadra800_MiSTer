@@ -166,7 +166,13 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # R1..R6 early-data form (923c544) seed 21, in ../MacQuadra800_wt2: 36,961 ALMs
 # (88 %), CPU clock -0.269 ns (HDMI +0.656, clk_ram +0.818): the 4 ns hole is
 # gone; seed walk 22.. there.
-set_global_assignment -name SEED 21
+# R1..R6 (923c544) seed 22, in ../MacQuadra800_wt2: MET -- 36,982 ALMs, CPU clock
+# +0.126, HDMI +0.183, clk_ram +0.910; rbf 2f739338.  Not gated: the R1..R4
+# candidate hung the 8.1 boot, traced in the sim to a 53C96 model window (a CD
+# MODE SELECT's bus service raised ~12 cycles before the phase moved to STATUS;
+# the faster CPU's poll read the stale phase).  The ncr53c96 fix is in this build:
+# seed 22 here, seed 23 in ../MacQuadra800_wt2.
+set_global_assignment -name SEED 22
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
 # the design no longer fits with speed-directed synthesis; all-area

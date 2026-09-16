@@ -70,6 +70,9 @@ bool pc_was_in_stop = false;               // edge detector for the stop range
 // pc_i register: one entry per instruction dispatch, extension words read
 // straight from the sim memory arrays)
 bool cpu_trace_disabled = false;      // --no-cpu-trace
+bool trace_on_ncr = false;            // --trace-on-ncr: start when the NCR reg trace arms
+long trace_max = 0;                   // --trace-max N: stop tracing after N instructions
+#define NCR_REGTRACE (SIMEMU->__PVT__machine__DOT__iosb__DOT__scsi__DOT__dbg_regtrace)
 bool gui_instr_log = false;           // stream instructions into the Debug log
 bool gui_trace_file = true;           // trace file toggle (GUI defaults off)
 bool showDebugLog = true;
@@ -295,7 +298,8 @@ int verilate() {
 			if (clk_sys.clk && !scsi_disk_file.empty()) blockdevice.AfterEval();
 			if (clk_sys.clk && !VERTOPINTERN->reset) {
 				machine_events();
-				if (!cpu_trace_disabled && main_time >= trace_after) cpu_trace_step();
+				if (!cpu_trace_disabled && (main_time >= trace_after ||
+				                            (trace_on_ncr && NCR_REGTRACE))) cpu_trace_step();
 				uint32_t hpc = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__pc_i;
 				if (pc_hist_enable) pc_hist[hpc >> 8]++;
 				if (cpu_prof_enable) {
@@ -457,7 +461,15 @@ static void cpu_trace_step() {
 	const char* disasm = disassemble_68k_ext_len(pc, opwords, 5, &len);
 	cpu_trace_count++;
 	if (cpu_trace_file && gui_trace_file)
-		fprintf(cpu_trace_file, "%08X: %04X  %s\n", pc, opwords[0], disasm);
+		fprintf(cpu_trace_file, "%08X: %04X  %-40s @%llu\n", pc, opwords[0], disasm,
+		        (unsigned long long)main_time);
+	if (trace_max && cpu_trace_count >= trace_max) {
+		printf("[TRACE] %ld instructions traced, stopping the trace at cycle %llu\n",
+		       cpu_trace_count, (unsigned long long)main_time);
+		fflush(stdout);
+		if (cpu_trace_file) { fclose(cpu_trace_file); cpu_trace_file = nullptr; }
+		cpu_trace_disabled = true;
+	}
 	if (gui_instr_log)
 		console.AddLog("%08X: %04X  %s", pc, opwords[0], disasm);
 }
@@ -523,6 +535,10 @@ int main(int argc, char** argv, char** env) {
 			headless = true;
 		} else if (!strcmp(argv[i], "--no-cpu-trace")) {
 			cpu_trace_disabled = true;
+		} else if (!strcmp(argv[i], "--trace-on-ncr")) {
+			trace_on_ncr = true;
+		} else if (!strcmp(argv[i], "--trace-max") && i + 1 < argc) {
+			trace_max = strtol(argv[++i], nullptr, 0);
 		} else if (!strcmp(argv[i], "--max-cycles") && i + 1 < argc) {
 			max_cycles = strtoull(argv[++i], nullptr, 0);
 		} else if (!strcmp(argv[i], "--trace-after") && i + 1 < argc) {
