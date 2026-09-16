@@ -358,6 +358,16 @@ Core phase 2 (playback on the ARM), gated on C5's numbers:
   unbootable: the ROM booted the retail CD instead (its Finder, one
   volume icon); `QuadSquad8.hda` needs Disk First Aid or the Aug 31
   backup -- the user's call.
+- 2026-09-16 08:30, **phase-1 core on hardware** (seed-21 rbf, Main
+  `898854ef`): loaded from the CD-booted Finder (nothing writable was
+  mounted), the ROM booted the retail 8.1 CD again through the new
+  windows -- INQUIRY, TOC and the data reads all served by Main -- Finder
+  in ~100 s (`scratch/p1_boot3.png`), and the fresh 8.1 disk on slot 1
+  ("MacOS8-MiSTer") mounted, so the hard-disk path is intact. The Finder
+  offered to *initialize* the unreadable 1.9 GB Quad Squad volume
+  (Initialize the default button); cancelled with Escape via
+  `MISTER_HOST=192.168.99.143 python scripts/mister_ws.py raw:1`. The
+  volume is damaged, not just dirty.
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build
