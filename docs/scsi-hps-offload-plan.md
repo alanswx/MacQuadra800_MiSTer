@@ -332,6 +332,59 @@ Core phase 2 (playback on the ARM), gated on C5's numbers:
 - [ ] D3 `--check` delta, fit, gate, release entry, `docs/cdrom.md`,
       `releases/README.md`, commit
 
+## 9b. Phases remaining (2026-09-16 hand-off)
+
+Three, in this order. Each ends with a hardware gate on .143, a release
+entry and a commit; the sim is only for short directed reproductions.
+
+**Phase 1 close-out (core rbf `1eae0fb7` staged, timing met):**
+
+- [ ] P1a `.s0` back to Quad Squad (`cp -p .s0.quadsquad .s0`), load
+      `_Unstable/MacQuadra800_phase1_s21b.rbf`, the 8.1 gate: Finder,
+      clock ticking for several minutes, the retail ISO's icons, open the
+      CD, hot-mount the OT ISO from the OSD (a new disc: the probe re-arms,
+      the driver must see it by TEST UNIT READY), eject it from the Finder
+      (the eject forward), Speedometer Mix unchanged (0.858 reference),
+      Special -> Shut Down to the halt screen
+- [ ] P1b A/UX with `.s4` EMPTY: boot, `uname -a`, `shutdown -h now` to the
+      halt screen (the 20260915 gate conditions); with a CD it wedges on
+      the shipped core too, see the W track
+- [ ] P1c old-core compatibility: the 20260915 rbf on Main `898854ef` still
+      boots 8.1 with the retail ISO (flat ISO now HANDLED, no repulse)
+- [ ] P1d release: `releases/MacQuadra800_YYYYMMDD.rbf` + README row and
+      section (md5, seed 21, +0.247 ns, 38,128 ALMs, "requires the Main
+      fork `ae708d3` or later for any CD image"), `docs/area-budget.md`
+      numbers, commit; the user pushes both branches
+
+**W. The A/UX shutdown wedge with a CD mounted** (pre-existing in
+20260915; the same VRAM streaks + stopped CPU on both cores; the passing
+gate had no CD):
+
+- [ ] W1 pin it: on 20260915, A/UX boot + `shutdown -h now` with `.s4`
+      empty (expect the halt screen) and again with the OT ISO (a second,
+      smaller disc) -- if only the CD runs wedge, it is the CD path at
+      shutdown
+- [ ] W2 the golden reference: QEMU `q800` with the same A/UX image and
+      the retail ISO as scsi-cd (`../qemu`, the recipe in the
+      `qemu-golden-reference` memory): does A/UX halt cleanly there? Trace
+      its CD traffic at shutdown (QEMU scsi trace events) to learn what
+      A/UX sends: eject (START/STOP), PREVENT/ALLOW, TEST UNIT READY after
+      the eject, a bus reset
+- [ ] W3 the core side: a `SCSI_TRACE` debug build (qsf switch, hijacks
+      the serial port) of the phase-1 head, the same shutdown, capture the
+      last commands before the freeze; diff against W2. Suspects: an eject
+      while the RTL holds STATUS, TEST UNIT READY on an ejected disc
+      returning NOT READY / $3A where A/UX expects $B0 or GOOD, the RTL's
+      `cd_present`/`cd_ejected` state after the eject, a bus reset owed by
+      the halt path meeting the forwarded notice. MAME's model (unit
+      attention on media change, `$B0` no-disc) is the reference for the
+      right answer
+- [ ] W4 fix, bench test for the sequence, rebuild, both A/UX gates (with
+      and without a CD) on .143, release entry; add "A/UX shutdown with a
+      CD mounted" to the standing regression gate in CLAUDE.md
+
+**Phase 2 (playback on the ARM), gated on P1d and W4:** D1..D3 below.
+
 ## 10. Log
 
 - 2026-09-16: plan approved; Main side started.
