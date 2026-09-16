@@ -1,9 +1,9 @@
 # RESUME — CPU area/perf work (updated 2026-09-15 21:45)
 
-Read this first, then `CLAUDE.md`. Branch `alan-perf-20260908`, pushed to
-GitHub as `github/alan-perf-20260908` (remote `github` = HTTPS to
-danifunker/MacQuadra800_MiSTer; `origin` is the same repo over ssh, which
-has no working key in the tool shells). `main` untouched at cba1490.
+Read this first, then `CLAUDE.md`. Branch `alan-perf-20260908`; commit as
+work lands, **the user pushes** (their ssh key is not in the tool shells; a
+`github` HTTPS remote exists and pushed up to 1043e4c once). `main` untouched
+at cba1490.
 
 ## One-paragraph state
 
@@ -91,7 +91,7 @@ are kept as `scratch/MacQuadra800_fix_r6_s2{2,3}_TIMINGFAIL.rbf`.
 ## Rules
 - Only optimize, remove nothing (CD-ROM stays in). **Never edit `sys/`.** Use the
   **.92 box** (192.168.99.92). Delegate hardware to the Opus operator. Commit as
-  work lands **and push** (`git push github alan-perf-20260908`). Design
+  work lands; do not push (the user pushes). Design
   mechanism + gates: `docs/cpu-area-consolidation.md`; audit
   `scripts/cpu/audit_task_sites.py`; gates `scripts/cpu_gates_wsl.sh` and
   `scripts/cpu_corpus100_gate.sh`.
