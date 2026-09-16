@@ -444,6 +444,13 @@ Core phase 2 (playback on the ARM), gated on C5's numbers:
   (`f612084`) fits at seed 21 with timing met (+0.247 ns; 38,128 ALMs,
   -510 vs the shipped 38,638), rbf `1eae0fb7`, staged on .143 (not
   loaded: the box is wedged pending the user's decisions).
+- 2026-09-16 10:15, the user: spend less time on the sim (it is really
+  slow), focus on the MiSTer directly; restore the Quad Squad disk from
+  the backup rather than repairing it from the CD boot. The 7 G-cycle sim
+  run was stopped; `QuadSquad8.hda` is being restored from
+  `backup/QuadSquad8.hda.gz` (the damaged image kept as
+  `QuadSquad8_damaged_20260916.hda`); next: `.s0` back to Quad Squad,
+  load the timing-clean phase-1 rbf, the 8.1 gate with the OT ISO.
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build
