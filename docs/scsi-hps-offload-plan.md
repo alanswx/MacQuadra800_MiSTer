@@ -430,7 +430,9 @@ gate had no CD):
       its CD traffic at shutdown (QEMU scsi trace events) to learn what
       A/UX sends: eject (START/STOP), PREVENT/ALLOW, TEST UNIT READY after
       the eject, a bus reset
-- [~] W3 (the debug build of `ba67548` + SCSI_TRACE=1, seed 21, done
+- [ ] W3 -- NOT NEEDED as a wedge control any more (the wedge is the
+      128 MB RAM setting, W1f); keep the build for the 128 MB follow-up.
+      (The debug build of `ba67548` + SCSI_TRACE=1, seed 21, done
       13:05 in `../MacQuadra800_wt2`: rbf `efcf5ffb`, 39,830 ALMs (95 %),
       HDMI -0.351 ns, clk_sys +0.157, clk_ram +0.162 -- a video-only miss;
       `scratch/MacQuadra800_trace7_efcf5ffb.rbf`, staged on .143 as
@@ -447,7 +449,10 @@ gate had no CD):
       the halt path meeting the forwarded notice. MAME's model (unit
       attention on media change, `$B0` no-disc) is the reference for the
       right answer
-- [ ] W4 fix, bench test for the sequence, rebuild, both A/UX gates (with
+- [ ] W4 -- now: A/UX gates run at RAM = 32 MB (the setting every passing
+      gate used); the 128 MB shutdown hang is a follow-up investigation
+      (a 64 MB point, then what the shutdown touches above 64 MB), noted
+      in the release entry. Old text: fix, bench test for the sequence, rebuild, both A/UX gates (with
       and without a CD) on .143, release entry; add "A/UX shutdown with a
       CD mounted" to the standing regression gate in CLAUDE.md
 
@@ -751,6 +756,19 @@ gate had no CD):
   RAM (on reset) = 32 MB (OSD, verified by About This Macintosh); then
   W1d = the Main swap. Then everything back (`.s1`, Quad Squad, retail ISO,
   today's Main).
+- 2026-09-16 16:00, **the A/UX shutdown wedge is the RAM setting**
+  (`scratch/p1b/report.md` steps 4b/4c): on 20260915, no CD, no `.s1`,
+  pristine image, today's Main -- **128 MB wedges (W1e), 32 MB halts
+  cleanly (W1f)**. All five wedges today ran at 128 MB (the .143 box's
+  OSD setting); every passing A/UX gate on record ran at 32 MB. P1c (the
+  old core, 8.1 with the retail ISO on today's Main) PASSED. The Main
+  swap (W1d) and the trace run (W3) are cancelled as controls; the
+  question left is *why* A/UX 3.1 hangs its shutdown with 128 MB
+  (A/UX's own limit, or the core's memory map above 64 MB: a 64 MB point
+  and a look at what the shutdown touches up there are the follow-up).
+  Single trial at 32 MB; a repeat comes with the phase-2 gate's A/UX
+  step, which runs at 32 MB. The operator restores the box (`.s1`, Quad
+  Squad, retail ISO, RAM left at 32 MB, today's Main) and stops.
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build
