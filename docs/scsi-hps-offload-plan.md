@@ -393,8 +393,10 @@ entry and a commit; the sim is only for short directed reproductions.
       P1b as written: A/UX with `.s4` EMPTY: boot, `uname -a`, `shutdown -h now` to the
       halt screen (the 20260915 gate conditions); with a CD it wedges on
       the shipped core too, see the W track
-- [ ] P1c old-core compatibility: the 20260915 rbf on Main `898854ef` still
-      boots 8.1 with the retail ISO (flat ISO now HANDLED, no repulse)
+- [x] P1c PASSED 15:15 (operator): the 20260915 rbf on Main `898854ef`
+      boots 8.1 with the retail ISO (Finder T0+130 s, the CD window, the
+      two guest-side icons), `mac_shutdown.sh` exit 0 -- no freeze at the
+      extension icons this time (the morning's one hang stays unexplained)
 - [ ] P1d release: `releases/MacQuadra800_YYYYMMDD.rbf` + README row and
       section (md5, seed 21, +0.247 ns, 38,128 ALMs, "requires the Main
       fork `ae708d3` or later for any CD image"), `docs/area-budget.md`
@@ -769,6 +771,19 @@ gate had no CD):
   Single trial at 32 MB; a repeat comes with the phase-2 gate's A/UX
   step, which runs at 32 MB. The operator restores the box (`.s1`, Quad
   Squad, retail ISO, RAM left at 32 MB, today's Main) and stops.
+- 2026-09-16 16:25, the A/UX operator's final report
+  (`scratch/p1b/report.md`, 527 lines): **six runs at 128 MB wedged --
+  phase 1, 20260915 with and without a CD, 20260908_3, without the slot-1
+  disk, and with the Aug 28 Main (`d6d63ec4`, W1d ran before the skip
+  reached it) -- and the one run at 32 MB halted in 126 s** (the .92
+  reference: 127-130 s). P1c (20260915 + retail ISO on today's Main):
+  Finder at T0+130 s, `mac_shutdown.sh` exit 0. Wedge onset 125-157 s
+  after Return every time; keyboard input still changes pixels (more
+  streaks), mouse does not. Box left in the MENU core, Main `898854ef`
+  back, `.s0` Quad Squad / `.s1` FreshTest / `.s4` retail, **RAM left at
+  32 MB** (`MacQuadra800.cfg.bak128` holds the 128 MB original), the A/UX
+  image pristine. Next: one operator run = the phase-1 A/UX check at
+  32 MB, then the phase-2 gate (`scratch/p2/BRIEF.md`).
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build
