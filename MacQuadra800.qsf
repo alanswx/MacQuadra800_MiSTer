@@ -188,6 +188,9 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # paths inside ap040_core: the placement lottery). Seed 21 (../MacQuadra800_wt2):
 # 38,012 ALMs, clk_sys +0.712, clk_ram +0.914, HDMI -0.076 (one sys_top video
 # register) -- the hardware candidate (rbf 58653a0c). Seed 21 is the default.
+# f612084 (forwards serialized): seed 21 MEETS TIMING -- 38,128 ALMs (91 %),
+# worst +0.247, HDMI +0.442, clk_sys +0.729, clk_ram +0.732, RAM 491, DSP 59;
+# rbf 1eae0fb7, staged on .143 as _Unstable/MacQuadra800_phase1_s21b.rbf.
 set_global_assignment -name SEED 21
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and

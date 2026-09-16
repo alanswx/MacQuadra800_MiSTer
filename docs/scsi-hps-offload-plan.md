@@ -297,8 +297,13 @@ Core phase 1 (responses from the ARM, playback stays), branch `optimize-SCSI`:
       matches; A/UX `shutdown -h now` wedges, and does so identically on
       the shipped 20260915 with a CD in slot 4 (pre-existing, see the log).
       Still owed: 8.1 from disk (the Quad Squad volume repaired, or the
-      slot-1 image as startup), OT ISO mount/eject, CHD audio, and a
-      rebuild with the serialized forwards (`f612084`) for the shipped rbf
+      slot-1 image as startup), OT ISO mount/eject, CHD audio. **The
+      rebuild with the serialized forwards (`f612084`, seed 21, 10:00)
+      MEETS TIMING: 38,128 ALMs (91 %), worst +0.247 ns (HDMI +0.442,
+      clk_sys +0.729, clk_ram +0.732), RAM 491, DSP 59; rbf `1eae0fb7`,
+      `scratch/MacQuadra800_phase1_s21b_1eae0fb7.rbf`, staged on .143 as
+      `_Unstable/MacQuadra800_phase1_s21b.rbf`** -- the release-quality
+      candidate for the rest of the gate
 - [ ] C6 commit + measured numbers in this file and `docs/area-budget.md`
 
 Core phase 2 (playback on the ARM), gated on C5's numbers:
@@ -429,6 +434,10 @@ Core phase 2 (playback on the ARM), gated on C5's numbers:
   suspect. A no-CD control run would settle it, at the cost of another
   reload of a wedged guest (the A/UX volume fscks each time). Box left
   wedged on 20260915, `.s0` = A/UX, `.s4` = retail ISO.
+- 2026-09-16 10:00: the phase-1 head with the serialized forwards
+  (`f612084`) fits at seed 21 with timing met (+0.247 ns; 38,128 ALMs,
+  -510 vs the shipped 38,638), rbf `1eae0fb7`, staged on .143 (not
+  loaded: the box is wedged pending the user's decisions).
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build
