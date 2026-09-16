@@ -234,7 +234,13 @@ fprintf(stderr,"mounting flag cleared  %d\n",i);
     }
 
     if (current_disk == i) {
-      if (ack_delay==1) {
+      int was = bitcheck(*sd_ack,i) ? 1 : 0;
+      // ack_delay also paces a mount pulse; only a transfer that actually
+      // started (reading/writing) may raise the ack.  A mount countdown
+      // expiring while a request was merely held used to raise sd_ack for
+      // nothing, release the slot, and leave the ack high forever (the
+      // phase-1 CD boot: the reset notice and the CD mount coincide).
+      if (ack_delay==1 && (reading || writing)) {
            bitset(*sd_ack,i);
            ack_ticks++;
            //printf("setting sd_ack: %x\n",*sd_ack);
@@ -243,10 +249,14 @@ fprintf(stderr,"mounting flag cleared  %d\n",i);
            ack_ticks = 0;
            //printf("clearing sd_ack: %x\n",*sd_ack);
       }
+      if (blkdev_dbg() && was != (bitcheck(*sd_ack,i) ? 1 : 0))
+        fprintf(stderr, "[BLK %lld] ack %s disk %d ack_delay=%d reading=%d writing=%d bytecnt=%d win=%d mount_pending=%d\n",
+                cycles, was ? "fall" : "rise", i, ack_delay, reading, writing, bytecnt, win, (int)bitcheck(*img_mounted,i));
       if((ack_delay > 1) || ((ack_delay == 1) && !reading && !writing))
         ack_delay--;
       if (ack_delay==0 && !reading && !writing) {
         if (blkdev_dbg()) fprintf(stderr, "[BLK %lld] done disk %d bytecnt=%d\n", cycles, i, bytecnt);
+        bitclear(*sd_ack,i);          // never hand the slot back with its ack up
         current_disk=-1;
       }
     }
