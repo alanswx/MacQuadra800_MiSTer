@@ -173,7 +173,10 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # the faster CPU's poll read the stale phase).  The ncr53c96 fix is in this build:
 # seed 22 here, seed 23 in ../MacQuadra800_wt2.
 # Seed 22 with the fix: MISSED, CPU clock -0.619 ns (TNS -10.9), HDMI +0.513; walking 24 here.
-set_global_assignment -name SEED 24
+# Seed 24 (R1..R6 + fix) MISSED too: CPU clock -1.669 ns (TNS -85.4).  Three misses in a row
+# (22/23/24 = -0.6/-1.4/-1.7 ns) after the pre-fix +0.126 at 22: the R1..R6 CPU path is parked.
+# The main tree now fits R1..R4 (8778213) + fix at seed 22, the hedge for wt2 at seed 21.
+set_global_assignment -name SEED 22
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
 # the design no longer fits with speed-directed synthesis; all-area
