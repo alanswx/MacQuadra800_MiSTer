@@ -388,9 +388,15 @@ gate had no CD):
       its CD traffic at shutdown (QEMU scsi trace events) to learn what
       A/UX sends: eject (START/STOP), PREVENT/ALLOW, TEST UNIT READY after
       the eject, a bus reset
-- [~] W3 (the debug build launched 12:20 in `../MacQuadra800_wt2` at
-      `ba67548`, SCSI_TRACE=1, seed 21, log `scratch/build_trace.log`
-      there) the core side: a `SCSI_TRACE` debug build (qsf switch, hijacks
+- [~] W3 (the debug build of `ba67548` + SCSI_TRACE=1, seed 21, done
+      13:05 in `../MacQuadra800_wt2`: rbf `efcf5ffb`, 39,830 ALMs (95 %),
+      HDMI -0.351 ns, clk_sys +0.157, clk_ram +0.162 -- a video-only miss;
+      `scratch/MacQuadra800_trace7_efcf5ffb.rbf`, staged on .143 as
+      `_Unstable/MacQuadra800_trace7_phase1.rbf`; the capture is
+      `scripts/scsi_trace.sh --capture-only <s>` after a hand `load_core`,
+      and the decoder also lists bus faults (`B`/`b`) and the CPU stall
+      watchdog (`W`), which is what a CPU-side crash would leave) the core
+      side: a `SCSI_TRACE` debug build (qsf switch, hijacks
       the serial port) of the phase-1 head, the same shutdown, capture the
       last commands before the freeze; diff against W2. Suspects: an eject
       while the RTL holds STATUS, TEST UNIT READY on an ejected disc
@@ -598,7 +604,7 @@ gate had no CD):
   hps_io is little-endian (byte 0 in [7:0]), the sim/bench models
   big-endian, and both `ncr53c96` and now `cd_audio` swap under
   `ifdef VERILATOR`.
-- 2026-09-16 13:15: phase-2 Analysis & Synthesis clean (0 errors): the
+- 2026-09-16 13:01: phase-2 Analysis & Synthesis clean (0 errors): the
   target + engine 4,106 -> 2,700 ALUTs, DSP 59 -> 43, one M10K fewer;
   full fit launched (seed 21) alongside the W3 trace build (which is in
   its fitter).  W2 first read (run 1, CD mounted and read by A/UX's
@@ -612,6 +618,14 @@ gate had no CD):
   checkpoint-15 core in 20260915 and phase 1).  Cheap control added to the
   next hardware brief (`scratch/p1b/BRIEF.md` step 3b): the same A/UX +
   retail-ISO shutdown on `20260908_3` (the older CPU).
+- 2026-09-16 13:08: the W3 trace build is in (`efcf5ffb`, 95 %, HDMI
+  -0.351 / clk_sys +0.157) and staged on .143 next to the 20260908_3
+  release (`71102b39`, the older CPU, for the W1c control); the P1a
+  operator had passed steps 0-4 (boot 2m20s, idle clock in step over 4 min,
+  Cmd+W, the CD window through the windows, both guest volumes of the
+  retail disc put away from the Finder within 5-10 s each: the eject
+  forward with STATUS held works on hardware, no dialog, no beachball)
+  and was on the OT hot mount.
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build
