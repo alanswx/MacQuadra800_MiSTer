@@ -14,6 +14,7 @@ rsync -a --exclude .git "$SRC/" "$DST/"
 cd "$DST"
 git -C "$SRC" log --oneline -1 2>/dev/null || true
 PATH=$TC:$PATH make -j8
-MD5=$(md5sum MiSTer | cut -c1-32)
-cp MiSTer "$HERE/scratch/MiSTer_${MD5:0:8}"
+BIN=MiSTer; [ -f bin/MiSTer ] && BIN=bin/MiSTer     # BUILDDIR = bin in the fork's Makefile
+MD5=$(md5sum "$BIN" | cut -c1-32)
+cp "$BIN" "$HERE/scratch/MiSTer_${MD5:0:8}"
 echo "built MiSTer md5 $MD5 -> scratch/MiSTer_${MD5:0:8}"

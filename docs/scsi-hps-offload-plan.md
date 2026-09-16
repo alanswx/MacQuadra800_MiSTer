@@ -206,26 +206,34 @@ Compatibility matrix:
 Main side first, on `../Main_MiSTer` branch
 `mac-ethernet-pr-with-SCSI-Optimizations`:
 
-- [ ] M1 `is_mac_scsi_optimized()` in `mac.cpp`/`mac.h`; window constants in
+- [x] M1 `is_mac_scsi_optimized()` in `mac.cpp`/`mac.h`; window constants in
       `mac_cdrom.h`; `mac_cdda_window()` upper bound = the next-frame window
-- [ ] M2 `mac_cdrom_resp.cpp/.h`: pure builders (INQUIRY, MODE SENSE pages,
+- [x] M2 `mac_cdrom_resp.cpp/.h`: pure builders (INQUIRY, MODE SENSE pages,
       $43 formats 0/1/2, $C1, $42, $C2, $CC, MCDA blob v2 with the has-data
       flag), byte-exact to today's RTL including its caps (60 / 41 tracks)
-- [ ] M3 golden-bytes test: `verilator/tb_cd_audio_dump.sv` dumps the RTL's
-      three tables for a given blob; a host-side test compiles the builders
-      and compares for a flat ISO, a multi-track CUE shape and a 99-track
-      shape; the volume law table is checked against `cd_vol_lut.vh`
-- [ ] M4 `mac_cdrom_play.cpp/.h`: the playhead (transcribed from
+- [x] M3 golden-bytes test (core commit `verilator: cd_audio table-dump
+      bench...`): `scripts/cd_resp_golden.sh` = `tb_cd_audio_dump` dumps +
+      host test; **6,304 checks, 0 failures** on 2026-09-16 (flat ISO, mixed,
+      99 and 70 tracks; volume law all 256 entries)
+- [x] M4 `mac_cdrom_play.cpp/.h`: the playhead (transcribed from
       `cd_audio.sv` M_CMD/M_APPLY/M_SCAN_GO/M_REF_*), MODE SELECT mirror
-      (blk512, page $0E ports), volume law + channel routing, reset/eject/
-      data-read/bus-reset semantics; host-side unit test
-- [ ] M5 windows in `mac_cdrom_fill()`: response window, next-frame window,
-      blob v2; command block in `mac_sd_service()` (op 2 on the CD slot,
-      optimized cores only, mounted or not); flat 2048 images HANDLED for
-      optimized cores; one read per 4 KB run for flat files
-- [ ] M6 build in WSL, install on .143 (only at a halt screen or the menu),
-      regress the 20260915 core: flat ISO mount/eject, CHD audio, both OS
-      gates unaffected
+      (page $0E ports; the RTL refuses 512-byte blocks since 2026-09-08, so
+      there is no blk512 any more), volume law + channel routing,
+      reset/eject/data-read/bus-reset semantics; unit-tested in M3
+- [x] M5 windows in `mac_cdrom_window_fill()` (response, next frame) and
+      `mac_cdrom_command()`; routed by `mac_sd_service()` for optimized cores
+      mounted or not; blob v2 for optimized cores only; flat 2048 images
+      HANDLED for optimized cores; one read per 4 KB run for flat files
+- [ ] M6 build in WSL (`scripts/build_main_wsl.sh`; fork `b692e0d` built
+      2026-09-16, staged as `scratch/MiSTer_<md5>`), install on .143 (only
+      at a halt screen or the menu), regress the old core: flat ISO
+      mount/eject, CHD audio, both OS gates unaffected. Box facts
+      2026-09-16: `/media/fat/MiSTer` = release fork `916829ff` (4857af1);
+      `_Unstable/MacQuadra800.rbf` = `512cd4f8` (the Sep 8 build M, pre-
+      optimization: a valid "old core"); `.s0` QuadSquad8, `.s1`
+      MacQuadra800FreshTest, `.s4` MAC_OS_8-1_RETAIL.ISO (flat); no CHD on
+      the box yet (TIM_3-mac.chd lives on .92). `scripts/local.env` now
+      names .143.
 - [ ] M7 docs: `docs/cdrom.md` contract section, this file, commit
 
 Core phase 1 (responses from the ARM, playback stays), branch `optimize-SCSI`:
