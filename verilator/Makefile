@@ -141,6 +141,12 @@ tb_scsi_cache_mbcd:
 	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME -Wno-CASEINCOMPLETE -Wno-BLKSEQ +define+SIMULATION=1 +define+VERILATOR=1 -Wno-MULTIDRIVEN -Wno-SYNCASYNCNET -Wno-COMBDLY +incdir+$(RTL) --top-module tb_scsi_cache +define+MB_CD_TB=1 --Mdir ./obj_dir_tbc_mbcd -o tb_scsi_cache_mbcd tb_scsi_cache.sv $(RTL)/scsi_cache.sv
 	./obj_dir_tbc_mbcd/tb_scsi_cache_mbcd
 
+# cd_audio table dump for the golden-bytes test of Main's response builders
+# (scripts/cd_resp_golden.sh builds it and runs it once per TOC shape):
+#   make tb_cd_audio_dump && ./obj_dir_tb/tb_cd_audio_dump +blob=x.blob.hex +out=x.rtl.bin
+tb_cd_audio_dump:
+	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME -Wno-CASEINCOMPLETE -Wno-BLKSEQ +define+SIMULATION=1 +define+VERILATOR=1 -Wno-MULTIDRIVEN -Wno-SYNCASYNCNET -Wno-COMBDLY -Wno-PINMISSING -Wno-UNUSEDSIGNAL +incdir+$(RTL) --top-module tb_cd_audio_dump --Mdir ./obj_dir_tb -o tb_cd_audio_dump tb_cd_audio_dump.sv $(RTL)/cd_audio.sv
+
 tb_ncr53c96:
 	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME -Wno-CASEINCOMPLETE -Wno-BLKSEQ +define+SIMULATION=1 +define+VERILATOR=1 -Wno-MULTIDRIVEN -Wno-SYNCASYNCNET -Wno-COMBDLY +incdir+$(RTL) --top-module tb_ncr53c96 --Mdir ./obj_dir_tb -o tb_ncr53c96 tb_ncr53c96.sv $(RTL)/ncr53c96.sv $(RTL)/cd_audio.sv
 	./obj_dir_tb/tb_ncr53c96
