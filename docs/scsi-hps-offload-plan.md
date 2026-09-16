@@ -314,8 +314,12 @@ Core phase 1 (responses from the ARM, playback stays), branch `optimize-SCSI`:
 
 Core phase 2 (playback on the ARM), gated on C5's numbers:
 
-- [ ] D1 transport CDBs forwarded; status ops from the response window;
-      FETCH from the next-frame window; MAIN FSM, dividers, volume LUT gone.
+- [x] D1 (2026-09-16 12:55, `d5442fe` on `optimize-SCSI`) transport CDBs
+      forwarded; status ops from the response window; FETCH from the
+      next-frame window (5 blocks: `e_blk_cnt` through the cache); MAIN
+      FSM, dividers, volume LUT gone; the status poke after each forward;
+      the forward-request gating race found by T19 (a forward raised during
+      a frame fetch went out at the frame window's address).
       Sketch from the phase-1 mechanics: every opcode that today raises
       `ca_cmd_stb` calls `fwd_cdb(cdb[0])` instead (STATUS held until the
       ack, as MODE SELECT is now); `$42`/`$C2`/`$CC` become `fetch` calls
@@ -327,8 +331,9 @@ Core phase 2 (playback on the ARM), gated on C5's numbers:
       (2354..2357) changes, and the SAMPLE cadence + interpolation as is;
       the ARM applies volume, so the LUT and its two multipliers go. The
       raw-audio window and the MODE SELECT page-$0E ports leave the RTL.
-- [ ] D2 sim + bench; AppleCD Audio Player gate on .143 (play/pause/scan/
-      volume/status) with a mixed-mode CHD
+- [~] D2 bench: `tb_ncr53c96` 476,872 / 0 (T19), `tb_scsi_cache` 279,315 / 0
+      x2; `--check` running 12:53; still owed: the AppleCD Audio Player
+      gate on .143 (play/pause/scan/volume/status) with a mixed-mode CHD
 - [ ] D3 `--check` delta, fit, gate, release entry, `docs/cdrom.md`,
       `releases/README.md`, commit
 
@@ -367,13 +372,17 @@ gate had no CD):
       empty (expect the halt screen) and again with the OT ISO (a second,
       smaller disc) -- if only the CD runs wedge, it is the CD path at
       shutdown
-- [ ] W2 the golden reference: QEMU `q800` with the same A/UX image and
+- [~] W2 (QEMU operator running from 12:18, brief `scratch/w2/BRIEF.md`,
+      A/UX image + retail ISO + ROM staged in WSL `~/qemu-work/`) the
+      golden reference: QEMU `q800` with the same A/UX image and
       the retail ISO as scsi-cd (`../qemu`, the recipe in the
       `qemu-golden-reference` memory): does A/UX halt cleanly there? Trace
       its CD traffic at shutdown (QEMU scsi trace events) to learn what
       A/UX sends: eject (START/STOP), PREVENT/ALLOW, TEST UNIT READY after
       the eject, a bus reset
-- [ ] W3 the core side: a `SCSI_TRACE` debug build (qsf switch, hijacks
+- [~] W3 (the debug build launched 12:20 in `../MacQuadra800_wt2` at
+      `ba67548`, SCSI_TRACE=1, seed 21, log `scratch/build_trace.log`
+      there) the core side: a `SCSI_TRACE` debug build (qsf switch, hijacks
       the serial port) of the phase-1 head, the same shutdown, capture the
       last commands before the freeze; diff against W2. Suspects: an eject
       while the RTL holds STATUS, TEST UNIT READY on an ejected disc
@@ -566,6 +575,21 @@ gate had no CD):
   the RTL a Finder eject leaves the disc out until the next bus reset or a
   different-size mount pulse (a same-size re-mount is a no-op), hence the
   order eject retail, mount OT, eject OT, re-mount retail.
+- 2026-09-16 12:55, **phase 2 in RTL** (`d5442fe`, while the P1a operator
+  and the W2 QEMU run are out): `cd_audio.sv` rewritten (blob-header
+  parse, the $CC status poke after every forwarded transport command, the
+  5-block frame fetch with the pad, the sample engine; no playhead,
+  dividers, tables or volume law), the transport arms of `ncr53c96.sv`
+  forward the CDB with STATUS held, $42/$C2/$CC fetch from the window, the
+  page $0E ports are gone, `scsi_cache` honours an engine block count for
+  pass-through reads.  T19 found a real race: a forward raised while the
+  engine's frame fetch was in flight was sampled by the platform at the
+  frame window's address (io_lba follows ca_io_active, which drops a cycle
+  after the ack); the forward's request bits now wait for the engine's
+  transfer.  Bench 476,872 / 0.  Lane order pinned on the way: the real
+  hps_io is little-endian (byte 0 in [7:0]), the sim/bench models
+  big-endian, and both `ncr53c96` and now `cd_audio` swap under
+  `ifdef VERILATOR`.
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build

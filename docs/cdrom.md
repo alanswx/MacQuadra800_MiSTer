@@ -99,24 +99,48 @@ blob / raw-audio windows unchanged.
   fetches it as a one-block READ (`fetch` in `ncr53c96.sv`) whose serve
   length is the CDB's clamped allocation, so the initiator sees the bytes,
   zero-filled past the payload, behind one Main poll -- the wait a READ's
-  first sector already takes.  In phase 1 the position forms ($42/$C2/$CC)
-  are still synthesized in RTL from `cd_audio`'s playhead.
+  first sector already takes.  Since phase 2 the position forms ($42/$C2/
+  $CC) come from here too: the playhead is Main's.
 - **Command block, write, 1 block:** `$7D000000 + (op << 16)`: the DATA OUT
   list (MODE SELECT, AUDIO CONTROL) at bytes 0.. where the drain left it,
-  the 12-byte CDB at bytes 496..507 (`SY_CDB` copies it there).  Phase 1
-  forwards an accepted MODE SELECT (Main mirrors the page $0E ports for its
-  MODE SENSE), an eject, and the pseudo-ops `$FF` (machine reset) and `$FE`
-  (SCSI bus reset).  STATUS is held until the write is acked, through the
-  same `iccs_pend` deferral a judged MODE SELECT used.  Forwards serialize:
+  the 12-byte CDB at bytes 496..507 (`SY_CDB` copies it there).  Forwarded:
+  an accepted MODE SELECT (Main mirrors the page $0E output ports for its
+  MODE SENSE and scales the frames it serves by them; the RTL no longer
+  keeps them), an eject, the pseudo-ops `$FF` (machine reset) and `$FE`
+  (SCSI bus reset), and since phase 2 every transport command ($C8-$CB/$CD,
+  $45/$47/$48/$4B/$4E/$A5, $01/$0B/$2B), which Main's playhead executes.
+  STATUS is held until the write is acked, through the same `iccs_pend`
+  deferral a judged MODE SELECT used.  The request is not shown to the
+  platform while the audio engine's own transaction is in flight (`io_lba`
+  follows `ca_io_active`, and the cache samples the address the cycle it
+  sees the request bit, one cycle before `ca_io_active` drops: a PAUSE
+  forwarded during a frame fetch went out at the frame window's address,
+  `tb_ncr53c96` T19).  Forwards serialize:
   a nexus forward raised while a reset notice is still being written queues
   behind it (`fwd_q`), STATUS waits for both, and only a forward the current
   nexus owns (`fwd_own`) holds its status -- a notice, or a forward whose
   nexus was abandoned, completes without holding the next command
   (`tb_ncr53c96` T18: bus reset, then the eject a shutdown sends).
 - **Next frame, read, 5 blocks:** `$7C000000`: one volume-scaled 2352-byte
-  frame at Main's playhead, the audio status at byte 2352, a frame-present
-  flag at 2353 and a flush generation at 2354..2357.  Defined and served;
-  the core uses it from phase 2.
+  frame at Main's playhead (which advances per read, so fetched == played),
+  the audio status at byte 2352 (0 play, 1 paused, 3 end, 5 idle), a
+  frame-present flag at 2353 and a flush generation at 2354..2357 (bumped
+  when a command moved the position).  `cd_audio`'s fetch loop reads it into
+  the free half of its two-frame ping-pong while the ARM says "playing",
+  as one transaction of 5 blocks: the engine asks for the block count
+  (`ca_io_blk_cnt` -> `io_blk_cnt` -> `scsi_cache`'s `e_blk_cnt`, honoured
+  for pass-through reads), and the pad is read on the fly as the words
+  stream past.  A generation change drops the other half and restarts the
+  cadence on the new frame; a frame with the flag clear holds the loop off
+  for one frame time.  After the ARM reports the end the cadence still
+  plays the buffered frames out.
+- **The status poke:** after every forwarded transport command has been
+  acked, the engine reads the `$CC` type-0 response once and takes byte 0
+  as its state.  Anything but "playing" drops the buffered frames (the
+  ARM's playhead is where the command left it: a PAUSE/RESUME pair costs
+  the two buffered frames, 26 ms, and a SEARCH-then-PLAY starts clean).  A
+  data READ, an eject, a bus reset or an unmount stop the engine at once
+  (the ARM sees the same events forwarded).
 - **Capability probe:** after every machine reset and CD mount pulse, once
   the bus is free, the target reads the INQUIRY window and latches its
   first two words straight off the platform stream (nothing lands in the
@@ -132,8 +156,13 @@ blob / raw-audio windows unchanged.
 
 Stays in RTL: TEST UNIT READY, REQUEST SENSE, READ CAPACITY, READ HEADER,
 the no-disc and audio-only CHECKs, eject / PREVENT state, the READ data
-path, the MODE SELECT parse (the refusal rules above), and in phase 1 the
-playhead.
+path, the MODE SELECT parse (the refusal rules above), and of the audio
+engine only the blob-header parse (magic, version, has-data), the status
+poke, the frame fetch loop and the 44.1 kHz sample engine with its
+interpolation.  The command decode, the playhead, the M:S:F dividers, the
+track table and its RAM, and the volume law with its two multipliers left
+with phase 2 (`rtl/cd_vol_lut.vh` is history; the golden test extracts it
+next to the reference `cd_audio.sv`).
 
 Sims: `verilator/sim/cd_window.cpp` serves the windows for both
 `tb_ncr53c96` (through the DPI-C shim `cd_win_dpi.cpp`) and the
@@ -154,11 +183,15 @@ instantiates `quadra800`, not `emu`, and never crosses that wiring.
 
 ## Verification
 
-- `verilator/tb_ncr53c96.sv` T16a–g (8654 checks): CD INQUIRY, no-disc sense,
-  READ CAPACITY, READ TOC format 0 through the engine's synthesized TOC, a
-  2048-byte READ mapped to HPS blocks 4..7, write rejection, the second disk.
-  The bench's device serves zeros at the TOC-blob window, so the engine takes
-  its single-track fallback.
+- `verilator/tb_ncr53c96.sv` T16a–g: CD INQUIRY, no-disc sense, READ
+  CAPACITY, READ TOC format 0, a 2048-byte READ mapped to HPS blocks 4..7,
+  write rejection, the second disk; T16h-p the MODE SELECT refusal, the
+  installer patterns, the eject, the slow-platform and stress cases; T17
+  the Apple TOC and AUDIO STATUS from the window; T18 the serialized
+  forwards; T19 (phase 2) PLAY AUDIO MSF forwarded, one status poke, two
+  5-block frame fetches, $CC/$C2/$42 from the window, a refill after a
+  consumed frame, PAUSE / RESUME / STOP.  The windows are served by the Main
+  fork's own builders and playhead (`sim/cd_window.cpp`); 476,872 checks.
 - Hardware: Mac OS 8.1 with `games/MacQuadra800/Open Transport 1.3.1.iso`
   pre-mounted through `config/MacQuadra800.s4`; then `games/MacIIvi/TIM_3-mac.chd`
   (mixed mode, needs the Main fork) for CD audio.
