@@ -50,12 +50,17 @@ that arms), `--trace-max N`, `@main_time` stamps on trace lines.
 |---|---|---|---|
 | main | R1..R6 (923c544) + fix | 22 | MISSED, CPU clock -0.619 ns |
 | wt2 | R1..R6 (923c544) + fix | 23 | MISSED, CPU clock -1.426 ns (TNS -86.6) |
-| main | R1..R6 (923c544) + fix | 24 | fitting (`scratch/build_fix_r6_s24.log`) |
-| wt2 | **R1..R4 (8778213) + fix** | 21 | fitting (`../MacQuadra800_wt2/scratch/build_fix_r4_s21.log`); pre-fix seed 21 had +0.361 ns |
+| main | R1..R6 (923c544) + fix | 24 | MISSED, CPU clock -1.669 ns (TNS -85.4) -- R1..R6 PARKED |
+| wt2 | R1..R4 (8778213) + fix | 21 | CPU clock MET +0.267, **HDMI -0.766** (one endpoint), 38,788 ALMs (93 %) |
+| main | **R1..R4 (8778213) + fix** | 22 | fitting since 21:49 (`scratch/build_fix_r4_s22.log`); HEAD 7aac11e carries this submodule + seed |
+| wt2 | **R1..R4 (8778213) + fix** | 23 | fitting since 22:03 (`../MacQuadra800_wt2/scratch/build_fix_r4_s23.log`) |
 
-R1..R4 and R1..R6 are cycle-identical; R1..R6 is ~1,300 ALMs smaller but sits
-on a ±0.5 ns CPU-clock lottery. Ship whichever meets timing first; failed rbfs
-are kept as `scratch/MacQuadra800_fix_r6_s2{2,3}_TIMINGFAIL.rbf`.
+R1..R4 and R1..R6 are cycle-identical; R1..R6 is ~1,300 ALMs smaller but its
+CPU-clock path is a lottery with the fix in (three misses, growing). R1..R4's
+CPU clock holds (+0.27..+0.36); its HDMI endpoint is the usual seed-sensitive
+one. Ship the first R1..R4 seed that meets both. Failed rbfs are kept as
+`scratch/MacQuadra800_fix_r6_s2{2,3,4}_TIMINGFAIL.rbf` (main/wt2) and
+`../MacQuadra800_wt2/scratch/MacQuadra800_fix_r4_s21_HDMIFAIL.rbf`.
 
 ## Next
 
