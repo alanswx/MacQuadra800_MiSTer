@@ -90,6 +90,19 @@ FPU, clean shutdown, no A/UX); report in `scratch/gate_fix/report.md`.
 Box state before: store head at the 8.1 halt screen (`00_before.png`),
 `.s0` = QuadSquad8.hda.
 
+### Result (00:45): PASS, Speedometer Mix 0.858
+
+8.1 boots to the Finder in <=106 s (the stall frame never appeared),
+liveness OK, Benchmark Mix 0.857/0.859/0.859 (mean **0.858** = +86 % over the
+store head's 0.462, +138 % over the release's 0.360; Alan measured 0.855 on
+his profile), CQD 0.605 (0.414/0.337), FPU 0.449 (0.305/0.251); Sieve -61 %,
+Int. Matrix -55 %, Bubble Sort -54 % vs the store head; a diagnostic
+wall-clock bracket (34 +/- 3 s per Mix) confirms the seconds are real; clean
+Shut Down in <=48 s; no artefacts in the ARM-side captures (which do not
+pass through the HDMI register). Full log `scratch/gate_fix/report.md`,
+52 screenshots. A/UX gate on the same rbf: `scratch/gate_fix/BRIEF_aux.md`
+(operator launched 00:50).
+
 ## Next
 
 1. Hardware gate of the timing-met rbf on the .92 box (Opus operator):
