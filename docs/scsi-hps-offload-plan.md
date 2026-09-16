@@ -91,7 +91,7 @@ end below 0x401C0000). Old cores keep working unchanged. LBAs are in
 |---|---|---|---|
 | disc info / capability | `0x7E000000` | read, 1 block | `"MCDR"`, version, flags (has data track, has audio tracks), sectors, first/last track. The core reads it once after every `img_mounted`; no magic = old Main or generic path: **the CD target stops answering selection** (no hang, no garbage INQUIRY). |
 | response | `0x7E000000 + op<<16 + a<<8 + b` | read, 1 block | the DATA IN payload of CD command `op` with the two CDB bytes it depends on: `$12` INQUIRY (54 B); `$1A` MODE SENSE, a = page; `$43` READ TOC, a = cdb[9] format, b = cdb[6] start track; `$C1`, a = cdb[9], b = cdb[5] BCD track; `$42`, a = cdb[3] format, b = cdb[6]; `$C2`; `$CC`, a = cdb[3]. The core serves exactly `clamp(alloc)` bytes from the block, zero-filled, as it does now. |
-| command | `0x7D000000 + op<<16` | write, 1 block | bytes 0..11 = the CDB, bytes 16.. = the DATA OUT parameter list (MODE SELECT `$15`, AUDIO CONTROL `$CE`). For every audio-transport opcode ($45/$47/$48/$4B/$4E/$A5/$01/$0B/$2B, $C8-$CB, $CD), MODE SELECT, eject ($1B LoEj, $C0), PREVENT $1E, SET CD SPEED $BB. The core returns GOOD after the ack, as it does today ("status GOOD already returned"). |
+| command | `0x7D000000 + op<<16` | write, 1 block | the DATA OUT parameter list (MODE SELECT `$15`, AUDIO CONTROL `$CE`) at bytes 0.. exactly where the core's drain left it, the 12-byte CDB at bytes 496..507. For every audio-transport opcode ($45/$47/$48/$4B/$4E/$A5/$01/$0B/$2B, $C8-$CB, $CD), MODE SELECT, eject ($1B LoEj, $C0), PREVENT $1E, SET CD SPEED $BB; pseudo-ops $FF machine reset and $FE SCSI bus reset. The core holds STATUS until the write is acked (the MODE SELECT deferred-ICCS mechanism), so the guest sees one Main poll of extra latency and nothing else. |
 | next frame | `0x7C000000` | read, 5 blocks (2560 B, `sd_blk_cnt` 4) | the 2352-byte frame at the ARM playhead, volume applied, then the playhead advances; the pad (bytes 2352..) carries the playback state (playing / paused / end / idle) so the fetch loop knows when to stop without a second transaction. `mac_cdda_window()`'s upper bound tightens to this window so it is served in 512-byte blocks. |
 
 Kept as-is for old cores: the data window, the `MCDA` blob, the raw audio
@@ -238,17 +238,27 @@ Main side first, on `../Main_MiSTer` branch
 
 Core phase 1 (responses from the ARM, playback stays), branch `optimize-SCSI`:
 
-- [ ] C1 `ncr53c96.sv`: `SY_FETCH` window read into `sbuf`; CD INQUIRY /
-      MODE SENSE / $43 / $C1 served from it; the CD SY_* kinds, tables and
-      address muxes removed; MODE SELECT / eject / PREVENT / reset forwarded
-      through the command block
+- [ ] C1 `ncr53c96.sv`: a window read is a one-block platform READ whose
+      serve length is the CDB's clamped allocation (`rd_len` replaces the
+      fixed 512 on ack-fall); CD INQUIRY / MODE SENSE / $43 / $C1 served
+      that way; the CD SY_* kinds, `cd_inq_byte`/`cd_mode_byte`, the
+      $C1/$43/format-2 address muxes removed; MODE SELECT (after the parse
+      accepts it) / eject / machine + bus reset forwarded through the
+      command block (CDB copied to sbuf[496..507] by the synth sequencer,
+      `io_wr` at CMD_BLK, STATUS held until the ack like `iccs_pend`);
+      capability probe = an INQUIRY window read after reset and on every
+      mount, "SONY" at bytes 8..11 arms `cd_hps_ok`, without which the CD
+      target does not answer selection (old Main: no garbage identity)
 - [ ] C2 `cd_audio.sv`: builders and the three table planes removed; blob v2
       header parse keeps n_tracks / lead-out / has-data; version check hides
       the target on an old Main
 - [ ] C3 `MacQuadra800.sv` / `quadra800.sv`: CD slot `sd_wr` untied for the
       command block; `scsi_cache` pass-through checked for writes
-- [ ] C4 `tb_ncr53c96` device serves the windows; T16 passes;
-      `sim_blkdevice.cpp` links the builders; full sim boots 8.1 with a CD
+- [ ] C4 `tb_ncr53c96` device serves the windows through a DPI-C shim over
+      the Main builders (same code as the box); T16 passes;
+      `sim_blkdevice.cpp` gets a CD-window device (blob v2, responses,
+      command block, next frame) over the same files; full sim boots 8.1
+      with a CD
 - [ ] C5 `build_only.sh --check` logic-cell delta recorded here; full fit;
       hardware gate on .143 (both OSes, OT ISO, retail ISO CD boot, CHD audio)
 - [ ] C6 commit + measured numbers in this file and `docs/area-budget.md`
@@ -265,3 +275,15 @@ Core phase 2 (playback on the ARM), gated on C5's numbers:
 ## 10. Log
 
 - 2026-09-16: plan approved; Main side started.
+- 2026-09-16 06:52: fork `b692e0d` built (`MiSTer` md5 `399daf2e…`,
+  `scratch/MiSTer_399daf2e`) and installed on .143 from the menu core;
+  the previous binary is `/media/fat/MiSTer.bak_20260916_916829ff`. The
+  20260915 release rbf is staged as `_Unstable/MacQuadra800_20260915.rbf`
+  for the old-core regression.
+- 2026-09-16 06:55: old core (20260915) + new Main + retail 8.1 ISO (now
+  HANDLED, "raw image, 1 track"): Finder at ~06:53 with no CD icon, then by
+  06:54 the disc is mounted with ONE "Mac OS 8.1" icon and its root window
+  auto-opened (17 items). The Main read the disc through the flat-file run
+  path (track fd at 1.89 MB). Two icons were the 20260908_3 behaviour on the
+  generic path; the 20260915 rbf was gated on .92 with no CD in slot 4, so
+  the control run (same core + disc on the old Main `916829ff`) follows.
