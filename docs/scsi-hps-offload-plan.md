@@ -401,6 +401,16 @@ Core phase 2 (playback on the ARM), gated on C5's numbers:
   suspects if it is phase 1: the ROM's shutdown eject of the CD ($1B/$C0)
   now forwarded with STATUS held, or a bus-reset notice ($FE) issued while
   the halt path expects the channel.
+- 2026-09-16 09:45: walking that sequence found a real hole: a nexus
+  forward (eject, MODE SELECT) raised while the bus-reset notice was still
+  being written overwrote `fwd_st`, so the notice's ack-fall published the
+  buffer as if a read had landed and the second block went out from a
+  half-reset state. Forwards now queue (`fwd_q`): the second starts when the
+  first is acked, STATUS stays held for both, a queued forward dies with
+  its nexus. Bench test T18 (bus reset, then the eject selected 60 cycles
+  later on a 3000-cycle device: both blocks reach the ARM, GOOD, TUR then
+  CHECKs) added. Whether this is the A/UX wedge is still open: the control
+  run on 20260915 decides whether phase 1 is implicated at all.
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build

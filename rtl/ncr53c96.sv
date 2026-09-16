@@ -288,7 +288,7 @@ wire ca_grant = tgt_mounted[2] && !io_rd_i && !io_wr_i && !io_rd_fwd && !io_wr_f
 wire bus_free = (phase == PH_DOUT) && !cdb_active && !exec_pending &&
                 !xfer_out && !xfer_pio_out && !xfer_msg_out && !xfer_in && !xfer_pio_in &&
                 blocks_left == 0 && dout_len == 0 && !msel_pend &&
-                !flush_pending && !io_busy && fwd_st == 0 && synth_len == 0;
+                !flush_pending && !io_busy && fwd_st == 0 && !fwd_q && synth_len == 0;
 
 `ifdef VERILATOR
 // bring-up taps: command writes, CDB executions, interrupt edges — with
@@ -465,6 +465,11 @@ reg  [9:0] rd_len;                  // bytes the next platform block serves (512
 reg  [1:0] fwd_st;                  // 0 idle, 1 copying the CDB, 2 write in flight
 reg  [7:0] fwd_op;
 reg        fwd_fin;                 // one-cycle pulse: the forwarded write completed
+reg        fwd_q;                   // a nexus's forward queued behind one in flight (a bus
+reg  [7:0] fwd_q_op;                // reset notice, then the eject a shutdown sends right after)
+reg        fwd_own;                 // the forward in flight / queued belongs to the current nexus:
+                                    // only then is its STATUS held for the ack (a housekeeping
+                                    // notice, or a forward the nexus was abandoned with, is not)
 reg        fwd_pend_rst, fwd_pend_bus;   // pseudo-ops $FF / $FE owed to the ARM
 reg        io_wr_fwd, io_rd_fwd;    // the CD slot's strobes for a forward / the probe (no nexus needed)
 // capability probe: the INQUIRY window is read after reset and on every CD
@@ -687,7 +692,7 @@ always @(posedge clk) begin
 		sense_r <= 0; asc_r <= 0; cap_r <= 0; cap_cd <= 0;
 		hdr_lba <= 0;
 		rd_len <= 10'd512;
-		fwd_st <= 0; fwd_op <= 0; fwd_fin <= 0;
+		fwd_st <= 0; fwd_op <= 0; fwd_fin <= 0; fwd_q <= 0; fwd_q_op <= 0; fwd_own <= 0;
 		fwd_pend_rst <= 1; fwd_pend_bus <= 0;      // tell the ARM the machine reset
 		io_wr_fwd <= 0; io_rd_fwd <= 0;
 		probe_pend <= 1; probe_act <= 0; probe_w0 <= 0; probe_w1 <= 0; cd_hps_ok <= 0;
@@ -708,7 +713,8 @@ always @(posedge clk) begin
 `endif
 			raise(I_BUS);
 		end
-		if ((msel_fin || fwd_fin) && iccs_pend) begin
+		if (fwd_fin && fwd_own && !fwd_q) fwd_own <= 0;     // the nexus's forward is done
+		if ((msel_fin || (fwd_fin && fwd_own && !fwd_q)) && iccs_pend) begin
 `ifdef TB_DEBUG
 			$display("[ICCS] deferred push status=%02x fifo_cnt=%0d", scsi_status, fifo_cnt);
 `endif
@@ -842,11 +848,18 @@ always @(posedge clk) begin
 		end
 
 		//---------------------------------------------------- ARM housekeeping
+		// a queued nexus forward starts as soon as the one in flight is done
+		if (fwd_q && fwd_st == 0 && synth_len == 0) begin
+			fwd_q <= 0;
+			synth_kind <= SY_CDB; synth_idx <= 0; synth_len <= 10'd12;
+			fwd_op <= fwd_q_op;
+			fwd_st <= 2'd1;
+		end
 		// with the bus free: an owed reset notice goes out first, then a
 		// pending capability probe (both on the CD slot, no nexus involved)
 		if (bus_free) begin
-			if (fwd_pend_rst)      begin fwd_pend_rst <= 0; fwd_cdb(8'hFF); end
-			else if (fwd_pend_bus) begin fwd_pend_bus <= 0; fwd_cdb(8'hFE); end
+			if (fwd_pend_rst)      begin fwd_pend_rst <= 0; fwd_cdb(8'hFF, 1'b0); end
+			else if (fwd_pend_bus) begin fwd_pend_bus <= 0; fwd_cdb(8'hFE, 1'b0); end
 			else if (probe_pend) begin
 				probe_pend <= 0;
 				probe_act  <= 1;
@@ -1071,7 +1084,7 @@ always @(posedge clk) begin
 		4'd6: begin                                         // page code (only if the list reaches it)
 			if ({2'd0, msel_base} + 10'd2 > dout_len || q_e[15:8] != 8'h0E) begin
 				phase <= PH_STAT; msel_st <= 0; msel_pend <= 0;
-				fwd_cdb(8'h15); raise(I_BUS);
+				fwd_cdb(8'h15, 1'b1); raise(I_BUS);
 			end
 			else msel_st <= 4'd7;
 		end
@@ -1079,7 +1092,7 @@ always @(posedge clk) begin
 		4'd8: begin ap_ch0 <= q_e[15:8]; ap_vol0 <= q_e[7:0]; msel_st <= 4'd9; end
 		4'd9: msel_st <= 4'd10;                             // page word 5 addressed
 		4'd10: begin ap_ch1 <= q_e[15:8]; ap_vol1 <= q_e[7:0]; msel_st <= 0; msel_pend <= 0;
-		       phase <= PH_STAT; fwd_cdb(8'h15); raise(I_BUS); end
+		       phase <= PH_STAT; fwd_cdb(8'h15, 1'b1); raise(I_BUS); end
 		default: ;
 		endcase
 		// data-out chunk complete: TC expired and the FIFO drained.  A TC
@@ -1373,7 +1386,7 @@ task exec_command(input [7:0] c);
 			end
 			else if (phase == PH_STAT) begin
 				// treated like ICCS by some drivers (and held like it)
-				if (msel_pend || fwd_st != 0) iccs_pend <= 1;
+				if (msel_pend || (fwd_own && (fwd_st != 0 || fwd_q))) iccs_pend <= 1;
 				else begin
 					fifo[0] <= scsi_status;
 					fifo[1] <= 8'h00;
@@ -1404,7 +1417,7 @@ task exec_command(input [7:0] c);
 			end
 			else raise(I_ILL);
 		end
-		7'h11: if (msel_pend || fwd_st != 0) begin iccs_pend <= 1;
+		7'h11: if (msel_pend || (fwd_own && (fwd_st != 0 || fwd_q))) begin iccs_pend <= 1;
 `ifdef TB_DEBUG
 			$display("[ICCS] HELD");
 `endif
@@ -1686,10 +1699,19 @@ endtask
 
 // forward the CDB (and whatever DATA OUT list the drain left in the buffer)
 // to the ARM as a command-block write; STATUS is held until the ack
-task fwd_cdb(input [7:0] op);
-	synth_kind <= SY_CDB; synth_idx <= 0; synth_len <= 10'd12;
-	fwd_op <= op;
-	fwd_st <= 2'd1;
+task fwd_cdb(input [7:0] op, input owned);
+	fwd_own <= owned;
+	if (fwd_st == 0 && !fwd_q) begin
+		synth_kind <= SY_CDB; synth_idx <= 0; synth_len <= 10'd12;
+		fwd_op <= op;
+		fwd_st <= 2'd1;
+	end
+	else begin
+		// one is in flight (the reset notice the bus reset owed): queue this
+		// one; STATUS stays held until it too has been acked
+		fwd_q    <= 1;
+		fwd_q_op <= op;
+	end
 endtask
 
 // a parameter-list DATA OUT of n bytes, absorbed into the sector buffer
@@ -1720,6 +1742,7 @@ task abort_nexus;
 	// flight completes on its own, like any flush; so does a probe read,
 	// which touches nothing of the nexus)
 	if (fwd_st == 2'd1) fwd_st <= 0;
+	fwd_q <= 0; fwd_own <= 0;                          // a queued forward dies with its nexus; one in flight completes unowned
 	iccs_pend <= 0;                                    // a status the old nexus never collected
 	if (io_busy && !flush_pending && !fwd_xfer) io_discard <= 1;
 endtask
@@ -1751,7 +1774,7 @@ task eject;
 		tgt_asc[2]  <= 8'h3A;                          // medium not present
 		ca_eject_stb <= 1;
 		phase <= PH_STAT;
-		fwd_cdb(cdb[0]);                               // the ARM's playhead stops too
+		fwd_cdb(cdb[0], 1'b1);                         // the ARM's playhead stops too
 	end
 endtask
 

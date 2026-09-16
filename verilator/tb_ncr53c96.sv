@@ -113,6 +113,7 @@ integer d_state = 0, d_lat = 0, d_i = 0, d_lba = 0, d_win = 0, d_r = 0;
 reg [7:0] d_b0, d_b1;
 integer dev_lat = 40;                        // device round trip, settable per test
 integer wr_blocks = 0;                       // disk blocks the device has accepted (window writes not counted)
+integer win_writes = 0;                      // command blocks the ARM side received
 
 always @(posedge clk) begin
 	sd_buff_wr <= 0;
@@ -178,7 +179,7 @@ always @(posedge clk) begin
 		end
 		else begin
 			io_ack <= 0; d_state <= 0;
-			if (d_win) cdwin_dpi_write(d_lba);
+			if (d_win) begin cdwin_dpi_write(d_lba); win_writes <= win_writes + 1; end
 			else wr_blocks <= wr_blocks + 1;
 		end
 	end
@@ -1571,7 +1572,7 @@ initial begin
 	wait_irq(500, ok);
 	read_regs(st, sp, it);
 	expect8("T16k eject phase STATUS", {5'd0, st[2:0]}, {5'd0, PH_STAT});
-	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_wr(R_CMD, 8'h11); wait_irq(2000, ok);      // the eject is a round trip to the ARM now
 	reg_rd(R_FIFO, b); expect8("T16k eject status GOOD", b, 8'h00);
 	reg_rd(R_FIFO, b);
 	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
@@ -2043,6 +2044,47 @@ initial begin
 	wait_irq(500, ok); reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
 	reg_rd(R_FIFO, b); expect8("T17 astat status GOOD", b, 8'h00); reg_rd(R_FIFO, b);
 	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	sel_id = 8'h00;
+
+	// A shutdown resets the SCSI bus and ejects the CD right after.  The
+	// reset owes the ARM a $FE notice; on a slow platform that write is still
+	// in flight when the eject's own forward is raised, and the second must
+	// queue behind the first (both reach the ARM, STATUS waits for both).
+	$display("-- T18 CD-ROM: eject selected while the bus-reset notice is still in flight (forwards serialize)");
+	dev_lat = 3000;
+	byi = win_writes;
+	reg_wr(R_CMD, 8'h03);                          // RESET SCSI BUS: $FE owed
+	repeat (8) @(negedge clk);
+	reg_rd(R_INTR, b);
+	repeat (60) @(negedge clk);                    // the notice is being written now
+	sel_id = 8'h03;
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h1B; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=8'h02; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(20000, ok);
+	read_regs(st, sp, it);
+	expect8("T18 eject phase STATUS", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+	reg_wr(R_CMD, 8'h11); wait_irq(20000, ok);     // held until both forwards are acked
+	reg_rd(R_FIFO, b); expect8("T18 eject status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	guard = 0;
+	while (win_writes - byi < 2 && guard < 20000) begin @(negedge clk); guard = guard + 1; end
+	checks = checks + 1;
+	if (win_writes - byi != 2) begin fails = fails + 1; $display("  FAIL T18 command blocks received %0d, want 2", win_writes - byi); end
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h00; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T18 TUR after eject CHECK", b, 8'h02);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	reg_wr(R_CMD, 8'h03);                          // RESET SCSI BUS: the disc is back
+	repeat (8) @(negedge clk);
+	reg_rd(R_INTR, b);
+	repeat (8000) @(negedge clk);                  // let that notice complete on the slow device
+	dev_lat = 40;
 	sel_id = 8'h00;
 
 	$display("== tb_ncr53c96: %0d checks, %0d failures ==", checks, fails);
