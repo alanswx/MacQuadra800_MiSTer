@@ -106,4 +106,7 @@ Phase 2 (playback on the ARM, `d5442fe`): Analysis & Synthesis puts
 `cd_audio` at 371 ALUTs / 320 registers (from 1,535 / 707), `ncr53c96` self
 at 2,329 (from 2,571), the target with its engine at 2,700 (from 4,106),
 and the design's DSP blocks at 43 (from 59); the blob RAM (one M10K) is
-gone too.  The fitted numbers follow with the phase-2 build.
+gone too.  Fitted (seed 22, timing met, rbf `c2a902cb`): **37,155 ALMs
+(89 %)**, `ncr53c96` 1,639 (self 1,408) with `cd_audio` about 230, `iosb`
+3,884, 490 RAM blocks, 43 DSP blocks -- the CD target now costs about
+what one hard-disk target did before the CD work (section 1: 712).

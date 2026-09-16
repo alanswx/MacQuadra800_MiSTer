@@ -335,8 +335,14 @@ Core phase 2 (playback on the ARM), gated on C5's numbers:
       x2; **`--check` 12:59 clean: `cd_audio` 371 ALUTs / 320 regs (phase 1:
       1,535 / 707; before the offload 2,566 / 852), `ncr53c96` self 2,329
       (was 2,571), the target with its engine 2,700 (was 4,106), DSP 43 (was
-      59), block memory -8 Kbit (the blob RAM)**; full fit launched 13:01
-      (seed 21, `scratch/build_phase2.log`); still owed: the AppleCD Audio Player
+      59), block memory -8 Kbit (the blob RAM)**; seed 21 failed in routing,
+      **seed 22 MEETS TIMING (13:50): 37,155 ALMs (89 %, -973 vs phase 1,
+      -1,556 vs 20260915), clk_sys +0.232 / clk_ram +0.452 / HDMI +0.638,
+      25,231 regs, 490 RAM, 43 DSP; fitted `ncr53c96` 1,639 (self 1,408,
+      `cd_audio` ~230; phase 1: 2,568 / 1,569 / 999); rbf `c2a902cb` =
+      `scratch/MacQuadra800_phase2_s22_c2a902cb.rbf`, staged on .143 as
+      `_Unstable/MacQuadra800_phase2_s22.rbf`; seed 22 is the qsf default**;
+      still owed: the AppleCD Audio Player
       gate on .143 (play/pause/scan/volume/status) with a mixed-mode disc:
       `TIM_3-mac.chd` is on neither box, but .143 has PC Engine CD CHDs with
       audio tracks in `games/TGFX16-CD/` (Valis II/III/IV, Rainbow Islands,
@@ -684,6 +690,12 @@ gate had no CD):
   seed 22 runs alone in `../MacQuadra800_wt2` (`scratch/build_phase2_s22.log`
   there). Seeds walk one after another from now on; the
   aggressive-routability switch is the lever after that.
+- 2026-09-16 13:50: **phase 2 fits at seed 22 with timing met** (37,155
+  ALMs = 89 %, clk_sys +0.232 ns; rbf `c2a902cb`, staged on .143). The
+  hardware gate brief is `scratch/p2/BRIEF.md` (8.1 boot with the retail
+  ISO, A/UX with no CD, then the AppleCD Audio Player on a PC Engine CHD
+  from `games/TGFX16-CD/`); it runs after the A/UX operator (P1b + the
+  three controls) has the box free.
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build
