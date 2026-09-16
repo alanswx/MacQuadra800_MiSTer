@@ -191,7 +191,11 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # f612084 (forwards serialized): seed 21 MEETS TIMING -- 38,128 ALMs (91 %),
 # worst +0.247, HDMI +0.442, clk_sys +0.729, clk_ram +0.732, RAM 491, DSP 59;
 # rbf 1eae0fb7, staged on .143 as _Unstable/MacQuadra800_phase1_s21b.rbf.
-set_global_assignment -name SEED 21
+# 2026-09-16 phase 2 (d5442fe, playback on the ARM): seed 21 FAILED in routing (congestion,
+# placement fine, the design 1,400 ALUTs smaller); seed 22 MEETS TIMING -- 37,155 ALMs (89 %),
+# clk_sys +0.232, clk_ram +0.452, HDMI +0.638, 490 RAM, 43 DSP; rbf c2a902cb (built in wt2).
+# Seed 22 is the default for this head.
+set_global_assignment -name SEED 22
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
 # the design no longer fits with speed-directed synthesis; all-area
