@@ -70,6 +70,9 @@ bool pc_was_in_stop = false;               // edge detector for the stop range
 // pc_i register: one entry per instruction dispatch, extension words read
 // straight from the sim memory arrays)
 bool cpu_trace_disabled = false;      // --no-cpu-trace
+bool trace_on_ncr = false;            // --trace-on-ncr: start when the NCR reg trace arms
+long trace_max = 0;                   // --trace-max N: stop tracing after N instructions
+#define NCR_REGTRACE (SIMEMU->__PVT__machine__DOT__iosb__DOT__scsi__DOT__dbg_regtrace)
 bool gui_instr_log = false;           // stream instructions into the Debug log
 bool gui_trace_file = true;           // trace file toggle (GUI defaults off)
 bool showDebugLog = true;
@@ -83,6 +86,66 @@ uint32_t cpu_trace_last_pc = 0xFFFFFFFF;
 vluint64_t heartbeat_every = 10000000;
 vluint64_t next_heartbeat = 10000000;
 bool pc_hist_enable = false;    // --hist: per-cycle pc histogram (slows the sim)
+// --prof: per-state cycle histogram of the AP68040 sequencer, sampled every
+// clk_sys, plus how many S_MRD/S_MWR cycles were spent waiting for a queue
+// fetch to release the shared memory port.  Printed with every heartbeat.
+bool cpu_prof_enable = false;
+static uint64_t prof_state[256];
+static uint64_t prof_total = 0, prof_portwait = 0, prof_dispatch = 0;
+static uint8_t  prof_prev_state = 0;
+// S_MRD/S_MWR cycles split by where the access is (cache FSM state) and
+// what it targets (address region), plus acceptance-cycle cache hits
+static uint64_t prof_mrd_cst[8], prof_mwr_cst[8];
+static uint64_t prof_mrd_region[5], prof_mwr_region[5];   // ram, rom, io, vram, other
+static int prof_region(uint32_t a) {
+	return (a < 0x10000000u) ? 0 : ((a >> 28) == 4) ? 1 : ((a >> 28) == 5) ? 2 :
+	       ((a >> 21) == 0x7C8) ? 3 : 4;                          // $F9000000-$F91FFFFF
+}
+static uint64_t prof_fast_hit_i = 0, prof_fast_hit_d = 0;
+// S_FETCH split: cycles with a queue fetch outstanding (the opcode is on its
+// way) versus without one (re-arming, or a redirect not yet issued), and the
+// completed transactions per region so the S_MRD/S_MWR cycles read as an
+// average latency per access.
+static uint64_t prof_fetch_pend = 0, prof_fetch_nopend = 0;
+static uint64_t prof_dack_rd[5], prof_dack_wr[5], prof_iack = 0;
+static const char* prof_cst_name[8] = {"IDLE","LOOK","FERR","WINV","FILL","TAGW","PASS","SWEEP"};
+static const char* prof_region_name[5] = {"ram","rom","io","vram","other"};
+static void cpu_prof_print() {
+	int idx[256];
+	for (int i = 0; i < 256; i++) idx[i] = i;
+	std::sort(idx, idx + 256, [](int a, int b) { return prof_state[a] > prof_state[b]; });
+	printf("[PROF] %llu cycles, %llu dispatches (%.2f clk/dispatch), port-wait %llu (%.1f%%)\n",
+	       (unsigned long long)prof_total, (unsigned long long)prof_dispatch,
+	       prof_dispatch ? (double)prof_total / prof_dispatch : 0.0,
+	       (unsigned long long)prof_portwait,
+	       prof_total ? 100.0 * prof_portwait / prof_total : 0.0);
+	for (int i = 0; i < 14 && prof_state[idx[i]]; i++)
+		printf("[PROF]   state %3d: %llu (%.1f%%)\n", idx[i],
+		       (unsigned long long)prof_state[idx[i]],
+		       100.0 * prof_state[idx[i]] / prof_total);
+	printf("[PROF]   S_MRD by cache state:");
+	for (int i = 0; i < 8; i++) if (prof_mrd_cst[i]) printf(" %s=%llu", prof_cst_name[i], (unsigned long long)prof_mrd_cst[i]);
+	printf("\n[PROF]   S_MRD by region:");
+	for (int i = 0; i < 5; i++) if (prof_mrd_region[i]) printf(" %s=%llu", prof_region_name[i], (unsigned long long)prof_mrd_region[i]);
+	printf("\n[PROF]   S_MWR by cache state:");
+	for (int i = 0; i < 8; i++) if (prof_mwr_cst[i]) printf(" %s=%llu", prof_cst_name[i], (unsigned long long)prof_mwr_cst[i]);
+	printf("\n[PROF]   S_MWR by region:");
+	for (int i = 0; i < 5; i++) if (prof_mwr_region[i]) printf(" %s=%llu", prof_region_name[i], (unsigned long long)prof_mwr_region[i]);
+	printf("\n[PROF]   acceptance-cycle hits: instr %llu, data %llu\n",
+	       (unsigned long long)prof_fast_hit_i, (unsigned long long)prof_fast_hit_d);
+	printf("[PROF]   S_FETCH: fetch outstanding %llu, none outstanding %llu; instruction acks %llu\n",
+	       (unsigned long long)prof_fetch_pend, (unsigned long long)prof_fetch_nopend,
+	       (unsigned long long)prof_iack);
+	printf("[PROF]   data reads by region (acks/avg S_MRD clk):");
+	for (int i = 0; i < 5; i++) if (prof_dack_rd[i])
+		printf(" %s=%llu/%.1f", prof_region_name[i], (unsigned long long)prof_dack_rd[i],
+		       (double)prof_mrd_region[i] / prof_dack_rd[i]);
+	printf("\n[PROF]   data writes by region (acks/avg S_MWR clk):");
+	for (int i = 0; i < 5; i++) if (prof_dack_wr[i])
+		printf(" %s=%llu/%.1f", prof_region_name[i], (unsigned long long)prof_dack_wr[i],
+		       (double)prof_mwr_region[i] / prof_dack_wr[i]);
+	printf("\n");
+}
 static uint32_t pc_hist[1 << 24];
 static uint32_t pc_hist_pc(int i) { return (uint32_t)i << 8; }
 
@@ -235,9 +298,47 @@ int verilate() {
 			if (clk_sys.clk && !scsi_disk_file.empty()) blockdevice.AfterEval();
 			if (clk_sys.clk && !VERTOPINTERN->reset) {
 				machine_events();
-				if (!cpu_trace_disabled && main_time >= trace_after) cpu_trace_step();
+				if (!cpu_trace_disabled && (main_time >= trace_after ||
+				                            (trace_on_ncr && NCR_REGTRACE))) cpu_trace_step();
 				uint32_t hpc = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__pc_i;
 				if (pc_hist_enable) pc_hist[hpc >> 8]++;
+				if (cpu_prof_enable) {
+					uint8_t st = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__state;
+					prof_state[st]++;
+					prof_total++;
+					// S_DECODE (4) entered = one instruction dispatched
+					if (st == 4 && prof_prev_state != 4) prof_dispatch++;
+					// S_MRD (9) / S_MWR (10) with the request not yet issued
+					// because a queue fetch owns the port
+					if ((st == 9 || st == 10) &&
+					    !SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__m_issued &&
+					    SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__epf_pend)
+						prof_portwait++;
+					prof_prev_state = st;
+					if (st == 9 || st == 10) {
+						uint8_t cst = SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__cst & 7;
+						uint32_t a = SIMEMU->__PVT__machine__DOT__cpu__DOT__mem_addr;
+						int r = prof_region(a);
+						if (st == 9) { prof_mrd_cst[cst]++; prof_mrd_region[r]++; }
+						else         { prof_mwr_cst[cst]++; prof_mwr_region[r]++; }
+					}
+					if (SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__idle_hit) {
+						if (SIMEMU->__PVT__machine__DOT__cpu__DOT__mem_instr) prof_fast_hit_i++;
+						else prof_fast_hit_d++;
+					}
+					if (st == 3) {
+						if (SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__epf_pend) prof_fetch_pend++;
+						else prof_fetch_nopend++;
+					}
+					if (SIMEMU->__PVT__machine__DOT__cpu__DOT__mem_ack) {
+						if (SIMEMU->__PVT__machine__DOT__cpu__DOT__mem_instr) prof_iack++;
+						else {
+							int r = prof_region(SIMEMU->__PVT__machine__DOT__cpu__DOT__mem_addr);
+							if (SIMEMU->__PVT__machine__DOT__cpu__DOT__mem_write) prof_dack_wr[r]++;
+							else prof_dack_rd[r]++;
+						}
+					}
+				}
 				{
 					// RAM write watchpoints: DrvQHdr + the DrvQEl at $B94E
 					static const uint32_t watch_addr[] =
@@ -305,6 +406,7 @@ int verilate() {
 					       (unsigned long long)main_time, hpc, cpu_trace_count,
 					       SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__regfile__DOT__areg[3],
 					       SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__regfile__DOT__dreg[7]);
+					if (cpu_prof_enable) cpu_prof_print();
 					fflush(stdout);
 				}
 			}
@@ -359,7 +461,15 @@ static void cpu_trace_step() {
 	const char* disasm = disassemble_68k_ext_len(pc, opwords, 5, &len);
 	cpu_trace_count++;
 	if (cpu_trace_file && gui_trace_file)
-		fprintf(cpu_trace_file, "%08X: %04X  %s\n", pc, opwords[0], disasm);
+		fprintf(cpu_trace_file, "%08X: %04X  %-40s @%llu\n", pc, opwords[0], disasm,
+		        (unsigned long long)main_time);
+	if (trace_max && cpu_trace_count >= trace_max) {
+		printf("[TRACE] %ld instructions traced, stopping the trace at cycle %llu\n",
+		       cpu_trace_count, (unsigned long long)main_time);
+		fflush(stdout);
+		if (cpu_trace_file) { fclose(cpu_trace_file); cpu_trace_file = nullptr; }
+		cpu_trace_disabled = true;
+	}
 	if (gui_instr_log)
 		console.AddLog("%08X: %04X  %s", pc, opwords[0], disasm);
 }
@@ -425,6 +535,10 @@ int main(int argc, char** argv, char** env) {
 			headless = true;
 		} else if (!strcmp(argv[i], "--no-cpu-trace")) {
 			cpu_trace_disabled = true;
+		} else if (!strcmp(argv[i], "--trace-on-ncr")) {
+			trace_on_ncr = true;
+		} else if (!strcmp(argv[i], "--trace-max") && i + 1 < argc) {
+			trace_max = strtol(argv[++i], nullptr, 0);
 		} else if (!strcmp(argv[i], "--max-cycles") && i + 1 < argc) {
 			max_cycles = strtoull(argv[++i], nullptr, 0);
 		} else if (!strcmp(argv[i], "--trace-after") && i + 1 < argc) {
@@ -441,6 +555,8 @@ int main(int argc, char** argv, char** env) {
 			mouse_btn_period = atoi(argv[i] + 10);
 		} else if (!strcmp(argv[i], "--hist")) {
 			pc_hist_enable = true;
+		} else if (!strcmp(argv[i], "--prof")) {
+			cpu_prof_enable = true;
 		} else if (!strcmp(argv[i], "--screenshot") && i + 1 < argc) {
 			screenshot_mode = true;
 			std::stringstream ss(argv[++i]);
@@ -484,6 +600,7 @@ int main(int argc, char** argv, char** env) {
 	blockdevice.sd_wr          = &VERTOPINTERN->sd_wr;
 	blockdevice.sd_ack         = &VERTOPINTERN->sd_ack;
 	blockdevice.sd_buff_addr   = &VERTOPINTERN->sd_buff_addr;
+	blockdevice.sd_blk_cnt     = &VERTOPINTERN->sd_blk_cnt;
 	blockdevice.sd_buff_dout   = &VERTOPINTERN->sd_buff_dout;
 	blockdevice.sd_buff_din[0] = &VERTOPINTERN->sd_buff_din0;
 	blockdevice.sd_lba[2]      = &VERTOPINTERN->sd_lba0;        // CD-ROM: same lba / data bus

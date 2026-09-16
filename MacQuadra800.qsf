@@ -36,7 +36,7 @@ set_global_assignment -name FITTER_EFFORT "STANDARD FIT"
 # needed: it fit at 81% but missed setup by 0.947 ns (Fmax 32.0 vs the
 # 33.0 MHz clock).  Do not re-apply the area knobs without a fit that
 # actually needs them.
-set_global_assignment -name OPTIMIZATION_MODE "BALANCED"
+set_global_assignment -name OPTIMIZATION_MODE BALANCED
 set_global_assignment -name ALLOW_POWER_UP_DONT_CARE ON
 set_global_assignment -name QII_AUTO_PACKED_REGISTERS NORMAL
 set_global_assignment -name ROUTER_LCELL_INSERTION_AND_LOGIC_DUPLICATION ON
@@ -128,7 +128,62 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # fits at 98 % and meets timing at +0.444 ns setup (HDMI PLL domain; clk_sys
 # +0.797, clk_ram +0.927), the best margin since the recipe; seed 19 gave
 # +0.171 on the previous head.
-set_global_assignment -name SEED 21
+# 2026-09-08 (branch alan-perf-20260908, bffbd3b): the same recipe with the AP68040
+# submodule at Alan's 299cb36 (wombat-upstream-fixes: I-cache lookahead, queued-
+# opcode retire, resident immediates, DBcc refill dispatch, FPU regbank in MLABs)
+# fits at seed 21 first try: 41,060 ALMs (98 %), setup +0.579 (HDMI), clk_sys
+# +0.753, clk_ram +0.943, hold +0.225; 20-minute flow. md5 512cd4f8.
+# 2026-09-12 (4404a15): Alan's 164a376 (early data issue) with his NCR/CD BCD
+# reciprocal fits at seed 21 in 40,265 ALMs (96 %) but MISSES the HDMI PLL
+# domain by 0.164 ns (clk_sys +0.508, clk_ram +1.189, hold +0.198); not
+# deployable, a seed walk is owed if that head is wanted. md5 6d6a6daf.
+# 2026-09-12 (7d8569d, the lookup read-ahead on top of it): seed 21 fits in
+# 40,584 ALMs (97 %) and MEETS timing: HDMI +0.256, clk_sys +0.307, clk_ram
+# +0.884, hold +0.208. 477 RAM blocks, 64 DSPs. md5 0018d4a9. (Quartus
+# rewrote this file when a comment was edited mid-fit and dropped the notes
+# once; the STA/asm were re-run by hand on the finished db.)
+# 2026-09-12 (c9219a8, + fill hold, branch-target hint, one-state MOVE store):
+# seed 21 placed but FAILED TO ROUTE (congestion, hold-repair delay). Seed 22
+# fits in 41,096 ALMs (98 %) and meets timing: clk_sys +0.256, HDMI +0.409,
+# clk_ram +0.593. Seed 22 is the current seed for this head.
+# Seed 23 (built in ../MacQuadra800_wt2) fits in 41,049 ALMs but misses the HDMI
+# domain by 0.092 ns (clk_sys +0.530, clk_ram +0.651): rejected, seed 22 stays.
+# Store head + posted VRAM writes (800a94f): seed 22 fits in 41,109 ALMs but misses
+# the HDMI domain by 0.036 ns (clk_sys +0.743, clk_ram +0.789, hold +0.246);
+# walking seed 23 here and seed 24 in ../MacQuadra800_wt2.
+# Both met: seed 23 41,116 ALMs (HDMI +0.463, clk_sys +0.766, clk_ram +0.966,
+# hold +0.246; rbf 469a8936), seed 24 41,115 ALMs (HDMI +0.236, clk_sys +0.660,
+# clk_ram +0.639; rbf 03492463).  Neither went to hardware: the CPU moved on.
+# 2026-09-15: Alan's checkpoint 15 (AP68040 167c5e8) + the six task hoistings
+# (wombat-area-diet R1..R6, docs/cpu-area-consolidation.md): synthesis est.
+# 41,919 -> ~37,700 ALMs on this recipe; seed walk from 21.
+# R1..R6 seed 21: fits in 37,189 ALMs (89 %) but the CPU clock misses by 4.063 ns
+# (rr_a -> hint adder -> MMU -> cache/store-buffer ack -> finish_bcc -> the
+# hoisted go_pc/decode_dbcc_brf seed loop -> epf_ftail: the carrier put the
+# refill-seed cone behind the acknowledge).  Next fit: R1..R4 (8778213).
+# R1..R4 (8778213) seed 21: MET -- 38,325 ALMs (91 %), 497 M10K, CPU clock +0.361,
+# HDMI +0.429, clk_ram +0.757, hold +0.248; rbf 8c6d48b5 (the hardware candidate).
+# R1..R6 early-data form (923c544) seed 21, in ../MacQuadra800_wt2: 36,961 ALMs
+# (88 %), CPU clock -0.269 ns (HDMI +0.656, clk_ram +0.818): the 4 ns hole is
+# gone; seed walk 22.. there.
+# R1..R6 (923c544) seed 22, in ../MacQuadra800_wt2: MET -- 36,982 ALMs, CPU clock
+# +0.126, HDMI +0.183, clk_ram +0.910; rbf 2f739338.  Not gated: the R1..R4
+# candidate hung the 8.1 boot, traced in the sim to a 53C96 model window (a CD
+# MODE SELECT's bus service raised ~12 cycles before the phase moved to STATUS;
+# the faster CPU's poll read the stale phase).  The ncr53c96 fix is in this build:
+# seed 22 here, seed 23 in ../MacQuadra800_wt2.
+# Seed 22 with the fix: MISSED, CPU clock -0.619 ns (TNS -10.9), HDMI +0.513; walking 24 here.
+# Seed 24 (R1..R6 + fix) MISSED too: CPU clock -1.669 ns (TNS -85.4).  Three misses in a row
+# (22/23/24 = -0.6/-1.4/-1.7 ns) after the pre-fix +0.126 at 22: the R1..R6 CPU path is parked.
+# The main tree now fits R1..R4 (8778213) + fix at seed 22, the hedge for wt2 at seed 21.
+# R1..R4 + fix seed 21 (wt2): CPU +0.267, HDMI -0.766.  Seed 22 (here): CPU +0.712, HDMI -0.095
+# (one endpoint, 38,7xx ALMs).  The HDMI endpoint is the usual seed lottery: 23 in wt2, 24 here.
+# Seed 24 (R1..R4 + fix): the fitter could not place the design at all (Error 11802). Seed 25 next.
+# Seed 25: fitter took 2.5 h and gave up on timing (CPU clock -9.159 ns); 26 and 27 did not place.
+# RELEASED 2026-09-16 as MacQuadra800_20260915.rbf: seed 22 (clk_sys +0.712, clk_ram +0.998, HDMI
+# -0.095 on sys_top hdmi_dv_hs -> hs), shipped marginal by policy (CLAUDE.md), both gates pass,
+# Speedometer Mix 0.858.  Seed 22 is the recipe for this head.
+set_global_assignment -name SEED 22
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
 # the design no longer fits with speed-directed synthesis; all-area

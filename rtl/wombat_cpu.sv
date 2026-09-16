@@ -120,6 +120,9 @@ wire [31:0] mm_addr, mm_wdata;
 wire  [2:0] mm_fc;
 wire        mm_ack, mm_nocache;
 wire [31:0] mm_rdata;
+wire        mm_line_stb, mem_line_stb, mm_busy;
+wire [31:4] mm_line_tag, mem_line_tag;
+wire [127:0] mm_line_data, mem_line_data;
 
 // MMU walker requests are held behind older buffered CPU stores. This matters
 // when software writes a page-table entry and immediately incurs an ATC miss:
@@ -133,6 +136,7 @@ wire  [1:0] cpu_bus_size;
 wire [31:0] cpu_bus_addr, cpu_bus_wdata;
 wire  [2:0] cpu_bus_fc;
 wire        cpu_bus_ack;
+wire        cpu_bus_posted;
 wire [31:0] cpu_bus_rdata;
 wire        buffered_store_pending;
 
@@ -168,6 +172,9 @@ ap040_core #(
 	.mem_fc(mem_fc),
 	.mem_ack(mem_ack),
 	.mem_rdata(mem_rdata),
+	.mem_line_stb(mem_line_stb),
+	.mem_line_tag(mem_line_tag),
+	.mem_line_data(mem_line_data),
 	.mem_flt(mem_flt),
 
 	.tc_out(w_tc),
@@ -231,6 +238,9 @@ ap040_mmu mmu (
 	.c_fc(mem_fc),
 	.c_ack(mem_ack),
 	.c_rdata(mem_rdata),
+	.c_line_stb(mem_line_stb),
+	.c_line_tag(mem_line_tag),
+	.c_line_data(mem_line_data),
 	.c_flt(mem_flt_mmu),
 
 	.pt_req(pt_req),
@@ -255,6 +265,9 @@ ap040_mmu mmu (
 	.m_fc(mm_fc),
 	.m_ack(mm_ack),
 	.m_rdata(mm_rdata),
+	.m_line_stb(mm_line_stb),
+	.m_line_tag(mm_line_tag),
+	.m_line_data(mm_line_data),
 
 	.walker_req(mmu_walker_req),
 	.walker_we(mmu_walker_we),
@@ -269,7 +282,7 @@ ap040_mmu mmu (
 	.m_nocache(mm_nocache)
 );
 
-assign walker_req  = mmu_walker_req && !buffered_store_pending;
+assign walker_req  = mmu_walker_req && !buffered_store_pending && !mm_busy;
 assign walker_we   = mmu_walker_we;
 assign walker_addr = mmu_walker_addr;
 assign walker_wdat = mmu_walker_wdat;
@@ -330,10 +343,19 @@ if (AP040_ENABLE_CACHE != 0) begin : g_cache
 		.c_wdata(mm_wdata),
 		.c_fc(mm_fc),
 		.c_nocache(mm_nocache | ~cache_allow),
+		// same qualifier as wombat_store_buffer's buffer_req
+		// same qualifier as wombat_store_buffer's buffer_req: RAM and the DAFB VRAM window
+		.c_post_ok(store_buffer_ok && ((mm_addr[31:30] == 2'b00) ||
+		                               (mm_addr[31:21] == 11'b1111_1001_000))),
 		.s_stb(snp_stb),
 		.s_addr(snp_addr),
 		.c_ack(mm_ack),
 		.c_rdata(mm_rdata),
+		.c_line_stb(mm_line_stb),
+		.c_line_tag(mm_line_tag),
+		.c_line_data(mm_line_data),
+		.c_busy(mm_busy),
+		.m_posted(cpu_bus_posted),
 
 		.m_req(cpu_bus_req),
 		.m_write(cpu_bus_write),
@@ -362,6 +384,11 @@ else begin : g_nocache
 	assign cpu_bus_fc    = mm_fc;
 	assign mm_ack        = cpu_bus_ack;
 	assign mm_rdata      = cpu_bus_rdata;
+	assign mm_line_stb = 1'b0;
+	assign mm_line_tag = 28'd0;
+	assign mm_line_data = 128'd0;
+	assign mm_busy = 1'b0;
+	assign cpu_bus_posted = 1'b0;
 	assign cinv_done = 1'b1;
 end
 endgenerate
@@ -373,6 +400,7 @@ wombat_store_buffer #(.ENABLE(AP040_STORE_BUFFER)) store_buffer (
 	.buffer_writes(store_buffer_ok),
 
 	.s_req(cpu_bus_req),
+	.s_posted(cpu_bus_posted),
 	.s_write(cpu_bus_write),
 	.s_instr(cpu_bus_instr),
 	.s_size(cpu_bus_size),

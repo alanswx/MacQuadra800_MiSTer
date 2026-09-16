@@ -1,10 +1,13 @@
 //============================================================================
 //  wombat_store_buffer — two-entry ordered CPU write queue.
 //
-//  Only host-qualified, non-faulting physical RAM writes may enter the queue.
-//  Their upstream acknowledgement is registered when the transaction is
-//  captured; the writes then drain in order through the ordinary bus. Reads
-//  and non-qualified writes cannot pass an older queued write.
+//  Only host-qualified, non-faulting physical RAM writes -- and writes into
+//  the DAFB VRAM window, which is on-chip block RAM that can never fault --
+//  may enter the queue. Their upstream acknowledgement is registered when
+//  the transaction is captured; the writes then drain in order through the
+//  ordinary bus. Reads and non-qualified writes cannot pass an older queued
+//  write, so a DAFB register write or a VRAM read-back still sees every
+//  earlier pixel store landed.
 //
 //  The queue sits below ap040_cache. Cache hits need no master transaction and
 //  may therefore run while a write drains, which is the latency this block is
@@ -24,6 +27,7 @@ module wombat_store_buffer
 
 	// CPU/cache side: level-held transaction, one-cycle acknowledgement.
 	input             s_req,
+	input             s_posted,     // the cache already acknowledged this write
 	input             s_write,
 	input             s_instr,
 	input       [1:0] s_size,
@@ -61,11 +65,15 @@ reg [31:0] q0_wdata, q1_wdata;
 reg  [2:0] q0_fc,    q1_fc;
 
 // Wombat's physical RAM window occupies the low 1 GB. buffer_writes excludes
-// the boot overlay; the remaining top-bit check excludes the fixed ROM window
+// the boot overlay; the remaining address check excludes the fixed ROM window
 // and every device region even if a caller accidentally leaves the qualifier
-// high.
+// high. The DAFB VRAM window ($F9000000-$F91FFFFF, the machine's decode 2)
+// is added explicitly: QuickDraw's pixel stores are the hottest uncached
+// writes in the machine, and posting them hides the platform round trip
+// exactly as it does for RAM.
+wire vram_window = (s_addr[31:21] == 11'b1111_1001_000);
 wire buffer_req = (ENABLE != 0) && buffer_writes && s_req && s_write &&
-	                 (s_addr[31:30] == 2'b00);
+	                 ((s_addr[31:30] == 2'b00) || vram_window);
 
 // accept_ack doubles as the held-request guard. In the cycle after capture it
 // prevents the still-asserted request from being enqueued twice, matching the
@@ -78,7 +86,11 @@ wire pop  = drain_active && (m_ack || m_err);
 wire direct_request = s_req && !buffer_req && (count == 0) && !drain_active;
 
 assign pending = (count != 0);
-assign s_ack   = buffer_req ? accept_ack : (direct_active ? m_ack : 1'b0);
+// A posted write is acknowledged in its capture cycle: nothing upstream
+// waits on it combinationally, and accept_ack still guards the held
+// request from being captured twice.
+assign s_ack   = buffer_req ? (accept_ack | (push & s_posted)) :
+                 (direct_active ? m_ack : 1'b0);
 assign s_rdata = m_rdata;
 
 assign m_req   = drain_active ? 1'b1     : direct_request;
@@ -103,7 +115,9 @@ always @(posedge clk) begin
 	end
 	else if (ce) begin
 		accept_ack <= 0;
-		if (push) accept_ack <= 1;
+		// a posted write was acknowledged in its capture cycle; the
+		// requester has moved on, so no held-request guard is needed
+		if (push) accept_ack <= !s_posted;
 
 		// Queue update. A simultaneous pop/push is included for completeness;
 		// with a full queue the waiting third store is accepted on the next

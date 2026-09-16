@@ -48,10 +48,20 @@ bash scripts/build_only.sh --check    # Analysis & Synthesis only (~13 min), no 
   so launch with `--no-wait` only after checking that no MacQuadra800 flow is
   running, and never kill a `quartus_*` process without matching its command
   line to this project (`Get-CimInstance Win32_Process`).
-- Timing must be **met** (positive worst slack in `output_files/*.sta.summary`).
-  The design sits at ~79 % ALMs with well under a nanosecond of slack; a
-  failing fit usually wants a different seed, not a source change. Walk seeds,
-  record the result in the `.qsf` comment block.
+- Timing met (positive worst slack in `output_files/*.sta.summary`) is the
+  **release** bar, not a precondition for trying a build. The design sits at
+  ~92 % ALMs with tenths of a nanosecond of slack and the fits are a seed
+  lottery (2026-09-15: five seeds, one placement failure, misses on the
+  framework's own `sys_top` HDMI register by 0.1-0.8 ns). **Try the build
+  on hardware instead of waiting for more seeds** (user, 2026-09-16 -- the
+  hard rule was inherited from the LC core): deploy a marginal build with
+  `ALLOW_TIMING_VIOLATION=1 bash scripts/deploy_screenshot.sh` and let the
+  gate (boot, Speedometer, shutdown, A/UX) judge it. A miss on the 33 MHz
+  CPU clock (`emu|pll ... general[0]`) is the one that can corrupt memory
+  silently, so note it in the release entry and prefer a clean seed for the
+  shipped rbf when one exists; a miss on the HDMI domain is a video-output
+  register and is worth trying at once. Record every seed's result in the
+  `.qsf` comment block.
 - After any array change, check the RAM Summary in the `.map.rpt` (see BUILD.md):
   an array falling out to registers costs tens of thousands of ALMs.
 - The other direction bites too: a small array read combinationally across

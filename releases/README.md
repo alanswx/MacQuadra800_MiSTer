@@ -12,6 +12,7 @@ must never be flashed (`scripts/deploy_screenshot.sh` refuses one).
 
 | build | md5 | timing | notes |
 |---|---|---|---|
+| `MacQuadra800_20260915.rbf` | `4c80a3be96cb46992d00002484f9f67a` | **VIOLATED by 0.095 ns on the HDMI domain** (one `sys_top` `hdmi_dv_hs -> hs` register); `clk_sys` +0.712 ns, `clk_ram` positive | **Alan Steremberg's checkpoint-15 AP68040 (`167c5e8`) with the multi-site sequencer tasks hoisted (R1..R4, `8778213`), and the 53C96 fix for the Mac OS 8.1 boot hang it exposed.** Speedometer 4.02 Benchmark Mix **0.858** (0.462 on the 2026-09-12 store head, 0.360 on 20260908_3), CQD 0.605, FPU 0.449. Mac OS 8.1 Finder in 106 s, clean shutdown; A/UX 3.1: multiuser desktop in 148 s, `uname -a` = `A/UX localhos 3.1 SVR2 mc68040`, `shutdown -h now` to the halt screen in 127 s. Shipped as a marginal build by decision (2026-09-16): the miss is on the framework's video output register, not on the CPU clock. Seed 22; 38,711 ALMs (92 %). |
 | `MacQuadra800_20260908_3.rbf` | `71102b391b375ebc9614d80432136611` | met, **+0.444 ns setup** (clk_sys +0.797, clk_ram +0.927) | **The CD-ROM refuses MODE SELECT block-length changes like QEMU; ships with the rebased Main fork binary (`MiSTer_20260908`, upstream 20260907 + Mac SCSI family + multi-block CD fill).** Same CPU, CD and multi-block cache as 20260908_2. Both OSes pass the gate. The retail CD shows twice on the Quad Squad desktop: traced to that system folder (QEMU reproduces it from the same disk image; a fresh 8.1 install shows one icon), not the core. Seed 21; 98 % ALMs, 476 RAM blocks. |
 | `MacQuadra800_20260908_2.rbf` | `61da22443a3a66ac385eaa3ddc53e3de` | met, **+0.171 ns setup** (clk_sys +0.358, clk_ram +1.008, hold +0.243) | **The same CPU and CD, plus the multi-block SCSI cache, with composite Y/C back in.** Every hps_io transaction moves an aligned 8-sector group instead of one sector; the cache's tag bitmaps are sized to the slot (32/32/16 sectors here); the framework's ALSA path and two scaler refinements are compiled out, Y/C stays. Mac OS 8.1 desktop in 136 s (151), ROM CD boot in 107 s (146). Both OSes and the CD boot pass the gate. Seed 19; 98 % ALMs, 476 RAM blocks. |
 | `MacQuadra800_20260908.rbf` | `b882d3fce60b63fac4ab1284755031d6` | met, **+0.343 ns setup** (clk_sys +0.415, clk_ram +0.609, hold +0.158) | **Alan Steremberg's next AP68040 (`5aa596f`) with the CD-ROM still in.** Speedometer 4.02 Benchmark Mix 0.360 (Q605 = 1.0; 0.231 on 20260901), Color QuickDraw 0.317, FPU 0.250. Fits at 98 % with balanced synthesis, the framework's trimmed PLL reconfig core for 512x384, the CD passed through the block cache, and composite Y/C + ALSA compiled out. Both OSes and a CD boot pass the gate. Known cosmetic: the CD can appear twice on the Mac OS 8.1 desktop (the Main's 60 s re-insert; fixed in source after this build). Seed 19. |
@@ -23,6 +24,65 @@ must never be flashed (`scripts/deploy_screenshot.sh` refuses one).
 | `wombat33_20260831_1.rbf` | `3901ef5705f58dba3279c0417412f5f8` | met, +0.243 ns | **Sound works.** Fixes the watch-cursor wedge (ASC FIFOSTAT reported an empty FIFO as full) and hooks up the $806 volume slider. |
 | `wombat33_20260830.rbf` | `64c79dfb93ceefb549200c78671cdc31` | met, +0.248 ns | **ADB actually works** — the mouse button reaches the guest and motion stops inventing input. |
 | `wombat33_20260829.rbf` | `4c46a65c3a48b44ddb6f4fd6808d0422` | met, +0.245 ns | First build that boots Mac OS unattended. |
+
+## `MacQuadra800_20260915.rbf`
+
+md5 `4c80a3be96cb46992d00002484f9f67a`, seed 22, **timing NOT met by 0.095 ns
+on the HDMI PLL domain** -- a single endpoint, the framework's own
+`sys_top` `hdmi_dv_hs -> hs` register pair with -0.58 ns of clock skew from
+placement; `clk_sys` (the 33 MHz CPU clock) +0.712 ns, the 99 MHz SDRAM
+domain positive. 38,711 ALMs (92 %). Built from `ce78378` on
+`alan-perf-20260908` (submodule `rtl/ap68040` at `8778213`) with the
+qsf-default recipe (balanced synthesis, register duplication off,
+`CACHE_CD_OFF`, `CACHE_SMALL`, `MISTER_DISABLE_ALSA`, `MISTER_DOWNSCALE_NN`,
+`MISTER_DISABLE_ADAPTIVE`; composite Y/C kept; tracer off). Shipped as a
+marginal build by decision: at 92 % the fit is a seed lottery on that
+register (seeds 21/23 missed it by 0.77 ns, 24 and 27 did not place, the
+R1..R6 variant missed the CPU clock by 0.6-1.7 ns), and the hardware gate,
+not the STA, is the judge (`CLAUDE.md`). Deploy it with
+`ALLOW_TIMING_VIOLATION=1 bash scripts/deploy_screenshot.sh`. The store
+head's ARM-side captures cannot see the HDMI register; watch a real monitor
+for output glitches and report them.
+
+What changed since `20260908_3`:
+
+- **CPU** -- Alan Steremberg's checkpoint 15 (`cpu-regalu-capture-retire-20260909`,
+  `167c5e8`): 16 KB instruction and data caches, posted stores, the whole
+  instruction line returned to the prefetch queue, line-crossing reads
+  served from the cache, operands consumed at decode, memory-destination
+  EAs from the pipe start, one-cycle register shifts, short Bcc resolved at
+  the producer's retire, folded RTS/LINK/UNLK, the decode record handed
+  over at every retire. On top of it, six multi-site sequencer tasks
+  (`fetch_next`, `mrd`/`mwr`, `exc`, `immf`) hoisted into single post-`case`
+  carrier arms (`docs/cpu-area-consolidation.md`), cycle-identical on the
+  AP suite, `bench_loop` and the 100-row corpus, which is what makes the
+  checkpoint fit at all (64,723 -> 58,786 ALUTs in synthesis). The wrapper
+  gained the line offer, the posted-store handshake and `c_busy`
+  (`rtl/wombat_cpu.sv`, `rtl/wombat_store_buffer.sv`).
+- **`rtl/ncr53c96.sv`** -- the boot hang that the faster CPU exposed. For a
+  CD MODE SELECT the data-out drain raised Bus Service the cycle the FIFO
+  emptied while the list verdict moved the phase to STATUS ~12 cycles
+  later; the Apple CD-ROM extension's poll read the STATUS register in
+  that window (INT set, phase still DATA OUT), cleared the ISR, and waited
+  forever for a phase change it had already consumed. The drain now
+  withholds the Bus Service when the drained byte completes a judged list;
+  the verdict raises it with the phase already STATUS (both PIO and DMA
+  paths). Found with a register-level trace in the full-machine sim
+  (`scratch/ck15_hang/analysis.md`); `tb_ncr53c96` 476,837 checks, 0
+  failures. Sim tooling: `[NCRREG]` trace, `--trace-on-ncr`, `--trace-max`.
+- `sys/` untouched; every feature of 20260908_3 (CD-ROM, block cache, Y/C)
+  kept. Requires the same Main fork binary as 20260908_3 for CUE/CHD discs.
+
+Hardware (2026-09-15/16, .92 box, operator runs, `scratch/gate_fix/`):
+Mac OS 8.1 (QuadSquad8, 32 MB) Finder desktop at 106 s from `load_core`,
+clock in step with host time over 4 min, mouse and Apple menu live;
+Speedometer 4.02 Benchmark Mix 0.857 / 0.859 / 0.859 (mean **0.858**; the
+2026-09-12 store head scored 0.462 and 20260908_3 0.360 on the same disk;
+Alan's own board 0.855), Sieve 1.06, KWhetstones 2.19, Dhrystones 0.578;
+Color QuickDraw 0.605 (0.414 / 0.337); FPU 0.449 (0.305 / 0.251); a
+wall-clock bracket of a fourth Mix (34 +/- 3 s) confirms the seconds are
+real. Special -> Shut Down to "It is now safe to switch off" in 48 s.
+A/UX 3.1: multiuser Finder desktop at 148 s from `load_core` (no fsck: clean prior halt), CommandShell `uname -a` = `A/UX localhos 3.1 SVR2 mc68040`, About This Macintosh = Quadra 800 / System 7.0.1 / 32 MB, `shutdown -h now` reached "You may now switch off your Macintosh safely" in 127 s with `write_bytes` flat afterwards (the point where the 299cb36 CPU wedged on 2026-09-12). Both gates pass.
 
 ## `MacQuadra800_20260908_3.rbf`
 

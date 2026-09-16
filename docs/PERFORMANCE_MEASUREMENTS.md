@@ -599,3 +599,179 @@ It booted Mac OS 7.5.5 and completed one iteration of every PR category. Mac OS
 then reached its safe-to-switch-off screen, the MiSTer returned to its menu, and
 the disposable disk was restored from the pristine golden. Both images matched
 MD5 `0c4f774b4a2eccd5656e92f16119875f` after restoration.
+
+## 13. Alan's AP68040 `299cb36` on the 20260908_3 release recipe (2026-09-08/09)
+
+Candidate `scratch/MacQuadra800_alan299_512cd4f8.rbf` (md5 `512cd4f8…`),
+branch `alan-perf-20260908` at `f5ba53e`: the shipped `20260908_3` source
+with only the `rtl/ap68040` submodule moved from `5aa596f` to `299cb36`
+(queued-opcode retire into decode, resident immediates consumed in decode,
+DBcc dispatch from the branch refill sector, one-longword sequential I-cache
+lookahead, FPU register bank in MLABs, Adam Polkosnik's cache-invalidation
+race and FPU exception-frame fixes). Seed 21, 98 % ALMs, +0.579 ns. Same
+disk (Quad Squad, slot 1 second disk and the retail ISO in slot 4 mounted as
+on 09-08), Speedometer 4.02, one iteration, operator subagent; screenshots
+and the full transcription in `scratch/gate_alan/`.
+
+### Benchmark Mix (Quadra 605 = 1.0), three clean runs
+
+| Test | Run 1 | Run 2 | Run 3 | `5aa596f` (§9) | change |
+|---|---|---|---|---|---|
+| KWhetstones/sec | 346.185 | 347.467 | 347.528 | 326.2 | +6.5 % |
+| Dhrystones/sec | 4577.006 | 4576.791 | 4576.771 | 4173 | +9.7 % |
+| Towers (sec) | 2.185 | 2.187 | 2.187 | 2.387 | −8.4 % |
+| Quick Sort (sec) | 1.703 | 1.701 | 1.701 | 1.959 | −13.2 % |
+| Bubble Sort (sec) | 2.323 | 2.323 | 2.323 | 2.648 | −12.3 % |
+| Queens (sec) | 1.366 | 1.366 | 1.366 | 1.534 | −11.0 % |
+| Puzzle (sec) | 3.790 | 3.790 | 3.768 | 4.127 | −8.4 % |
+| Permutations (sec) | 3.321 | 3.322 | 3.321 | 3.574 | −7.1 % |
+| Int. Matrix (sec) | 2.594 | 2.590 | 2.551 | 2.812 | −8.2 % |
+| Sieve (sec) | 4.187 | 4.176 | 4.169 | 4.592 | −9.1 % |
+| **Average ratio** | **0.394** | **0.395** | **0.396** | 0.361 | **+9.4 %** |
+
+Color QuickDraw (⌘G; only the 8-bit depth was enabled in the dialog this
+time): 8-bit 30.370 s, ratio **0.348** (32.540 s / 0.317 in §9, −6.7 %).
+FPU (⌘F, Quadra 650 = 1.0): KWhetstones 1515.261, Matrix Mult. 2.408 s,
+Fast Fourier 1.130 s, **average 0.279** (0.250, +11.6 %).
+
+Run-to-run spread is under 1 % on every line (Int. Matrix 1.7 %). **No
+first-run anomaly**: run 1's Sieve was 4.187 s, in line with runs 2 and 3.
+
+### Boot time went the other way
+
+Finder desktop at **162–202 s** after `load_core` (30 s polling; the splash
+was at 20 % with four extension icons at T+100 s, black at T+51 s) against
+"about 2 min 15 s" for `20260908_3` on the same disk with the same slot 1
+and slot 4 mounts. Everything measured inside the guest is faster, so the
+extra 30–60 s is before or around the ROM's disk scan. The Verilator
+full-machine boot of a fresh 8.1 install with this CPU never leaves the
+ROM's flashing-question-mark stage (26,000 sector reads and counting),
+while the same harness at `5aa596f` is being run as the control; see
+`RESUME-alan-perf.md`.
+
+### A/UX 3.1 on the same bitstream
+
+Multiuser Finder desktop in 225 s (fsck seen), CommandShell live (`uname -a`
+answers), but `shutdown -h now` printed the broadcast, the usual
+`callrpc RPC: Port mapper failure` and four `kill: No such process` lines,
+half-erased the Finder and then stopped repainting for 25 minutes. Typed
+`sync` and `halt` still moved `write_bytes` (~1 MB, then ~0.5 MB), so the
+kernel was alive; Shift taps changed nothing, Returns erased a few more
+icon labels. The `20260908_3` gate used Special → Shut Down for A/UX, the
+09-02 gate used `shutdown -h now` on the `be0a662` CPU and reached "You
+may now switch off". Not yet separated between the CPU and the path.
+
+## 14. Alan's `164a376` tip and the lookup read-ahead (2026-09-12, sim)
+
+Two steps on branch `alan-perf-20260908`, both on the 20260908_3 release
+recipe (seed 21 unless noted); design note `docs/cpu-lookup-readahead.md`.
+
+**Step 1 -- Alan's tip** (`4404a15`: AP68040 `164a376` early aligned RAM
+reads while entering `S_MRD` and stores while entering `S_MWR`, plus his
+exact multiply-by-205 `bin2bcd` in `ncr53c96`/`cd_audio`). His hardware
+numbers on the same RTL: Speedometer 4.02 Benchmark Mix 0.405 vs 0.394
+for `299cb36`. Our seed-21 fit: 40,265 ALMs (96 %), 25,366 registers,
+62 % block memory, clk_sys +0.508 ns, clk_ram +1.189 ns, **HDMI PLL
+domain -0.164 ns** -- the usual placement-luck path; not deployable, seed
+walk owed. rbf `scratch/MacQuadra800_alan164_s21_6d6a6daf.rbf`.
+
+**Step 2 -- lookup read-ahead** (`d6a1815`/`7d8569d`: AP68040
+`d325967`). Simulation only so far:
+
+| `bench_loop` | 164a376 | read-ahead | change |
+|---|---:|---:|---:|
+| phase 0 (MMU translated) | 147,012 | 133,628 | **-9.1 %** |
+| phase 2 (cached) | 147,790 | 134,406 | **-9.1 %** |
+| `S_MRD` occupancy | 39,338 | 26,554 | -32 % |
+| data read request→ack | 2.0 | 1.0 | |
+| ifetch request→ack | 1.7 | 1.3 | |
+
+AP68040 suite passes; first-100 silicon corpus 0 REAL diffs (cycles
+unchanged at 31,904,073 -- the corpus runs uncached). Full-machine
+Verilator boot of the fresh 8.1 install image in progress with the new
+`--prof` sequencer profiler (`verilator/sim_main.cpp`).
+
+**Fit (seed 21, release recipe): 40,584 ALMs (97 %), 25,324 registers,
+477 RAM blocks, 64 DSPs, timing MET -- HDMI +0.256 ns, clk_sys +0.307,
+clk_ram +0.884, hold +0.208.** +319 ALMs over Alan's tip on the same seed.
+rbf `scratch/MacQuadra800_readahead_s21_0018d4a9.rbf` (md5 `0018d4a9…`),
+staged on the .92 MiSTer as `/media/fat/_Unstable/MacQuadra800_readahead_0018d4a9.rbf`.
+Hardware: owed (the .92 MiSTer is shared with a live IRIX guest).
+
+**Step 3 -- fill hold, branch hint, one-state store** (`c9219a8`: AP68040
+`9216f3e`). AP suite passes; first-100 silicon corpus 0 REAL diffs and
+31,904,073 -> 30,185,494 cycles (-5.4 %, uncached, so the sequencer alone);
+`bench_loop` 134,396. The one-state store alone takes the ROM boot phase from 491.3M to 453.1M half-cycles (-7.8 %); the three steps together are -13.1 % against 164a376. **Fit: seed 21 placed but failed to route (congestion); seed 22 fits in 41,096 ALMs (98 %) with timing met -- clk_sys +0.256 ns, HDMI +0.409, clk_ram +0.593, hold +0.225.** rbf `scratch/MacQuadra800_store_s22_ba54b0ee.rbf`, staged on .92 as `/media/fat/_Unstable/MacQuadra800_store_ba54b0ee.rbf`. Seed 23 was also launched in `../MacQuadra800_wt2` for a second placement.
+
+**Full-machine A/B, Verilator, fresh 8.1 install image**, half-cycles from
+reset to the ROM boot's first volume write (lba 98; the same 239 sector
+reads at the sim's fixed 16,000-tick latency are inside the number):
+
+| core | half-cycles to first write | vs 164a376 |
+|---|---:|---:|
+| Alan's 164a376 | 521,367,641 | |
+| + read-ahead (d325967) | 492,953,061 | -5.5 % |
+| + fill hold and branch hint (no store path) | 491,296,965 | -5.8 % |
+| + one-state store (9216f3e) | 453,064,767 | **-13.1 %** |
+
+### Hardware gate of the store head (2026-09-12, the .92 MiSTer)
+
+`MacQuadra800_store_ba54b0ee.rbf` (`c9219a8`, seed 22) on 192.168.99.92:
+Quad Squad 8.1 disk (slot 0 only, no second disk, no CD; the core's RAM
+option at its 32 MB default -- Speedometer reports 32768K), operator
+subagent, log and 135 screenshots in `scratch/gate_store/`. As a control
+the shipped `20260908_3` was run on the same box, disk and settings; it
+reproduces its historical numbers (Mix 0.360 vs 0.361, Queens 1.534,
+Bubble Sort 2.652 vs 2.648, FPU 0.251 vs 0.250), so the 32 MB setting does
+not distort the comparison.
+
+| item | store head | shipped 20260908_3 (same box) |
+|---|---|---|
+| Mac OS 8.1: Finder menu bar after `load_core` | **103 s** (icons 142 s) | 135 s |
+| Mac OS 8.1: Special -> Shut Down to the halt screen | 41 s, 61 s (and one hang, below) | 56 s |
+| A/UX 3.1: multiuser desktop | **137 s**, no fsck | -- |
+| A/UX 3.1: `shutdown -h now` to "You may now switch off" | **PASS, 130 s** (299cb36 wedged here) | -- |
+
+Speedometer 4.02 Benchmark Mix (Quadra 605 = 1.0; four candidate runs
+0.460 / 0.462 / 0.462 / 0.460, run 3 shown):
+
+| test | shipped 20260908_3 | store head | change |
+|---|---:|---:|---:|
+| KWhetstones/sec | 326.569 | 385.724 | +18.1 % |
+| Dhrystones/sec | 4104.703 | 5771.238 | +40.6 % |
+| Towers (s) | 2.376 | 1.845 | -22.3 % |
+| Quick Sort (s) | 2.013 | 1.480 | -26.5 % |
+| Bubble Sort (s) | 2.652 | 1.944 | -26.7 % |
+| Queens (s) | 1.534 | 1.131 | -26.3 % |
+| Puzzle (s) | 4.145 | 3.210 | -22.6 % |
+| Permutations (s) | 3.576 | 2.829 | -20.9 % |
+| Int. Matrix (s) | 2.823 | 2.240 | -20.7 % |
+| Sieve (s) | 4.425 | 3.340 | -24.5 % |
+| **average ratio** | **0.360** | **0.462** | **+28.3 %** |
+
+Color QuickDraw 8-bit (Cmd+G): 31.435 s / 0.337 -> **25.575 s / 0.414**
+(+22.8 %). FPU (Cmd+F, Quadra 650 = 1.0): KWhetstones 1687.809, Matrix
+Mult. 2.201 s, Fast Fourier 1.064 s, **average 0.305** vs 0.251 (+21.5 %).
+Against the 299cb36 gate (§13, 0.395) the store head is +17 %. Run-to-run
+spread under 1 %; no first-run anomaly.
+
+**The one anomaly:** the first Mac OS 8.1 Shut Down (after ~50 min of
+uptime with Speedometer's CQD and FPU suites, a file rename, window drags,
+zooms and collapses, and Find File still running) closed the Special menu
+and then never moved again for 12 minutes: clock frozen, no guest disk
+writes, the Finder's event loop not tracking the menu bar, only the
+interrupt-driven cursor alive. The next boot reported "not shut down
+properly" and the disk was fine. Two later candidate shutdowns (a clean
+desktop; and Find File plus a Speedometer run again, ~11 min uptime) and
+the release with Find File open all halted cleanly, so it stands as one
+hang in three candidate shutdowns, not reproduced and not attributed. A
+shutdown soak (repeated boot/activity/shutdown cycles on the candidate and
+the release) is the next step before this build is released.
+
+After that point the fast-boot ROM runs ahead into the boot blocks and
+then parks forever in the ROM's video identification (`$40802F3A` and the
+probe-list walk from `$2F70`): the System asks for the video ID the cold
+boot saved and the patched warm path never saved one -- except that the
+pristine ROM lands in the same loop after its RAM test, so it is a
+sim-vs-hardware difference in what the System reads at start-up, still
+unexplained (see `RESUME-alan-perf.md`); the OS-phase profile waits on it.

@@ -283,6 +283,11 @@ wire ca_grant = tgt_mounted[2] && !io_rd_i && !io_wr_i && !io_ack_i && !io_ack_d
 reg [63:0] dbg_cyc;
 reg        dbg_irq_d, dbg_iow_d, dbg_ior_d, dbg_ack_d;
 initial dbg_cyc = 0;
+// register-level trace, armed by the first MODE SELECT to the CD target
+reg        dbg_regtrace;
+reg [31:0] dbg_regtrace_n;
+initial dbg_regtrace = 0;
+initial dbg_regtrace_n = 0;
 `endif
 
 wire byte_avail = buf_valid && (sbuf_pos < sbuf_len);
@@ -526,8 +531,18 @@ wire [9:0] nxt_idx = synth_on ? synth_idx : 10'd0;
 function [7:0] bcd2bin8(input [7:0] b);
 	bcd2bin8 = {4'd0, b[7:4]} * 8'd10 + {4'd0, b[3:0]};
 endfunction
-function [7:0] bin2bcd8(input [7:0] v);          // 0..99
-	bin2bcd8 = {(v / 8'd10), 4'd0} | (v % 8'd10);
+function [7:0] bin2bcd8(input [7:0] v);          // exact for every 8-bit v
+	reg [15:0] reciprocal;
+	reg  [7:0] t, u;
+	begin
+		// floor(v / 10) == (v * 205) >> 11 for all 0..255.  Derive
+		// the remainder from the same quotient instead of replicating a
+		// general divider and modulus at every concurrent response field.
+		reciprocal = v * 8'd205;
+		t = reciprocal[15:11];
+		u = v - ((t << 3) + (t << 1));
+		bin2bcd8 = {t[3:0], u[3:0]};
+	end
 endfunction
 wire [7:0] c1_trk_bin = bcd2bin8(cdb[5]);
 wire [8:0] c1_trk_k   = (c1_trk_bin == 8'd0) ? 9'd0 : (c1_trk_bin > 8'd99) ? 9'd98 : {1'b0, c1_trk_bin} - 9'd1;
@@ -787,6 +802,21 @@ always @(posedge clk) begin
 		if (!io_ack_i && dbg_ack_d)
 			$display("[NCR %0d] io_ack- fp=%b ff=%0d sp=%0d po=%b",
 			         dbg_cyc, flush_pending, fifo_cnt, sbuf_pos, xfer_pio_out);
+		if (exec_pending && cdb[0] == 8'h15 && is_cd && !dbg_regtrace) begin
+			dbg_regtrace <= 1;
+			$display("[NCR %0d] REGTRACE armed (MODE SELECT to CD)", dbg_cyc);
+		end
+		if (dbg_regtrace && ce && sel && (dbg_regtrace_n < 32'd80000)) begin
+			dbg_regtrace_n <= dbg_regtrace_n + 32'd1;
+			if (write)
+				$display("[NCRREG %0d] wr rs=%0h data=%02x ph=%0d ist=%02x irq=%b ff=%0d tz=%b",
+				         dbg_cyc, rs, wdata, phase, istatus, irq, fifo_cnt, tc_zero);
+			else
+				$display("[NCRREG %0d] rd rs=%0h data=%02x ph=%0d ist=%02x irq=%b ff=%0d tz=%b",
+				         dbg_cyc, rs, rdata, phase, istatus, irq, fifo_cnt, tc_zero);
+		end
+		if (!irq && dbg_irq_d)
+			$display("[NCR %0d] INT- ph=%0d", dbg_cyc, phase);
 		dbg_iow_d <= io_wr_i;
 		dbg_ior_d <= io_rd_i;
 		dbg_ack_d <= io_ack_i;
@@ -1068,13 +1098,30 @@ always @(posedge clk) begin
 		    !flush_pending && !io_busy) begin
 			chunk_irq_armed <= 0;
 			xfer_out <= 0;
-			if (blocks_left == 0) phase <= PH_STAT;
-			raise(I_BUS);
+			// A judged CD MODE SELECT list that has fully arrived gets its
+			// bus service from the verdict (msel_fin) instead, with the
+			// phase already STATUS -- see the PIO case below.
+			if (!(msel_pend && dout_len != 0 && sbuf_pos >= dout_len)) begin
+				if (blocks_left == 0) phase <= PH_STAT;
+				raise(I_BUS);
+			end
 		end
-		// non-DMA data-out: FIFO drained -> bus service
+		// non-DMA data-out: FIFO drained -> bus service.  When the drained
+		// byte completes a judged CD MODE SELECT list the bus service is
+		// NOT raised here: the parse (msel_st 1..10) moves the phase to
+		// STATUS about twelve cycles later and msel_fin raises it then.
+		// Raising it here left a window in which the STATUS register showed
+		// DATA OUT with INT set; the checkpoint-15 CPU's polling loop read
+		// it nine cycles after the raise, cleared the ISR, and the verdict's
+		// bus service merged into the one it had just consumed -- the Apple
+		// CD-ROM extension then waited forever for a phase change that had
+		// already happened (Mac OS 8.1 boot hang at ~15 %, 2026-09-15).  A
+		// real target only changes phase, and only interrupts, once it has
+		// the whole list; QEMU's scsi-cd completes the request before the
+		// guest's next instruction, so neither ever shows that state.
 		if (xfer_pio_out && fifo_cnt == 0) begin
 			xfer_pio_out <= 0;
-			raise(I_BUS);
+			if (!(msel_pend && dout_len != 0 && sbuf_pos >= dout_len)) raise(I_BUS);
 		end
 		// MESSAGE OUT complete: the whole message left the FIFO.  What the
 		// target does next is decided by the message it just received:

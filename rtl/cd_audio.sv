@@ -297,10 +297,16 @@ function [7:0] bin2bcd;                // 0..99
 	// 8-bit result, which dropped the tens digit for every value >= 10
 	// (16 -> $06).  Found by tb_ncr53c96 T17 against the Apple $C1 lead-out.
 	input [7:0] v;
+	reg  [15:0] reciprocal;
 	reg   [7:0] t, u;
 	begin
-		t = v / 8'd10;
-		u = v % 8'd10;
+		// floor(v / 10) == (v * 205) >> 11 for every 8-bit v.  Expressing
+		// the constant product once and deriving the remainder avoids the
+		// separate general divider and modulus circuits Quartus otherwise
+		// creates at each concurrent call site.
+		reciprocal = v * 8'd205;
+		t = reciprocal[15:11];
+		u = v - ((t << 3) + (t << 1));
 		bin2bcd = {t[3:0], u[3:0]};
 	end
 endfunction
