@@ -391,9 +391,14 @@ gate had no CD):
       empty (expect the halt screen) and again with the OT ISO (a second,
       smaller disc) -- if only the CD runs wedge, it is the CD path at
       shutdown
-- [~] W2 (QEMU operator running from 12:18, brief `scratch/w2/BRIEF.md`,
-      A/UX image + retail ISO + ROM staged in WSL `~/qemu-work/`) the
-      golden reference: QEMU `q800` with the same A/UX image and
+- [x] W2 DONE 13:20 but NOT a golden reference for the halt path: QEMU's
+      A/UX stalls at `INIT: New run level: S` with and without the CD (31
+      min), before the teardown the MiSTer reaches; what it did establish
+      (`scratch/w2/`): no CD command from Return to the stall, the disc
+      PREVENT-locked from mount on, the boot identification set, and that
+      A/UX's kernel text console draws 1 bpp regardless of the frame's
+      depth (the QEMU streaks decoded to the console text). The golden
+      reference: QEMU `q800` with the same A/UX image and
       the retail ISO as scsi-cd (`../qemu`, the recipe in the
       `qemu-golden-reference` memory): does A/UX halt cleanly there? Trace
       its CD traffic at shutdown (QEMU scsi trace events) to learn what
@@ -653,6 +658,28 @@ gate had no CD):
   a panic) drawn at the wrong depth; decoding them is in progress
   (`scratch/w3/decode_streaks*.py`). The A/UX operator (P1b + the three
   controls) is on the box from 13:30.
+- 2026-09-16 13:25, **the wedge screen read**: inverting the MiSTer's
+  wedge screenshots through the Apple 256-colour CLUT gives glyph bytes at
+  x = 0/128/256/384/512 on paired frame rows, and re-rendering the frame
+  as a 1-bpp image at a 128-byte pitch shows console text ("WELCOME TO
+  A/UX", the shell lines) in the streaks: **the streaks are A/UX's kernel
+  console repainting its text buffer at 1 bpp (the DAFB's 1-bpp pitch)
+  into a frame the DAFB still shows at 8 bpp**. A passing halt
+  (`scratch/gate_fix/40_aux_halt.png`) is a Mac-style dialog on black,
+  drawn by the Mac environment -- so in the wedge the Mac environment has
+  already died and the kernel owns the screen; whether it then halts,
+  panics or hangs is what the operator's keyboard-echo test and the W3
+  trace (CD commands in the last epochs, bus faults, the watchdog) decide.
+  QEMU stalled before that phase, so its "no CD traffic" does not cover it.
+  Only ~2 of 16 glyph scanlines survive in a 640-px screenshot, so the
+  last lines could not be read (`scratch/w3/decode_streaks*.py`).
+- 2026-09-16 13:18: **the phase-2 fit at seed 21 failed in routing**
+  ("Fitter routing phase terminated due to routing congestion", peak 92 %
+  in X56_Y11..X66_Y22; placement had succeeded) -- the placement lottery,
+  not capacity (the design is 1,400 ALUTs smaller). Seeds 22 (wt2) and 23
+  (main tree, the qsf edited in place) launched in parallel 13:17
+  (`scratch/build_phase2_s22.log` there, `scratch/build_phase2_s23.log`);
+  the aggressive-routability switch is the next lever if both fail.
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build
