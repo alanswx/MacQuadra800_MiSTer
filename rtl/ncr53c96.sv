@@ -103,6 +103,7 @@ module ncr53c96
 	output [31:0] io_lba,              // for whichever io_rd/io_wr bit is up
 	output  [2:0] io_rd,
 	output  [2:0] io_wr,
+	output  [5:0] io_blk_cnt,          // blocks - 1 the CD-DA frame fetch wants (else 0)
 	input   [2:0] io_ack,
 	input  [12:0] sd_buff_addr,        // [7:0] = word within the 512-byte block
 	input  [15:0] sd_buff_dout,
@@ -230,15 +231,22 @@ reg        msel_bd;                // the list carries an 8-byte block descripto
 // buffer and the engine's completion accounting.
 wire        ca_io_active, ca_io_rd;
 wire [31:0] ca_io_lba;
-wire  [7:0] ca_ast_code, ca_cur_ctrl, ca_cur_trk;
-wire  [7:0] ca_abs_m, ca_abs_s, ca_abs_f, ca_rel_m, ca_rel_s, ca_rel_f;
+wire  [5:0] ca_io_blk_cnt;
 wire        ca_toc_ready, ca_disc_audio;
-reg         ca_cmd_stb, ca_read_stb, ca_eject_stb, ca_bus_rst;
+reg         ca_fwd_stb, ca_read_stb, ca_eject_stb, ca_bus_rst;
+reg         fwd_poke;              // the forward in flight is a transport command: tell the engine when it lands
 reg   [1:0] ca_mount_d;            // the CD mount pulse, after tgt_blocks has latched
-reg   [7:0] ap_ch0, ap_vol0, ap_ch1, ap_vol1;   // MODE SELECT page $0E output ports
+assign io_blk_cnt = ca_io_blk_cnt;
 
-assign io_rd = (io_rd_i ? (3'b001 << cur_tgt) : 3'b000) | {ca_io_rd | io_rd_fwd, 2'b00};
-assign io_wr = (io_wr_i ? (3'b001 << cur_tgt) : 3'b000) | {io_wr_fwd, 2'b00};
+// The forward's write (and the probe's read) may be RAISED while the audio
+// engine's own transaction is still in flight; they are not shown to the
+// platform until it has ended, because io_lba follows ca_io_active and the
+// platform (scsi_cache's E_IDLE, hps_io) samples the address in the very
+// cycle it sees the request bit -- one cycle before ca_io_active drops.  A
+// PAUSE forwarded during a frame fetch went out at the frame window's
+// address and never reached the ARM (tb_ncr53c96 T19, 2026-09-16).
+assign io_rd = (io_rd_i ? (3'b001 << cur_tgt) : 3'b000) | {ca_io_rd | (io_rd_fwd && !ca_io_active), 2'b00};
+assign io_wr = (io_wr_i ? (3'b001 << cur_tgt) : 3'b000) | {io_wr_fwd && !ca_io_active, 2'b00};
 assign io_lba = ca_io_active ? ca_io_lba : io_lba_e;
 // While a write flush is outstanding, io_ack must keep watching the slot
 // the flush was ISSUED on, not cur_tgt: a new selection (the ROM issuing a
@@ -447,7 +455,6 @@ wire arm_msg_out = !fifo_ext && no_dma_arm && !arm_cdb_ff && !arm_drain &&
 //   write of the sector buffer at $7D000000 + (op << 16): the list where
 //   the drain left it, the CDB at bytes 496..507 (SY_CDB copies it there).
 localparam [3:0] SY_SENSE = 4'd0, SY_INQ = 4'd1, SY_MODE = 4'd2, SY_CAP = 4'd3,
-                 SY_SUBQ = 4'd4, SY_ASTAT = 4'd5, SY_SUBCH = 4'd6,
                  SY_HDR = 4'd7, SY_HDMODE = 4'd8, SY_CDB = 4'd9;
 localparam [31:0] WIN_RESP = 32'h7E00_0000, WIN_CMD = 32'h7D00_0000;
 reg  [3:0] synth_kind;
@@ -497,49 +504,12 @@ function [7:0] apple_id_byte(input [5:0] k);
 endfunction
 
 // The position responses ($42 / $C2 / $CC) stay here while the RTL
-// playhead owns the position (phase 1); BCD for the Apple forms.
-function [7:0] bin2bcd8(input [7:0] v);          // exact for every 8-bit v
-	reg [15:0] reciprocal;
-	reg  [7:0] t, u;
-	begin
-		// floor(v / 10) == (v * 205) >> 11 for all 0..255.  Derive
-		// the remainder from the same quotient instead of replicating a
-		// general divider and modulus at every concurrent response field.
-		reciprocal = v * 8'd205;
-		t = reciprocal[15:11];
-		u = v - ((t << 3) + (t << 1));
-		bin2bcd8 = {t[3:0], u[3:0]};
-	end
-endfunction
-// standard audio-status codes for $42: $11 play, $12 paused, $13 stopped
-wire [7:0] ca_ast_std = (ca_ast_code == 8'd0) ? 8'h11 : (ca_ast_code == 8'd1) ? 8'h12 : 8'h13;
-
 function [7:0] synth_byte(input [3:0] kind, input [9:0] idx);
 	case (kind)
 	SY_SENSE: synth_byte = (idx == 0) ? 8'h70 :
 	                       (idx == 2) ? sense_r :
 	                       (idx == 7) ? 8'h0A :
 	                       (idx == 12) ? asc_r : 8'h00;
-	// Apple READ Q SUBCODE (9): {ctrl, trk, idx=1, rel M,S,F, abs M,S,F} BCD
-	SY_SUBQ:    synth_byte = (idx == 0) ? ca_cur_ctrl :
-	                         (idx == 1) ? bin2bcd8(ca_cur_trk) : (idx == 2) ? 8'h01 :
-	                         (idx == 3) ? bin2bcd8(ca_rel_m) : (idx == 4) ? bin2bcd8(ca_rel_s) :
-	                         (idx == 5) ? bin2bcd8(ca_rel_f) : (idx == 6) ? bin2bcd8(ca_abs_m) :
-	                         (idx == 7) ? bin2bcd8(ca_abs_s) : (idx == 8) ? bin2bcd8(ca_abs_f) : 8'h00;
-	// Apple AUDIO STATUS (6): {status, 0, ctrl, abs M,S,F}; type 1 = volumes
-	SY_ASTAT:   synth_byte = (idx == 0) ? ((cdb[3] == 8'd1) ? 8'hFF : ca_ast_code) :
-	                         (idx == 1) ? ((cdb[3] == 8'd1) ? 8'hFF : 8'h00) :
-	                         (idx == 2) ? ca_cur_ctrl :
-	                         (idx == 3) ? bin2bcd8(ca_abs_m) : (idx == 4) ? bin2bcd8(ca_abs_s) :
-	                         (idx == 5) ? bin2bcd8(ca_abs_f) : 8'h00;
-	// standard READ SUB-CHANNEL: format 1 position (binary MSF); formats 2/3
-	// (MCN/ISRC) answer honestly with VALID=0
-	SY_SUBCH:   synth_byte = (cdb[3] == 8'h02) ? ((idx == 1) ? ca_ast_std : (idx == 3) ? 8'd20 : (idx == 4) ? 8'h02 : 8'h00) :
-	                         (cdb[3] == 8'h03) ? ((idx == 1) ? ca_ast_std : (idx == 3) ? 8'd20 : (idx == 4) ? 8'h03 : (idx == 6) ? cdb[6] : 8'h00) :
-	                         (idx == 1) ? ca_ast_std : (idx == 3) ? 8'd12 : (idx == 4) ? 8'h01 :
-	                         (idx == 5) ? ca_cur_ctrl : (idx == 6) ? ca_cur_trk : (idx == 7) ? 8'h01 :
-	                         (idx == 9) ? ca_abs_m : (idx == 10) ? ca_abs_s : (idx == 11) ? ca_abs_f :
-	                         (idx == 13) ? ca_rel_m : (idx == 14) ? ca_rel_s : (idx == 15) ? ca_rel_f : 8'h00;
 	SY_HDR:     synth_byte = (idx == 0) ? (ca_disc_audio ? 8'h00 : 8'h01) : (idx == 4) ? hdr_lba[31:24] :
 	                         (idx == 5) ? hdr_lba[23:16] : (idx == 6) ? hdr_lba[15:8] :
 	                         (idx == 7) ? hdr_lba[7:0] : 8'h00;
@@ -672,9 +642,8 @@ always @(posedge clk) begin
 		cur_tgt <= 0; cd_prevent <= 0; cd_blk512 <= 0; dout_len <= 0;
 		cd_present <= 0; cd_ejected <= 0;
 		msel_pend <= 0; msel_st <= 0; msel_bd <= 0; iccs_pend <= 0; msel_fin <= 0; io_discard <= 0;
-		ca_cmd_stb <= 0; ca_read_stb <= 0; ca_eject_stb <= 0; ca_bus_rst <= 0; ca_mount_d <= 0;
+		ca_fwd_stb <= 0; ca_read_stb <= 0; ca_eject_stb <= 0; ca_bus_rst <= 0; ca_mount_d <= 0; fwd_poke <= 0;
 		dbg_op <= 0; dbg_op_stb <= 0; dbg_op_cd <= 0; dbg_st <= 0; dbg_st_stb <= 0;
-		ap_ch0 <= 8'h01; ap_vol0 <= 8'hFF; ap_ch1 <= 8'h02; ap_vol1 <= 8'hFF;
 		io_lba_e <= 0; io_rd_i <= 0; io_wr_i <= 0;
 		dma_active <= 0;
 		cdb_active <= 0; cdb_pos <= 0; cdb_need <= 0; skip_cnt <= 0;
@@ -700,7 +669,7 @@ always @(posedge clk) begin
 	else begin
 		i_new = 8'h00;
 		dma_valid <= 0;
-		ca_cmd_stb <= 0; ca_read_stb <= 0; ca_eject_stb <= 0; ca_bus_rst <= 0;
+		ca_fwd_stb <= 0; ca_read_stb <= 0; ca_eject_stb <= 0; ca_bus_rst <= 0;
 		ca_mount_d <= {ca_mount_d[0], img_mounted[2] && !cd_same_disc};
 		if (img_mounted[2]) probe_pend <= 1;       // a (re)mount: the Main may have changed
 		// the cycle after a MODE SELECT verdict: run the ICCS the initiator
@@ -713,7 +682,11 @@ always @(posedge clk) begin
 `endif
 			raise(I_BUS);
 		end
-		if (fwd_fin && fwd_own && !fwd_q) fwd_own <= 0;     // the nexus's forward is done
+		if (fwd_fin && fwd_own && !fwd_q) begin              // the nexus's forward is done
+			fwd_own <= 0;
+			ca_fwd_stb <= fwd_poke;                          // a transport command: the engine asks the ARM its state
+			fwd_poke <= 0;
+		end
 		if ((msel_fin || (fwd_fin && fwd_own && !fwd_q)) && iccs_pend) begin
 `ifdef TB_DEBUG
 			$display("[ICCS] deferred push status=%02x fifo_cnt=%0d", scsi_status, fifo_cnt);
@@ -1076,23 +1049,15 @@ always @(posedge clk) begin
 				check(4'h5, 8'h26); msel_fin <= 1; msel_st <= 0; msel_pend <= 0;
 			end else msel_st <= 4'd5;
 		end
-		4'd5: msel_st <= 4'd6;                              // page word addressed
-		// An accepted list is forwarded to the ARM (it mirrors the page $0E
-		// ports for its MODE SENSE): the phase moves to STATUS now, the bus
-		// service is raised now, and the status byte itself waits for the
-		// write's ack (iccs_pend, released by fwd_fin).
-		4'd6: begin                                         // page code (only if the list reaches it)
-			if ({2'd0, msel_base} + 10'd2 > dout_len || q_e[15:8] != 8'h0E) begin
-				phase <= PH_STAT; msel_st <= 0; msel_pend <= 0;
-				fwd_cdb(8'h15, 1'b1); raise(I_BUS);
-			end
-			else msel_st <= 4'd7;
+		// An accepted list is forwarded to the ARM, which mirrors the page
+		// $0E output ports (the AppleCD player's volume slider) for its MODE
+		// SENSE and applies them to the frames it serves: the phase moves to
+		// STATUS now, the bus service is raised now, and the status byte
+		// itself waits for the write's ack (iccs_pend, released by fwd_fin).
+		4'd5: begin
+			phase <= PH_STAT; msel_st <= 0; msel_pend <= 0;
+			fwd_cdb(8'h15, 1'b1); raise(I_BUS);
 		end
-		4'd7: msel_st <= 4'd8;                              // page word 4 addressed
-		4'd8: begin ap_ch0 <= q_e[15:8]; ap_vol0 <= q_e[7:0]; msel_st <= 4'd9; end
-		4'd9: msel_st <= 4'd10;                             // page word 5 addressed
-		4'd10: begin ap_ch1 <= q_e[15:8]; ap_vol1 <= q_e[7:0]; msel_st <= 0; msel_pend <= 0;
-		       phase <= PH_STAT; fwd_cdb(8'h15, 1'b1); raise(I_BUS); end
 		default: ;
 		endcase
 		// data-out chunk complete: TC expired and the FIFO drained.  A TC
@@ -1625,14 +1590,17 @@ task exec_cdb;
 			else fetch(WIN_RESP | 32'h00C1_0000 | {16'd0, cdb[9], cdb[5]},
 			           cdb[9][7] ? clamp(10'd400, {alloc16[15:2], 2'b00}) : clamp(10'd4, alloc16));
 		end
-		8'hC2: begin                                   // Apple READ Q SUBCODE
-			if (is_cd) synth(SY_SUBQ, 10'd9); else check(4'h5, 8'h20);
+		// the playhead's own status (position, track, state): the ARM's
+		// playhead answers, through the response window like the TOC
+		8'hC2: begin                                   // Apple READ Q SUBCODE (9)
+			if (is_cd) fetch(WIN_RESP | 32'h00C2_0000, 10'd9); else check(4'h5, 8'h20);
 		end
-		8'hCC: begin                                   // Apple AUDIO STATUS
-			if (is_cd) synth(SY_ASTAT, 10'd6); else check(4'h5, 8'h20);
+		8'hCC: begin                                   // Apple AUDIO STATUS (6); type in the address
+			if (is_cd) fetch(WIN_RESP | 32'h00CC_0000 | {16'd0, cdb[3], 8'd0}, 10'd6); else check(4'h5, 8'h20);
 		end
-		8'h42: begin                                   // READ SUB-CHANNEL
-			if (is_cd) synth(SY_SUBCH, clamp(10'd64, alloc16)); else check(4'h5, 8'h20);
+		8'h42: begin                                   // READ SUB-CHANNEL: format + track in the address
+			if (is_cd) fetch(WIN_RESP | 32'h0042_0000 | {16'd0, cdb[3], cdb[6]}, clamp(10'd64, alloc16));
+			else check(4'h5, 8'h20);
 		end
 		8'h44: begin                                   // READ HEADER (LBA form)
 			if (!is_cd) check(4'h5, 8'h20);
@@ -1645,12 +1613,15 @@ task exec_cdb;
 		8'hCE: begin                                   // Apple AUDIO CONTROL: discard
 			if (is_cd) param_out({4'd0, cdb[8]}); else check(4'h5, 8'h20);
 		end
-		// audio transport, accepted as no-ops until the audio engine lands:
-		// Apple $C8-$CB/$CD, standard PLAY/PAUSE/STOP forms, REZERO/SEEK
+		// audio transport -- Apple $C8-$CB/$CD, the standard PLAY/PAUSE/STOP
+		// forms, REZERO/SEEK: the ARM's playhead executes them.  The CDB is
+		// forwarded through the command block, STATUS is held until the ARM
+		// acks it (as for an eject), and the engine then asks the ARM its
+		// state through the $CC response (ca_fwd_stb).
 		8'hC8, 8'hC9, 8'hCA, 8'hCB, 8'hCD,
 		8'h45, 8'h47, 8'h48, 8'h4B, 8'h4E, 8'hA5,
 		8'h01, 8'h0B, 8'h2B: begin
-			if (is_cd) begin ca_cmd_stb <= 1; phase <= PH_STAT; end
+			if (is_cd) begin phase <= PH_STAT; fwd_cdb(cdb[0], 1'b1); fwd_poke <= 1; end
 			else check(4'h5, 8'h20);
 		end
 		default: check(4'h5, 8'h20);                   // ILLEGAL REQUEST, opcode
@@ -1742,7 +1713,7 @@ task abort_nexus;
 	// flight completes on its own, like any flush; so does a probe read,
 	// which touches nothing of the nexus)
 	if (fwd_st == 2'd1) fwd_st <= 0;
-	fwd_q <= 0; fwd_own <= 0;                          // a queued forward dies with its nexus; one in flight completes unowned
+	fwd_q <= 0; fwd_own <= 0; fwd_poke <= 0;           // a queued forward dies with its nexus; one in flight completes unowned
 	iccs_pend <= 0;                                    // a status the old nexus never collected
 	if (io_busy && !flush_pending && !fwd_xfer) io_discard <= 1;
 endtask
@@ -1784,20 +1755,15 @@ endtask
 generate if (CDROM != 0) begin : g_cd_audio
 cd_audio #(.CLK_HZ(32'd33_000_000)) cd_audio_i (
 	.clk(clk), .rst(!nreset), .bus_rst(ca_bus_rst),
-	.mounted(tgt_mounted[2]), .img_mounted(ca_mount_d[1]), .img_blocks(tgt_blocks[2]),
-	.cmd_stb(ca_cmd_stb), .cmd_op(cdb[0]),
-	.cdb1(cdb[1]), .cdb2(cdb[2]), .cdb3(cdb[3]), .cdb4(cdb[4]),
-	.cdb5(cdb[5]), .cdb6(cdb[6]), .cdb7(cdb[7]), .cdb8(cdb[8]), .cdb9(cdb[9]),
+	.mounted(tgt_mounted[2]), .img_mounted(ca_mount_d[1]),
+	.fwd_stb(ca_fwd_stb),
 	.read_stb(ca_read_stb), .eject_stb(ca_eject_stb),
-	.ap_ch0(ap_ch0), .ap_vol0(ap_vol0), .ap_ch1(ap_ch1), .ap_vol1(ap_vol1),
 	.ch_grant(ca_grant),
 	.ca_io_active(ca_io_active), .ca_io_rd(ca_io_rd), .ca_io_lba(ca_io_lba),
+	.ca_io_blk_cnt(ca_io_blk_cnt),
 	.io_ack(io_ack[2]),
 	.sd_buff_addr(sd_buff_addr[7:0]), .sd_buff_addr_hi(sd_buff_addr[12:8]),
 	.sd_buff_dout(sd_buff_dout), .sd_buff_wr(sd_buff_wr),
-	.ast_code(ca_ast_code), .cur_ctrl(ca_cur_ctrl), .cur_trk(ca_cur_trk),
-	.abs_m(ca_abs_m), .abs_s(ca_abs_s), .abs_f(ca_abs_f),
-	.rel_m(ca_rel_m), .rel_s(ca_rel_s), .rel_f(ca_rel_f),
 	.toc_ready(ca_toc_ready),
 	.disc_audio(ca_disc_audio),
 	.snd_l(cd_snd_l), .snd_r(cd_snd_r),
@@ -1806,9 +1772,7 @@ cd_audio #(.CLK_HZ(32'd33_000_000)) cd_audio_i (
 end else begin : g_no_cd
 	// no engine: the channel is never borrowed, no TOC, silence
 	assign ca_io_active = 1'b0; assign ca_io_rd = 1'b0; assign ca_io_lba = 32'd0;
-	assign ca_ast_code = 8'h00; assign ca_cur_ctrl = 8'h00; assign ca_cur_trk = 8'h00;
-	assign ca_abs_m = 8'h00; assign ca_abs_s = 8'h00; assign ca_abs_f = 8'h00;
-	assign ca_rel_m = 8'h00; assign ca_rel_s = 8'h00; assign ca_rel_f = 8'h00;
+	assign ca_io_blk_cnt = 6'd0;
 	assign ca_toc_ready = 1'b0; assign ca_disc_audio = 1'b0;
 	assign cd_snd_l = 16'sd0; assign cd_snd_r = 16'sd0;
 end endgenerate

@@ -157,6 +157,7 @@ wire  [2:0] ipl_n;
 // acked from RAM and flushed in the background, so the engine never has a
 // write flush outstanding across a target switch (rtl/scsi_cache.sv).
 wire [31:0] e_io_lba;
+wire  [5:0] e_io_blk_cnt;               // the CD-DA frame fetch's block count (pass-through only)
 wire  [2:0] e_io_rd, e_io_wr, e_io_ack;
 wire [12:0] e_sd_buff_addr;
 wire [15:0] e_sd_buff_dout, e_sd_buff_din;
@@ -183,6 +184,7 @@ scsi_cache #(.SECT0(CACHE_SECT0), .SECT1(CACHE_SECT1), .SECT2(16), .PF_DEPTH(8),
 	.nreset(nreset),
 
 	.e_lba(e_io_lba),
+	.e_blk_cnt(e_io_blk_cnt),
 	.e_rd(e_io_rd),
 	.e_wr(e_io_wr),
 	.e_ack(e_io_ack),
@@ -344,6 +346,7 @@ iosb #(.CDROM(CDROM)) iosb (
 	.img_mounted(img_mounted),
 	.img_size(img_size),
 	.io_lba(e_io_lba),
+	.io_blk_cnt(e_io_blk_cnt),
 	.io_rd(e_io_rd),
 	.io_wr(e_io_wr),
 	.io_ack(e_io_ack),

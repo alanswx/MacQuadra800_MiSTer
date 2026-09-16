@@ -2,6 +2,8 @@
 // mac_cdrom_window_fill / mac_cdrom_command in the Main fork.
 
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include "cd_window.h"
 #include "mac_cdrom_resp.h"
 #include "mac_cdrom_play.h"
@@ -77,7 +79,9 @@ int cdwin_read(uint32_t lba, uint8_t *buf, int sz)
 		case 0xC1: if (t) mac_cd_resp_toc_c1(t, a, b, buf); break;
 		case 0x42: mac_cd_play_pos(p, &pos); mac_cd_resp_subch(&pos, a, b, buf); break;
 		case 0xC2: mac_cd_play_pos(p, &pos); mac_cd_resp_subq(&pos, buf); break;
-		case 0xCC: mac_cd_play_pos(p, &pos); mac_cd_resp_astat(&pos, a, buf); break;
+		case 0xCC: mac_cd_play_pos(p, &pos); mac_cd_resp_astat(&pos, a, buf);
+		           if (getenv("CDWIN_TRACE")) fprintf(stderr, "[CDWIN] astat a=%d -> ast=%d state=%d cur=%u\n", a, pos.ast, p->state, p->cur);
+		           break;
 		default: break;
 		}
 		return 1;
@@ -105,6 +109,9 @@ void cdwin_write(uint32_t lba, const uint8_t *buf, int sz)
 	mac_cd_play *p = P();
 	uint8_t op = (uint8_t)(lba >> 16);
 	const uint8_t *cdb = buf + CMD_CDB;
+	if (getenv("CDWIN_TRACE"))
+		fprintf(stderr, "[CDWIN] command op=%02x cdb=%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x state=%d\n", op,
+		        cdb[0], cdb[1], cdb[2], cdb[3], cdb[4], cdb[5], cdb[6], cdb[7], cdb[8], cdb[9], p->state);
 	switch (op)
 	{
 	case 0xFF: mac_cd_play_init(p); break;
