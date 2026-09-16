@@ -195,7 +195,8 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # placement fine, the design 1,400 ALUTs smaller); seed 22 MEETS TIMING -- 37,155 ALMs (89 %),
 # clk_sys +0.232, clk_ram +0.452, HDMI +0.638, 490 RAM, 43 DSP; rbf c2a902cb (built in wt2).
 # Seed 22 is the default for this head.
-set_global_assignment -name SEED 22
+# 2026-09-16 19:57 phase 2b (3ec22e4: owner register + the io_discard fix): seed 22 FAILED in routing (congestion, placement fine, 18 min). Seed 23 next.
+set_global_assignment -name SEED 23
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
 # the design no longer fits with speed-directed synthesis; all-area
