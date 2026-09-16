@@ -342,8 +342,12 @@ Core phase 2 (playback on the ARM), gated on C5's numbers:
       `cd_audio` ~230; phase 1: 2,568 / 1,569 / 999); rbf `c2a902cb` =
       `scratch/MacQuadra800_phase2_s22_c2a902cb.rbf`, staged on .143 as
       `_Unstable/MacQuadra800_phase2_s22.rbf`; seed 22 is the qsf default**;
-      still owed: the AppleCD Audio Player
-      gate on .143 (play/pause/scan/volume/status) with a mixed-mode disc:
+      **gate 18:15: 8.1 + retail ISO PASS, A/UX (32 MB) PASS, the AppleCD
+      Audio Player FAILS ("not responding" ~7 s into Play, 2/2) -- see the
+      log; a channel-collision fix follows**. Still owed after the fix: the
+      AppleCD Audio Player gate on .143 (play/pause/scan/volume/status) with
+      the 4-track `AudioTest.cue` the operator built (the PC Engine CHDs
+      are mixed-mode and do not mount); old note:
       `TIM_3-mac.chd` is on neither box, but .143 has PC Engine CD CHDs with
       audio tracks in `games/TGFX16-CD/` (Valis II/III/IV, Rainbow Islands,
       Prince of Persia) that the Audio CD Access extension mounts as an
@@ -397,7 +401,11 @@ entry and a commit; the sim is only for short directed reproductions.
       boots 8.1 with the retail ISO (Finder T0+130 s, the CD window, the
       two guest-side icons), `mac_shutdown.sh` exit 0 -- no freeze at the
       extension icons this time (the morning's one hang stays unexplained)
-- [ ] P1d release: `releases/MacQuadra800_YYYYMMDD.rbf` + README row and
+- [x] P1d RELEASED 18:20 as `releases/MacQuadra800_20260916.rbf`
+      (`1eae0fb7`): the A/UX check at 32 MB on the phase-1 rbf passed
+      (desktop T0+120 s, halt in 131 s, operator step A, `scratch/p2/`);
+      README row + section, the 128 MB note; the user pushes. Old text:
+      `releases/MacQuadra800_YYYYMMDD.rbf` + README row and
       section (md5, seed 21, +0.247 ns, 38,128 ALMs, "requires the Main
       fork `ae708d3` or later for any CD image"), `docs/area-budget.md`
       numbers, commit; the user pushes both branches
@@ -784,6 +792,44 @@ gate had no CD):
   32 MB** (`MacQuadra800.cfg.bak128` holds the 128 MB original), the A/UX
   image pristine. Next: one operator run = the phase-1 A/UX check at
   32 MB, then the phase-2 gate (`scratch/p2/BRIEF.md`).
+- 2026-09-16 18:15, **the phase-2 gate** (operator, `scratch/p2/`,
+  screenshots only -- its harness refused the report file): step A the
+  phase-1 A/UX check at 32 MB PASSED (desktop 120 s, halt 131 s) -> phase 1
+  released. On the phase-2 rbf `c2a902cb`: **8.1 with the retail ISO PASS**
+  (Finder T0+111 s, idle clock, Cmd+W, both ejects, `mac_shutdown.sh` 45 s)
+  and **A/UX at 32 MB PASS** (desktop 131 s, halt 127 s). **The AppleCD
+  Audio Player FAILS**: the PC Engine CHDs are mixed-mode with a data
+  track (unreadable-disk dialog, no Audio CD volume), so the operator
+  built a 4-track pure-audio CUE/BIN (`games/MacQuadra800/AudioTest.cue`,
+  silence); it mounts as "Audio CD 1", the player shows the four tracks
+  and the 07:02 total (the TOC path is right); **Play**: Main logs
+  `Mac CD: cmd 47 00 00000200 07040200 -> st 1 cur 0 stop 31652` (PLAY
+  AUDIO MSF, the playhead started), the elapsed counter runs to 00:07,
+  then "The Apple CD-ROM drive is not responding" (2/2, no other
+  transport command was ever forwarded, no Main error). Also: the Quad
+  Squad image was damaged during that session (system error 41 on the
+  next boots, with or without a CD; restored from backup, the damaged copy
+  kept as `QuadSquad8_damaged2_20260916.hda`), and the remote mouse motion
+  died at ~17:30 (buttons and keyboard fine; the mrext restart is the
+  untried lever, at the menu core it is safe). Box: MENU core, Main
+  `898854ef` relaunched by hand with `stdbuf -oL` and stdout appended to
+  `nohup.out` (the inittab start logs to the serial console, which is why
+  no `Mac CD:` lines were seen after the 16:21 reboot), `.s0` Quad Squad
+  (restored 18:13), `.s1` FreshTest, `.s4` retail, RAM 32 MB.
+  **Reading (mine, from the RTL):** the engine's channel requests and the
+  nexus's block requests are decided in the same cycle from the same
+  registered state (`ca_grant` vs `!io_busy`); when both fire, the cache
+  sees one merged request bit for slot 2 -- or the disk's request with
+  `io_lba` = the engine's address -- so a disk WRITE can be sent to the
+  frame window's LBA (a lost write: the error-41 image), a guest CD read
+  can be served 5 blocks into a 1-block buffer, and the nexus's ack is
+  masked while `ca_io_active` (a command that never completes = "drive not
+  responding"). Phase 1 had the same race with the blob/audio fetches;
+  phase 2 fetches every 13 ms while playing, so it shows at once. Fix
+  next: the nexus has priority -- the engine's request is hidden while any
+  nexus request is up, `io_lba`/`io_blk_cnt` follow the nexus when it has
+  one, and the engine withdraws a request raised in the collision cycle
+  and retries.
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build
