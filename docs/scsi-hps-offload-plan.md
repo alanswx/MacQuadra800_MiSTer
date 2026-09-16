@@ -378,8 +378,19 @@ entry and a commit; the sim is only for short directed reproductions.
       the driver must see it by TEST UNIT READY), eject it from the Finder
       (the eject forward), Speedometer Mix unchanged (0.858 reference),
       Special -> Shut Down to the halt screen
-- [~] P1b (operator launched 13:30 with W1a/W1b/W1c/P1c in one sitting,
-      brief `scratch/p1b/BRIEF.md`) A/UX with `.s4` EMPTY: boot, `uname -a`, `shutdown -h now` to the
+- [ ] P1b **FAILED 13:31 -- WEDGE WITH NO CD** on the phase-1 core (after
+      the 6-min fsck; `uname` fine; `scratch/p1b/report.md`). Then, on the
+      pristine image, **W1a (20260915, no CD) WEDGED too (13:52)** and
+      **W1b (20260915, OT ISO) wedged**: the CD does not decide whether it
+      wedges, only how far the shutdown gets (the no-CD runs freeze right
+      after the port-mapper line, the CD run reached the `kill: pid=`
+      lines). Typed characters after the wedge add streaks = the kernel
+      console echoing at 1 bpp: **the kernel is alive, the shutdown is
+      hung, not halted**. The same 20260915 rbf, ROM and image passed this
+      shutdown on the .92 box (127 s), whose Main is the Aug 28 fork build
+      `d6d63ec4` (.143 runs today's `898854ef`); this core has no working
+      Ethernet (the SONIC decode is inert), so the network is not it.
+      P1b as written: A/UX with `.s4` EMPTY: boot, `uname -a`, `shutdown -h now` to the
       halt screen (the 20260915 gate conditions); with a CD it wedges on
       the shipped core too, see the W track
 - [ ] P1c old-core compatibility: the 20260915 rbf on Main `898854ef` still
@@ -393,10 +404,17 @@ entry and a commit; the sim is only for short directed reproductions.
 20260915; the same VRAM streaks + stopped CPU on both cores; the passing
 gate had no CD):
 
-- [ ] W1 pin it: on 20260915, A/UX boot + `shutdown -h now` with `.s4`
-      empty (expect the halt screen) and again with the OT ISO (a second,
-      smaller disc) -- if only the CD runs wedge, it is the CD path at
-      shutdown
+- [x] W1 pinned the other way (13:52-14:40, `scratch/p1b/report.md`): on
+      20260915 the shutdown wedges WITHOUT a CD (pristine image) and with
+      the OT ISO alike -- **it is not the CD path**; the trigger is in the
+      .143 environment, and the one difference left against the passing
+      .92 run is the Main build (Aug 28 fork `d6d63ec4` there, today's
+      `898854ef` here). W1c (20260908_3 + retail ISO) was in progress at
+      14:55; next: W1d = 20260915, no CD, pristine image, with the .92
+      Main (`/media/fat/MiSTer.aug28_d6d63ec4`, staged on .143) installed
+      -- a halt there pins the Main; and the W3 trace run, which shows
+      whether a disk write is left without its ack (a hung `sync` with a
+      live console is exactly that)
 - [x] W2 DONE 13:20 but NOT a golden reference for the halt path: QEMU's
       A/UX stalls at `INIT: New run level: S` with and without the CD (31
       min), before the teardown the MiSTer reaches; what it did establish
@@ -696,6 +714,18 @@ gate had no CD):
   ISO, A/UX with no CD, then the AppleCD Audio Player on a PC Engine CHD
   from `games/TGFX16-CD/`); it runs after the A/UX operator (P1b + the
   three controls) has the box free.
+- 2026-09-16 15:05, **W1 results and the reading**: P1b (phase 1, no CD)
+  and W1a (20260915, no CD, pristine image) and W1b (20260915, OT ISO) all
+  wedge on .143; after the wedge, typed characters draw more streaks (the
+  1-bpp console echo): the kernel lives, the shutdown is hung. The same
+  rbf, ROM and image halted on .92. Environment differences checked: same
+  ROM md5, same backup zip, no working Ethernet in this core (inert SONIC
+  decode; QEMU's SONIC is real, so QEMU's stall is not comparable), the
+  Main build differs (.92: Aug 28 fork `d6d63ec4`; .143: today's fork
+  `898854ef`, rebased onto upstream 20260907 on 09-08). Staged the .92
+  Main on .143 as `/media/fat/MiSTer.aug28_d6d63ec4` for a swap test.
+  The operator was cut off by an API overload at 14:55 mid-W1c and resumed
+  at 14:58.
 - 2026-09-16 07:40: core phase 1 committed (`3d5e32d`): tb_ncr53c96
   476,837 / 0. Analysis & Synthesis (`--check`): `cd_audio` 1,535 ALUTs /
   707 regs (was ~2,566 / 852), `ncr53c96` own 2,571 ALUTs. Full build
