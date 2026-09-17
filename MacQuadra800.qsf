@@ -219,6 +219,12 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # 2026-09-17 17:03 build 3 (5206845: + MOVEM loads on the ack, pushes in place, MOVEM stores from the loop, LINK/PEA
 # on the ack; synthesis 55,210 ALUTs vs the release's 56,965): seed 21 WITH FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION
 # ALWAYS set in the build tree only (scratch/edit_qsf_routability.py on), the lever Quartus names for that failure.
+# Build 3 result (17:26): ROUTED with the switch, 36,010 ALMs (86 %), but the CPU clock MISSES by 3.760 ns (TNS -576;
+# HDMI +0.078, clk_ram +0.429). TimeQuest on the fitted db (scripts/cpu/timequest_worst_paths.tcl, matches the flow's
+# -3.760): state -> the hint mux (mem_hint_addr) -> the cache's fast-hit word select -> c_rdata -> ALU -> flags ->
+# lookahead Bcc -> refill seed count -> epf_ftail, 33.4 ns. A false path: in the request cycle the hint bus carries
+# the registered request, but the analyzer follows the combinational hint side. Fix: the cache qualifies and selects
+# the fast hit from its own registered copy of the hint address (build 4). rbf 2f... not deployable (CPU-clock miss).
 set_global_assignment -name SEED 21
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
