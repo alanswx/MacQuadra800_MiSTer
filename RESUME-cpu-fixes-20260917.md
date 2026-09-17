@@ -30,21 +30,29 @@ Read this first, then `CLAUDE.md`. Branch **`add-CPU-fixes`** (cut from
    `~/gates_fixesC.log` after `64d2606`, `~/gates_final.log` on the final
    tree).
 
-## In flight when this note was written
+## The build (done 13:52)
 
-- **Full Quartus build** of the final tree launched 13:21, detached, log
-  `scratch/build_cpufixes.log` (release recipe, unchanged `.qsf`). Read
-  `output_files/MacQuadra800.fit.summary` / `.sta.summary` when it ends;
-  record the seed result in the `.qsf` comment block as usual. Expect the
-  MLAB register file and the adder sharing to take area OUT; note whether
-  the 33 MHz CPU clock still meets.
-- `~/gates_final.log` in WSL: the same three gates on the final tree.
+- **Seed 21 fits and MEETS TIMING first try**: 37,144 ALMs (89 %), worst
+  slack +0.244 ns (HDMI +0.255, clk_sys +0.442, clk_ram +0.851), 31 min.
+  rbf md5 `8552a409`, kept as `scratch/MacQuadra800_cpufixes_6de9473.rbf`
+  (also `output_files/MacQuadra800.rbf` until the next build). Ledger line
+  in the `.qsf` (`45cd875`). The last release (20260916_2) shipped with
+  clk_sys -0.231 at the same seed; this one is clean.
+- The integer register banks were inferred as MLAB `altdpram`s (map.rpt
+  `ap040_regfile:regfile|altdpram:bank_a/b`), not flops; no `open_row`
+  altsyncram in the map report (the `docs/sdram-open-row-crossing.md`
+  check).
+- `~/gates_final.log`: 23/23, bench_loop and corpus identical (see above).
+- Box state at 13:54: the MacQuadra800 core loaded with QuadSquad8 in
+  slot 0, screen a noise pattern (not a Finder, not the halt screen), zero
+  disk I/O over 12 s. Unknown state -> NOT deployed; ask the user.
 
 ## Next
 
-1. Build result -> if it fits, **hardware gate on the .143 box** (look
-   before you deploy; both guests; A/UX at 32 MB; CD audio by the user's
-   ear). The register file has a hardware-only failure mode (MLAB
+1. **Hardware gate on the .143 box** with `scratch/MacQuadra800_cpufixes_6de9473.rbf`
+   (look before you deploy -- the box was in an unknown state at 13:54;
+   both guests; A/UX at 32 MB; Speedometer for the CPU numbers; CD audio
+   by the user's ear). The register file has a hardware-only failure mode (MLAB
    read-during-write); if 8.1 does not boot, revert `6de9473` first and
    rebuild.
 2. Release per `CLAUDE.md` if the gate passes (rbf + `releases/README.md`

@@ -79,6 +79,7 @@ and again on the final tree:
 | AP suite | all legs pass (18 after the fixes, 23 with the unit benches and the must-fail bypass control) |
 | `bench_loop` | 94368 / 95166 / 95166 cycles, identical to checkpoint 15 |
 | corpus-100 (silicon captures) | 33,335,739 cycles, 0 REAL diffs, identical to checkpoint 15 |
+| Quartus, release recipe, seed 21 | fits, timing met: 37,144 ALMs (89 %), worst +0.244 ns (HDMI +0.255, clk_sys +0.442, clk_ram +0.851); the integer register banks inferred as MLABs; rbf `8552a409` |
 
 The bitfield sizing changes memory traffic only for bitfields at odd
 addresses, which neither `bench_loop` nor the first 100 corpus rows
