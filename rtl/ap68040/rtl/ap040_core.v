@@ -1795,7 +1795,13 @@ task mem_issue;
 		                  state == S_PIPE_DEA || state == S_DECODE ||
 		                  state == S_RET1 || state == S_UNLK1 ||
 		                  state == S_MOVEM_LOOP)) ||
-		     (mgo_wr && (state == S_EXEC || state == S_MOVEM_RD))) &&
+		     (mgo_wr && (state == S_EXEC || state == S_MOVEM_RD ||
+		                 // the pushes: BSR.B from decode, BSR.W, JSR, PEA,
+		                 // LINK -- registered data (pc, ea_addr, port A
+		                 // selected a state earlier) at dbg_a7 - 4
+		                 state == S_DECODE || state == S_BCC_EXT ||
+		                 state == S_JSR1 || state == S_PEA1 ||
+		                 state == S_LINK2))) &&
 		    mgo_a[31:28] == 4'h0 && !epf_pend && !mem_req && !mem_ack &&
 		    ((mgo_sz == `AP040_SZ_B) ||
 		     ((mgo_sz == `AP040_SZ_W) && !mgo_a[0]) ||
