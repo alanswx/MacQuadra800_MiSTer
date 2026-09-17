@@ -10,8 +10,14 @@ SRC=${SRC:-$HERE/../Main_MiSTer}
 DST=${DST:-$HOME/Main_MiSTer}
 TC=/opt/gcc-arm-10.2-2020.11-x86_64-arm-none-linux-gnueabihf/bin
 mkdir -p "$DST" "$HERE/scratch"
-rsync -a --exclude .git "$SRC/" "$DST/"
+# The build directory is never taken from the Windows tree: objects there
+# (or left in $DST) from an older checkout survive a header change and get
+# linked in -- the 2026-09-16 binaries carried 28-Aug video.cpp.o /
+# hardware.cpp.o after cfg.h had gained a field (a black menu on HDMI).
+# CLEAN=1 (the default) starts from no objects at all.
+rsync -a --delete --exclude .git --exclude bin --exclude "*.o" --exclude "*.d" "$SRC/" "$DST/"
 cd "$DST"
+if [ "${CLEAN:-1}" = 1 ]; then rm -rf "$DST/bin"; fi
 git -C "$SRC" log --oneline -1 2>/dev/null || true
 PATH=$TC:$PATH make -j8
 BIN=MiSTer; [ -f bin/MiSTer ] && BIN=bin/MiSTer     # BUILDDIR = bin in the fork's Makefile
