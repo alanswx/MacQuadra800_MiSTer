@@ -227,7 +227,14 @@ Main side first, on `../Main_MiSTer` branch
       `mac_cdrom_command()`; routed by `mac_sd_service()` for optimized cores
       mounted or not; blob v2 for optimized cores only; flat 2048 images
       HANDLED for optimized cores; one read per 4 KB run for flat files
-- [ ] M6 build in WSL (`scripts/build_main_wsl.sh`; fork `b692e0d` built
+- [x] M6 **DONE 2026-09-17** -- the shipping binary is the clean build of
+      the fork's `ae708d3`, md5 `431da61a` (the 16-Sep builds were mis-linked
+      with 28-August objects; `scripts/build_main_wsl.sh` now starts from
+      none), installed on .143 and shipped in the repo as
+      `releases/MiSTer_20260916` (commit `fc93ef1`). The old-core regression
+      as written was superseded: the release gates (phase 1 `1eae0fb7`,
+      phase 2 `ab1da889`) and the 10:26 re-verification ran on this Main.
+      Old text: build in WSL (`scripts/build_main_wsl.sh`; fork `b692e0d` built
       2026-09-16, staged as `scratch/MiSTer_<md5>`), install on .143 (only
       at a halt screen or the menu), regress the old core: flat ISO
       mount/eject, CHD audio, both OS gates unaffected. Box facts
@@ -237,11 +244,15 @@ Main side first, on `../Main_MiSTer` branch
       MacQuadra800FreshTest, `.s4` MAC_OS_8-1_RETAIL.ISO (flat); no CHD on
       the box yet (TIM_3-mac.chd lives on .92). `scripts/local.env` now
       names .143.
-- [ ] M7 docs: `docs/cdrom.md` contract section, this file, commit
+- [x] M7 docs: `docs/cdrom.md` contract section ("Responses from Main",
+      `3f96fdc` / `8d67e3a` / `f4d45c7`), this file, commit
 
 Core phase 1 (responses from the ARM, playback stays), branch `optimize-SCSI`:
 
-- [ ] C1 `ncr53c96.sv`: a window read is a one-block platform READ whose
+- [x] C1 **landed in phase 1** (`3d5e32d`, the window reads and the command
+      block; `f612084`, the forwards serialized and owned by a nexus) and
+      shipped as `releases/MacQuadra800_20260916.rbf` (`1eae0fb7`).
+      As written: `ncr53c96.sv`: a window read is a one-block platform READ whose
       serve length is the CDB's clamped allocation (`rd_len` replaces the
       fixed 512 on ack-fall); CD INQUIRY / MODE SENSE / $43 / $C1 served
       that way; the CD SY_* kinds, `cd_inq_byte`/`cd_mode_byte`, the
@@ -265,7 +276,13 @@ Core phase 1 (responses from the ARM, playback stays), branch `optimize-SCSI`:
       Found on the way: a forwarded write must not pose as the nexus's
       flush (`nexus_io`), the probe must never touch the buffer, and a
       held ICCS must die with its nexus.
-- [ ] C4 (sim half) full sim boots the gate image with `cd.iso` on the
+- [~] C4 (sim half) **SUPERSEDED, not done**: the long full-machine run with
+      screenshots was never made. The user directed hardware over the slow
+      sim (2026-09-16, memory `prefer-hardware-over-sim`), and the hardware
+      gates exercised the same path end to end -- the retail-ISO CD boot, the
+      Apple CD-ROM extension's mount and eject, and the AppleCD Audio Player
+      on both release bitstreams. What the sim did establish is kept below.
+      As written: full sim boots the gate image with `cd.iso` on the
       CD-ROM: ROM scan (probe, INQUIRY window, MODE SELECT forward), then
       the Apple CD-ROM extension's mount. First attempts stalled in the
       *sim's block-device model*, not the RTL: its mount countdown shares
@@ -285,7 +302,7 @@ Core phase 1 (responses from the ARM, playback stays), branch `optimize-SCSI`:
       running at the end (no TOC request yet within the run; the
       hardware CD boot already proved $43/$C1). A longer run with
       screenshots on the rebuilt sim follows
-- [~] C5 `build_only.sh --check`: `cd_audio` 2,566 -> 1,535 ALUTs. **Full
+- [x] C5 `build_only.sh --check`: `cd_audio` 2,566 -> 1,535 ALUTs. **Full
       fit (seed 22, the release recipe, 2026-09-16 08:00): 38,070 ALMs
       (91 %), -568 vs the shipped 38,638; `ncr53c96` 2,469 (was 2,870),
       of which `cd_audio` 994 (was 1,346); RAM 491/553 (was 497); DSP 59
@@ -310,7 +327,9 @@ Core phase 1 (responses from the ARM, playback stays), branch `optimize-SCSI`:
       `scratch/MacQuadra800_phase1_s21b_1eae0fb7.rbf`, staged on .143 as
       `_Unstable/MacQuadra800_phase1_s21b.rbf`** -- the release-quality
       candidate for the rest of the gate
-- [ ] C6 commit + measured numbers in this file and `docs/area-budget.md`
+- [x] C6 commit + measured numbers in this file and `docs/area-budget.md`
+      (phase 1 in `4a81f84`, phase 2's fitted numbers in the budget's
+      section 6, 2026-09-17)
 
 Core phase 2 (playback on the ARM), gated on C5's numbers:
 
@@ -486,10 +505,14 @@ gate had no CD):
       the halt path meeting the forwarded notice. MAME's model (unit
       attention on media change, `$B0` no-disc) is the reference for the
       right answer
-- [ ] W4 -- now: A/UX gates run at RAM = 32 MB (the setting every passing
-      gate used); the 128 MB shutdown hang is a follow-up investigation
-      (a 64 MB point, then what the shutdown touches above 64 MB), noted
-      in the release entry. Old text: fix, bench test for the sequence, rebuild, both A/UX gates (with
+- [x] W4 **DONE BY POLICY (2026-09-16, carried into both releases)**: the
+      A/UX gate runs with the OSD RAM option at 32 MB, which is the setting
+      every passing gate used, and that is now the rule in `CLAUDE.md`
+      (`06d76d2`) and the note in both release entries. The wedge with a CD
+      mounted turned out not to be the CD path at all (W1), so nothing is
+      added to the standing gate for it. The 128 MB shutdown hang stays an
+      open follow-up investigation (a 64 MB point, then what the shutdown
+      touches above 64 MB). Old text: fix, bench test for the sequence, rebuild, both A/UX gates (with
       and without a CD) on .143, release entry; add "A/UX shutdown with a
       CD mounted" to the standing regression gate in CLAUDE.md
 
@@ -1127,3 +1150,41 @@ gate had no CD):
   release README now names it (the 16-Sep gates ran with the mis-linked
   binary; the Mac objects in it were current). Memory note
   `main-wsl-stale-objects`.
+- 2026-09-17 11:30, **the offload is finished: both phases are released and
+  CD audio has been heard.** The 10:26 operator retest (`scratch/cdbin/report.md`,
+  screenshots `03a`..`16`) repeated the player gate on the clean Main
+  `431da61a`, this time on an audible disc: the release was first installed
+  under the generic name (`_Unstable/MacQuadra800.rbf` = `ab1da889`, the old
+  Sep-8 build kept as `_Unstable/MacQuadra800_20260908_M_512cd4f8.rbf`) so the
+  obvious OSD choice is the right one, slot 4 was pointed at
+  `games/MacQuadra800/ToneTest.cue` -- four audible CD-DA tracks built by
+  `scripts/make_tonedisc.py` (`bc6937f`), the same layout as the silent
+  `AudioTest.cue`, whose `.s4` was saved as
+  `config/MacQuadra800.s4.bak_audiotest`. Boot T0 10:10:23, the Finder with
+  "Audio CD 1" at +139 s and the TOC lines exact; Play at 10:15:48 -> 00:17 at
+  +16 s, 01:25 at +85 s, track 2 at 01:04 at +154 s (auto-advance over two
+  track boundaries), Pause frozen 90 s, Resume from the frozen value, Stop to
+  Track 01 00:00, **no "not responding" dialog**; Main's five `Mac CD: cmd`
+  lines (47, 4B, 47 FF:FF:FF, 4B, 01) with every `cur` matching the wall clock
+  to the second (13765 at 183 s, 17693 at 235 s). The dialog the user saw at
+  09:46 was the OLD Sep-8 core `512cd4f8` sitting under that generic name with
+  the silent disc, and it reproduced on that build at 10:06.
+  **Then the user ran a thorough CD-audio test by ear -- playing a game with CD
+  audio on this release with this Main -- and reports it works great.** That is
+  the first sound confirmed out of the core's CD-DA path, and it closes the
+  question the operators could not answer. The Main binary they ran is now in
+  the repo as `releases/MiSTer_20260916` (md5 `431da61a`, the clean build of
+  the fork's `ae708d3`) next to `releases/MacQuadra800_20260916_2.rbf`
+  (`fc93ef1`), so the pair that was tested ships together.
+  **Phase 1 (responses from the ARM, `1eae0fb7`) and phase 2 (the audio
+  playhead on the ARM, `ab1da889`) are both complete and released.** What
+  remains is not part of the offload: the A/UX 3.1 shutdown hang at the 128 MB
+  RAM option (present on every build tested back to 20260908_3; the gate runs
+  at 32 MB), an optional timing-clean seed of `2922294` to replace the shipped
+  marginal build (seed 21 misses the 33 MHz CPU clock by 0.231 ns on one path;
+  22, 23 and 24 were worse -- the lever left is seed 21 with
+  `FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS`), and the audio engine's
+  underrun counter `dbg_cdur` (starvation entries and starved clocks,
+  `rtl/cd_audio.sv:488`), which is left unconnected where `ncr53c96.sv`
+  instantiates the engine (`rtl/ncr53c96.sv:1811`, `.dbg_cdur()`) and would
+  have to be wired out before it could diagnose a stutter.

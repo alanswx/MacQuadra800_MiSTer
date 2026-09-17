@@ -120,3 +120,46 @@ completion fix (`2922294`, no area change: seed 21 fits at **37,197 ALMs
 (89 %)**, 25,226 registers, 490 RAM blocks, 43 DSP blocks, the CPU clock
 0.231 ns short on one path -- the shipped `MacQuadra800_20260916_2.rbf`,
 `ab1da889`; seeds 22 and 24 of the same netlist: 37,216 and 37,152 ALMs).
+
+## 6. The audio playhead after the ARM offload (phase 2, shipped 2026-09-16/17)
+
+`optimize-SCSI`, build `ab1da889` from `2922294` at seed 21 -- the shipped
+`releases/MacQuadra800_20260916_2.rbf` (`releases/README.md`). The transport
+commands and the playhead moved to Main as well, and the RTL keeps only the
+blob-header parse, the 5-block next-frame fetch and the 44.1 kHz cadence
+(`docs/scsi-hps-offload-plan.md`, D1..D3). Fitter numbers for the whole
+design, against phase 1 (`1eae0fb7`, seed 21) and the pre-offload shipped
+`20260915` (seed 22):
+
+| entity | 20260915 | phase 1 | phase 2 (shipped) | delta vs 20260915 |
+|---|---:|---:|---:|---:|
+| whole design | 38,711 (92 %) | 38,128 (91 %) | **37,197 (89 %)** | **-1,514** |
+| registers | 25,605 | 25,659 | 25,226 | -379 |
+| RAM blocks (of 553) | 497 | 491 | 490 | -7 |
+| DSP blocks | 64 | 59 | 43 | -21 |
+| `ncr53c96` (controller + 3 targets) | 2,870 | 2,568 (self 1,569) | 1,639 (self 1,408) | -1,231 |
+| of which `cd_audio` | 1,346 | 999 | ~230 | ~-1,116 |
+
+The last two rows are the only ones not taken from the shipped seed-21 fit:
+the per-entity split comes from the **seed-22 fit of the phase-2 netlist**
+(`c2a902cb`, the plan's D2 entry), which is the same design content with a
+different placement -- the shipped build's whole-design figure is 42 ALMs
+above it (37,197 vs 37,155), so the split is right to within the noise of a
+re-placement.
+
+Against the plan's own estimate this is a clean hit: section 1 of
+`docs/scsi-hps-offload-plan.md` expected **1,200-1,600 ALMs and ~13 M10Ks**
+saved across the two phases, and the two phases together returned **1,514
+ALMs, 7 RAM blocks and 21 DSP blocks**. The ALM saving is at the top of the
+predicted band; the M10K saving is smaller than predicted because the two
+frame buffers (`frame_ram`, 8 M10Ks) were always going to stay -- only the
+three response-table planes and the blob RAM left. The 21 DSP blocks are the
+volume law's multipliers and the playhead's dividers, which Main now does in
+software. The whole `ncr53c96` -- controller, two disk targets, the CD-ROM
+target and its audio engine -- now fits in 1,639 ALMs, against 712 for the
+controller with a single disk target before any of the CD work (section 1).
+
+Timing, for the record: the shipped seed misses the 33 MHz CPU clock by
+**0.231 ns on one path** (TNS -0.246; HDMI +0.076, `clk_ram` +1.130), shipped
+under the try-marginal policy after a full hardware gate; the area is not the
+constraint any more, the placement lottery is.
