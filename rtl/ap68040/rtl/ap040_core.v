@@ -4761,6 +4761,29 @@ always @(posedge clk) begin
 						rfw({1'b1, d_rn}, mem_rdata);
 						fetch_next;
 					end
+					// MOVEM load: the transfer retires on its acknowledge,
+					// exactly as S_MOVEM_LD would a cycle later (that state
+					// stays for the byte-split path, which returns to r_m_ret
+					// as a state).  With the loop's in-place issue and the
+					// one-clock hit a resident load is two cycles per
+					// register: S_MOVEM_LOOP and this acknowledge.  (2026-09-17)
+					else if (r_m_ret == S_MOVEM_LD) begin : movem_ld_ack
+						reg [31:0] lv;
+						lv = (mm_size == `AP040_SZ_W) ? sxw(mem_rdata[15:0]) : mem_rdata;
+						if (mm_base_ea && mm_reg == {1'b1, d_rn}) begin
+							if (!mm_postinc) begin
+								mm_base_pend <= 1;
+								mm_base_val  <= lv;
+							end
+						end
+						else if (mm_idx_en && mm_reg == mm_idx_reg) begin
+							mm_idx_pend <= 1;
+							mm_idx_val  <= lv;
+						end
+						else rfw(mm_reg, lv);
+						mm_addr <= mm_addr + ((mm_size == `AP040_SZ_L) ? 32'd4 : 32'd2);
+						state <= S_MOVEM_LOOP;
+					end
 					else begin
 						m_val <= mem_rdata;
 						state <= r_m_ret;
