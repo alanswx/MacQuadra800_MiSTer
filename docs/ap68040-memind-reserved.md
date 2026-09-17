@@ -5,7 +5,7 @@
 **Found:** wombat33_MiSTer CPU acceptance gate, scored against a **real Quadra 800**
 capture (`SingleStepTests/results/allinone/cpu_hardware_quadra800_2026-08-28.jsonl`)
 **Patch:** `docs/ap68040-memind-reserved.patch` (one term removed from one line)
-**Status:** **VERIFIED** on the scored gate, 2026-08-30 — `cpu` goes from 2 REAL
+**Status:** **APPLIED** to the vendored core on 2026-09-17 (branch add-CPU-fixes; it had been verified but never committed into the submodule). Verification: **VERIFIED** on the scored gate, 2026-08-30 — `cpu` goes from 2 REAL
 diffs to 0, exactly as this report predicted, with no regression in any other
 suite. See "Verification" below.
 

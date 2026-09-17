@@ -4657,8 +4657,18 @@ always @(posedge clk) begin
 					ea_addr <= ea_base_v + idx + sxb(extw[7:0]);
 					state <= r_ea_ret;
 				end
+				// The PRM marks IS=1 with I/IS[2]=1 "reserved", but real 68040
+				// silicon EXECUTES those encodings instead of trapping -- captured
+				// on a Quadra 800, vec=0 (docs/ap68040-memind-reserved.md).
+				// Suppressing the index makes pre- and post-indexing
+				// arithmetically identical (the code below already forces
+				// ea_idx_v to 0 when IS is set), so I/IS[1:0] just selects the
+				// outer displacement and the address comes out correct.
+				// Rejecting them made MOVE.L ([bd.W,A6]),D1 and
+				// MOVE.L ([bd.W=0,A6],od.W=4),D1 take vector 4 where hardware
+				// returns a value.
 				else if (extw[5:4] == 2'b00 || extw[3] ||
-				         extw[2:0] == 3'b100 || (extw[6] && extw[2])) begin
+				         extw[2:0] == 3'b100) begin
 					go_illegal;
 				end
 				else begin
