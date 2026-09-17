@@ -1734,6 +1734,12 @@ task mem_issue;
 		// port while entering S_MRD/S_MWR, removing the request-setup cycle;
 		// MMIO, page-crossing transfers, exception frames and the system/FPU
 		// helpers keep it.  Completion, faults and retirement are unchanged.
+		// The whitelist is also what keeps MOVES correct: fc_ovr_v/fc_ovr are
+		// registers written by S_MOVES_RD/WR in the cycle they call mrd/mwr,
+		// so an issue from THOSE states would read the previous space (FC 5
+		// for FC 1; Adam Polkosnik's 95e29fb carries the function code on
+		// the carriers instead).  t_moves_fc fails the moment a MOVES state
+		// is added below.
 		if (((!mgo_wr && (state == S_PIPE_START || state == S_PIPE_SRD ||
 		                  state == S_PIPE_DEA)) ||
 		     (mgo_wr && state == S_EXEC)) &&

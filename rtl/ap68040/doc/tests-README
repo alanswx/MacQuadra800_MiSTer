@@ -65,6 +65,40 @@ Testbenches (Icarus Verilog -g2012 and ModelSim, see run_tests.sh):
                         USP, privilege violation, autovectored interrupts,
                         IPL masking, STOP wake-up, NMI edge behavior, and the
                         M-bit master/interrupt stack throwaway frame path
+    asm/t_bitfield_mmu.s memory-bitfield access sizing at an 8K page boundary:
+                        user-mode WindowServer BFTST regression, spans 1-5,
+                        signed dynamic offsets, extraction/CCR and modified
+                        memory, plus genuine crossing faults and restart
+                        (Adam Polkosnik, 2026-09-13)
+    asm/t_bitfield_cache.s one bitfield sweep run uncached, cached, and cached
+                        with an identity mapping and TC enabled, the uncached
+                        pass being its own oracle (Adam Polkosnik, 2026-09-14)
+    asm/t_moves_fc.s    MOVES selects SFC/DFC space even when the transfer
+                        issues in the calling cycle: page 9 is mapped
+                        supervisor-only, so a user-space MOVES must fault and
+                        a supervisor-space one must not, cache-hot (Adam
+                        Polkosnik, 2026-09-14; passes here because the
+                        memory-issue arm never early-issues from S_MOVES_*)
+    asm/t_movem_restart.s format-7 CM/saved-EA continuation: MOVEM faults
+                        with indexed and PC-relative EAs, including one that
+                        overwrites its own memory-indirect pointer and one
+                        that loads its own index register, in every bus
+                        phase (Adam Polkosnik, 2026-09-15)
+    asm/t_atcprobe.s    failed table searches install valid nonresident ATC
+                        entries: invalid pages, PTEST invalid/bus-error
+                        fills, protection caching, separate I/D banks, 8K
+                        pages, PTEST replacement (Adam Polkosnik, 2026-09-15)
+    asm/t_fpu_frames.s  FSAVE/FRESTORE wire formats for the revision-$41
+                        NULL/IDLE/UNIMP/BUSY frames, pointer adjustments,
+                        round trips and invalid-frame rejection (Adam
+                        Polkosnik, 2026-09-15; the $40 variant needs -DREV40
+                        and a tb FPU_REVISION parameter this tree does not
+                        carry)
+    asm/t_fpu_resume.s  FPSP-prepared BUSY frames with CU_SAVEPC=$fe: the
+                        FRESTORE executes the frame's command on ETEMP and
+                        FPTEMP, not the live registers, with the extended
+                        exponent flags read per Motorola (Adam Polkosnik,
+                        2026-09-15)
 
   diff/               differential testing against qemu-system-m68k:
                         random integer programs (10k+ instructions across
