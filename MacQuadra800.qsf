@@ -236,6 +236,12 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # entry -> walk decision -> the cache's inv_wren (its store term carries c_req) -> fast_hit -> c_rdata -> ALU ->
 # lookahead -> seed cone -> epf_ftail, 29.7 ns. rbf 595297fb = scratch/pipeline_b5/, run on hardware as a labelled
 # TIMING PROBE (try-builds policy). Build 6: fast_hit uses !snoop_wr instead of !inv_wren (exact under its own guards).
+# Build 5 probe HARDWARE (Opus operator, scratch/pipeline_b5/report.md): 8.1 boots <= 84 s, liveness OK, Speedometer Mix
+# 0.900/0.902/0.902 (+2.8 % over step 1's 0.877, +5.3 % over the shipped 0.855).
+# 2026-09-17 19:29 build 6 (c84a5e7: + fast_hit tests !snoop_wr and the registered hint's set, nothing from the live
+# translation), seed 21 + the switch: 35,797 ALMs (85 %), CPU clock MET +0.139, clk_ram +0.445, HDMI -0.001 on one
+# sys_top video register (the seed-sensitive endpoint; try-builds policy). rbf in scratch/pipeline_b6/. The switch
+# FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS was set in the build tree for builds 3-6; it is NOT in this file yet.
 set_global_assignment -name SEED 21
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
