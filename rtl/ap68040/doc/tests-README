@@ -189,7 +189,9 @@ Implementation status and remaining gaps (milestones B-H complete):
     verifies I/D isolation, disabled-fill suppression and maintenance clear
   - misaligned accesses restart the whole transfer. A second-page ATC
     fault reports the original transfer address/size and sets SSW.MA;
-    invalid translations are not cached in the ATC (each access re-walks)
+    failed searches install nonresident ATC entries until invalidation or
+    replacement. t_atcprobe.s covers invalid/protected/PTEST-failed entries,
+    instruction/data isolation, 8K pages and PFLUSH/PTEST invalidation
   - FPU (milestone H): ap040_fpu.v implements FPCR/FPSR/FPIAR, B/W/L/S/
     D/X movement and conversion, FABS/FNEG/FTST/FCMP, and hardware
     FADD/FSUB/FMUL/FDIV/FSQRT. It supports FPCR rounding/precision,
