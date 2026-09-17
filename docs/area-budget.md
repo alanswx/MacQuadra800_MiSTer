@@ -110,3 +110,9 @@ gone too.  Fitted (seed 22, timing met, rbf `c2a902cb`): **37,155 ALMs
 (89 %)**, `ncr53c96` 1,639 (self 1,408) with `cd_audio` about 230, `iosb`
 3,884, 490 RAM blocks, 43 DSP blocks -- the CD target now costs about
 what one hard-disk target did before the CD work (section 1: 712).
+With the channel owner register and the `abort_nexus` discard fix
+(`3ec22e4`, 2026-09-16 evening) Analysis & Synthesis is unchanged within
+noise (`ncr53c96` self 2,317 ALUTs, with the engine 2,689, `cd_audio`
+372 / 320 registers); fitted at seed 24 with timing met: **37,056 ALMs
+(88 %)**, 25,269 registers, 490 RAM blocks, 43 DSP blocks, worst slack
++0.244 ns (clk_sys +0.762) -- the release candidate `4bf9629c`.

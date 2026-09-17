@@ -359,8 +359,16 @@ Core phase 2 (playback on the ARM), gated on C5's numbers:
       audio tracks in `games/TGFX16-CD/` (Valis II/III/IV, Rainbow Islands,
       Prince of Persia) that the Audio CD Access extension mounts as an
       Audio CD
-- [ ] D3 `--check` delta, fit, gate, release entry, `docs/cdrom.md`,
-      `releases/README.md`, commit
+- [~] D3 **fit of the fixed head (`3ec22e4`): seed 22 failed in routing,
+      seed 23 fits but clk_sys -0.752 ns (rbf `0d374d4a`, the fix probe
+      on hardware), seed 24 MEETS TIMING (20:43): worst +0.244 ns (HDMI
+      +0.255, clk_sys +0.762, clk_ram +0.605), 37,056 ALMs (88 %), 25,269
+      regs, 490 RAM, 43 DSP; rbf `4bf9629c` =
+      `scratch/MacQuadra800_phase2b_s24_4bf9629c.rbf`, staged on .143 as
+      `_Unstable/MacQuadra800_phase2b_s24.rbf`; seed 24 is the qsf
+      default.** Gate brief `scratch/p2c/BRIEF.md` (the full gate incl.
+      A/UX at 32 MB), then the release entry (`scratch/release_phase2_draft.md`
+      has the numbers), `docs/cdrom.md` (done), `releases/README.md`, commit
 
 ## 9b. Phases remaining (2026-09-16 hand-off)
 
@@ -921,3 +929,14 @@ gate had no CD):
   (relaunch Main at the menu core for the remote mouse), 1 (8.1 + retail
   ISO), 3 (the AppleCD Audio Player on AudioTest.cue) and 4; A/UX skipped
   on the marginal build; a clean seed gets the full gate and the release.
+- 2026-09-16 20:45, **phase 2b fits at seed 24 with timing met**: worst
+  +0.244 ns (HDMI +0.255, clk_sys +0.762, clk_ram +0.605), 37,056 ALMs
+  (88 %; -1,072 against the morning's phase-1 release, -99 against the
+  13:50 phase-2 fit of the unfixed head), 25,269 registers, 490 RAM
+  blocks, 43 DSP; 18 min (synthesis reused). rbf `4bf9629c` kept as
+  `scratch/MacQuadra800_phase2b_s24_4bf9629c.rbf` and staged on .143 as
+  `_Unstable/MacQuadra800_phase2b_s24.rbf` (md5 verified; a file copy,
+  the probe operator's guest untouched). The release gate brief is
+  `scratch/p2c/BRIEF.md` (= p2b without the probe caveat, A/UX included);
+  it runs once the seed-23 probe operator has returned the box to a halt
+  screen. Seed 24 recorded as the qsf default (`319b72c`).
