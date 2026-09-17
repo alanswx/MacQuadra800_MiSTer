@@ -969,3 +969,13 @@ gate had no CD):
   the negative run (the RTL before this change) are running. The seed-24
   rbf on the box (4bf9629c) lacks this fix and is NOT the candidate any
   more.
+- 2026-09-16 21:30, the completion fix (2922294): nexus_io without
+  ca_io_active, the data-out chunk completion waits while a full sector
+  is still owed; tb_ncr53c96 477,417 checks / 0. The negative run (the
+  same bench against 3ec22e4, scratch/t20/neg2.log) fails exactly the new
+  check -- phase 01 (DATA IN) where STATUS is wanted at the chunk end
+  with the fetch in flight -- so the bench now reproduces the hardware's
+  player failure. Fit of 2922294 at seed 24 launched 21:30
+  (scratch/build_phase2c_s24.log). Gate brief for it:
+  scratch/p2c/BRIEF.md (relaunch Main before every load; the player first
+  while the mouse works; A/UX at 32 MB).
