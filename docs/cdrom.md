@@ -214,6 +214,16 @@ instantiates `quadra800`, not `emu`, and never crosses that wiring.
 - Hardware: Mac OS 8.1 with `games/MacQuadra800/Open Transport 1.3.1.iso`
   pre-mounted through `config/MacQuadra800.s4`; then `games/MacIIvi/TIM_3-mac.chd`
   (mixed mode, needs the Main fork) for CD audio.
+- Listening test (2026-09-17): `python scripts/make_tonedisc.py <dir>`
+  writes `ToneTest.cue/.bin`, a 4-track CD-DA image with the same layout as
+  the operators' silent `AudioTest.cue` (starts 0 / 6750 / 13500 / 22500,
+  leadout 31653, 7:02) but audible: track 1 a 440 Hz tone with a click on
+  every second (continuity, pitch), track 2 alternating seconds of left-only
+  660 Hz and right-only 880 Hz (channel order; byte-swapped samples come out
+  as noise), track 3 a 100 ms 1 kHz pip per second (cadence: an underrun
+  shows as an irregular pip), track 4 a 200 Hz to 2 kHz sweep every 10 s.
+  Operators cannot hear; the AppleCD player's counter and Main's `Mac CD:
+  cmd` lines are what they judge, the ear test is the user's.
 
 ## Area
 
