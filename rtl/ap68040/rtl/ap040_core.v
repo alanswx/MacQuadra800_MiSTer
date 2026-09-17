@@ -2202,7 +2202,8 @@ wire [31:0] go_pc_t_early =
 	(state == S_JMP1)                        ? ea_addr :
 	(state == S_FBCC)  ? pc_i + 32'd2 + (ir[6] ? imm : sxw(imm[15:0])) :
 	(state == S_FDBCC) ? pc_i + 32'd4 + sxw(imm[15:0]) :
-	                                           rgo_decode_t;
+	(state == S_DECODE)                      ? rgo_decode_t :
+	                                           rd_bcc_t;   // the lookahead arm
 // decode_dbcc_brf's callers: S_DBCC1 and S_BCC_EXT (their own target when
 // the branch is taken, the lookahead's when it retires instead), the
 // decode-time Bcc.B, and the lookahead arm in any other state.
@@ -2927,12 +2928,21 @@ wire        hint_pop = ((state == S_DECODE) && (ir == 16'h4E75)) ||
 wire [31:0] hint_pop_addr = (state == S_DECODE)     ? dbg_a7_wb :
                             (state == S_RET1)       ? dbg_a7 :
                             (state == S_MOVEM_LOOP) ? mm_addr : rf_rdata_a;
+// While a producer retires with a short Bcc at the queue head, hint its
+// target: if the lookahead arm takes the branch this cycle (go_pc from the
+// arm), the demand fetch it issues is the hint's; if the branch is not
+// taken, or the arm does not fire, a fill issued this cycle has merely lost
+// its idle-read match.  The guess is deliberately flag-free so the ALU's
+// flags never enter the hint path.
+wire        hint_ftb = rd_is_bcc && (state == S_PIPE_REGS || state == S_EXEC ||
+                                     state == S_PIPE_SDONE || state == S_MRD || state == S_MWR);
 wire [31:0] hint_addr = hint_data  ? m_addr_r :
                         hint_bcc   ? (pc + sxb(ir[7:0])) :
                         hint_pipe  ? hint_pipe_addr :
                         hint_ea    ? ea_addr :
                         hint_pop   ? hint_pop_addr :
-                        hint_redir ? hint_redir_addr : epf_ftail;
+                        hint_redir ? hint_redir_addr :
+                        hint_ftb   ? rd_bcc_t : epf_ftail;
 // The request bus carries only registered state.  The hint rides its own
 // bus, which only RAM address inputs and the MMU's hint copy listen to,
 // so the address arithmetic behind it never enters a request-cycle path
@@ -8605,8 +8615,11 @@ always @(posedge clk) begin
 		if (mgo) mem_issue;
 		if (igo) immf_now(igo_n, igo_ret);
 		if (retire_req) fetch_next_body;
-		if (pgo) go_pc_now(go_pc_t_early);
-		if (xgo) exc_now(xgo_vec, xgo_fmt, xgo_spc, xgo_addr);
+		// go_pc_now and exc_now run after the lookahead arm (below): the
+		// arm's forward taken Bcc raises pgo, and go_pc's own address-error
+		// and trace cases raise xgo, which exc_now must see.  Nothing the
+		// arm writes is written by either when they fire in the same cycle
+		// (a retire that pops never carries an exception).  (2026-09-17)
 
 		// Single shared-descriptor control writer. In normal decode only
 		// covered opcode families suppress their legacy body; unrelated
@@ -8651,6 +8664,21 @@ always @(posedge clk) begin
 				if (brf_refill_hit(rd_bcc_t) &&
 				    (!epf_armed || epf_next != rd_bcc_t || epf_super != sr_s))
 					decode_dbcc_brf(rd_bcc_t);
+				// A target outside the sector: the same go_pc that
+				// finish_bcc would call from S_DECODE a cycle later, raised
+				// here through its carrier (go_pc_now runs after this arm
+				// and takes rd_bcc_t as its state-selected target), so the
+				// demand fetch goes out at the end of the producer's retire
+				// cycle instead of the decode cycle.  The arm's own guards
+				// (no trace, no interrupt, even target) are the ones that
+				// select go_pc's plain redirect path.  Only when the port is
+				// free now: a redirect raised in an acknowledge cycle or under
+				// a queue fetch is deferred to the fill engine, whose fill does
+				// not adopt the target's sector, and every later branch into
+				// it then pays a demand fetch (the corpus ran 1.3 % slower);
+				// S_DECODE, a cycle later, usually finds the port free.
+				// (2026-09-17)
+				else if (!epf_pend && !mem_req && !mem_ack) go_pc(rd_bcc_t);
 			end
 			else if (epf_count >= 4'd2) begin
 				ir <= epf_data[epf_head + 3'd1];
@@ -8664,6 +8692,8 @@ always @(posedge clk) begin
 
 		// The resident-target dispatch an arm or the lookahead asked for: it
 		// arms the queue and claims the port, so it runs before the fill engine.
+		if (pgo) go_pc_now(go_pc_t_early);
+		if (xgo) exc_now(xgo_vec, xgo_fmt, xgo_spc, xgo_addr);
 		if (dgo) decode_dbcc_brf_now(dbrf_a_early);
 
 		//-------------------------------------------------- fetch queue engine
