@@ -841,3 +841,50 @@ single iteration can move. The four-depth average is a new baseline.
 First Speedometer 4.02 Performance Rating recorded on this core; earlier PR
 tables in this file are Speedometer 3.23 on Mac OS 7.5.5 and do not compare.
 The FPU test (Cmd+F) was not run this time; 20260915's was 0.449.
+
+## 16. CPU pipeline step 1: the one-clock data-cache hit (2026-09-17, hardware)
+
+Branch `CPU-pipeline`, commit 86b6b04 (the shipped 20260916_2 CPU plus Alan
+Steremberg's one-clock data hit on a dedicated hint bus, AP68040 6e65192;
+`docs/cpu-pipeline-increments-20260917.md`), seed 21, timing met on every
+clock (CPU +0.036 ns, HDMI +0.056 ns), 37,439 ALMs (89 %), rbf d157f555.
+Speedometer 4.02 on the .143 box, Mac OS 8.1 from QuadSquad8.hda with a
+second disk and a CD mounted, one iteration of each test, three Benchmark
+Mix runs by the Opus operator (`scratch/pipeline_step1/report.md`, 53
+screenshots). Physical RAM 32 MB on this boot. Baseline = section 15 (the
+user's run of the shipped CPU on this box).
+
+### Benchmark Mix (Quadra 605 = 1.0)
+
+| test | run 1 | run 2 | run 3 | ratio (run 3) | section 15 abs. | change |
+|---|---|---|---|---|---|---|
+| KWhetstones/sec | 652.385 | 656.763 | 656.707 | 2.233 | 641.245 | +2.2 % |
+| Dhrystones/sec | 10756.451 | 10755.794 | 10756.326 | 0.622 | 9983.463 | +7.7 % |
+| Towers (sec) | 1.161 | 1.161 | 1.161 | 0.550 | 1.229 | -5.5 % |
+| Quick Sort (sec) | 0.813 | 0.812 | 0.812 | 0.877 | 0.817 | -0.6 % |
+| Bubble Sort (sec) | 0.890 | 0.890 | 0.890 | 0.854 | 0.886 | +0.5 % |
+| Queens (sec) | 0.659 | 0.659 | 0.659 | 0.612 | 0.687 | -4.1 % |
+| Puzzle (sec) | 1.572 | 1.564 | 1.568 | 0.697 | 1.605 | -2.3 % |
+| Permutations (sec) | 1.842 | 1.842 | 1.842 | 0.441 | 1.883 | -2.2 % |
+| Int. Matrix (sec) | 1.007 | 1.002 | 0.992 | 0.812 | 1.027 | -2.6 % |
+| Sieve (sec) | 1.264 | 1.261 | 1.260 | 1.089 | 1.296 | -2.7 % |
+| **Average** | **0.875** | **0.878** | **0.879** | | **0.855** | **+2.6 %** (mean 0.877) |
+
+Spread 0.004 across the three runs, no invalid time, no first-run outlier.
+Nine of ten tests faster; Bubble Sort is 0.5 % slower in all three runs (its
+inner loop is register/branch bound, and the change touches data reads
+only). The simulated prediction for this change was +2.5 %.
+
+### Color QuickDraw and FPU
+
+| test | this build | section 15 |
+|---|---|---|
+| CQD average (Monochrome 0.663, Two bit 0.643, Four bit 0.643, Eight bit 0.621) | **0.643** | 0.641 (+0.3 %) |
+| FPU average (KWhetstones 2449.5/s 0.470, Matrix Mult. 1.408 s 0.502, FFT 0.682 s 0.421) | **0.464** | 0.449 (+3.3 %) |
+
+The CQD dialog on this launch had only 8 bits/pixel checked; the operator
+re-checked the four depths of section 15 before running. Boot to the Finder
+in 82 to 123 s, clean Special -> Shut Down in 45 s through
+`scripts/mac_shutdown.sh`, no artefacts or dialogs in 36 minutes of use.
+The CPU-side gates for this RTL: `bench_loop` 94,368 -> 81,600 cycles, the
+first-100 corpus identical (33,335,739, 0 real diffs).

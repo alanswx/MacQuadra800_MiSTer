@@ -212,6 +212,13 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # (scratch/pipeline_step1/MacQuadra800_step1_s21_d157f555.rbf). Alan never closed a seed on this RTL at 92-93 %.
 # Speedometer run by the Opus operator (scratch/pipeline_step1/). Build 2 (77aa72a: + R5/R6 hoists, redirect hints,
 # in-place pops/MOVEM, forward taken Bcc at the lookahead) at seed 21 next.
+# Step 1 HARDWARE (Opus operator, scratch/pipeline_step1/report.md): 8.1 boots <=123 s, Speedometer Mix 0.875/0.878/0.879
+# = 0.877 (+2.6 % over 0.855), CQD 0.643, FPU 0.464, clean 45 s shutdown, no artefacts.
+# 2026-09-17 16:16 build 2 (77aa72a: + R5/R6 hoists, redirect hints, in-place pops/MOVEM, forward taken Bcc): seed 21
+# FAILED IN ROUTING (congestion; placement fine; 36,330 ALMs = 87 %, -1,109 vs step 1; 42 min). No rbf.
+# 2026-09-17 17:03 build 3 (5206845: + MOVEM loads on the ack, pushes in place, MOVEM stores from the loop, LINK/PEA
+# on the ack; synthesis 55,210 ALUTs vs the release's 56,965): seed 21 WITH FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION
+# ALWAYS set in the build tree only (scratch/edit_qsf_routability.py on), the lever Quartus names for that failure.
 set_global_assignment -name SEED 21
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
