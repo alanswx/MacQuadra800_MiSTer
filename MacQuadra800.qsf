@@ -202,6 +202,10 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # Seed 21 (phase 2c): fits (37,197 ALMs, 15 min) but clk_sys MISSES by 0.231 ns, TNS -0.246 (one path; HDMI +0.076, clk_ram +1.130), rbf ab1da889. Seed 22 next (queued behind another session's sgiindy flow via the wait-gate).
 # Seed 22 (phase 2c): fits (37,216 ALMs, 30 min alongside a sgiindy fit) but clk_sys MISSES by 1.413 ns, TNS -108 (HDMI -0.209), rbf e7e3280c. Seed 23 next (wait-gated); after it the routability switch.
 # Seed 23 (phase 2c): fits (37,305 ALMs, 114 min) but HDMI -7.533, clk_sys -2.921, clk_ram -0.024 -- the worst of the walk; rbf e32dd5b4 not kept. Walk closed: RELEASED 2026-09-17 as MacQuadra800_20260916_2.rbf = seed 21 (ab1da889, clk_sys -0.231 on one path, the full gate passed). Seed 21 is the default; the next lever if a clean fit is wanted is FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS (scratch/edit_qsf_routability.py on).
+# 2026-09-17 13:21 add-CPU-fixes (6de9473: CPU vendored, Adam Polkosnik's fixes -- bitfield sizing, FPSP BUSY resume,
+# MOVEM CM continuation, nonresident ATC, ALU/FPU normalizer sharing, integer regfile in MLABs): seed 21 MEETS
+# TIMING first try -- 37,144 ALMs (89 %), worst +0.244 (HDMI +0.255, clk_sys +0.442, clk_ram +0.851), 31 min,
+# rbf 8552a409 (scratch/MacQuadra800_cpufixes_6de9473.rbf). Hardware gate owed; revert 6de9473 first if it misbehaves.
 set_global_assignment -name SEED 21
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
