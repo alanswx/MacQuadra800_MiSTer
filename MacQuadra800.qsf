@@ -206,6 +206,12 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # MOVEM CM continuation, nonresident ATC, ALU/FPU normalizer sharing, integer regfile in MLABs): seed 21 MEETS
 # TIMING first try -- 37,144 ALMs (89 %), worst +0.244 (HDMI +0.255, clk_sys +0.442, clk_ram +0.851), 31 min,
 # rbf 8552a409 (scratch/MacQuadra800_cpufixes_6de9473.rbf). Hardware gate owed; revert 6de9473 first if it misbehaves.
+# 2026-09-17 15:45 CPU-pipeline step 1 (86b6b04: Alan's one-clock data-cache hit on a dedicated hint bus, 6e65192,
+# +308 ALUTs): seed 21 MEETS TIMING first try -- 37,439 ALMs (89 %), worst +0.036 (clk_sys +0.036, HDMI +0.056,
+# clk_ram +0.775, hold +0.187), 491 RAM, 30 min in ../MacQuadra800_wt3; rbf d157f555
+# (scratch/pipeline_step1/MacQuadra800_step1_s21_d157f555.rbf). Alan never closed a seed on this RTL at 92-93 %.
+# Speedometer run by the Opus operator (scratch/pipeline_step1/). Build 2 (77aa72a: + R5/R6 hoists, redirect hints,
+# in-place pops/MOVEM, forward taken Bcc at the lookahead) at seed 21 next.
 set_global_assignment -name SEED 21
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
