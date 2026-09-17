@@ -694,10 +694,19 @@ wire [1:0] hint_way = hh0 ? 2'd0 : hh1 ? 2'd1 : hh2 ? 2'd2 : 2'd3;
 // The fast hit's own view of the request: the hint bus repeats the
 // registered request address while it is presented, so the offset bits
 // come from there and not from the translated address (whose low bits
-// pass through the MMU's physical-address mux).
-wire  [1:0] fq_arr   = hint_way + c_hint_addr[3:2];
-wire        fast_lane = (c_size == `AP040_SZ_L && c_hint_addr[1:0] == 2'b00) ||
-                        (c_size == `AP040_SZ_W && c_hint_addr[1:0] != 2'b11) ||
+// pass through the MMU's physical-address mux).  They are taken from
+// the cache's own registered copy of the hint (hq_lo), not from the live
+// bus: c_hint_match already requires the request to equal the hint the
+// MMU registered a cycle earlier, so the two agree whenever fast_hit can
+// be true, and the timing analyzer no longer follows the core's
+// combinational hint mux (state -> hint select) into the word select,
+// the ALU and the branch lookahead (a 33 ns false path that missed the
+// 33 MHz clock by 3.8 ns, 2026-09-17).
+reg  [SETW+3:0] hq_lo;
+always @(posedge clk) hq_lo <= c_hint_addr[SETW+3:0];
+wire  [1:0] fq_arr   = hint_way + hq_lo[3:2];
+wire        fast_lane = (c_size == `AP040_SZ_L && hq_lo[1:0] == 2'b00) ||
+                        (c_size == `AP040_SZ_W && hq_lo[1:0] != 2'b11) ||
                         (c_size == `AP040_SZ_B);
 // Admission for the one-clock acknowledge without the request's live
 // translation: no c_req (the MMU asserts it only after its translation
@@ -712,11 +721,11 @@ wire [31:0] hint_data_hit = (fq_arr == 2'd0) ? data_q0 :
 // idle_hit without look_hit (the live translation's tag compare)
 assign fast_hit  = fast_accept && !err_hold && !m_err && fast_lane &&
                    idle_data_valid && idle_tag_valid &&
-                   (idle_data_idx == {1'b0, c_hint_addr[SETW+3:2]}) &&
-                   (idle_tag_idx == {1'b0, c_hint_addr[SETW+3:4]}) && hint_look_hit &&
+                   (idle_data_idx == {1'b0, hq_lo[SETW+3:2]}) &&
+                   (idle_tag_idx == {1'b0, hq_lo[SETW+3:4]}) && hint_look_hit &&
                    !tag_we && !inv_wren && !look_snooped && !snoop_look_row &&
                    !c_instr && c_hint_match;
-assign fast_data = lw_extract(hint_data_hit, c_size, c_hint_addr[1:0]);
+assign fast_data = lw_extract(hint_data_hit, c_size, hq_lo[1:0]);
 
 // Any instruction hit that identified its way (a C_LOOK hit, or an idle
 // admission) reads that way's whole line on the same edge it acknowledges.
