@@ -24,7 +24,8 @@ found a desktop alias and used it).
 | step 1 on hardware | rbf `d157f555` (seed 21, timing met, 37,439 ALMs): **Speedometer Mix 0.877** (0.875/0.878/0.879, +2.6 % over the shipped 0.855), CQD 0.643, FPU 0.464, 8.1 boot <= 123 s, clean shutdown; `docs/PERFORMANCE_MEASUREMENTS.md` section 16, `scratch/pipeline_step1/report.md` |
 | build 2 (77aa72a, items 1-5) | seed 21 FAILED IN ROUTING (congestion, placement fine), 36,330 ALMs (87 %, -1,109 vs step 1); no rbf |
 | build 3 (5206845, items 1-8) | seed 21 + `FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS` (build tree only, `scratch/edit_qsf_routability.py on` in `../MacQuadra800_wt3`): ROUTED, 36,010 ALMs (86 %), but the CPU clock MISSES by 3.760 ns (TNS -576). TimeQuest on the fitted db (`scripts/cpu/timequest_worst_paths.tcl`, reports in `scratch/pipeline_b3/`): state -> hint mux -> the cache's fast-hit word select -> ALU -> lookahead -> seed count -> epf_ftail, a 33 ns FALSE path (the hint bus carries the registered request in the request cycle, the analyzer follows the hint side) |
-| build 4 (31445e5: + the cache qualifies/selects the fast hit from its own registered copy of the hint, cycle-identical) | seed 21 + the switch, launched 17:40, log `../MacQuadra800_wt3/scratch/build_b4_s21r.log`; the brief `scratch/pipeline_b3/BRIEF.md` serves it (rename the directory or the file's title) |
+| build 4 (31445e5: + the cache qualifies/selects the fast hit from its own registered copy of the hint, cycle-identical) | seed 21 + the switch: routed, 36,326 ALMs (87 %), CPU clock -2.362 (HDMI +0.135, clk_ram +0.950). Worst path (reports in `scratch/pipeline_b4/`): sr[13] -> A7 bank -> port A -> shift count -> the ALU's ROXx modulo, a 33-bit DIVIDER from `n % (nbits+1)` -> shifter -> flags -> lookahead -> the carriers muxing the two hoisted bodies' targets -> seed cone -> epf_ftail, 32 ns |
+| build 5 (24579aa: + constant-modulus ROXx count, + `dbrf_a_early = go_pc_t_early` so both hoisted bodies share one state-selected target; cycle-identical, zero early-target mismatches) | seed 21 + the switch, launched 18:21, log `../MacQuadra800_wt3/scratch/build_b5_s21r.log`; brief `scratch/pipeline_b4/BRIEF.md` serves it (retitle) |
 | the .143 box | left by the operator at the Mac OS 8.1 halt screen on the step-1 core, `.s0` QuadSquad8.hda; `.s1` (a MacLC disk) and `.s4` (a MacLC CD) are the user's, untouched |
 | CPU gates | `scripts/cpu_gates_wsl.sh rtl/ap68040 <label>` now also runs `pipe_bench` (`rtl/ap68040/tb/asm/pipe_bench.s`); head: AP 23/23, bench_loop 81202/82000, pipe_bench 122190, corpus 32991462 with 0 REAL diffs |
 
@@ -75,8 +76,8 @@ Synthesis: 55,210 ALUTs at 77aa72a against the release's 56,965.
 
 ## Next
 
-1. Build 3's result: if it fits and meets timing, copy the rbf to
-   `scratch/pipeline_b3/`, fill the brief, run the Opus operator (the
+1. Build 5's result: if it fits and meets timing, copy the rbf to
+   `scratch/pipeline_b4/` (or a b5 dir), fill the brief, run the Opus operator (the
    step-1 prompt in this session's transcript works verbatim), write
    section 17 of `docs/PERFORMANCE_MEASUREMENTS.md`, the ledger line in the
    `.qsf`, the Builds row in the design note. If it fails routing: seed 22
