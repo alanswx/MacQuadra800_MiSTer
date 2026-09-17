@@ -161,6 +161,21 @@ morning.
 | pipe_bench phase 0 | 137,184 | 133,186 (the four loads per iteration) |
 | corpus-100 | 33,300,804 | 33,082,368 (-0.66 %), 0 diffs |
 
+### 7. The pushes issue in place (BSR.B, BSR.W, JSR, PEA, LINK)
+
+The write whitelist of `mem_issue` grows from S_EXEC and S_MOVEM_RD to the
+five push sites; a posted store needs no hint, so each push simply loses
+its request-setup cycle when the port is free.
+
+| gate | before | after |
+|---|---:|---:|
+| pipe_bench phase 0 | 133,186 | 127,186 (S_MWR 63,089 -> 56,090) |
+| corpus-100 | 33,082,368 | 33,021,428 (-0.18 %), 0 diffs |
+
+Across items 3 to 7 pipe_bench went from 149,182 to 127,186 cycles
+(-14.7 %) and the corpus from 33,335,739 to 33,021,428 (-0.94 %), every
+row still matching silicon field for field.
+
 ## Builds
 
 | build | content | seed | ALMs | timing | rbf | hardware |
