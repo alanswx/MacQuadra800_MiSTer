@@ -910,3 +910,14 @@ gate had no CD):
   (scratch/build_phase2b_s23.log), one flow at a time; if it fails too,
   the next lever is FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
   rather than a fourth seed.
+- 2026-09-16 20:30, phase 2b fit, seed 23: fits (36,932 ALMs = 88 %,
+  25,223 regs, 43 DSP, 25 min) but the 33 MHz CPU clock MISSES by 0.752
+  ns with TNS -37 ns (HDMI +0.254, clk_ram +0.555); rbf 0d374d4a kept as
+  scratch/MacQuadra800_phase2b_s23_0d374d4a.rbf. Seed 24 launched 20:25
+  (scratch/build_phase2b_s24.log). Under the try-marginal-builds policy
+  the seed-23 rbf is staged on .143 as
+  _Unstable/MacQuadra800_phase2b_s23.rbf (md5 verified) and an Opus
+  operator runs scratch/p2b/BRIEF.md on it as a FIX PROBE: steps 0
+  (relaunch Main at the menu core for the remote mouse), 1 (8.1 + retail
+  ISO), 3 (the AppleCD Audio Player on AudioTest.cue) and 4; A/UX skipped
+  on the marginal build; a clean seed gets the full gate and the release.
