@@ -1048,3 +1048,13 @@ gate had no CD):
   its sgiindy FITTER on top of it (23:22: two quartus_fit processes, one
   per project). Not started by this session and neither is killed; noted
   because the rule is one flow on the box -- expect both to run slower.
+- 2026-09-16 23:42, phase 2c seed 22: fits (37,216 ALMs) but clk_sys
+  MISSES by 1.413 ns, TNS -108 (HDMI -0.209) -- the worst of the walk
+  (21: -0.231 one path, 24: -0.727, 22: -1.413); rbf e7e3280c kept. Seed
+  23 queued behind the sgiindy fitter through the wait-gate
+  (scratch/build_phase2c_s23.log). Under the try-marginal-builds policy
+  the seed-21 build ab1da889 (the best, one path 0.231 ns short) is
+  staged on .143 as _Unstable/MacQuadra800_phase2c_s21.rbf and gets the
+  FULL gate (scratch/p2d/BRIEF.md: player first, 8.1 + retail ISO, A/UX
+  at 32 MB); if a later seed meets timing it gets a confirmation run and
+  ships instead, otherwise ab1da889 ships with the CPU-clock note.

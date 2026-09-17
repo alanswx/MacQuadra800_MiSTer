@@ -200,7 +200,8 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # Seed 24 (phase 2b, 3ec22e4): MEETS TIMING -- worst +0.244 ns (HDMI +0.255, clk_sys +0.762, clk_ram +0.605), 37,056 / 41,910 ( 88 % ) ALMs, rbf 4bf9629c (18 min). Seed 24 is the default for this head.
 # 2026-09-16 22:32 phase 2c (2922294: + the data-phase completion fix): seed 24 fits (37,152 ALMs, 62 min) but clk_sys MISSES by 0.727 ns, TNS -3.9 (HDMI +0.015, clk_ram +1.162), rbf a719e24f = the fix probe on hardware. Seed 21 next.
 # Seed 21 (phase 2c): fits (37,197 ALMs, 15 min) but clk_sys MISSES by 0.231 ns, TNS -0.246 (one path; HDMI +0.076, clk_ram +1.130), rbf ab1da889. Seed 22 next (queued behind another session's sgiindy flow via the wait-gate).
-set_global_assignment -name SEED 22
+# Seed 22 (phase 2c): fits (37,216 ALMs, 30 min alongside a sgiindy fit) but clk_sys MISSES by 1.413 ns, TNS -108 (HDMI -0.209), rbf e7e3280c. Seed 23 next (wait-gated); after it the routability switch.
+set_global_assignment -name SEED 23
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
 # the design no longer fits with speed-directed synthesis; all-area
