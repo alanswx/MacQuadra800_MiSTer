@@ -996,3 +996,10 @@ gate had no CD):
   since at least 06:50 today (and one from 09-07) is noise -- the menu's
   Linux-framebuffer path, not the core and not tonight's SCSI work; the
   Linux image, Main and menu.rbf were all updated 09-07/08.
+- 2026-09-16 22:50, phase 2c (2922294) seed 21: fits (37,197 ALMs, 25,226
+  regs, 490 RAM, 43 DSP, 15 min) but clk_sys MISSES by 0.231 ns with TNS
+  -0.246 -- one path (HDMI +0.076, clk_ram +1.130); rbf ab1da889 kept as
+  scratch/MacQuadra800_phase2c_s21_ab1da889.rbf (the best marginal build
+  so far if no seed meets timing). Seed 22 launched 22:49
+  (scratch/build_phase2c_s22.log); after it 23, then the routability
+  switch.
