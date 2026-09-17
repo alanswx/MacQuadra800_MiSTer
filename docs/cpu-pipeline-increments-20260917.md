@@ -172,8 +172,21 @@ its request-setup cycle when the port is free.
 | pipe_bench phase 0 | 133,186 | 127,186 (S_MWR 63,089 -> 56,090) |
 | corpus-100 | 33,082,368 | 33,021,428 (-0.18 %), 0 diffs |
 
-Across items 3 to 7 pipe_bench went from 149,182 to 127,186 cycles
-(-14.7 %) and the corpus from 33,335,739 to 33,021,428 (-0.94 %), every
+### 8. MOVEM stores from the loop, LINK/PEA on the acknowledge
+
+Port A is selected one register ahead (at loop entry for the first, in
+the loop for each next one, a second `ffs16` over the remaining mask), so
+S_MOVEM_LOOP issues the store itself and S_MOVEM_RD is no longer entered.
+The S_MWR acknowledge arm writes A7 and retires for `r_m_ret == S_LINK4` /
+`S_PEA2`.  Every folded state stays for the byte-split path.
+
+| gate | before | after |
+|---|---:|---:|
+| pipe_bench phase 0 | 127,186 | 122,190 (four MOVEM stores and the LINK per iteration) |
+| corpus-100 | 33,021,428 | 32,991,462 (-0.09 %), 0 diffs |
+
+Across items 3 to 8 pipe_bench went from 149,182 to 122,190 cycles
+(-18.1 %) and the corpus from 33,335,739 to 32,991,462 (-1.03 %), every
 row still matching silicon field for field.
 
 ## Builds
