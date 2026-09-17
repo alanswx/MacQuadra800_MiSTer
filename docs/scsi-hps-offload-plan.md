@@ -1088,3 +1088,22 @@ gate had no CD):
   FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
   (scratch/edit_qsf_routability.py on), then a confirmation gate and a
   file swap; the qsf default is back on seed 21.
+- 2026-09-17 01:45, CORRECTION on the video finding: the 529x240 captures
+  of the MENU core are Main's native-resolution grab of the menu core's
+  own tiny video (Main logs the menu as 529 x 240 at 15.7 kHz with fb_en
+  = 1, fb 1280x720), and in framebuffer mode that path carries nothing --
+  so those captures are noise by construction and say NOTHING about the
+  HDMI picture; the one 1280x720 capture of the menu core on record
+  (scratch/box_state_start.png, 09-08 23:04) shows the framework's boot
+  terminal properly. The claim that the menu picture has been broken
+  since 09-07 is withdrawn. What stands: the FPGA configures, the ADV7513
+  is PLL-locked and reports the sink, Main's startup log is clean, and
+  the Mac core's picture is good through the same path; the user's
+  no-video report after the 22:00 power cycle is unexplained by anything
+  on the box, and their own observation with the Mac core up (loaded
+  22:15) is still owed. The Main binaries on the box: 898854ef (current
+  fork, ae708d3), MiSTer.bak_20260916_916829ff (the 09-08 fork build
+  4857af1 that ran 09-08..09-16), MiSTer.bak_upstream20260907_74b59a34
+  (stock upstream 20260907, installed 09-08 05:11 with menu.rbf and the
+  Linux image), MiSTer.aug28_d6d63ec4 (the Aug 28 fork build), older
+  fork/stock backups back to MiSTer.stock 9d5f18d3 (07-16).
