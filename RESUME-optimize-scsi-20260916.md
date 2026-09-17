@@ -63,19 +63,19 @@ the memory notes `pickup-2026-09-08`, `one-quartus-flow-at-a-time`,
   report `scratch/p2d/report.md`: the player first, 8.1 + retail ISO, A/UX
   at 32 MB). If a later seed meets timing it gets a confirmation run and
   ships instead; otherwise `ab1da889` ships with the CPU-clock note.
-- **The user's "no video" (22:00)**: the MiSTer was power-cycled; the
-  MENU core shows no picture. Established read-only: the FPGA is
-  configured, the ADV7513 is PLL-locked and sees the sink (a Realtek
-  device whose EDID prefers 1280x720), Main's startup log is clean, and
-  the Mac core's picture is perfect through the same scaler and HDMI path
-  (the boot screen and the Finder captured after a `load_core` at 22:15).
-  Every menu-core capture on this box since at least 06:50 today, and one
-  from 09-07, is noise: the menu's Linux-framebuffer path (the Linux
-  image, Main and menu.rbf were all updated 09-07/08). Not the core, not
-  tonight's work; the user has not yet said what the display shows with
-  the Mac core up. Main is relaunched by hand (pid 1364, 22:13), stdout
-  appended to **`/media/fat/nohup_video.log`** (the `Mac CD:` lines are
-  there now, not in nohup.out).
+- **The user's "no video" (22:00)**: the MiSTer was power-cycled; the user
+  reported no picture at the MENU core. Established read-only: the FPGA is
+  configured, the ADV7513 is PLL-locked and sees the sink (a Realtek device
+  whose EDID prefers 1280x720), Main's startup log is clean, and the Mac
+  core's picture is perfect through the same scaler and HDMI path (the boot
+  screen and the Finder captured after a `load_core` at 22:15). CORRECTION
+  01:45: the 529x240 captures of the menu core are Main's native-res grab of
+  the menu core's own video, which carries nothing in framebuffer mode --
+  they are noise by construction and prove nothing about the menu's HDMI
+  picture (the 1280x720 capture of 09-08 shows it fine). The report stays
+  unexplained by the box; the user's observation with the Mac core up is
+  owed. Main binaries for a revert test are listed in the plan log 01:45.
+  Main is relaunched by hand, stdout appended to **`/media/fat/nohup_video.log`**.
 - Remote mouse MOTION dies across every `load_core` and only a Main
   relaunch at the menu core revives it (event15 is MiSTer's own node; the
   mrext devices are event16-18; never restart the remote service). The
