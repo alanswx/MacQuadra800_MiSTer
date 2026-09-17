@@ -52,7 +52,21 @@ same commit `ae708d3` is md5 `431da61aef440964204a59ce0069bfa2` (built
 from nothing; `scripts/build_main_wsl.sh` now discards build objects).
 The gates below ran with the mis-linked binary: every Mac-side object in
 it was current, so their results stand, but `431da61a` is the one to
-install.
+install. **Re-verified on `431da61a` 2026-09-17 10:10-10:26**
+(`scratch/cdbin/report.md`): this rbf installed under the generic
+`_Unstable/MacQuadra800.rbf` name, Mac OS 8.1 Finder with "Audio CD 1"
+at T0+139 s on the audible `ToneTest.cue` (`scripts/make_tonedisc.py`,
+same layout as `AudioTest.cue`), the AppleCD Audio Player's counter
+running (00:17 / 01:25 / track 2 at 01:04 at +16 / +85 / +154 s, the
+auto-advance over two track boundaries), Pause frozen 90 s, Resume from
+the frozen value, Stop to 00:00, no "not responding" dialog; Main's five
+`Mac CD: cmd` lines (47, 4B, 47 FF:FF:FF, 4B, 01) with every `cur`
+matching the wall clock to the second. The "not responding" dialog the
+user saw on 2026-09-17 09:46 came from the OLD Sep-8 build (`512cd4f8`)
+that sat under the generic `_Unstable` name until this run, with the
+silent test disc in slot 4; it reproduced on that build at 10:06 and did
+not appear on this one. Sound itself is still to be judged by ear: the
+operators cannot hear, and the tone disc is on the card for that.
 
 **Ships with the same Main binary as 20260916:** the Main fork branch
 `mac-ethernet-pr-with-SCSI-Optimizations` at `ae708d3` (binary md5

@@ -79,3 +79,40 @@ operators for guest driving (they cannot hear audio -- the user can).
 Commit as work lands, do not push. Command = keycode 56, `MISTER_HOST=
 192.168.99.143`, `MSYS_NO_PATHCONV=1`. Edit scripts go in `scratch/edit_*.py`.
 A/UX gates at 32 MB. Restore damaged images from `backup/`.
+
+## RESULT 2026-09-17 10:26 -- the release passes on the clean Main; sound is owed to the user's ear
+
+Operator run `scratch/cdbin/report.md` (screenshots `03a`..`16`), one
+candidate `load_core` over a READ halt screen:
+
+- The running guest (the old Sep-8 core `512cd4f8`, its "not responding"
+  dialog reproduced at 10:06 on the handover screen) was shut down cleanly
+  (Return cancelled the dialog and quit the player; `mac_shutdown.sh` exit 0;
+  halt screen READ 10:07:54).
+- Main relaunched at the MENU core with stdout -> `/media/fat/nohup_video.log`
+  (pid 2440 then 2546 after the load; L0 = 12915, final 13847); md5 `431da61a`.
+- The release now sits under the generic name: `_Unstable/MacQuadra800.rbf`
+  = `ab1da889`; the old build kept as `_Unstable/MacQuadra800_20260908_M_512cd4f8.rbf`.
+- Slot 4 = `games/MacQuadra800/ToneTest.cue` (AUDIBLE, built by
+  `scripts/make_tonedisc.py`, same layout as `AudioTest.cue`; the old `.s4`
+  saved as `config/MacQuadra800.s4.bak_audiotest`).
+- Boot T0 10:10:23, "Audio CD 1" desktop at +139 s, the TOC lines exact.
+  Player: Play 10:15:48 -> 00:17 / 01:25 / track 2 at 01:04 (+16 / +85 /
+  +154 s), auto-advance over two track boundaries, Pause frozen 90 s,
+  Resume from the frozen value, Stop -> Track 01 00:00, no dialog. Main's
+  five `Mac CD: cmd` lines (47 / 4B / 47 FF:FF:FF / 4B / 01), every `cur`
+  matching the wall clock to the second (13765 at 183 s, 17693 at 235 s).
+- Release entry updated (`releases/README.md`, the correction paragraph).
+
+**Box left RUNNING for the user** (10:26): Mac OS 8.1 Finder, the AppleCD
+Audio Player frontmost at Track 01 00:00 Stopped, pointer on Play, no
+button held, clock ticking, RAM 32 MB. Press Play and LISTEN: track 1 a
+440 Hz tone with a click every second, track 2 alternating left/right
+seconds (noise = byte order wrong), track 3 a 1 kHz pip per second,
+track 4 sweeps. A mouse button wakes the screen saver. Shut down from the
+Finder (Special -> Shut Down) when done; do not reload the core over it.
+
+Still open after the ear test: a real ripped CUE/BIN or audio CHD (CHD
+CD-DA is byte-swapped by Main); the release entry's sound line; the user
+pushes both branches (core `optimize-SCSI`, Main fork
+`mac-ethernet-pr-with-SCSI-Optimizations`).
