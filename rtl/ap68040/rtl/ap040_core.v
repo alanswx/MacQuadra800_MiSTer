@@ -15,7 +15,7 @@
 //    (T1/T0), autovectored interrupts with M-bit master/interrupt stack    //
 //    switching                                                             //
 //  - integrated 68040 FPU arithmetic, conversions, control and condition   //
-//    operations; FSAVE/FRESTORE support NULL, IDLE and rev-$41 UNIMP state //
+//    operations; FSAVE/FRESTORE support NULL, IDLE and rev-$40/$41 state   //
 //                                                                          //
 // Known gaps, all documented in tests/ap040/README:                        //
 //  - TAS/CAS/CAS2 are not bus-locked (single-master fabric here)           //
@@ -35,7 +35,8 @@ module ap040_core
 	parameter AP040_HAS_MMU      = 1,
 	parameter AP040_HAS_FPU      = 0,
 	parameter AP040_ENABLE_CACHE = 0,
-	parameter AP040_FAST_SIM     = 0
+	parameter AP040_FAST_SIM     = 0,
+	parameter [7:0] AP040_FPU_REVISION = 8'h41   // FPU state-frame ABI: $41 (68040), $40 (older NeXT)
 )
 (
 	input             clk,
@@ -106,6 +107,23 @@ module ap040_core
 	// supervisor stack pointer was already wrong.
 	output    [127:0] debug_status2
 );
+
+// Revision $40 omits CMDREG3B and the following reserved longword from
+// UNIMP frames. Old non-Turbo NeXT kernels depend on this 44-byte layout.
+// Keep $41 as the default for existing integrations (52-byte UNIMP).
+localparam FPU_REV40 = AP040_FPU_REVISION == 8'h40;
+localparam [31:0] FPU_IDLE_HEADER = {AP040_FPU_REVISION, 24'd0};
+localparam [31:0] FPU_UNIMP_HEADER = {AP040_FPU_REVISION,
+	(FPU_REV40 ? 8'h28 : 8'h30), 16'd0};
+localparam [31:0] FPU_BUSY_HEADER = {AP040_FPU_REVISION, 8'h60, 16'd0};
+localparam [31:0] FPU_UNIMP_BYTES = FPU_REV40 ? 32'd44 : 32'd52;
+localparam [3:0] FPU_UNIMP_LAST = FPU_REV40 ? 4'd10 : 4'd12;
+// synthesis translate_off
+initial begin
+	if (AP040_FPU_REVISION != 8'h40 && AP040_FPU_REVISION != 8'h41)
+		$fatal(1, "AP040_FPU_REVISION must be 0x40 or 0x41");
+end
+// synthesis translate_on
 
 //---------------------------------------------------------------------------
 // architectural state
@@ -1075,6 +1093,8 @@ reg         fpu_frestore_unimp;
 reg  [15:0] fp_restore_cmd1, fp_restore_cmd3;
 reg   [2:0] fp_restore_stag, fp_restore_dtag, fp_restore_flags;
 reg  [95:0] fp_restore_fpt, fp_restore_et;
+reg   [7:0] fp_restore_cusavepc;
+reg         fp_restore_et15, fp_restore_fpt15;
 reg   [1:0] fp_cnt;               // long transfers remaining
 reg   [3:0] fp_nb;                // operand bytes
 reg         fp_st;                // 1: store direction
@@ -1103,6 +1123,7 @@ reg   [7:0] fpu_pend_vec;
 wire        fpu_fstate_unimp;
 wire  [7:0] fpu_cur_vec;
 wire        fpu_frestore_e1_pend;
+wire        fpu_frestore_resume;
 wire  [2:0] fpu_fstate_grs;
 wire        fpu_fstate_wbte15;
 reg         fpu_pendcap;
@@ -1149,6 +1170,9 @@ generate if (AP040_HAS_FPU) begin : g_fpu
 		.fstate_fpt(fpu_fstate_fpt), .fstate_et(fpu_fstate_et),
 		.pend_capture(fpu_pendcap), .cur_vec(fpu_cur_vec),
 		.frestore_e1_pend(fpu_frestore_e1_pend),
+		.frestore_resume(fpu_frestore_resume),
+		.frestore_cusavepc(fp_restore_cusavepc),
+		.frestore_et15(fp_restore_et15), .frestore_fpt15(fp_restore_fpt15),
 		.fstate_grs(fpu_fstate_grs), .fstate_wbte15(fpu_fstate_wbte15),
 		.frestore_grs(fp_restore_grs), .frestore_wbte15(fp_restore_wbte15),
 		.fstate_busy(fpu_fstate_busy), .fstate_wbt(fpu_fstate_wbt),
@@ -1179,6 +1203,7 @@ end else begin : g_nofpu
 	assign fpu_fstate_unimp = 0;
 	assign fpu_cur_vec = 0;
 	assign fpu_frestore_e1_pend = 0;
+	assign fpu_frestore_resume = 0;
 	assign fpu_fstate_grs = 0;
 	assign fpu_fstate_wbte15 = 0;
 	assign fpu_fstate_busy = 0;
@@ -1207,9 +1232,8 @@ function [3:0] fp_bytes;
 	end
 endfunction
 
-// Revision-$41 MC68040 unimplemented-instruction frame.  The size field in
-// the header is the payload size (48 bytes), making 13 longwords total.
-// the $41/$60 BUSY frame: 25 longwords, offsets per WinUAE's 68040
+// Both revisions use a 100-byte BUSY frame (header + 96-byte payload).
+// Offsets per Previous/WinUAE's 68040
 // fpuop_save writer (WBTEMP at +24, FPIARCU at +40, CMDREG3B at +52,
 // STAG/GRS at +60, CMDREG1B at +64, DTAG/WBTE15 at +68, flags at +72,
 // FPTEMP at +76, ETEMP at +88; CU_SAVEPC and the reserved words zero)
@@ -1217,7 +1241,7 @@ function [31:0] fsave_busy_word;
 	input [4:0] n;
 	begin
 		case (n)
-			5'd0:  fsave_busy_word = 32'h4160_0000;
+			5'd0:  fsave_busy_word = FPU_BUSY_HEADER;
 			5'd6:  fsave_busy_word = {fpu_fstate_wbt[95:80], 16'd0};
 			5'd7:  fsave_busy_word = fpu_fstate_wbt[63:32];
 			5'd8:  fsave_busy_word = fpu_fstate_wbt[31:0];
@@ -1245,8 +1269,9 @@ endfunction
 function [31:0] fsave_unimp_word;
 	input [3:0] n;
 	begin
-		case (n)
-			4'd0:  fsave_unimp_word = 32'h4130_0000;
+		// Internal fields use the $41 indices. $40 skips words 1 and 2.
+		case ((FPU_REV40 && n != 0) ? n + 4'd2 : n)
+			4'd0:  fsave_unimp_word = FPU_UNIMP_HEADER;
 			4'd1:  fsave_unimp_word = {fpu_fstate_cmd3, 16'd0};
 			4'd2:  fsave_unimp_word = 32'd0;
 			4'd3:  fsave_unimp_word = {fpu_fstate_stag, 3'd0,
@@ -4094,6 +4119,8 @@ always @(posedge clk) begin
 		fp_restore_cmd1 <= 0; fp_restore_cmd3 <= 0;
 		fp_restore_stag <= 0; fp_restore_dtag <= 0; fp_restore_flags <= 0;
 		fp_restore_fpt <= 0; fp_restore_et <= 0;
+		fp_restore_cusavepc <= 0;
+		fp_restore_et15 <= 0; fp_restore_fpt15 <= 0;
 		fp_cnt <= 0; fp_nb <= 0; fp_st <= 0; fp_list <= 0; fp_mode <= 0;
 		fp_st_epend <= 0; fp_st_evec <= 0;
 		fp_rev <= 0; fp_lsb <= 0;
@@ -5969,9 +5996,9 @@ always @(posedge clk) begin
 			end
 
 			//------------------------------------------- FSAVE / FRESTORE
-			// NULL frame ($00000000) when the FPU is untouched, 4-byte IDLE
-			// frame ($41000000) once it has state, or the 52-byte revision-$41
-			// UNIMP frame retained by the FPU.  The generic EA engine has
+			// NULL frame ($00000000) when untouched, 4-byte revision-specific
+			// IDLE frame, or the 44/52-byte UNIMP frame retained by the FPU.
+			// The generic EA engine has
 			// already adjusted -(An) by one longword; extend that adjustment
 			// to the complete exception frame before issuing any writes.
 			S_FSAVE1: begin
@@ -5992,7 +6019,7 @@ always @(posedge clk) begin
 				end
 				else if (fpu_fstate_unimp && fpu_fstate_busy) begin
 					// an e3 arithmetic pend extracts as the 100-byte
-					// $41/$60 BUSY frame
+					// revision-specific $60 BUSY frame
 					fpu_pend_exc <= 0;
 					t_a <= (ea_mode == 3'b100) ? ea_addr - 32'd96 : ea_addr;
 					if (ea_mode == 3'b100)
@@ -6003,16 +6030,16 @@ always @(posedge clk) begin
 				else if (fpu_fstate_unimp) begin
 					// pending state (unimplemented instruction, or a
 					// prepared/lingering arithmetic e1 frame) is extracted
-					// into the $30 frame; extraction consumes the pend
+					// into the $28/$30 frame; extraction consumes the pend
 					fpu_pend_exc <= 0;
-					t_a <= (ea_mode == 3'b100) ? ea_addr - 32'd48 : ea_addr;
+					t_a <= (ea_mode == 3'b100) ? ea_addr - (FPU_UNIMP_BYTES - 32'd4) : ea_addr;
 					if (ea_mode == 3'b100)
-						rfw({1'b1, ea_rn}, ea_addr - 32'd48);
+						rfw({1'b1, ea_rn}, ea_addr - (FPU_UNIMP_BYTES - 32'd4));
 					fp_n <= 0;
 					state <= S_FSAVE_U;
 				end
 				else mwr(ea_addr, `AP040_SZ_L,
-				             fpu_used ? 32'h4100_0000 : 32'h0000_0000, S_NEXT);
+				             fpu_used ? FPU_IDLE_HEADER : 32'h0000_0000, S_NEXT);
 			end
 
 			S_FSAVE_U:
@@ -6020,7 +6047,7 @@ always @(posedge clk) begin
 				    fsave_unimp_word(fp_n), S_FSAVE_UD);
 
 			S_FSAVE_UD: begin
-				if (fp_n == 4'd12) begin
+				if (fp_n == FPU_UNIMP_LAST) begin
 					// Do not acknowledge/lose the pending state until the final
 					// bus write has completed successfully.
 					fpu_fsave_ack <= 1;
@@ -6053,8 +6080,8 @@ always @(posedge clk) begin
 
 			S_FREST2: begin
 				// version byte 0 = NULL frame: reset the FPU state.
-				// $41/$00 is the MC68040 IDLE frame.  $41/$30 is the 52-byte
-				// unimplemented-instruction frame; read its complete payload so
+				// Match the configured revision for IDLE, UNIMP and BUSY.
+				// Read the complete 44/52-byte UNIMP payload so
 				// bus faults remain precise before installing any FPU state.
 				// A completed FRESTORE replaces the FPU state wholesale, so
 				// a pending deferred exception from the OLD context is
@@ -6068,17 +6095,19 @@ always @(posedge clk) begin
 					fpu_pend_exc <= 0;
 					fetch_next;
 				end
-				else if (m_val == 32'h4100_0000) begin
+				else if (m_val == FPU_IDLE_HEADER) begin
 					fpu_frestore_idle <= 1;
 					fpu_pend_exc <= 0;
 					fetch_next;
 				end
-				else if (m_val == 32'h4130_0000) begin
+				else if (m_val == FPU_UNIMP_HEADER) begin
 					fp_restore_busy <= 0;
+					// $40 has no CMDREG3B; do not inherit it from a prior BUSY.
+					if (FPU_REV40) fp_restore_cmd3 <= 0;
 					fp_n <= 4'd1;
 					mrd(ea_addr + 32'd4, `AP040_SZ_L, S_FREST_U);
 				end
-				else if (m_val == 32'h4160_0000) begin
+				else if (m_val == FPU_BUSY_HEADER) begin
 					fp_restore_busy <= 1;
 					fpb_n <= 5'd1;
 					mrd(ea_addr + 32'd4, `AP040_SZ_L, S_FREST_B);
@@ -6087,7 +6116,7 @@ always @(posedge clk) begin
 			end
 
 			S_FREST_U: begin
-				case (fp_n)
+				case (FPU_REV40 ? fp_n + 4'd2 : fp_n)
 					4'd1: fp_restore_cmd3 <= m_val[31:16];
 					4'd3: begin
 					fp_restore_stag <= m_val[31:29];
@@ -6107,7 +6136,7 @@ always @(posedge clk) begin
 					4'd12: fp_restore_et[31:0] <= m_val;
 					default: ; // reserved longword at offset $08
 				endcase
-				if (fp_n == 4'd12) state <= S_FREST_UD;
+				if (fp_n == FPU_UNIMP_LAST) state <= S_FREST_UD;
 				else begin
 					fp_n <= fp_n + 4'd1;
 					mrd(ea_addr + ({28'd0, fp_n} << 2) + 32'd4,
@@ -6117,6 +6146,7 @@ always @(posedge clk) begin
 
 			S_FREST_B: begin
 				case (fpb_n)
+					5'd2:  fp_restore_cusavepc <= m_val[31:24];
 					5'd6:  fp_restore_wbt[95:64] <= m_val;
 					5'd7:  fp_restore_wbt[63:32] <= m_val;
 					5'd8:  fp_restore_wbt[31:0]  <= m_val;
@@ -6124,11 +6154,13 @@ always @(posedge clk) begin
 					5'd13: fp_restore_cmd3 <= m_val[31:16];
 					5'd15: begin
 						fp_restore_stag <= m_val[31:29];
+						fp_restore_et15 <= m_val[28];
 						fp_restore_grs  <= m_val[25:23];
 					end
 					5'd16: fp_restore_cmd1 <= m_val[31:16];
 					5'd17: begin
 						fp_restore_dtag   <= m_val[31:29];
+						fp_restore_fpt15  <= m_val[28];
 						fp_restore_wbte15 <= m_val[20];
 					end
 					5'd18: fp_restore_flags <= {m_val[26], m_val[25], m_val[20]};
@@ -6152,7 +6184,12 @@ always @(posedge clk) begin
 				if (ea_mode == 3'b011)
 					rfw({1'b1, ea_rn}, ea_addr + 32'd100);
 				fpu_frestore_unimp <= 1;
-				fpu_pend_exc <= fpu_frestore_e1_pend;
+				// CU_SAVEPC=$fe resumes the prepared arithmetic command.
+				// Wait through the existing background interlock before the
+				// next FP dispatch/FSAVE; completion may re-arm a NEW exception.
+				// All frame reads have succeeded before any execution starts.
+				fpu_bg <= fpu_frestore_resume;
+				fpu_pend_exc <= !fpu_frestore_resume && fpu_frestore_e1_pend;
 				fpu_pend_vec <= fpu_cur_vec;
 				fetch_next;
 			end
@@ -6160,7 +6197,7 @@ always @(posedge clk) begin
 			S_FREST_UD: begin
 				fp_restore_busy <= 0;
 				if (ea_mode == 3'b011)
-					rfw({1'b1, ea_rn}, ea_addr + 32'd52);
+					rfw({1'b1, ea_rn}, ea_addr + FPU_UNIMP_BYTES);
 				fpu_frestore_unimp <= 1;
 				// see S_FREST2: a completed FRESTORE discards the old
 				// context's pending deferred exception -- and a restored
