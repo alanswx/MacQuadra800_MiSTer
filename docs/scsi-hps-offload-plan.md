@@ -979,3 +979,20 @@ gate had no CD):
   (scratch/build_phase2c_s24.log). Gate brief for it:
   scratch/p2c/BRIEF.md (relaunch Main before every load; the player first
   while the mouse works; A/UX at 32 MB).
+- 2026-09-16 22:35, phase 2c (2922294) fit at seed 24: fits (37,152 ALMs
+  = 89 %, 25,207 regs, 490 RAM, 43 DSP, 62 min incl. a full re-synthesis)
+  but clk_sys MISSES by 0.727 ns with TNS -3.9 ns (HDMI +0.015, clk_ram
+  +1.162); rbf a719e24f kept as
+  scratch/MacQuadra800_phase2c_s24_a719e24f.rbf and staged on .143 as
+  _Unstable/MacQuadra800_phase2c_s24.rbf for a FIX PROBE
+  (scratch/p2c/BRIEF.md: shut down the video-test guest, then the AppleCD
+  player first, then 8.1 + retail ISO; A/UX skipped on the marginal
+  build). Seed 21 launched 22:33 (scratch/build_phase2c_s21.log). Video
+  aside: the MiSTer was power-cycled by the user at 22:00 and the MENU
+  core shows no picture; the Mac core's picture is fine through the same
+  scaler and HDMI transmitter (loaded 22:15 as the test: the boot screen
+  and the Finder captured), the ADV7513 is locked and sees the sink,
+  Main's startup log is clean, and every menu-core capture on this box
+  since at least 06:50 today (and one from 09-07) is noise -- the menu's
+  Linux-framebuffer path, not the core and not tonight's SCSI work; the
+  Linux image, Main and menu.rbf were all updated 09-07/08.
