@@ -23,7 +23,8 @@ found a desktop alias and used it).
 | branch head | see `git log --oneline -12` on `CPU-pipeline`; RTL head 5206845, docs/qsf after it |
 | step 1 on hardware | rbf `d157f555` (seed 21, timing met, 37,439 ALMs): **Speedometer Mix 0.877** (0.875/0.878/0.879, +2.6 % over the shipped 0.855), CQD 0.643, FPU 0.464, 8.1 boot <= 123 s, clean shutdown; `docs/PERFORMANCE_MEASUREMENTS.md` section 16, `scratch/pipeline_step1/report.md` |
 | build 2 (77aa72a, items 1-5) | seed 21 FAILED IN ROUTING (congestion, placement fine), 36,330 ALMs (87 %, -1,109 vs step 1); no rbf |
-| build 3 (5206845, items 1-8) | seed 21 + `FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS` set in the build tree's qsf only (`scratch/edit_qsf_routability.py on` run in `../MacQuadra800_wt3`), launched 17:03, log `../MacQuadra800_wt3/scratch/build_b3_s21r.log`; brief drafted at `scratch/pipeline_b3/BRIEF.md` (fill CANDIDATE_FILE / CANDIDATE_MD5 / CANDIDATE_TIMING) |
+| build 3 (5206845, items 1-8) | seed 21 + `FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS` (build tree only, `scratch/edit_qsf_routability.py on` in `../MacQuadra800_wt3`): ROUTED, 36,010 ALMs (86 %), but the CPU clock MISSES by 3.760 ns (TNS -576). TimeQuest on the fitted db (`scripts/cpu/timequest_worst_paths.tcl`, reports in `scratch/pipeline_b3/`): state -> hint mux -> the cache's fast-hit word select -> ALU -> lookahead -> seed count -> epf_ftail, a 33 ns FALSE path (the hint bus carries the registered request in the request cycle, the analyzer follows the hint side) |
+| build 4 (31445e5: + the cache qualifies/selects the fast hit from its own registered copy of the hint, cycle-identical) | seed 21 + the switch, launched 17:40, log `../MacQuadra800_wt3/scratch/build_b4_s21r.log`; the brief `scratch/pipeline_b3/BRIEF.md` serves it (rename the directory or the file's title) |
 | the .143 box | left by the operator at the Mac OS 8.1 halt screen on the step-1 core, `.s0` QuadSquad8.hda; `.s1` (a MacLC disk) and `.s4` (a MacLC CD) are the user's, untouched |
 | CPU gates | `scripts/cpu_gates_wsl.sh rtl/ap68040 <label>` now also runs `pipe_bench` (`rtl/ap68040/tb/asm/pipe_bench.s`); head: AP 23/23, bench_loop 81202/82000, pipe_bench 122190, corpus 32991462 with 0 REAL diffs |
 
@@ -64,6 +65,13 @@ Synthesis: 55,210 ALUTs at 77aa72a against the release's 56,965.
 - Routing at 87 % can still fail at a seed; the routability optimization is
   the lever Quartus itself names, kept out of the committed recipe until it
   has proven itself.
+- Anything combinational the core drives onto the hint bus is followed by
+  the timing analyzer into every combinational consumer of that bus in the
+  cache, request cycle or not (it cannot see that `mem_req ? mem_addr_q :
+  hint_addr` selects the registered side then).  The fast hit's index
+  compares and word/lane select therefore use the cache's registered copy
+  of the hint (31445e5); the live hint bus may only feed RAM address inputs
+  and the MMU's hint registers.  Keep it that way when adding hint sources.
 
 ## Next
 
