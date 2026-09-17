@@ -1795,7 +1795,7 @@ task mem_issue;
 		                  state == S_PIPE_DEA || state == S_DECODE ||
 		                  state == S_RET1 || state == S_UNLK1 ||
 		                  state == S_MOVEM_LOOP)) ||
-		     (mgo_wr && (state == S_EXEC || state == S_MOVEM_RD ||
+		     (mgo_wr && (state == S_EXEC || state == S_MOVEM_LOOP ||
 		                 // the pushes: BSR.B from decode, BSR.W, JSR, PEA,
 		                 // LINK -- registered data (pc, ea_addr, port A
 		                 // selected a state earlier) at dbg_a7 - 4
@@ -4825,6 +4825,17 @@ always @(posedge clk) begin
 					// straight into the next opcode, as a completed operand
 					// read does through retire_operand_alu.
 					if (r_m_ret == S_NEXT) fetch_next;
+					// LINK and PEA: A7 lands with the push's acknowledge and
+					// the instruction retires, as S_LINK4/S_PEA2 would a cycle
+					// later (both stay for the byte-split path).  (2026-09-17)
+					else if (r_m_ret == S_LINK4) begin
+						rfw(4'd15, t_a + (br_long ? imm : sxw(imm[15:0])));
+						fetch_next;
+					end
+					else if (r_m_ret == S_PEA2) begin
+						rfw(4'd15, dbg_a7 - 32'd4);
+						fetch_next;
+					end
 					else state <= r_m_ret;
 				end
 			end
@@ -5855,6 +5866,9 @@ always @(posedge clk) begin
 				mm_addr <= rf_rdata_a;
 				mm_start_ea <= rf_rdata_a;
 				mm_init_an <= rf_rdata_a;
+				// a store loop reads its first register on port A from the
+				// loop's first cycle (see S_MOVEM_LOOP)
+				if (!mm_dir) rr_a <= mm_predec ? (4'd15 - ffs16(mm_mask)) : ffs16(mm_mask);
 				state <= S_MOVEM_LOOP;
 			end
 
@@ -5862,6 +5876,7 @@ always @(posedge clk) begin
 				mm_addr <= mm_resume ? mm_start_ea : ea_addr;
 				if (!mm_resume) mm_start_ea <= ea_addr;
 				mm_resume <= 0;
+				if (!mm_dir) rr_a <= ffs16(mm_mask);
 				state <= S_MOVEM_LOOP;
 			end
 
@@ -5883,22 +5898,34 @@ always @(posedge clk) begin
 					end
 				end
 				else begin : movem_step
-					reg [3:0] bit_i;
+					reg [3:0]  bit_i, bit_n, cur, nxt;
+					reg [15:0] rest;
+					reg [31:0] sz, sa, v;
 					bit_i = ffs16(mm_mask);
-					mm_mask <= mm_mask & ~(16'd1 << bit_i);
-					if (mm_predec) begin
-						mm_reg <= 4'd15 - bit_i;
-						mm_addr <= mm_addr - ((mm_size == `AP040_SZ_L) ? 32'd4 : 32'd2);
-						rr_a <= 4'd15 - bit_i;
-						state <= S_MOVEM_RD;
-					end
+					rest  = mm_mask & ~(16'd1 << bit_i);
+					bit_n = ffs16(rest);
+					sz  = (mm_size == `AP040_SZ_L) ? 32'd4 : 32'd2;
+					cur = mm_predec ? (4'd15 - bit_i) : bit_i;
+					nxt = mm_predec ? (4'd15 - bit_n) : bit_n;
+					mm_mask <= rest;
+					mm_reg  <= cur;
+					if (mm_dir && !mm_predec)
+						// load: issued here (in place when the port is free),
+						// retired on its acknowledge in S_MRD
+						mrd(mm_addr, mm_size, S_MOVEM_LD);
 					else begin
-						mm_reg <= bit_i;
-						if (mm_dir) mrd(mm_addr, mm_size, S_MOVEM_LD);
-						else begin
-							rr_a <= bit_i;
-							state <= S_MOVEM_RD;
-						end
+						// store: port A has shown this register since the
+						// previous cycle (selected at loop entry, then here for
+						// each next one), so the store issues from the loop
+						// itself; S_MOVEM_RD is no longer entered.  The predec
+						// form with the base register in its list stores the
+						// initial value minus the size (68020+).  (2026-09-17)
+						sa = mm_predec ? (mm_addr - sz) : mm_addr;
+						v  = (mm_predec && cur == {1'b1, d_rn}) ? (mm_init_an - sz)
+						                                        : rf_rdata_a;
+						mwr(sa, mm_size, v, S_MOVEM_LOOP);
+						mm_addr <= mm_predec ? sa : (sa + sz);
+						rr_a <= nxt;
 					end
 				end
 			end
