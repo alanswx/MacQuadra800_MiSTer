@@ -10,7 +10,7 @@
 //    CINV/CPUSH/PFLUSH/PTEST with MMU/cache sidebands                      //
 //  - exceptions: formats $0/$1/$2/$3 ($4 RTE-accepted when built FPU-less //
 //    but never generated) and format $7 access errors with                 //
-//    pure instruction restart and EA register rollback (MMU faults),       //
+//    instruction restart, MOVEM saved-EA continuation and EA rollback,     //
 //    RTE with format validation and $1 throwaway continuation, trace       //
 //    (T1/T0), autovectored interrupts with M-bit master/interrupt stack    //
 //    switching                                                             //
@@ -23,7 +23,7 @@
 //    distinguishes a translation fault from a physical bus error          //
 //  - interrupts are always autovectored (ipl_autovector is ignored)        //
 //  - true pipelined arithmetic BUSY state frames are not generated         //
-//  - access faults use pure restart; CM/CT and WB2/WB1 are not generated   //
+//  - access faults replay operands; CT and WB2/WB1 are not generated       //
 //                                                                          //
 // The whole core advances only when ce (clkena_in) is high.                //
 //--------------------------------------------------------------------------//
@@ -540,6 +540,9 @@ localparam S_CAS2_W3   = 8'd148;
 localparam S_CAS2_F    = 8'd149;
 localparam S_CAS2_F2   = 8'd150;
 localparam S_FSAVE1    = 8'd151;
+localparam S_MOVEM_FIN = 8'd197;   // commit a held MOVEM index register
+localparam S_RTE_SSW   = 8'd198;   // format-7 continuation status
+localparam S_RTE_EA    = 8'd199;   // CM's saved MOVEM effective address
 localparam S_FREST1    = 8'd152;
 localparam S_FPU_DEC   = 8'd153;
 localparam S_FPU_AN    = 8'd154;
@@ -791,6 +794,16 @@ reg [31:0] mm_addr, mm_init_an;
 reg        mm_base_ea;            // the EA depends on An (see S_MOVEM_LD)
 reg        mm_base_pend;          // a loaded base register awaits commit
 reg [31:0] mm_base_val;           // its value, written with the last transfer
+// Hold a loaded index as well as the base until the transfer list completes.
+// The format-7 CM path below additionally preserves the calculated EA:
+// register deferral alone cannot protect an indirect pointer overwritten by
+// an earlier store. MC68040UM, SSW CM and access-error RTE (pp. 8-25/8-27).
+reg        mm_idx_pend;
+reg [31:0] mm_idx_val;
+reg  [3:0] mm_idx_reg;            // captured from the extension word
+reg        mm_idx_en;             // ... and whether the EA uses it at all
+reg        mm_resume;             // RTE supplied the EA for the next MOVEM
+reg [31:0] mm_start_ea;           // original EA, before any operand transfer
 reg  [3:0] mm_reg;
 
 reg  [2:0] mp_cnt, mp_idx;     // byte counts: 2 for word, 4 for long
@@ -847,6 +860,8 @@ reg        in_exc;              // exception stacking in progress
 reg [31:0] aer_fa, aer_sp;
 reg        aer_bus;          // fault came from the bus, not the ATC
 reg        aer_ma;           // ATC fault occurred on second page of transfer
+reg        aer_cm;
+reg [31:0] aer_ea;
 reg        aer_wr;
 reg  [1:0] aer_sz;
 reg  [2:0] aer_tm;
@@ -2024,6 +2039,12 @@ task aerr_start;
 		// identified by the continuation state, not by `state` itself
 		aer_m16  <= !mem_instr_q &&
 		            (r_m_ret >= S_M16_RD2 && r_m_ret <= S_M16_INC2);
+		// Only operand transfers, not faults while calculating the EA,
+		// carry CM. A fault fetching a resumed MOVEM retains its saved EA.
+		aer_cm <= mm_resume || (!mem_instr_q &&
+		          (r_m_ret == S_MOVEM_LD || r_m_ret == S_MOVEM_LOOP));
+		aer_ea <= mm_start_ea;
+		mm_resume <= 0;
 		// MOVES faults report the alternate space in TT/TM: FC 0, 3, 4 and 7
 		// keep the raw FC with TT = 10; FC 2 and 6 are remapped onto the
 		// corresponding data space (WinUAE mmu_bus_error's ismoves block)
@@ -2060,10 +2081,10 @@ task u_rec;
 	end
 endtask
 
-// Access-error SSW.  CP/CU/CT/CM stay clear: pure instruction restart.
+// Access-error SSW. CP/CU/CT stay clear; CM preserves a MOVEM's original EA.
 // MOVE16 line faults report SIZE = line with TT0; locked TAS/CAS cycles
 // report LK with RW clear (WinUAE mmu_bus_error).
-wire [15:0] aer_ssw = {4'b0000, aer_ma, ~aer_bus, aer_lk,
+wire [15:0] aer_ssw = {3'b000, aer_cm, aer_ma, ~aer_bus, aer_lk,
                        (~aer_wr & ~aer_lk), 1'b0,
                        aer_m16 ? 2'b11 :
                        (aer_sz == `AP040_SZ_B) ? 2'b01 :
@@ -2080,11 +2101,11 @@ function [15:0] aerr_word;
 			5'd1:  aerr_word = pc_i[31:16];
 			5'd2:  aerr_word = pc_i[15:0];
 			5'd3:  aerr_word = 16'h7008;               // format $7, vector 2
-			// WinUAE stacks the fault address in EA as well (aligned to the
-			// line for MOVE16); handlers that honour CM/CT never see those
-			// bits set here, so the field is informational
-			5'd4:  aerr_word = aer_fa[31:16];
-			5'd5:  aerr_word = aer_m16 ? {aer_fa[15:4], 4'd0} : aer_fa[15:0];
+			// CM needs the ORIGINAL effective address, not the failed
+			// transfer address. All other EA-field behavior is unchanged.
+			5'd4:  aerr_word = aer_cm ? aer_ea[31:16] : aer_fa[31:16];
+			5'd5:  aerr_word = aer_cm ? aer_ea[15:0] :
+			                   aer_m16 ? {aer_fa[15:4], 4'd0} : aer_fa[15:0];
 			5'd6:  aerr_word = aer_ssw;
 			// WB3S stays CLEAR: this core RESTARTS the faulting
 			// instruction after the handler repairs the mapping, so it
@@ -2106,6 +2127,19 @@ function [15:0] aerr_word;
 			5'd15: aerr_word = aer_wd[15:0];
 			default: aerr_word = 16'd0;                // writeback/push slots
 		endcase
+	end
+endfunction
+
+// A memory-mode MOVEM opcode: the only instruction an RTE-supplied CM
+// effective address (mm_resume) may be consumed by.  Every other opcode
+// entering ir clears the flag, so a forged or edited CM frame cannot
+// leak into a later instruction.  Called at the four opcode-load sites
+// (retire dispatch, refill dispatch, the exception-prefetch dispatch and
+// the lookahead arm's successor) -- this core has no single dispatch task.
+function movem_mem_op;
+	input [15:0] fw;
+	begin
+		movem_mem_op = ((fw & 16'hfb80) == 16'h4880) && (fw[5:3] >= 3'd2);
 	end
 endfunction
 
@@ -2517,6 +2551,7 @@ task fetch_next_body;
 			in_exc <= 0;
 			epf_pop = 2'd1;
 			ir <= epf_data[epf_head];
+			if (!movem_mem_op(epf_data[epf_head])) mm_resume <= 0;
 			perf_dispatch_toggle <= ~perf_dispatch_toggle;
 			pc_i <= pc;
 			pc <= pc + 32'd2;
@@ -2597,6 +2632,7 @@ task decode_dbcc_brf;
 
 		in_exc <= 0;
 		ir <= fw;
+		if (!movem_mem_op(fw)) mm_resume <= 0;
 		perf_dispatch_toggle <= ~perf_dispatch_toggle;
 		pc_i <= a;
 		pc <= a + 32'd2;
@@ -4166,6 +4202,9 @@ always @(posedge clk) begin
 		mm_mask <= 0; mm_dir <= 0; mm_predec <= 0; mm_postinc <= 0;
 		mm_size <= 0; mm_addr <= 0; mm_init_an <= 0; mm_reg <= 0;
 		mm_base_ea <= 0; mm_base_pend <= 0; mm_base_val <= 0;
+		mm_idx_pend <= 0; mm_idx_val <= 0; mm_idx_reg <= 0; mm_idx_en <= 0;
+		mm_resume <= 0; mm_start_ea <= 0;
+		aer_cm <= 0; aer_ea <= 0;
 		mp_cnt <= 0; mp_idx <= 0; mp_dir <= 0; mp_addr <= 0; mp_val <= 0;
 		t_a <= 0; t_b <= 0; srop_kind <= 0; srop_sr <= 0;
 		mvc_dir <= 0; fc_ovr_v <= 0; fc_ovr <= 0;
@@ -4397,6 +4436,7 @@ always @(posedge clk) begin
 					in_exc <= 0;
 					epf_pop = 2'd1;
 					ir <= fw;
+					if (!movem_mem_op(fw)) mm_resume <= 0;
 					perf_dispatch_toggle <= ~perf_dispatch_toggle;
 					pc <= pc + 32'd2;
 					// per-instruction defaults
@@ -4672,6 +4712,9 @@ always @(posedge clk) begin
 			S_EA_EXTW: begin
 				extw <= imm[15:0];
 				rr_b <= {imm[15], imm[14:12]};
+				// remember which register the index came from, for MOVEM
+				mm_idx_reg <= {imm[15], imm[14:12]};
+				mm_idx_en  <= !imm[8] || !imm[6];   // full format may suppress it
 				ea_base_v <= ea_pcmode ? ea_pcb : rf_rdata_a;
 				state <= S_EA_EXTW2;
 			end
@@ -4718,6 +4761,13 @@ always @(posedge clk) begin
 				if (extw[2:0] == 3'b000) begin
 					ea_addr <= ea_base_v + ea_idx_v + bd;
 					state <= r_ea_ret;
+				end
+				else if (mm_resume && r_ea_ret == S_MOVEM_EA) begin
+					// Consume extension words but NEVER reread the indirect
+					// pointer: an earlier MOVEM store may have overwritten it.
+					// S_MOVEM_EA takes the address restored from the frame.
+					if (extw[1:0] == 2'b01) state <= r_ea_ret;
+					else immf(extw[1:0] == 2'b10 ? 2'd1 : 2'd2, S_EA_OD);
 				end
 				else begin
 					// memory indirect: pre-indexed adds the index before the
@@ -5308,7 +5358,10 @@ always @(posedge clk) begin
 			end
 
 			//------------------------------------------------------------- RTE
-			S_RTE_SR:  mrd(dbg_a7, `AP040_SZ_W, S_RTE_PC);
+			S_RTE_SR: begin
+				mm_resume <= 0;
+				mrd(dbg_a7, `AP040_SZ_W, S_RTE_PC);
+			end
 			S_RTE_PC:  begin rte_sr <= m_val[15:0]; mrd(dbg_a7 + 32'd2, `AP040_SZ_L, S_RTE_FMT); end
 			S_RTE_FMT: begin rte_pc <= m_val; mrd(dbg_a7 + 32'd6, `AP040_SZ_W, S_RTE_FIN); end
 
@@ -5336,17 +5389,32 @@ always @(posedge clk) begin
 						end
 					end
 					4'd7: begin
-						// access error frame: restart semantics, the
-						// continuation/writeback fields are not consumed
-						rfw(4'd15, dbg_a7 + 32'd60);
-						ret_kind <= 2'b00;
-						state <= S_RTE_FIN2;
+						mrd(dbg_a7 + 32'd12, `AP040_SZ_W, S_RTE_SSW);
 					end
 					default: exc(`AP040_VEC_FMTERR, 4'd0, pc_i, 32'd0);
 				endcase
 			end
 
+			S_RTE_SSW: begin
+				if (m_val[12]) mrd(dbg_a7 + 32'd8, `AP040_SZ_L, S_RTE_EA);
+				else begin
+					rfw(4'd15, dbg_a7 + 32'd60);
+					ret_kind <= 2'b00;
+					state <= S_RTE_FIN2;
+				end
+			end
+
+			S_RTE_EA: begin
+				mm_start_ea <= m_val;
+				mm_resume <= 1;
+				rfw(4'd15, dbg_a7 + 32'd60);
+				ret_kind <= 2'b00;
+				state <= S_RTE_FIN2;
+			end
+
 			S_RTE_FIN2: begin
+				// CM returns into an unfinished instruction, not an interrupt/
+				// trace boundary. Sample those again after MOVEM completes.
 				sr <= rte_sr & `AP040_SR_MASK;
 				if (ret_kind[0]) begin
 					// format $1: continue with the next frame; the popped
@@ -5361,14 +5429,14 @@ always @(posedge clk) begin
 					exc(`AP040_VEC_ADDRERR, 4'd2, pc_i,
 					    {rte_pc[31:1], 1'b0});
 				end
-				else if (tr_t1 || tr_t0) begin
+				else if (!mm_resume && (tr_t1 || tr_t0)) begin
 					// the RTE itself was traced (T set before the RTE)
 					tr_t1 <= 0;
 					tr_t0 <= 0;
 					pc <= rte_pc;
 					exc(`AP040_VEC_TRACE, 4'd2, rte_pc, pc_i);
 				end
-				else if (rte_irq_pend) begin
+				else if (!mm_resume && rte_irq_pend) begin
 					// The restored mask unblocks a pending request: it is
 					// taken AT this boundary, before the instruction RTE
 					// returns to.  This path used to go straight to
@@ -5599,6 +5667,15 @@ always @(posedge clk) begin
 			//---------------------------------------------------------- MOVEM
 			S_MOVEM_SET: begin
 				mm_mask <= imm[15:0];
+				// The manual uses the saved EA only for indexed/PC-relative
+				// modes. Ordinary modes still calculate their address normally.
+				if (d_mode != 3'b110 && !(d_mode == 3'b111 &&
+				    (d_rn == 3'b010 || d_rn == 3'b011))) mm_resume <= 0;
+				mm_idx_pend <= 0;
+				// only the indexed modes carry one; every other mode reaches
+				// here without having run S_EA_EXTW, so clear it explicitly
+				if (d_mode != 3'b110 &&
+				    !(d_mode == 3'b111 && d_rn == 3'b011)) mm_idx_en <= 0;
 				// the EA depends on An for these modes: a LOADED base
 				// register must not be written mid-loop (restart safety;
 				// see S_MOVEM_LD)
@@ -5614,22 +5691,34 @@ always @(posedge clk) begin
 
 			S_MOVEM_SET2: begin
 				mm_addr <= rf_rdata_a;
+				mm_start_ea <= rf_rdata_a;
 				mm_init_an <= rf_rdata_a;
 				state <= S_MOVEM_LOOP;
 			end
 
 			S_MOVEM_EA: begin
-				mm_addr <= ea_addr;
+				mm_addr <= mm_resume ? mm_start_ea : ea_addr;
+				if (!mm_resume) mm_start_ea <= ea_addr;
+				mm_resume <= 0;
 				state <= S_MOVEM_LOOP;
 			end
 
 			S_MOVEM_LOOP: begin
 				if (mm_mask == 16'd0) begin
-					if (mm_predec || mm_postinc)
-						rfw({1'b1, d_rn}, mm_addr);
-					else if (mm_base_pend)
-						rfw({1'b1, d_rn}, mm_base_val);
-					fetch_next;
+					// One write port, and the base and the index can both be
+					// pending, so a held index takes a cycle of its own.
+					if (mm_idx_pend) begin
+						rfw(mm_idx_reg, mm_idx_val);
+						mm_idx_pend <= 0;
+						state <= S_MOVEM_FIN;
+					end
+					else begin
+						if (mm_predec || mm_postinc)
+							rfw({1'b1, d_rn}, mm_addr);
+						else if (mm_base_pend)
+							rfw({1'b1, d_rn}, mm_base_val);
+						fetch_next;
+					end
 				end
 				else begin : movem_step
 					reg [3:0] bit_i;
@@ -5650,6 +5739,16 @@ always @(posedge clk) begin
 						end
 					end
 				end
+			end
+
+			// The index was committed on the previous edge; finish exactly as
+			// the loop exit would have.
+			S_MOVEM_FIN: begin
+				if (mm_predec || mm_postinc)
+					rfw({1'b1, d_rn}, mm_addr);
+				else if (mm_base_pend)
+					rfw({1'b1, d_rn}, mm_base_val);
+				fetch_next;
 			end
 
 			S_MOVEM_RD: begin : movem_rd
@@ -5682,6 +5781,10 @@ always @(posedge clk) begin
 						mm_base_pend <= 1;
 						mm_base_val  <= lv;
 					end
+				end
+				else if (mm_idx_en && mm_reg == mm_idx_reg) begin
+					mm_idx_pend <= 1;
+					mm_idx_val  <= lv;
 				end
 				else rfw(mm_reg, lv);
 				mm_addr <= mm_addr + ((mm_size == `AP040_SZ_L) ? 32'd4 : 32'd2);
@@ -8427,6 +8530,7 @@ always @(posedge clk) begin
 			end
 			else if (epf_count >= 4'd2) begin
 				ir <= epf_data[epf_head + 3'd1];
+				if (!movem_mem_op(epf_data[epf_head + 3'd1])) mm_resume <= 0;
 				t0_force <= t0_special(epf_data[epf_head + 3'd1]);
 				pc_i <= pc + 32'd2;
 				pc <= pc + 32'd4;

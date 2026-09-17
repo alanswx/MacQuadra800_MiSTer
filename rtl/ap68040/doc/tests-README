@@ -166,11 +166,11 @@ Implementation status and remaining gaps (milestones B-H complete):
     tb_ap040_bus16_gap proves both halves of reads and writes are accepted
     exactly once under that level-acknowledge contract
   - interrupts are always autovectored (the wrapper ties ipl_autovector=1)
-  - format $7 frames carry SSW and the initial FA, with an unused zero EA
-    and zeroed writeback slots; faults use pure instruction restart with EA
-    register rollback. MOVEM restart across a page fault is covered by
-    t_mmu.s (the CM continuation bit is never set, which handlers treat as
-    a plain restart)
+  - format $7 frames carry SSW and the initial FA. EA normally mirrors FA
+    (line-aligned for MOVE16); a MOVEM operand fault sets CM and saves its
+    original EA. RTE consumes CM/EA for indexed and PC-relative restart.
+    WB3 validity stays clear because the restart model repeats the store.
+    t_mmu.s and t_movem_restart.s cover fault/restart and frame handling
   - caches are write-through, so CPUSH equals CINV and no copyback/push state
     exists. Aligned cacheable store hits update only their matching resident
     data-cache word after the external write acknowledges; complex and
