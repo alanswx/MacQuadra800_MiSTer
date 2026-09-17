@@ -94,6 +94,8 @@ ap040_cache dut
 	.cinv_done(cinv_done),
 	.c_req(c_req), .c_write(c_write), .c_instr(c_instr),
 	.c_size(c_size), .c_addr(c_addr), .c_wdata(c_wdata),
+	.c_hint_addr(c_addr), .c_hint_instr(c_instr),
+	.c_hint_ptag(c_addr[31:10]), .c_hint_match(c_req),
 	.c_fc(3'd5), .c_nocache(c_nocache), .c_post_ok(1'b0),
 	.c_ack(c_ack), .c_rdata(c_rdata),
 	.m_req(m_req), .m_write(m_write), .m_instr(m_instr),
@@ -957,12 +959,14 @@ initial begin
 	@(negedge clk); c_addr = 32'hA000;
 	repeat (2) @(posedge clk);
 	cpu_read_count_sized(32'hA001, 2'b00, d, fast_cycles);
-	if (d !== 32'h34 || fast_cycles != 2) begin
+	// a settled data read the hint vouches for is acknowledged in its
+	// request cycle (fast_hit)
+	if (d !== 32'h34 || fast_cycles != 1) begin
 		$display("FAIL test 14: settled byte data=%h cycles=%0d",d,fast_cycles);
 		errors = errors + 1;
 	end
 	cpu_read_count_sized(32'hA002, 2'b01, d, fast_cycles);
-	if (d !== 32'h5678 || fast_cycles != 2) begin
+	if (d !== 32'h5678 || fast_cycles != 1) begin
 		$display("FAIL test 14: settled word data=%h cycles=%0d",d,fast_cycles);
 		errors = errors + 1;
 	end

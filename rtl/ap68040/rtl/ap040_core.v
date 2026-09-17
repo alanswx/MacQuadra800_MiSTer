@@ -49,6 +49,8 @@ module ap040_core
 	output            mem_instr,
 	output reg  [1:0] mem_size,
 	output     [31:0] mem_addr,
+	output     [31:0] mem_hint_addr,   // next access's address, one cycle early
+	output            mem_hint_instr,
 	output reg [31:0] mem_wdata,
 	output      [2:0] mem_fc,
 	input             mem_ack,
@@ -2821,8 +2823,17 @@ wire [31:0] hint_addr = hint_data ? m_addr_r :
                         hint_bcc  ? (pc + sxb(ir[7:0])) :
                         hint_pipe ? hint_pipe_addr :
                         hint_ea   ? ea_addr : epf_ftail;
-assign mem_addr  = mem_req ? mem_addr_q  : hint_addr;
-assign mem_instr = mem_req ? mem_instr_q : !(hint_data || hint_pipe || hint_ea);
+// The request bus carries only registered state.  The hint rides its own
+// bus, which only RAM address inputs and the MMU's hint copy listen to,
+// so the address arithmetic behind it never enters a request-cycle path
+// (a combinational cache acknowledge on the shared bus failed timing by
+// 6.6 ns through rr_a -> register file -> hint adder, 2026-09-14).
+// While a request is held (its translation walking) the hint bus repeats
+// it, so the cache's idle read stays on the request.
+assign mem_addr  = mem_addr_q;
+assign mem_instr = mem_instr_q;
+assign mem_hint_addr  = mem_req ? mem_addr_q  : hint_addr;
+assign mem_hint_instr = mem_req ? mem_instr_q : !(hint_data || hint_pipe || hint_ea);
 
 //---------------------------------------------------------------------------
 // main state machine

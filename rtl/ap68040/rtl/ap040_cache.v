@@ -43,6 +43,10 @@ module ap040_cache
 	input             c_instr,
 	input       [1:0] c_size,
 	input      [31:0] c_addr,
+	input      [31:0] c_hint_addr,   // next access, one cycle early
+	input             c_hint_instr,
+	input      [21:0] c_hint_ptag,   // its physical tag, registered by the MMU
+	input             c_hint_match,  // the request is that hint
 	input      [31:0] c_wdata,
 	input       [2:0] c_fc,
 	input             c_nocache,
@@ -205,6 +209,16 @@ wire        span2     = !c_instr && (c_addr[3:2] != 2'd3) &&
 // splits page-crossing accesses itself, so both halves of what arrives
 // here translated identically.  (These were 3.8 M reads at 10.5 clocks
 // in the Speedometer bracket, 4 % of its cycles.)
+// While no request is presented the idle RAM reads index by the hint bus;
+// the request bus is registered state only (see the core's mem_hint_addr).
+// The core repeats a presented request on the hint bus (mem_hint_addr is
+// mem_addr_q while mem_req), so the RAM address inputs index by the hint
+// bus alone: no request/hint mux in front of fifty RAM address bits.
+wire [31:0] x_addr  = c_hint_addr;
+wire        x_instr = c_hint_instr;
+wire  [SETW-1:0] x_set = x_addr[SETW+3:4];
+wire  [SETW:0]   x_row = {x_instr, x_set};
+wire  [1:0] x_w     = x_addr[3:2];
 wire        xline     = !c_instr && (c_addr[3:2] == 2'd3) &&
                         ((c_size == `AP040_SZ_L && c_addr[1:0] != 2'b00) ||
                          (c_size == `AP040_SZ_W && c_addr[1:0] == 2'b11));
@@ -507,7 +521,16 @@ assign m_addr  = fill_active ? {r_addr[31:4], r_beat, 2'b00} :
 assign m_wdata = post_active ? p_wdata : c_wdata;
 assign m_fc    = fill_active ? r_fc : (post_active ? p_fc : c_fc);
 
-assign c_ack   = (pass_active && !post_active) ? m_ack : ack_r;
+// A data read whose idle read (set up by the core's hint) holds the
+// matching word is acknowledged in its request cycle: the tag compare
+// runs against the hint's registered physical tag (c_hint_ptag) and the
+// MMU vouches that the request is that hint (c_hint_match), so nothing
+// in the acknowledge path starts at the live translation.  Instruction
+// fetches keep the registered acknowledge (their consumer is the fetch
+// queue's ring write, the tightest path in the core).
+wire fast_hit;
+wire [31:0] fast_data;
+assign c_ack   = (pass_active && !post_active) ? m_ack : (ack_r | fast_hit);
 // The offer is a level, not a pulse: the core refuses a line while a
 // queue fetch is outstanding or a data access acknowledges in the same
 // cycle, and a pulse lost to that refusal cost explicit fetches for the
@@ -521,7 +544,7 @@ assign c_busy      = fill_active || (cst == C_TAGW) || post_active;
 assign m_posted    = post_active && (!r_span2 || sline_ready);
 assign c_line_tag  = iline_tag;
 assign c_line_data = iline_data;
-assign c_rdata = pass_active ? m_rdata : rdata_r;
+assign c_rdata = pass_active ? m_rdata : (fast_hit ? fast_data : rdata_r);
 
 assign rd_accept = (cst == C_IDLE) && !(cinv_req && !cinv_done) &&
                    c_req && !ack_r && !c_write && !bypass &&
@@ -536,7 +559,7 @@ assign rd_accept = (cst == C_IDLE) && !(cinv_req && !cinv_done) &&
 wire xlook_read = (cst == C_LOOK) && r_xline && !xlook && look_hit &&
                   !look_snooped && !snoop_look_row && !inv_wren;
 assign tag_ridx  = (fill_active || (cst == C_TAGW) || post_active) ? r_row :
-                   xlook_read ? {1'b0, r_setB} : a_row;
+                   xlook_read ? {1'b0, r_setB} : x_row;
 wire [4*TAGW-1:0] tags_next = (r_way == 2'd0) ? {tag_q[4*TAGW-1:TAGW], r_tag} :
                         (r_way == 2'd1) ? {tag_q[4*TAGW-1:2*TAGW], r_tag, tag_q[TAGW-1:0]} :
                         (r_way == 2'd2) ? {tag_q[4*TAGW-1:3*TAGW], r_tag, tag_q[2*TAGW-1:0]} :
@@ -651,7 +674,7 @@ always @(posedge clk) begin
 		idle_tag_valid <= !tag_we && !inv_wren;
 		if (inv_wren || (ce && |cd_we)) idle_data_valid <= 0;
 		if (ce && cd_rd_en) begin
-			idle_data_idx <= {c_instr, a_set, c_addr[3:2]};
+			idle_data_idx <= {x_instr, x_set, x_addr[3:2]};
 			idle_data_valid <= (cst == C_IDLE) && !iline_read &&
 			                   !inv_wren && !(|cd_we);
 		end
@@ -662,6 +685,38 @@ wire idle_hit = rd_accept && !ipred_hit && !err_hold && !m_err && fits_lane &&
                 (idle_data_idx == {c_instr, c_addr[SETW+3:2]}) &&
                 (idle_tag_idx == a_row) && look_hit &&
                 !tag_we && !inv_wren && !look_snooped && !snoop_look_row;
+wire hh0 = v_w0 && (t_w0 == c_hint_ptag[21:22-TAGW]);
+wire hh1 = v_w1 && (t_w1 == c_hint_ptag[21:22-TAGW]);
+wire hh2 = v_w2 && (t_w2 == c_hint_ptag[21:22-TAGW]);
+wire hh3 = v_w3 && (t_w3 == c_hint_ptag[21:22-TAGW]);
+wire       hint_look_hit = hh0 | hh1 | hh2 | hh3;
+wire [1:0] hint_way = hh0 ? 2'd0 : hh1 ? 2'd1 : hh2 ? 2'd2 : 2'd3;
+// The fast hit's own view of the request: the hint bus repeats the
+// registered request address while it is presented, so the offset bits
+// come from there and not from the translated address (whose low bits
+// pass through the MMU's physical-address mux).
+wire  [1:0] fq_arr   = hint_way + c_hint_addr[3:2];
+wire        fast_lane = (c_size == `AP040_SZ_L && c_hint_addr[1:0] == 2'b00) ||
+                        (c_size == `AP040_SZ_W && c_hint_addr[1:0] != 2'b11) ||
+                        (c_size == `AP040_SZ_B);
+// Admission for the one-clock acknowledge without the request's live
+// translation: no c_req (the MMU asserts it only after its translation
+// passes), no bypass (cacheability is in the hint's vouch), no ipred_hit
+// (instruction only); c_hint_match carries "a data request is presented,
+// it is the registered hint, it translated, it is cacheable and readable".
+wire        fast_accept = (cst == C_IDLE) && !(cinv_req && !cinv_done) && !ack_r &&
+                          !c_write && !c_instr && de && !ci_inv_pend && !store_inv_lost;
+wire [31:0] hint_data_hit = (fq_arr == 2'd0) ? data_q0 :
+                            (fq_arr == 2'd1) ? data_q1 :
+                            (fq_arr == 2'd2) ? data_q2 : data_q3;
+// idle_hit without look_hit (the live translation's tag compare)
+assign fast_hit  = fast_accept && !err_hold && !m_err && fast_lane &&
+                   idle_data_valid && idle_tag_valid &&
+                   (idle_data_idx == {1'b0, c_hint_addr[SETW+3:2]}) &&
+                   (idle_tag_idx == {1'b0, c_hint_addr[SETW+3:4]}) && hint_look_hit &&
+                   !tag_we && !inv_wren && !look_snooped && !snoop_look_row &&
+                   !c_instr && c_hint_match;
+assign fast_data = lw_extract(hint_data_hit, c_size, c_hint_addr[1:0]);
 
 // Any instruction hit that identified its way (a C_LOOK hit, or an idle
 // admission) reads that way's whole line on the same edge it acknowledges.
@@ -678,8 +733,8 @@ assign cd_rd_en  = (cst == C_IDLE) || rd_accept || store_lookup_accept || iline_
                    xlook_read;
 // word-wise: array k at way (k - w); line-wise: every array at the hit way;
 // the crossing read's second lookup: word 0 of the next row
-wire  [1:0] rd_w = xlook_read ? 2'd0 : c_addr[3:2];
-wire  [SETW:0] rd_row = xlook_read ? {1'b0, r_setB} : {c_instr, a_set};
+wire  [1:0] rd_w = xlook_read ? 2'd0 : x_w;
+wire  [SETW:0] rd_row = xlook_read ? {1'b0, r_setB} : x_row;
 assign cd_ridx0  = iline_read ? {line_read_row, line_read_way}
                               : {rd_row, 2'd0 - rd_w};
 assign cd_ridx1  = iline_read ? {line_read_row, line_read_way}
@@ -802,11 +857,15 @@ always @(posedge clk) begin
 					ack_r <= 1;
 					iline_stb_pend <= 1;
 				end
-				else if (idle_hit) begin
+				else if (idle_hit || fast_hit) begin
 					// Identical registered response to C_LOOK, using the prior
 					// matching read rather than issuing a redundant RAM read.
-					rdata_r <= lw_extract(data_hit, c_size, c_addr[1:0]);
-					ack_r <= 1;
+					// A data hit the hint vouched for was acknowledged
+					// combinationally (fast_hit).
+					if (!fast_hit) begin
+						rdata_r <= lw_extract(data_hit, c_size, c_addr[1:0]);
+						ack_r <= 1;
+					end
 					if (c_instr) begin
 						// the line read runs in parallel (iline_idle_read)
 						iline_pending <= 1;
