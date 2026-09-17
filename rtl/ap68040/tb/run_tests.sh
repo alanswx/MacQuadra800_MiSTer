@@ -29,6 +29,7 @@ echo "== compiling benches =="
 # unit benches for the shared datapaths (Adam Polkosnik 7431dcb): exhaustive
 # byte ADD/ADDX/SUB/SUBX/CMP against an oracle, and the three FPU
 # normalization states against a serial-shift reference
+iverilog -g2012 -I "$RTL" -s tb_ap040_regfile -o "$WORK/tb_regfile.vvp"  tb_ap040_regfile.v $RTL/ap040_regfile.v
 iverilog -g2012 -I "$RTL" -s tb_ap040_alu_arithmetic -o "$WORK/tb_alu_arithmetic.vvp"  tb_ap040_alu_arithmetic.v $RTL/ap040_alu.v
 iverilog -g2012 -I "$RTL" -s tb_ap040_fpu_normalize -o "$WORK/tb_fpu_normalize.vvp"  tb_ap040_fpu_normalize.v $RTL/ap040_fpu.v $RTL/ap040_regfile.v $RTL/primitives/dpram.v
 iverilog -g2012 -I "$RTL" -o "$WORK/tb_prog.vvp"      tb_ap040_program.v $SRC
@@ -51,7 +52,22 @@ run() {
 		fail=1
 	fi
 }
+# A negative leg passes only when the bench FAILS: the register file's
+# pending-write bypass must be shown to matter, so the poisoned RAM word with
+# the bypass disabled has to be caught.
+negrun() {
+	name=$1; shift
+	if vvp "$@" 2>&1 | tee "$WORK/$name.log" | grep -q "TEST FAILED"; then
+		echo "  pass  $name  (control: failed as required)"
+	else
+		echo "  FAIL  $name  (control did NOT fail; see $WORK/$name.log)"
+		fail=1
+	fi
+}
 run reset        "$WORK/tb_reset.vvp"
+run regfile       "$WORK/tb_regfile.vvp"
+run regfile_poison "$WORK/tb_regfile.vvp" +poison
+negrun regfile_bypass_control "$WORK/tb_regfile.vvp" +poison +disable_bypass
 run alu_arithmetic "$WORK/tb_alu_arithmetic.vvp"
 run fpu_normalize "$WORK/tb_fpu_normalize.vvp"
 run double_fault "$WORK/tb_dblflt.vvp"
