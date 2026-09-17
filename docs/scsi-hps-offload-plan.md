@@ -1003,3 +1003,9 @@ gate had no CD):
   so far if no seed meets timing). Seed 22 launched 22:49
   (scratch/build_phase2c_s22.log); after it 23, then the routability
   switch.
+- 2026-09-16 22:52, correction to the entry above: seed 22 was NOT
+  launched at 22:49 -- another session's Quartus flow (sgiindy Analysis &
+  Synthesis) was running and the rule is one flow on the box. It is
+  queued through build_only.sh's wait-gate (which polls for any quartus
+  process every 30 s and starts once none runs); after it seed 23, then
+  the routability switch.
