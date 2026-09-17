@@ -116,3 +116,13 @@ Still open after the ear test: a real ripped CUE/BIN or audio CHD (CHD
 CD-DA is byte-swapped by Main); the release entry's sound line; the user
 pushes both branches (core `optimize-SCSI`, Main fork
 `mac-ethernet-pr-with-SCSI-Optimizations`).
+
+## CLOSED 2026-09-17 11:25 -- CD audio heard by the user
+
+The user played a game with CD audio on the release (`ab1da889`) with the
+clean Main `431da61a` and heard it. Shipped in the repo: the core was
+already `releases/MacQuadra800_20260916_2.rbf`; the Main binary is now
+`releases/MiSTer_20260916` (md5 `431da61a`, the clean build of the fork's
+`ae708d3`); the release entry carries the ear line and names the binary.
+Left for the user: push the core branch `optimize-SCSI` and the Main fork
+branch `mac-ethernet-pr-with-SCSI-Optimizations` (`ae708d3`).
