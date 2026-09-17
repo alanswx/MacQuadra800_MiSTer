@@ -368,7 +368,10 @@ Core phase 2 (playback on the ARM), gated on C5's numbers:
       audio tracks in `games/TGFX16-CD/` (Valis II/III/IV, Rainbow Islands,
       Prince of Persia) that the Audio CD Access extension mounts as an
       Audio CD
-- [~] D3 **fit of the fixed head (`3ec22e4`): seed 22 failed in routing,
+- [x] D3 **RELEASED 2026-09-17 00:45 as `releases/MacQuadra800_20260916_2.rbf`
+      = `ab1da889` (`2922294`, seed 21, clk_sys -0.231 ns on one path; the
+      full gate `scratch/p2d/report.md` passed: player, 8.1, A/UX at 32 MB).**
+      History: fit of `3ec22e4`: seed 22 failed in routing,
       seed 23 fits but clk_sys -0.752 ns (rbf `0d374d4a`, the fix probe
       on hardware), seed 24 MEETS TIMING (20:43): worst +0.244 ns (HDMI
       +0.255, clk_sys +0.762, clk_ram +0.605), 37,056 ALMs (88 %), 25,269
@@ -1058,3 +1061,22 @@ gate had no CD):
   FULL gate (scratch/p2d/BRIEF.md: player first, 8.1 + retail ISO, A/UX
   at 32 MB); if a later seed meets timing it gets a confirmation run and
   ships instead, otherwise ab1da889 ships with the CPU-clock note.
+- 2026-09-17 00:45, **the release gate PASSED on the seed-21 build and phase
+  2 is RELEASED** as `releases/MacQuadra800_20260916_2.rbf` (`ab1da889`,
+  `2922294`, seed 21; the CPU clock 0.231 ns short on one path, shipped
+  under the try-marginal policy with the note). The gate
+  (`scratch/p2d/report.md`, 82 screenshots): the AppleCD player -- Play
+  00:10 / 00:39 / 01:14, Pause frozen 60 s and resumed from 00:08, Next /
+  Prev, the scan +24 s in 5 s, volume down / up, Stop to 00:00, 14 min
+  20 s active, no dialog, 17 Main `Mac CD: cmd` lines matching the display
+  to the second (Stop is opcode 01; the skip buttons moved two tracks per
+  injected click -- a press-duration artefact of the remote injection, the
+  guest's own seeks all exact); 8.1 + retail ISO -- Finder at T0+132 s,
+  idle flat 80 s, both volumes put away, halt; A/UX 3.1 at 32 MB --
+  desktop at T0+188 s, `uname -a` right, `shutdown -h now` halted in 144 s
+  with no streaks (the image was restored from the backup first: its mtime
+  showed a boot since the last restore). No memory trouble anywhere. Seed
+  23 of the same netlist was still in its fitter (started 23:45); if it
+  meets timing it gets a confirmation run (player + 8.1 + A/UX) and
+  replaces the file. Box: the s21 core at the A/UX halt screen, Main pid
+  6071 -> `nohup_video.log` (12,272 lines), slots restored, RAM 32 MB.

@@ -115,4 +115,8 @@ With the channel owner register and the `abort_nexus` discard fix
 noise (`ncr53c96` self 2,317 ALUTs, with the engine 2,689, `cd_audio`
 372 / 320 registers); fitted at seed 24 with timing met: **37,056 ALMs
 (88 %)**, 25,269 registers, 490 RAM blocks, 43 DSP blocks, worst slack
-+0.244 ns (clk_sys +0.762) -- the release candidate `4bf9629c`.
++0.244 ns (clk_sys +0.762) -- `4bf9629c`, superseded by the data-phase
+completion fix (`2922294`, no area change: seed 21 fits at **37,197 ALMs
+(89 %)**, 25,226 registers, 490 RAM blocks, 43 DSP blocks, the CPU clock
+0.231 ns short on one path -- the shipped `MacQuadra800_20260916_2.rbf`,
+`ab1da889`; seeds 22 and 24 of the same netlist: 37,216 and 37,152 ALMs).
