@@ -196,6 +196,7 @@ row still matching silicon field for field.
 | step 1 | 86b6b04 | 21 | 37,439 (89 %) | met: CPU +0.036, HDMI +0.056, RAM +0.775, hold +0.187 | d157f555 (`scratch/pipeline_step1/`) | **Mix 0.877** (0.875/0.878/0.879, +2.6 % over 0.855), CQD 0.643, FPU 0.464, 8.1 boot <= 123 s, clean shutdown |
 | build 2 | 77aa72a (items 1-5) | 21 | 36,330 (87 %) | failed to route (congestion) | none | |
 | build 3 | 5206845 (items 1-8) | 21 + FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION | 36,010 (86 %) | routed; CPU clock -3.760 (state -> hint mux -> cache fast-hit select -> ALU -> lookahead -> seed -> epf_ftail, a false path) | not deployable | |
+| build 4 | 31445e5 (+ cache fast-hit from the registered hint) | 21 + the switch | 36,326 (87 %) | routed; CPU clock -2.362: A7 bank -> port A -> shift count -> the ALU's ROXx modulo divider -> flags -> lookahead -> the carriers' target mux -> seed -> epf_ftail | not deployable | |
 
 (filled in as each build completes; the seed ledger is also in the `.qsf`.)
 
