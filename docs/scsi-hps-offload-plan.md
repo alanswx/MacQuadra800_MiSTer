@@ -1043,3 +1043,8 @@ gate had no CD):
   restored. The release now waits only for a timing-clean seed of
   `2922294` (21: -0.231 on one path; 24: -0.727; 22 queued behind the
   sgiindy flow) and its full gate with A/UX at 32 MB.
+- 2026-09-16 23:25, the wait-gated seed-22 fit of 2922294 started once
+  the sgiindy synthesis had ended, and the other session then launched
+  its sgiindy FITTER on top of it (23:22: two quartus_fit processes, one
+  per project). Not started by this session and neither is killed; noted
+  because the rule is one flow on the box -- expect both to run slower.
