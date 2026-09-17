@@ -940,3 +940,32 @@ gate had no CD):
   `scratch/p2c/BRIEF.md` (= p2b without the probe caveat, A/UX included);
   it runs once the seed-23 probe operator has returned the box to a halt
   screen. Seed 24 recorded as the qsf default (`319b72c`).
+- 2026-09-16 21:35, the seed-23 fix probe (operator,
+  scratch/p2b/report.md, 85 screenshots): step 0 PASS (Main relaunched at
+  the menu core; event15 turned out to be MiSTer's own uinput node, the
+  mrext devices are event16-18 -- the brief's guess was wrong but the
+  relaunch still cured the motion), step 1 PASS (8.1 + retail ISO:
+  desktop 180 s, idle flat 130 s, keyboard, both ejects, halt in 45 s),
+  step 3 FAIL: the AppleCD player still says not responding 4-8 s after
+  Play and its elapsed counter never leaves 00:00 (3 runs; Space is the
+  only control that worked because the remote mouse motion died again
+  right after the step-3 load_core -- it dies across a load_core and only
+  a Main relaunch at the menu core revives it; the p2c brief must
+  relaunch Main before EACH load), no memory trouble at all from the
+  -0.752 ns CPU clock. The decisive evidence is Main's seven cmd 47
+  lines: the ARM playhead starts at 0, runs the 7:02 disc in real time
+  (cur 17847 at 3:58, 31214 at 6:56, ...), and the guest reads its
+  position correctly at every player launch -- so the forward and the
+  playhead are right and the polling right after PLAY is what breaks.
+  Mechanism found in the RTL: a DATA IN completion moves the phase to
+  STATUS only when nexus_io is quiet, and nexus_io included ca_io_active,
+  so a guest read whose last byte drained while a frame fetch was out
+  (right after PLAY: the poke and two fetches back to back) stayed in
+  DATA IN for ever (the completion is evaluated once) -- the driver's
+  timeout. Fix: nexus_io without ca_io_active; the data-out chunk
+  completion instead waits while a full sector is still owed to the
+  platform (sbuf_pos == 512 with no list). T20 part d now checks the
+  phase at the chunk end with the fetch provably in flight; the bench and
+  the negative run (the RTL before this change) are running. The seed-24
+  rbf on the box (4bf9629c) lacks this fix and is NOT the candidate any
+  more.
