@@ -177,7 +177,7 @@ CD-ROM (`.s4`). CUE/CHD discs and the Toolbox need the Main fork
 ### Regression gate before any release
 
 Both guests must boot to a responsive desktop and shut down cleanly on the
-candidate bitstream:
+candidate bitstream, and the CD audio path must still play:
 
 - **Mac OS 8.1** (`QuadSquad8.hda`): Finder desktop, keyboard + mouse respond,
   menu-bar clock ticks at idle for several minutes, Special → Shut Down reaches
@@ -190,6 +190,21 @@ candidate bitstream:
   `unzip -o backup/HD60_512-AUX3.1-Installed.zip` in `games/MacQuadra800/`
   instead, user rule 2026-09-16),
   CommandShell responds, `shutdown -h now` reaches "You may now switch off".
+- **CD audio** (`games/MacQuadra800/ToneTest.cue` in slot 4 via
+  `config/MacQuadra800.s4`; needs the shipped Main fork binary,
+  `releases/MiSTer_20260916` or later — an older Main and the guest sees no
+  CD-ROM at all): the disc mounts on the 8.1 desktop as "Audio CD 1", the
+  AppleCD Audio Player's counter runs in step with the menu-bar clock under
+  Play, Pause freezes it and Resume picks up from the frozen value, Stop
+  returns to Track 01 00:00, and no "The Apple CD-ROM drive is not
+  responding" dialog appears at any point. Main's `Mac CD: cmd` lines are the
+  proof the transport reached the ARM, so relaunch Main with its stdout in a
+  file before the run (`killall MiSTer`, then `nohup stdbuf -oL
+  /media/fat/MiSTer /media/fat/menu.rbf >> /media/fat/nohup_video.log 2>&1
+  </dev/null &` from `/media/fat`). **Whether it actually makes a sound has
+  to be judged by ear at the display** — an operator driving the box over the
+  network cannot hear it, so that half of the check belongs to the user and
+  the gate is not complete without them.
 
 Then: copy the rbf to `releases/MacQuadra800_YYYYMMDD.rbf`, add a table row and
 a section to `releases/README.md` (md5, seed, slack, what changed, hardware
