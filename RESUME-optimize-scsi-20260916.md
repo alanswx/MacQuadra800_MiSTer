@@ -11,7 +11,11 @@ the memory notes `pickup-2026-09-08`, `one-quartus-flow-at-a-time`,
 - **Core branch `optimize-SCSI`** (unpushed; the user pushes). RTL tip =
   **`2922294`**; docs/qsf commits after it up to `7eb0f00`. Main fork
   branch `mac-ethernet-pr-with-SCSI-Optimizations` at `ae708d3` (unpushed);
-  binary `898854ef` on .143; no Main change pending.
+  binary: **`431da61a` is the correct build of `ae708d3`** (staged on .143
+  as `/media/fat/MiSTer.clean_431da61a`, awaiting the user's display test);
+  `898854ef` and the other 16-Sep builds were mis-linked with 28-Aug
+  objects (a black menu on HDMI) -- see the plan log 02:05 and the memory
+  note `main-wsl-stale-objects`. No Main source change pending.
 - **Phase 1 RELEASED** as `releases/MacQuadra800_20260916.rbf` (`1eae0fb7`).
 - **Phase 2 RELEASED 2026-09-17 00:45** as `releases/MacQuadra800_20260916_2.rbf`
   (`ab1da889`, `2922294`, seed 21, the CPU clock 0.231 ns short on ONE path,

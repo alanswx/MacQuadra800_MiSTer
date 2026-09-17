@@ -1107,3 +1107,23 @@ gate had no CD):
   (stock upstream 20260907, installed 09-08 05:11 with menu.rbf and the
   Linux image), MiSTer.aug28_d6d63ec4 (the Aug 28 fork build), older
   fork/stock backups back to MiSTer.stock 9d5f18d3 (07-16).
+- 2026-09-17 02:05, **the user's black screen is Main's build, not its
+  source**: the bisect (898854ef black; stock 20260907 `74b59a34` and the
+  8-Sep fork build `916829ff` fine) pointed at the 16-Sep builds; nothing
+  in the source window touches video (the fork's seven commits are
+  Mac-only; upstream's are the NeXT bridge, Apple-II savestates, joystick
+  tweaks), but `~/Main_MiSTer/bin` held 102 objects dated 28-Aug and only
+  17 from 16-Sep: the Windows checkout's gitignored `bin/` (an Aug-28
+  build) was rsynced into WSL before every build, and the 16-Sep rebase
+  inserted `uint8_t dpad_threshold` into `struct cfg` (cfg.h:82) ahead of
+  `video_off`, `hdr`, `vrr_*`, `video_brightness`, `hdmi_off`..., so the
+  stale `video.cpp.o` (the AVI/HDR infoframes, VRR, the menu's video-off)
+  read garbage. The 8-Sep build was fine because no header changed
+  between the Aug-28 base and 20260907. Fix: `build_main_wsl.sh`
+  excludes `bin/` / `*.o` / `*.d` from the rsync and starts from no
+  objects (CLEAN=1); the clean build of `ae708d3` is md5 `431da61a`
+  (all 119 objects fresh), staged on .143 as
+  `/media/fat/MiSTer.clean_431da61a` for the user's display test; the
+  release README now names it (the 16-Sep gates ran with the mis-linked
+  binary; the Mac objects in it were current). Memory note
+  `main-wsl-stale-objects`.

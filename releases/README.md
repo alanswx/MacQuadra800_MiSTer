@@ -43,6 +43,17 @@ synthesis, register duplication off, `CACHE_CD_OFF`, `CACHE_SMALL`,
 `MISTER_DISABLE_ALSA`, `MISTER_DOWNSCALE_NN`, `MISTER_DISABLE_ADAPTIVE`;
 composite Y/C kept; tracer off).
 
+**Main binary correction (2026-09-17):** the `898854ef` binary named
+below was mis-linked -- the WSL build had rsynced 28-August object files
+from the Windows checkout, so `video.cpp.o` / `hardware.cpp.o` read the
+config structure at pre-rebase offsets (a black picture at the MiSTer
+menu on HDMI, the Mac core mostly unaffected). The correct binary of the
+same commit `ae708d3` is md5 `431da61aef440964204a59ce0069bfa2` (built
+from nothing; `scripts/build_main_wsl.sh` now discards build objects).
+The gates below ran with the mis-linked binary: every Mac-side object in
+it was current, so their results stand, but `431da61a` is the one to
+install.
+
 **Ships with the same Main binary as 20260916:** the Main fork branch
 `mac-ethernet-pr-with-SCSI-Optimizations` at `ae708d3` (binary md5
 `898854ef18882048b409127f7fb562f8`); the next-frame window, the command
@@ -126,6 +137,17 @@ recipe (balanced synthesis, register duplication off, `CACHE_CD_OFF`,
 after `f612084` on the branch up to this entry are tooling and notes,
 except the phase-2 RTL (`d5442fe`, playback on the ARM), which is NOT in
 this bitstream.
+
+**Main binary correction (2026-09-17):** the `898854ef` binary named
+below was mis-linked -- the WSL build had rsynced 28-August object files
+from the Windows checkout, so `video.cpp.o` / `hardware.cpp.o` read the
+config structure at pre-rebase offsets (a black picture at the MiSTer
+menu on HDMI, the Mac core mostly unaffected). The correct binary of the
+same commit `ae708d3` is md5 `431da61aef440964204a59ce0069bfa2` (built
+from nothing; `scripts/build_main_wsl.sh` now discards build objects).
+The gates below ran with the mis-linked binary: every Mac-side object in
+it was current, so their results stand, but `431da61a` is the one to
+install.
 
 **Ships with a Main binary:** the Main fork branch
 `mac-ethernet-pr-with-SCSI-Optimizations` at `ae708d3` (binary md5
