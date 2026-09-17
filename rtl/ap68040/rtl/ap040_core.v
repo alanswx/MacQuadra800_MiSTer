@@ -690,6 +690,8 @@ reg  [3:0] epf_fillw;            // words appended this cycle (up to a line)
 // rather than expanded inside every caller of the generic completion task.
 reg        rd_queue_pop;
 reg        retire_req;
+reg        dgo;                   // an arm dispatched a resident branch target (decode_dbcc_brf): done once
+reg        pgo;                   // an arm redirected the flow (go_pc): performed once after the case
 reg        igo;                   // an arm asked for extension words (immf): served once after the case
 reg  [1:0] igo_n;
 reg  [7:0] igo_ret;
@@ -2172,6 +2174,33 @@ wire [31:0] rd_immv = (rd_immn == 2'd2) ? {rd_w1, rd_w2} : {16'd0, rd_w1};
 wire        rd_is_bcc = (rd_ir[15:12] == 4'h6) && (rd_ir[11:8] != 4'h1) &&
                         (rd_ir[7:0] != 8'h00) && (rd_ir[7:0] != 8'hFF);
 wire [31:0] rd_bcc_t  = pc + 32'd2 + sxb(rd_ir[7:0]);
+// The redirect target and the resident-dispatch target formed from
+// registers by the current state, so that the hoisted go_pc_now and
+// decode_dbcc_brf_now start their refill-seed compare, seed loop and
+// tail adder from settled data and only their enables arrive late
+// (the acknowledge sits on finish_bcc's choice between the two).  Every
+// caller's own expression is listed here; the carrier tasks check the
+// two agree in simulation.
+wire [31:0] rgo_bcc_ext_t = br_base + (br_long ? imm : sxw(imm[15:0]));
+wire [31:0] rgo_dbcc_t    = br_base + sxw(imm[15:0]);
+wire [31:0] rgo_decode_t  = pc + sxb(ir[7:0]);
+wire        rgo_cond      = cond_true(ir[11:8]);
+wire [31:0] go_pc_t_early =
+	(state == S_RET2 || state == S_RET3)     ? m_val :
+	(state == S_BCC_EXT)                     ? rgo_bcc_ext_t :
+	(state == S_BSR_PUSH || state == S_JSR2) ? br_tgt :
+	(state == S_DBCC1)                       ? rgo_dbcc_t :
+	(state == S_JMP1)                        ? ea_addr :
+	(state == S_FBCC)  ? pc_i + 32'd2 + (ir[6] ? imm : sxw(imm[15:0])) :
+	(state == S_FDBCC) ? pc_i + 32'd4 + sxw(imm[15:0]) :
+	                                           rgo_decode_t;
+// decode_dbcc_brf's callers: S_DBCC1 and S_BCC_EXT (their own target when
+// the branch is taken, the lookahead's when it retires instead), the
+// decode-time Bcc.B, and the lookahead arm in any other state.
+wire [31:0] dbrf_a_early =
+	(state == S_DBCC1)   ? (rgo_cond ? rd_bcc_t : rgo_dbcc_t) :
+	(state == S_BCC_EXT) ? (rgo_cond ? rgo_bcc_ext_t : rd_bcc_t) :
+	(state == S_DECODE)  ? rgo_decode_t : rd_bcc_t;
 wire  [4:0] alu_fast_fl;
 wire        alu_fast_ok;
 // the producer's flags from the ALU's fast path (compare class) or sr
@@ -2620,7 +2649,25 @@ endtask
 // consume its first opcode here.  Keeping this out of generic go_pc avoids
 // widening every redirect path with the branch-buffer read mux, while reusing
 // issue_ifetch avoids a second set of wide branch-buffer-to-queue writers.
+// The refill-buffer dispatch is requested through a carrier and performed
+// once by decode_dbcc_brf_now after the lookahead arm (its last caller)
+// and before the fill engine, which must see the queue arm and the port
+// claim it makes, on the state-selected target dbrf_a_early (the body's
+// refill-word mux, seed loop and issue_ifetch must start from settled
+// data: the enable arrives through the acknowledge).  It was expanded at
+// seven sites (S_DBCC1, the five finish_bcc callers, the lookahead arm).
 task decode_dbcc_brf;
+	input [31:0] a;
+	begin
+		dgo = 1;
+		// synthesis translate_off
+		if (a !== dbrf_a_early)
+			$display("AP040 decode_dbcc_brf: early target %h differs from the caller's %h in state %0d", dbrf_a_early, a, state);
+		// synthesis translate_on
+	end
+endtask
+
+task decode_dbcc_brf_now;
 	input [31:0] a;
 	reg  [15:0] fw;
 	begin
@@ -2652,7 +2699,24 @@ task decode_dbcc_brf;
 endtask
 
 // jump to a control flow target with odd address check
+// Flow redirect.  go_pc is called from a dozen sites and expands the
+// trace/interrupt sampling and issue_ifetch (the refill-buffer seed
+// compare and the queue re-arm) at each; the call now only raises the
+// carrier and go_pc_now runs once after the case statement, before the
+// exception-entry arm its trace/address-error cases feed, on the
+// state-selected target go_pc_t_early (see there for why not the argument).
 task go_pc;
+	input [31:0] t;
+	begin
+		pgo = 1;
+		// synthesis translate_off
+		if (t !== go_pc_t_early)
+			$display("AP040 go_pc: early target %h differs from the caller's %h in state %0d", go_pc_t_early, t, state);
+		// synthesis translate_on
+	end
+endtask
+
+task go_pc_now;
 	input [31:0] t;
 	begin
 		// The format-$2 address field contains the referenced address with A0
@@ -4119,6 +4183,8 @@ always @(posedge clk) begin
 	epf_fillw   = 4'd0;
 	rd_queue_pop = 0;
 	retire_req = 0;
+	dgo = 0;
+	pgo = 0;
 	igo = 0; igo_n = 2'd0; igo_ret = 8'd0;
 	xgo = 0; xgo_vec = 8'd0; xgo_fmt = 4'd0; xgo_spc = 32'd0; xgo_addr = 32'd0;
 	mgo = 0; mgo_wr = 0; mgo_sz = 2'd0; mgo_ret = 8'd0; mgo_a = 32'd0; mgo_d = 32'd0;
@@ -8493,6 +8559,7 @@ always @(posedge clk) begin
 		if (mgo) mem_issue;
 		if (igo) immf_now(igo_n, igo_ret);
 		if (retire_req) fetch_next_body;
+		if (pgo) go_pc_now(go_pc_t_early);
 		if (xgo) exc_now(xgo_vec, xgo_fmt, xgo_spc, xgo_addr);
 
 		// Single shared-descriptor control writer. In normal decode only
@@ -8548,6 +8615,10 @@ always @(posedge clk) begin
 				epf_pop = 2'd2;
 			end
 		end
+
+		// The resident-target dispatch an arm or the lookahead asked for: it
+		// arms the queue and claims the port, so it runs before the fill engine.
+		if (dgo) decode_dbcc_brf_now(dbrf_a_early);
 
 		//-------------------------------------------------- fetch queue engine
 		// The queue fills itself: whenever the memory port is idle, the
