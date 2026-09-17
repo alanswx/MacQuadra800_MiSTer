@@ -1,5 +1,17 @@
 # RESUME — CPU vendored + Adam Polkosnik's fixes ported (2026-09-17)
 
+**RELEASED 2026-09-17 15:xx as `releases/MacQuadra800_20260916_2.rbf`**
+(md5 `8552a409`, replacing the 00:42 file `ab1da889` of the same name at
+the user's request): Speedometer 4.02 by the user on the .143 box -- Mix
+**0.855** (0.858 on 20260915), CQD 0.641 over four depths (8-bit 0.629 vs
+0.605), PR 0.810; Mac OS 8.1 booted with a second disk and a CD mounted,
+the MLAB register file's first hardware run passed. A/UX and CD audio NOT
+re-run on this file (unchanged RTL outside the CPU). Row + section in
+`releases/README.md`, numbers in `docs/PERFORMANCE_MEASUREMENTS.md` s.15.
+All the CPU tweaks that were going to be taken are in; nothing of Adam's
+remains queued (the skips are deliberate, `docs/cpu-upstream-2026-09.md`).
+The user put Speedometer 4.02 into `Quad Squad:Utilities:` on the box.
+
 Read this first, then `CLAUDE.md`. Branch **`add-CPU-fixes`** (cut from
 `optimize-SCSI` at 68c4068). Commit as work lands, **the user pushes**.
 
@@ -49,14 +61,11 @@ Read this first, then `CLAUDE.md`. Branch **`add-CPU-fixes`** (cut from
 
 ## Next
 
-1. **Hardware gate on the .143 box** with `scratch/MacQuadra800_cpufixes_6de9473.rbf`
-   (look before you deploy -- the box was in an unknown state at 13:54;
-   both guests; A/UX at 32 MB; Speedometer for the CPU numbers; CD audio
-   by the user's ear). The register file has a hardware-only failure mode (MLAB
+1. The A/UX 3.1 (32 MB) and CD-audio halves of the gate on this file, when
+   convenient -- the SCSI/CD RTL is `ab1da889`'s, which passed them. The register file has a hardware-only failure mode (MLAB
    read-during-write); if 8.1 does not boot, revert `6de9473` first and
    rebuild.
-2. Release per `CLAUDE.md` if the gate passes (rbf + `releases/README.md`
-   row + section).
+2. Push (the user).
 3. Boot chime: the ROM plays the Mac II sound, not the Quadra's (user,
    2026-09-17) -- see `RESUME-open-items.md`, Correctness items owed.
 4. Later: re-engineer R5/R6 (`git --git-dir=.git/modules/rtl/ap68040 show

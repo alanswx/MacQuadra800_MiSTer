@@ -12,7 +12,7 @@ must never be flashed (`scripts/deploy_screenshot.sh` refuses one).
 
 | build | md5 | timing | notes |
 |---|---|---|---|
-| `MacQuadra800_20260916_2.rbf` | `ab1da889a28b1b7f3b030e881b7b5390` | **VIOLATED by 0.231 ns on the 33 MHz CPU clock** (one path, TNS -0.246; HDMI +0.076, `clk_ram` +1.130) | **The CD-ROM's audio playhead runs on the ARM (SCSI offload phase 2): -931 ALMs against the morning's 20260916; the CPU clock 0.231 ns short on one path, see the section.** Every transport command (PLAY / PAUSE / STOP / SEARCH / SCAN and the Apple `$C8`-`$CD` forms) is forwarded to the Main fork's playhead, the position and status forms are read from its response window, and the audio frames stream from a next-frame window at 75 Hz; the RTL keeps only the 44.1 kHz cadence. Three channel fixes: an explicit owner of the HPS channel (the nexus has priority over the engine's fetches; a same-cycle collision used to send a disk write to the frame window's address), and a selection during the engine's transfer no longer discards the new command's first block (since 2026-09-02 every release lost the AppleCD player's status polls that landed during a fetch: "drive not responding"), and a guest data phase no longer waits for the engine's transfer to complete (its first poll after PLAY hung in DATA IN until the driver timed out). **Requires the Main fork `ae708d3` or later for any CD image.** Mac OS 8.1 with the retail ISO: Finder at T0+132 s, both volumes put away, clean halt. AppleCD Audio Player on a 4-track audio CUE: Play (00:10 / 00:39 / 01:14), Pause and resume, Next / Prev, scan, volume, Stop, 14 min without a dialog, 17 Main `Mac CD: cmd` lines matching the display to the second. A/UX 3.1 at **32 MB**: desktop at T0+188 s, `uname -a` = `A/UX localhos 3.1 SVR2 mc68040`, `shutdown -h now` to the halt screen in 144 s. **CD audio confirmed by ear 2026-09-17: the user ran a thorough CD-audio test by ear -- playing a game with CD audio on this build -- and reports it works great.** Ships with the Main binary `releases/MiSTer_20260916` (md5 `431da61a`, the clean build of the fork's `ae708d3`). Seed 21; 37,197 ALMs (89 %). |
+| `MacQuadra800_20260916_2.rbf` | `8552a4094e151bf7b853916a9099e2c2` | met, **+0.244 ns setup** (HDMI +0.255, `clk_sys` +0.442, `clk_ram` +0.851) | **The AP68040 vendored into the repo with Adam Polkosnik's September fixes** (replaces the 2026-09-17 00:42 file `ab1da889`, same SCSI/CD RTL, whose CPU clock missed by 0.231 ns): memory bitfield reads sized by span, FPSP BUSY-frame FRESTORE resume (the Quadra ROM uses it), MOVEM saved-EA/SSW.CM continuation, nonresident ATC entries, our memind reserved-encoding fix, shared ALU adders and FPU normalizer, the integer register file in MLABs. Cycle-identical to the 20260915 CPU on the sim gates; Speedometer 4.02 Benchmark Mix **0.855** (0.858 on 20260915), Color QuickDraw 0.641 over four depths (8-bit 0.629 vs 0.605), Performance Rating 0.810. Mac OS 8.1 boots with a second disk and a CD mounted; A/UX and CD audio not re-run on this file (unchanged RTL outside the CPU, gated on `ab1da889`). Ships with `releases/MiSTer_20260916` (`431da61a`). Seed 21; 37,144 ALMs (89 %). |
 | `MacQuadra800_20260916.rbf` | `1eae0fb7ed8de620751af3efb94047fb` | met, **+0.247 ns setup** (HDMI +0.442, `clk_sys` +0.729, `clk_ram` +0.732) | **The CD-ROM target's responses come from the ARM (SCSI offload phase 1): -510 ALMs, timing met.** INQUIRY, MODE SENSE, READ TOC and the Apple status commands are served by the Main fork through window reads of the CD slot; MODE SELECT, eject and the resets are forwarded through a command block with STATUS held until the ARM acks. **Requires the Main fork `ae708d3` or later for any CD image.** Mac OS 8.1: Finder in 126 s with the retail ISO, idle clock in step over 4 min, keyboard, the CD's window, both guest volumes of the retail disc put away from the Finder, the OT ISO hot-mounted from the OSD and put away, the retail disc re-mounted, `mac_shutdown.sh` to the halt screen in 61 s; Speedometer not re-measured (the restored Quad Squad image lacks it; the CPU/SDRAM path is unchanged from 20260915). A/UX 3.1 at **32 MB**: desktop in 120 s, `uname -a` = `A/UX localhos 3.1 SVR2 mc68040`, `shutdown -h now` to the halt screen in 131 s. **Known: A/UX 3.1 hangs its shutdown when the RAM option is 128 MB, on this build and on 20260915 / 20260908_3 alike (six runs); run A/UX at 32 MB.** Seed 21; 38,128 ALMs (91 %). |
 | `MacQuadra800_20260915.rbf` | `4c80a3be96cb46992d00002484f9f67a` | **VIOLATED by 0.095 ns on the HDMI domain** (one `sys_top` `hdmi_dv_hs -> hs` register); `clk_sys` +0.712 ns, `clk_ram` positive | **Alan Steremberg's checkpoint-15 AP68040 (`167c5e8`) with the multi-site sequencer tasks hoisted (R1..R4, `8778213`), and the 53C96 fix for the Mac OS 8.1 boot hang it exposed.** Speedometer 4.02 Benchmark Mix **0.858** (0.462 on the 2026-09-12 store head, 0.360 on 20260908_3), CQD 0.605, FPU 0.449. Mac OS 8.1 Finder in 106 s, clean shutdown; A/UX 3.1: multiuser desktop in 148 s, `uname -a` = `A/UX localhos 3.1 SVR2 mc68040`, `shutdown -h now` to the halt screen in 127 s. Shipped as a marginal build by decision (2026-09-16): the miss is on the framework's video output register, not on the CPU clock. Seed 22; 38,711 ALMs (92 %). |
 | `MacQuadra800_20260908_3.rbf` | `71102b391b375ebc9614d80432136611` | met, **+0.444 ns setup** (clk_sys +0.797, clk_ram +0.927) | **The CD-ROM refuses MODE SELECT block-length changes like QEMU; ships with the rebased Main fork binary (`MiSTer_20260908`, upstream 20260907 + Mac SCSI family + multi-block CD fill).** Same CPU, CD and multi-block cache as 20260908_2. Both OSes pass the gate. The retail CD shows twice on the Quad Squad desktop: traced to that system folder (QEMU reproduces it from the same disk image; a fresh 8.1 install shows one icon), not the core. Seed 21; 98 % ALMs, 476 RAM blocks. |
@@ -29,19 +29,68 @@ must never be flashed (`scripts/deploy_screenshot.sh` refuses one).
 
 ## `MacQuadra800_20260916_2.rbf`
 
-md5 `ab1da889a28b1b7f3b030e881b7b5390`, seed 21, **timing NOT met: the 33 MHz CPU clock misses by 0.231 ns on
-one path** (TNS -0.246 ns; HDMI +0.076 ns, `clk_ram` +1.130 ns). Shipped as a
-marginal build under the try-marginal policy (2026-09-16): three clean boots
-and three clean shutdowns on the gate, the player, both disks and the CD, with
-no sign of memory trouble; seeds 22 and 24 of the same netlist missed by 1.41
-and 0.73 ns and seed 23 was still fitting at release time. A clean seed, if
-one comes, gets a confirmation run and replaces this file.
-37,197 ALMs (89 %, -931 against the morning's 20260916), 25,226
-registers, 490 of 553 RAM blocks, 43 DSP blocks. Built from
-`2922294` on `optimize-SCSI` with the qsf-default recipe (balanced
-synthesis, register duplication off, `CACHE_CD_OFF`, `CACHE_SMALL`,
-`MISTER_DISABLE_ALSA`, `MISTER_DOWNSCALE_NN`, `MISTER_DISABLE_ADAPTIVE`;
-composite Y/C kept; tracer off).
+md5 `8552a4094e151bf7b853916a9099e2c2`, seed 21, **timing met, +0.244 ns setup**
+(HDMI +0.255 ns, `clk_sys` +0.442 ns, `clk_ram` +0.851 ns; no `open_row`
+altsyncram in the map report). 37,144 ALMs (89 %), 24,959 registers. Built
+2026-09-17 13:21 from `6de9473` on `add-CPU-fixes` with the qsf-default
+recipe (balanced synthesis, register duplication off, `CACHE_CD_OFF`,
+`CACHE_SMALL`, `MISTER_DISABLE_ALSA`, `MISTER_DOWNSCALE_NN`,
+`MISTER_DISABLE_ADAPTIVE`; composite Y/C kept; tracer off).
+
+**This file replaces the 2026-09-17 00:42 release of the same name** (md5
+`ab1da889a28b1b7f3b030e881b7b5390`, built from `2922294`, seed 21, CPU clock
+MISSED by 0.231 ns on one path, shipped marginal). Everything outside the CPU
+is the same RTL: the SCSI offload phase 2, the CD audio engine, the Main
+binary contract. The CPU is new, and the fit is clean.
+
+**The CPU (`docs/cpu-upstream-2026-09.md`, `rtl/ap68040/UPSTREAM.md`):** the
+AP68040 is vendored into `rtl/ap68040/` (no submodule) at the 20260915 CPU
+(Alan Steremberg's checkpoint 15 + our carrier hoisting R1..R4, `8778213`)
+plus, one commit each, from Adam Polkosnik's September work: memory bitfield
+reads sized to the bytes the field occupies (a short field at a page end no
+longer faults on the unmapped next page; `3458e64`); FRESTORE of an
+FPSP-prepared BUSY frame with CU_SAVEPC=$fe executes the prepared command on
+the frame's operands -- the Quadra 800 ROM does exactly this at `40890100`
+for denormal and unnormalized operands, and the core used to restore the
+frame and do nothing (`880b81c`); a MOVEM operand fault stacks its original
+EA with SSW.CM and RTE resumes from it (`880b81c`); a failed table search
+installs a valid nonresident ATC entry as the 68040 does (`880b81c`); the
+reserved full-extension encodings IS=1/I-IS[2]=1 execute as Quadra 800
+silicon does (our `docs/ap68040-memind-reserved.patch`, verified 2026-08-30,
+finally in); ADD/ADDX and SUB/SUBX/CMP share one adder each and the three
+FPU normalizers one shifter (`7431dcb`); D0-D7/A0-A6 live in two mirrored
+MLABs with a one-cycle pending-write bypass (`7431dcb`). Adam's seven
+directed programs and three unit benches join `run_tests.sh` (23 legs); four
+of the programs failed on the 20260915 CPU. Sim gates: AP suite 23/23,
+`bench_loop` 94368/95166 and the corpus-100 silicon comparison 33,335,739
+cycles / 0 REAL diffs, both identical to the 20260915 CPU.
+
+Hardware on this bitstream (2026-09-17, the .143 box, `.s0` QuadSquad8.hda
+with a second disk in `.s1` and a MacLC CD cue in `.s4`, i.e. NOT the bare
+gate configuration; `scratch/gate_cpufixes/`):
+
+- **Mac OS 8.1**: Finder desktop complete at T0+136 s (the first capture;
+  splash not observed) with both extra volumes mounted and the CD's window
+  auto-opened, no video artefacts; menu-bar clock in step with host time over
+  four minutes, `write_bytes` flat at idle; mouse, Apple menu, Find File and
+  four Finder windows opened and redrawn. This is the first hardware run of
+  the MLAB register file, whose failure mode (MLAB read-during-write) shows
+  only on silicon; it booted and ran.
+- **Speedometer 4.02 (the user, one iteration each; screenshot
+  `docs/perf/speedometer402_vendored_cpu_20260917.png`)**: Benchmark Mix
+  **0.855** (20260915: 0.857/0.859/0.859), every row within 3 % of the
+  20260915 rows and Towers the only one that moved (1.229 s vs 1.196 s);
+  Color QuickDraw **0.641** averaged over 1/2/4/8 bits (8-bit 16.847 s =
+  0.629 vs 17.497 s = 0.605 on 20260915, the only depth measured then);
+  Performance Rating **0.810** (CPU 0.684, Graphics 0.741, Disk 0.859, Math
+  8.052), the first PR figure for Speedometer 4.02 on this core. The CPU
+  fixes are correctness and area, not speed, and the numbers agree.
+- **Not re-run on this file:** A/UX 3.1 and the CD audio path. Nothing
+  outside the CPU changed since `ab1da889`, whose gate (below) covered both;
+  the user chose to release on the Mac OS 8.1 run.
+
+The rest of this section is the `ab1da889` entry as released, still
+accurate for the SCSI/CD side of this file.
 
 **Main binary correction (2026-09-17):** the `898854ef` binary named
 below was mis-linked -- the WSL build had rsynced 28-August object files

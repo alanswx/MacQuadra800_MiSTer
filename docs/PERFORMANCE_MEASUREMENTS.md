@@ -775,3 +775,69 @@ boot saved and the patched warm path never saved one -- except that the
 pristine ROM lands in the same loop after its RAM test, so it is a
 sim-vs-hardware difference in what the System reads at start-up, still
 unexplained (see `RESUME-alan-perf.md`); the OS-phase profile waits on it.
+
+## 15. The vendored AP68040 with Adam Polkosnik's fixes (2026-09-17, hardware)
+
+`releases/MacQuadra800_20260916_2.rbf` as replaced on 2026-09-17 (md5
+`8552a409`, seed 21, timing met +0.244 ns, 37,144 ALMs): the 20260915 CPU
+(checkpoint 15 + R1..R4) with the bitfield sizing, FPSP BUSY resume, MOVEM
+CM continuation, nonresident ATC, memind, shared ALU/FPU datapaths and the
+MLAB integer register file (`docs/cpu-upstream-2026-09.md`). Speedometer
+4.02 on the .143 box, Mac OS 8.1 from QuadSquad8.hda with a second disk and
+a CD mounted, one iteration of each test, run by the user; screenshot
+`perf/speedometer402_vendored_cpu_20260917.png`. The 20260915 column is
+run 1 of the three-run operator session of 2026-09-16 00:45
+(`scratch/gate_fix/report.md`), same image before its restore.
+
+![Speedometer 4.02 on the vendored CPU](perf/speedometer402_vendored_cpu_20260917.png)
+
+### Benchmark Mix (Quadra 605 = 1.0)
+
+| test | this build abs. | ratio | 20260915 abs. | ratio |
+|---|---|---|---|---|
+| KWhetstones/sec | 641.245 | 2.180 | 640.080 | 2.176 |
+| Dhrystones/sec | 9983.463 | 0.578 | 9983.682 | 0.578 |
+| Towers (sec) | 1.229 | 0.520 | 1.196 | 0.534 |
+| Quick Sort (sec) | 0.817 | 0.872 | 0.812 | 0.877 |
+| Bubble Sort (sec) | 0.886 | 0.857 | 0.887 | 0.857 |
+| Queens (sec) | 0.687 | 0.587 | 0.686 | 0.588 |
+| Puzzle (sec) | 1.605 | 0.680 | 1.597 | 0.684 |
+| Permutations (sec) | 1.883 | 0.432 | 1.882 | 0.432 |
+| Int. Matrix (sec) | 1.027 | 0.784 | 1.027 | 0.783 |
+| Sieve (sec) | 1.296 | 1.058 | 1.296 | 1.058 |
+| **Average** | | **0.855** | | **0.857** (runs 2/3: 0.859) |
+
+Every row is within 3 % of the 20260915 run and eight of the ten are within
+one unit of the last digit; Towers is the one mover (+33 ms), on a single
+iteration with four Finder windows and a CD mounted. The sim gates had
+already said this: `bench_loop` and the corpus run are cycle-identical
+between the two CPUs. The fixes are correctness and area, not speed.
+
+### Color QuickDraw
+
+| depth | this build abs. (s) | ratio | 20260915 |
+|---|---|---|---|
+| Monochrome | 10.689 | 0.646 | not run |
+| Two bit | 11.983 | 0.637 | not run |
+| Four bit | 13.308 | 0.653 | not run |
+| Eight bit | 16.847 | 0.629 | 17.497 s = 0.605 |
+| Sixteen bit | greyed out | | |
+| **Average** | | **0.641** (four depths) | 0.605 (8-bit only) |
+
+The 8-bit row is the comparable one: 3.7 % faster than 20260915, within
+what the video-side idle traffic (a second disk and a CD this time) and a
+single iteration can move. The four-depth average is a new baseline.
+
+### Performance Rating
+
+| component | ratio |
+|---|---|
+| CPU | 0.684 |
+| Graphics | 0.741 |
+| Disk | 0.859 |
+| Math | 8.052 |
+| **PR** | **0.810** |
+
+First Speedometer 4.02 Performance Rating recorded on this core; earlier PR
+tables in this file are Speedometer 3.23 on Mac OS 7.5.5 and do not compare.
+The FPU test (Cmd+F) was not run this time; 20260915's was 0.449.
