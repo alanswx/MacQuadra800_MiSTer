@@ -288,7 +288,20 @@ always @* begin
 			n  = shcnt;
 			r  = 32'd0; c = 1'b0; x2 = f_x; vf = 1'b0;
 			nm = n & (nbits - 6'd1);
-			nx = n % (nbits + 6'd1);
+			// n mod (size+1) for the ROXx container without a variable-modulus
+			// divider: the three sizes give constant moduli 9, 17 and 33, and
+			// with n < 64 each is a few conditional subtractions.  The
+			// variable form synthesized a 33-bit divider that sat in every
+			// register shift's result and flag path (6 ns, 2026-09-17).
+			case (nbits)
+				6'd8:  nx = (n >= 6'd63) ? n - 6'd63 : (n >= 6'd54) ? n - 6'd54 :
+				            (n >= 6'd45) ? n - 6'd45 : (n >= 6'd36) ? n - 6'd36 :
+				            (n >= 6'd27) ? n - 6'd27 : (n >= 6'd18) ? n - 6'd18 :
+				            (n >= 6'd9)  ? n - 6'd9  : n;
+				6'd16: nx = (n >= 6'd51) ? n - 6'd51 : (n >= 6'd34) ? n - 6'd34 :
+				            (n >= 6'd17) ? n - 6'd17 : n;
+				default: nx = (n >= 6'd33) ? n - 6'd33 : n;
+			endcase
 			ne = (n > nbits) ? nbits : n;
 			cmask = (33'd2 << nbits) - 33'd1;
 			w = ({32'd0, f_x} << nbits) | {1'b0, bm};

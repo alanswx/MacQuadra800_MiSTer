@@ -2213,10 +2213,15 @@ wire [31:0] go_pc_t_early =
 // decode_dbcc_brf's callers: S_DBCC1 and S_BCC_EXT (their own target when
 // the branch is taken, the lookahead's when it retires instead), the
 // decode-time Bcc.B, and the lookahead arm in any other state.
-wire [31:0] dbrf_a_early =
-	(state == S_DBCC1)   ? (rgo_cond ? rd_bcc_t : rgo_dbcc_t) :
-	(state == S_BCC_EXT) ? (rgo_cond ? rgo_bcc_ext_t : rd_bcc_t) :
-	(state == S_DECODE)  ? rgo_decode_t : rd_bcc_t;
+// decode_dbcc_brf's target is go_pc_t_early as well: in every state where
+// its carrier can fire the two bodies redirect to the same address (the
+// lookahead arm's rd_bcc_t, S_DECODE's Bcc.B, S_DBCC1's and S_BCC_EXT's own
+// taken target), and one shared wire keeps the synthesizer from muxing the
+// two targets on the carriers -- which put the branch lookahead's flags in
+// front of the whole refill-seed cone into epf_ftail (build 4, -2.36 ns).
+// The carrier task's simulation check compares against the caller's
+// argument, so a state where they differed would be reported.
+wire [31:0] dbrf_a_early = go_pc_t_early;
 wire  [4:0] alu_fast_fl;
 wire        alu_fast_ok;
 // the producer's flags from the ALU's fast path (compare class) or sr
