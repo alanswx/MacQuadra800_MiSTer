@@ -1080,3 +1080,11 @@ gate had no CD):
   meets timing it gets a confirmation run (player + 8.1 + A/UX) and
   replaces the file. Box: the s21 core at the A/UX halt screen, Main pid
   6071 -> `nohup_video.log` (12,272 lines), slots restored, RAM 32 MB.
+- 2026-09-17 01:35, phase 2c seed 23: fits (37,305 ALMs, 25,241 regs, 114
+  min) but HDMI -7.533 ns, clk_sys -2.921 ns, clk_ram -0.024 ns -- the
+  worst placement of the walk (21: -0.231 one path; 24: -0.727; 22:
+  -1.413; 23: -2.9/-7.5). The walk is closed: the release stands on seed
+  21 (ab1da889). If a clean fit is wanted later: seed 21 with
+  FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
+  (scratch/edit_qsf_routability.py on), then a confirmation gate and a
+  file swap; the qsf default is back on seed 21.
