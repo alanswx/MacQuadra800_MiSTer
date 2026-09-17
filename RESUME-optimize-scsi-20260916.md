@@ -1,4 +1,4 @@
-# RESUME -- optimize-SCSI, hand-off 2026-09-16 ~22:45 (supersedes the 19:50 one)
+# RESUME -- optimize-SCSI, hand-off 2026-09-16 ~23:50 (supersedes the 22:45 one)
 
 Read this, then `docs/scsi-hps-offload-plan.md` sections 9 (checklist),
 9b (phases) and the tail of 10 (log; the 22:35 entry is the latest), then
@@ -37,19 +37,25 @@ the memory notes `pickup-2026-09-08`, `one-quartus-flow-at-a-time`,
   asserts its preconditions, and checks the phase at the chunk end with
   the fetch provably in flight; the platform model serves the lowest slot,
   acks per slot, counts astray disk requests.
-- **Fits of `2922294`** (the qsf comment block has every seed): seed 24
-  fits (37,152 ALMs, 89 %) but clk_sys -0.727 ns / TNS -3.9 -> rbf
-  `a719e24f`, kept as `scratch/MacQuadra800_phase2c_s24_a719e24f.rbf`,
-  staged on .143 as `_Unstable/MacQuadra800_phase2c_s24.rbf`, **being
-  probed on hardware now** by an Opus operator (`scratch/p2c/BRIEF.md`,
-  report `scratch/p2c/report.md`: step 0 shuts down the guest left at the
-  Finder on the s23 core, then the AppleCD player, then 8.1 + retail ISO;
-  A/UX skipped on the marginal build). **Seed 21 fitting** since 22:33
-  (`scratch/build_phase2c_s21.log`; a waiter greps for `RESULT:`). If 21
-  fails: 22, 23, then `python scratch/edit_qsf_routability.py on`
-  (FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS). Fits of `3ec22e4`
-  for the record: 22 routing fail, 23 clk_sys -0.752 (the probe build,
-  `0d374d4a`), 24 met (+0.244, `4bf9629c`, superseded).
+- **The fix is PROVEN on hardware** (23:03, `scratch/p2c/report.md`): on
+  `a719e24f` (seed 24 of `2922294`, clk_sys -0.727) the AppleCD player
+  played 12 min 32 s -- Play (00:12 / 00:43 / 01:14, track 3 at 3:24),
+  Pause held 46 s and resumed from 01:15, Next / Prev, scan +16 s, volume
+  down / up, Stop to 00:00 -- no dialog; Main's 25 `Mac CD: cmd` lines (47,
+  4B, CD, 01 for Stop) match every displayed position to the second; 8.1 +
+  retail ISO passed; no memory trouble on the marginal clock.
+- **Fits of `2922294`** (the qsf comment block has every seed): 21 clk_sys
+  -0.231 on ONE path (rbf `ab1da889`, `scratch/MacQuadra800_phase2c_s21_ab1da889.rbf`,
+  staged as `_Unstable/MacQuadra800_phase2c_s21.rbf`), 24 -0.727
+  (`a719e24f`, the probe build, staged as `_phase2c_s24`), 22 -1.413 TNS
+  -108 (`e7e3280c`). **Seed 23 fitting** since 23:39 (wait-gated,
+  `scratch/build_phase2c_s23.log`, a waiter greps for `RESULT:`); after it
+  `python scratch/edit_qsf_routability.py on` (FITTER_AGGRESSIVE_ROUTABILITY
+  ALWAYS) with seed 21. **The FULL release gate is running on the seed-21
+  build** under the try-marginal policy (Opus operator, `scratch/p2d/BRIEF.md`,
+  report `scratch/p2d/report.md`: the player first, 8.1 + retail ISO, A/UX
+  at 32 MB). If a later seed meets timing it gets a confirmation run and
+  ships instead; otherwise `ab1da889` ships with the CPU-clock note.
 - **The user's "no video" (22:00)**: the MiSTer was power-cycled; the
   MENU core shows no picture. Established read-only: the FPGA is
   configured, the ADV7513 is PLL-locked and sees the sink (a Realtek
@@ -72,39 +78,33 @@ the memory notes `pickup-2026-09-08`, `one-quartus-flow-at-a-time`,
 
 ## Do next, in order
 
-1. Read the probe operator's report (`scratch/p2c/report.md`). If the
-   player runs (counter advancing, Pause/Next/scan/Stop with Main's `Mac
-   CD: cmd` lines): the RTL is done; the release waits for a timing-clean
-   seed. If it still fails: read the Main lines and the screenshots before
-   touching RTL again.
-2. When a seed of `2922294` meets timing: `bash scratch/stage_phase2b.sh`
-   (it now names `_phase2c_s24`; rename to the seed) and the full gate
-   (the p2c brief without the probe paragraph, A/UX included, RAM 32 MB).
-3. Release phase 2: `releases/MacQuadra800_20260916_2.rbf`, the README
-   row + section from `scratch/release_phase2_draft.md` (fill the fit and
-   hardware placeholders; three channel fixes), `docs/area-budget.md`, the
-   plan's D3 tick, commit. The user pushes.
-4. Follow-ups: the menu-core picture (framework side; try the upstream
-   Main `/media/fat/MiSTer.bak_upstream20260907_74b59a34` at the menu core
-   only if the user wants -- one capture from 09-07 with it was noise too);
-   the 128 MB A/UX shutdown hang (a 64 MB run; the trace build
-   `_Unstable/MacQuadra800_trace7_phase1.rbf`); Speedometer on an image
-   that has it; the 8.1 boot freeze at the extension icons seen once at
-   08:10.
+1. Read the gate operator's report (`scratch/p2d/report.md`) and the
+   seed-23 result. Timing met on 23 -> stage it (`scratch/stage_phase2b.sh`,
+   rename `_phase2c_s24` to the seed) and run a confirmation gate (the
+   player + 8.1 + A/UX) on it; otherwise the seed-21 build is the release
+   if its gate passed.
+2. Release phase 2: `releases/MacQuadra800_20260916_2.rbf` (or a 20260917
+   name), the README row + section from `scratch/release_phase2_draft.md`
+   (fill the fit numbers of the shipped seed, `__HW_81_REL__`, `__HW_AUX__`;
+   three channel fixes; the CPU-clock note if marginal), `docs/area-budget.md`,
+   the plan's D3 tick, commit. The user pushes.
+3. Follow-ups: the menu-core picture (framework side); the 128 MB A/UX
+   shutdown hang (a 64 MB run; the trace build
+   `_Unstable/MacQuadra800_trace7_phase1.rbf`); Speedometer on an image that
+   has it; the 8.1 boot freeze at the extension icons seen once at 08:10.
 
-## Box (.143) state at 22:33
+## Box (.143) state at 23:40 (before the p2d operator)
 
-Core `_Unstable/MacQuadra800_phase2b_s23.rbf` with a Mac OS 8.1 guest at
-the Finder (loaded 22:15 for the video test; the operator's step 0 shuts it
-down); Main pid 1364, stdout `/media/fat/nohup_video.log`; `.s0` Quad Squad
-(clean), `.s1` FreshTest, `.s4` the retail ISO; RAM 32 MB; the A/UX image
-pristine; `AudioTest.cue/.bin` in `games/MacQuadra800/`; `_Unstable/` also
-holds `MacQuadra800_phase2c_s24.rbf` (`a719e24f`, the probe),
-`MacQuadra800_phase2b_s24.rbf` (`4bf9629c`), `MacQuadra800_phase2b_s23.rbf`
-(`0d374d4a`), `MacQuadra800_phase2_s22.rbf` (`c2a902cb`),
-`MacQuadra800_phase1_s21b.rbf` (`1eae0fb7` = the release),
-`MacQuadra800_20260915.rbf`, `MacQuadra800_20260908_3.rbf`,
-`MacQuadra800_trace7_phase1.rbf`.
+Core `_Unstable/MacQuadra800_phase2c_s24.rbf` at the Mac OS 8.1 halt
+screen; Main pid 3365, stdout `/media/fat/nohup_video.log` (5,928 lines);
+`.s0` Quad Squad (clean), `.s1` FreshTest, `.s4` the retail ISO; RAM 32 MB;
+the A/UX image pristine; `AudioTest.cue/.bin` in `games/MacQuadra800/`;
+`_Unstable/` holds `MacQuadra800_phase2c_s21.rbf` (`ab1da889`, the gate
+candidate), `_phase2c_s24` (`a719e24f`), `_phase2b_s24` (`4bf9629c`),
+`_phase2b_s23` (`0d374d4a`), `_phase2_s22` (`c2a902cb`), `_phase1_s21b`
+(`1eae0fb7` = the release), `MacQuadra800_20260915.rbf`,
+`MacQuadra800_20260908_3.rbf`, `MacQuadra800_trace7_phase1.rbf`. The
+operator's report says where it left things.
 
 ## Rules (user)
 
