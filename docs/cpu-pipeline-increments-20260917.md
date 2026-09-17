@@ -147,6 +147,20 @@ cycle; S_DECODE a cycle later usually finds it free.
 | pipe_bench phase 0 | 137,684 | 137,184 (the 500 taken forward branches, one cycle each) |
 | corpus-100 | 33,300,912 | 33,300,804, 0 diffs |
 
+### 6. MOVEM loads retire on the read acknowledge (384d8f0)
+
+The S_MRD acknowledge arm handles `r_m_ret == S_MOVEM_LD` as it already
+handles S_UNLK3: the loaded value lands (or is held for the base/index
+register, exactly as S_MOVEM_LD does), the address steps, the loop
+continues next cycle.  S_MOVEM_LD stays for the byte-split path.  A
+resident MOVEM load is now two cycles per register where it was four this
+morning.
+
+| gate | before | after |
+|---|---:|---:|
+| pipe_bench phase 0 | 137,184 | 133,186 (the four loads per iteration) |
+| corpus-100 | 33,300,804 | 33,082,368 (-0.66 %), 0 diffs |
+
 ## Builds
 
 | build | content | seed | ALMs | timing | rbf | hardware |
