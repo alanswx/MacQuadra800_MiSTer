@@ -19,7 +19,7 @@ separate codename and are deliberately unchanged.
 | `rtl/sdram.sv`, `rtl/sdram_beat32.sv` | open-page BL8 SDRAM controller (99 MHz) and the 33↔99 MHz beat bridge with the retained 16-byte line |
 | `rtl/iosb.sv`, `rtl/scc.v`, `rtl/via6522.sv`, `rtl/asc*.sv` | I/O |
 | `rtl/ncr53c96.sv`, `rtl/cd_audio.sv` | 53C96 with three targets (ID 0/1 disks, ID 3 AppleCD CD-ROM) and the CD TOC/audio engine — `docs/cdrom.md` |
-| `rtl/ap68040/` | **git submodule** — the CPU. Remote is `alanswx/AP68040`. Do not edit in place without committing there first. |
+| `rtl/ap68040/` | the AP68040 CPU, **vendored** (was a submodule until 2026-09-17; `rtl/ap68040/UPSTREAM.md` says which upstream commits it came from and how to port patches from `../AP68040`). Edit and commit it like any other RTL. |
 | `verilator/` | full-machine Verilator sim (`sim.v`, `sim_main.cpp`) plus directed testbenches (`tb_*.sv`, targets in `verilator/Makefile`) |
 | `SingleStepTests/` | CPU corpus benches |
 | `scripts/` | build / deploy / hardware test tooling (see below) |
@@ -102,7 +102,7 @@ make tb_sdram tb_wombat_bus32 tb_store_buffer tb_memory_path tb_memory_path_regi
 bash scripts/sim_wsl.sh build
 bash scripts/sim_wsl.sh disk <image.hda>      # writable copy
 bash scripts/sim_wsl.sh run [args] ; bash scripts/sim_wsl.sh log [pattern]
-# CPU self-tests (iverilog + vasm), inside the submodule
+# CPU self-tests (iverilog + vasm), in the vendored CPU tree
 sh rtl/ap68040/tb/run_tests.sh
 ```
 
