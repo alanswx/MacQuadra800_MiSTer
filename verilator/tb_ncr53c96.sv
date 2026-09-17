@@ -2398,7 +2398,13 @@ initial begin
 	pdma_rd(b); expect8("T20 astat[1]", b, 8'h00);
 	pdma_rd(b); expect8("T20 astat ctrl", b, 8'h14);
 	for (k = 0; k < 3; k = k + 1) pdma_rd(b);
-	wait_irq(500, ok); reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	// the chunk ends while the engine's fetch behind the window read is
+	// still out: the phase must move to STATUS now, not when the fetch ends
+	// (the AppleCD player's first poll after PLAY hung in DATA IN, 2026-09-16)
+	wait_irq(500, ok); read_regs(st, sp, it);
+	expect8("T20 fetch still in flight at the chunk end", {7'd0, dut.ca_io_active}, 8'h01);
+	expect8("T20 astat phase STATUS at the chunk end", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
 	reg_rd(R_FIFO, b); expect8("T20 astat status GOOD", b, 8'h00); reg_rd(R_FIFO, b);
 	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
 	guard = 0;

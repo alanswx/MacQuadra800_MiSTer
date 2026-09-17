@@ -297,9 +297,17 @@ reg        io_ack_d;               // for the ack falling edge = transfer done
 wire io_busy = io_rd_i || io_wr_i || io_rd_fwd || io_wr_fwd || io_ack_i || io_ack_d || ca_io_active;
 // ...and the nexus's own transfer (a sector for the buffer): what a data
 // phase's completion waits for.  A forwarded command block or the probe in
-// flight is the ARM's business and must not hold a phase open.
+// flight is the ARM's business and must not hold a phase open -- and
+// neither may the audio engine's transfer (ca_io_active): it used to be
+// here, so a guest DATA IN whose last byte drained while a frame fetch
+// was out never moved to STATUS (the completion below is evaluated once,
+// on the chunk's end), and the AppleCD player's first status poll after
+// PLAY -- served between the poke and the two frame fetches -- hung in
+// DATA IN until the driver gave up: "drive not responding" 4-8 s into
+// Play on hardware (2026-09-16, tb_ncr53c96 T20 part d).  A nexus request
+// still waiting on io_busy is covered by blocks_left / the flush check.
 wire fwd_xfer  = (fwd_st == 2'd2) || probe_act;
-wire nexus_io  = io_rd_i || io_wr_i || ((io_ack_i || io_ack_d) && !fwd_xfer) || ca_io_active;
+wire nexus_io  = io_rd_i || io_wr_i || ((io_ack_i || io_ack_d) && !fwd_xfer);
 // the audio engine may use the channel while nothing of the engine's is in
 // flight; an active CD read's data-in serving is fine (its fetches are
 // interleaved between the engine's own, which wait on ca_io_active)
@@ -1098,8 +1106,11 @@ always @(posedge clk) begin
 		// the pos==512 flush above do all the writing.  A block write's
 		// initiator sends exactly blocks x 512 bytes, so a genuine
 		// trailing partial sector cannot exist.
+		// ...nor while a full sector still waits for the channel (the flush
+		// is raised on !io_busy, which the audio engine's transfer holds):
+		// completing then would drop xfer_out and the flush would never go.
 		if (xfer_out && chunk_irq_armed && tc_zero && fifo_cnt == 0 &&
-		    !flush_pending && !nexus_io) begin
+		    !flush_pending && !nexus_io && !(sbuf_pos == 10'd512 && dout_len == 0)) begin
 			chunk_irq_armed <= 0;
 			xfer_out <= 0;
 			// A judged CD MODE SELECT list that has fully arrived gets its
