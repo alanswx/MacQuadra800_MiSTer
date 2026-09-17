@@ -1784,9 +1784,18 @@ task mem_issue;
 		// for FC 1; Adam Polkosnik's 95e29fb carries the function code on
 		// the carriers instead).  t_moves_fc fails the moment a MOVES state
 		// is added below.
+		// The stack pops and the MOVEM transfers issue in place as well
+		// (2026-09-17): their addresses are registers or the forwarded A7,
+		// and each of these states hints the read a cycle ahead (hint_pop),
+		// so the read is acknowledged in the cycle it is presented.  Alan
+		// withdrew the same sites in 2026-09-14 because every in-place site
+		// was a source on the mem_addr_q mux of the hint-to-acknowledge
+		// path; on the dedicated hint bus mem_addr_q is a register input.
 		if (((!mgo_wr && (state == S_PIPE_START || state == S_PIPE_SRD ||
-		                  state == S_PIPE_DEA)) ||
-		     (mgo_wr && state == S_EXEC)) &&
+		                  state == S_PIPE_DEA || state == S_DECODE ||
+		                  state == S_RET1 || state == S_UNLK1 ||
+		                  state == S_MOVEM_LOOP)) ||
+		     (mgo_wr && (state == S_EXEC || state == S_MOVEM_RD))) &&
 		    mgo_a[31:28] == 4'h0 && !epf_pend && !mem_req && !mem_ack &&
 		    ((mgo_sz == `AP040_SZ_B) ||
 		     ((mgo_sz == `AP040_SZ_W) && !mgo_a[0]) ||
@@ -2904,10 +2913,25 @@ wire [31:0] hint_redir_addr =
     (state == S_DBCC1)   ? br_base + sxw(imm[15:0]) :
     ((state == S_BSR_PUSH) || (state == S_JSR2)) ? br_tgt :
     (state == S_JMP1)    ? ea_addr : m_val;
+// The reads mem_issue now claims the port for in place from their own
+// states (RTS's pop from S_DECODE, RTD/RTR's from S_RET1, UNLK's (An) read
+// from S_UNLK1, MOVEM's loads from S_MOVEM_LOOP) are hinted in the same
+// cycle as data reads, with the address expression their mrd uses, so the
+// one-clock hit serves them: the request goes out at the end of the state
+// and is acknowledged in the cycle it is presented.  When the in-place
+// issue is refused (a queue fetch in flight, MMIO, misaligned) the read
+// goes out from S_MRD, which hints itself (hint_data).
+wire        hint_pop = ((state == S_DECODE) && (ir == 16'h4E75)) ||
+                       (state == S_RET1) || (state == S_UNLK1) ||
+                       ((state == S_MOVEM_LOOP) && mm_dir && !mm_predec);
+wire [31:0] hint_pop_addr = (state == S_DECODE)     ? dbg_a7_wb :
+                            (state == S_RET1)       ? dbg_a7 :
+                            (state == S_MOVEM_LOOP) ? mm_addr : rf_rdata_a;
 wire [31:0] hint_addr = hint_data  ? m_addr_r :
                         hint_bcc   ? (pc + sxb(ir[7:0])) :
                         hint_pipe  ? hint_pipe_addr :
                         hint_ea    ? ea_addr :
+                        hint_pop   ? hint_pop_addr :
                         hint_redir ? hint_redir_addr : epf_ftail;
 // The request bus carries only registered state.  The hint rides its own
 // bus, which only RAM address inputs and the MMU's hint copy listen to,
@@ -2919,7 +2943,7 @@ wire [31:0] hint_addr = hint_data  ? m_addr_r :
 assign mem_addr  = mem_addr_q;
 assign mem_instr = mem_instr_q;
 assign mem_hint_addr  = mem_req ? mem_addr_q  : hint_addr;
-assign mem_hint_instr = mem_req ? mem_instr_q : !(hint_data || hint_pipe || hint_ea);
+assign mem_hint_instr = mem_req ? mem_instr_q : !(hint_data || hint_pipe || hint_ea || hint_pop);
 
 //---------------------------------------------------------------------------
 // main state machine
