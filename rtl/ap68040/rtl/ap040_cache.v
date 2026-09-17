@@ -723,7 +723,19 @@ assign fast_hit  = fast_accept && !err_hold && !m_err && fast_lane &&
                    idle_data_valid && idle_tag_valid &&
                    (idle_data_idx == {1'b0, hq_lo[SETW+3:2]}) &&
                    (idle_tag_idx == {1'b0, hq_lo[SETW+3:4]}) && hint_look_hit &&
-                   !tag_we && !inv_wren && !look_snooped && !snoop_look_row &&
+                   // !snoop_wr, not !inv_wren: with cst == C_IDLE, !c_write,
+                   // !ci_inv_pend and !store_inv_lost already required, every
+                   // other term of inv_wren is zero, and inv_wren's store term
+                   // carries c_req -- the live translation (ATC RAM -> hit ->
+                   // walk decision), which put 8 ns in front of the fast
+                   // acknowledge and its data (build 5, -1.04 ns, 2026-09-17).
+                   // the snoop-row collision compares against the registered
+                   // hint's set as well: snoop_look_row uses a_set from c_addr,
+                   // whose low bits reach the cache through the MMU's
+                   // physical-address mux, i.e. another false dependency on
+                   // the live translation for the analyzer
+                   !tag_we && !snoop_wr && !look_snooped &&
+                   !(s_stb && (s_addr[SETW+3:4] == hq_lo[SETW+3:4])) &&
                    !c_instr && c_hint_match;
 assign fast_data = lw_extract(hint_data_hit, c_size, hq_lo[1:0]);
 
