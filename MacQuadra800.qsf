@@ -231,6 +231,11 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # flags -> lookahead -> the carriers selecting between the two hoisted redirect targets -> seed cone -> epf_ftail,
 # 32 ns. Build 5: constant-modulus count (9/17/33 by size) and one shared state-selected target for go_pc_now and
 # decode_dbcc_brf_now (dbrf_a_early = go_pc_t_early), both cycle-identical.
+# 2026-09-17 18:49 build 5 (24579aa: + constant-modulus ROXx count, one shared redirect target), seed 21 + the switch:
+# routed, 35,926 ALMs (86 %), CPU clock -1.042 (HDMI +0.341, clk_ram +0.408). Worst path now: ATC RAM -> hit -> pipe
+# entry -> walk decision -> the cache's inv_wren (its store term carries c_req) -> fast_hit -> c_rdata -> ALU ->
+# lookahead -> seed cone -> epf_ftail, 29.7 ns. rbf 595297fb = scratch/pipeline_b5/, run on hardware as a labelled
+# TIMING PROBE (try-builds policy). Build 6: fast_hit uses !snoop_wr instead of !inv_wren (exact under its own guards).
 set_global_assignment -name SEED 21
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and

@@ -197,6 +197,7 @@ row still matching silicon field for field.
 | build 2 | 77aa72a (items 1-5) | 21 | 36,330 (87 %) | failed to route (congestion) | none | |
 | build 3 | 5206845 (items 1-8) | 21 + FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION | 36,010 (86 %) | routed; CPU clock -3.760 (state -> hint mux -> cache fast-hit select -> ALU -> lookahead -> seed -> epf_ftail, a false path) | not deployable | |
 | build 4 | 31445e5 (+ cache fast-hit from the registered hint) | 21 + the switch | 36,326 (87 %) | routed; CPU clock -2.362: A7 bank -> port A -> shift count -> the ALU's ROXx modulo divider -> flags -> lookahead -> the carriers' target mux -> seed -> epf_ftail | not deployable | |
+| build 5 | 24579aa (+ constant-modulus ROXx count, one shared redirect target) | 21 + the switch | 35,926 (86 %) | routed; CPU clock -1.042 (HDMI +0.341, RAM +0.408): ATC RAM -> walk decision -> cache inv_wren -> fast_hit -> c_rdata -> ALU -> lookahead -> seed -> epf_ftail | 595297fb (`scratch/pipeline_b5/`) | run as a timing PROBE |
 
 (filled in as each build completes; the seed ledger is also in the `.qsf`.)
 
