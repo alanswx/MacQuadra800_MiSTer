@@ -97,6 +97,12 @@ is either on `main` or on the MiSTer as described; nothing is uncommitted.
    fault; re-check the clk_ram path report after any re-placement, as
    CLAUDE.md says. Low.
 
+- **Boot chime is the Mac II sound, not the Quadra's** (user, 2026-09-17,
+  heard on the vendored-CPU build). The ROM picks its startup sound by
+  machine/ASC detection, so look at the EASC version/identification
+  register path in `rtl/easc.sv` / `rtl/asc*.sv` first, with QEMU q800 on
+  the same ROM as the reference for the right chime. Not investigated.
+
 ### Missing hardware
 
 10. **Built-in Ethernet (SONIC).** Nothing in `rtl/` for it. The Main fork

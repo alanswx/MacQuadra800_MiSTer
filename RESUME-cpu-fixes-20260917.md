@@ -57,7 +57,9 @@ Read this first, then `CLAUDE.md`. Branch **`add-CPU-fixes`** (cut from
    rebuild.
 2. Release per `CLAUDE.md` if the gate passes (rbf + `releases/README.md`
    row + section).
-3. Later: re-engineer R5/R6 (`git --git-dir=.git/modules/rtl/ap68040 show
+3. Boot chime: the ROM plays the Mac II sound, not the Quadra's (user,
+   2026-09-17) -- see `RESUME-open-items.md`, Correctness items owed.
+4. Later: re-engineer R5/R6 (`git --git-dir=.git/modules/rtl/ap68040 show
    c789ffe 923c544`) against the CPU-clock miss; watch Adam's
    `40_w_Alans_patches` branch for new Alan-compatible work.
 
