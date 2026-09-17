@@ -26,6 +26,11 @@ for t in t_integer t_exceptions t_mmu t_bitfield_mmu t_bitfield_cache t_moves_fc
 done
 
 echo "== compiling benches =="
+# unit benches for the shared datapaths (Adam Polkosnik 7431dcb): exhaustive
+# byte ADD/ADDX/SUB/SUBX/CMP against an oracle, and the three FPU
+# normalization states against a serial-shift reference
+iverilog -g2012 -I "$RTL" -s tb_ap040_alu_arithmetic -o "$WORK/tb_alu_arithmetic.vvp"  tb_ap040_alu_arithmetic.v $RTL/ap040_alu.v
+iverilog -g2012 -I "$RTL" -s tb_ap040_fpu_normalize -o "$WORK/tb_fpu_normalize.vvp"  tb_ap040_fpu_normalize.v $RTL/ap040_fpu.v $RTL/ap040_regfile.v $RTL/primitives/dpram.v
 iverilog -g2012 -I "$RTL" -o "$WORK/tb_prog.vvp"      tb_ap040_program.v $SRC
 iverilog -g2012 -I "$RTL" -o "$WORK/tb_reset.vvp"     tb_ap040_reset.v $SRC
 iverilog -g2012 -I "$RTL" -o "$WORK/tb_dblflt.vvp"    tb_ap040_double_fault.v $SRC
@@ -47,6 +52,8 @@ run() {
 	fi
 }
 run reset        "$WORK/tb_reset.vvp"
+run alu_arithmetic "$WORK/tb_alu_arithmetic.vvp"
+run fpu_normalize "$WORK/tb_fpu_normalize.vvp"
 run double_fault "$WORK/tb_dblflt.vvp"
 run walker_cdc   "$WORK/tb_walker.vvp"
 run bus16_gap    "$WORK/tb_bus16.vvp"
