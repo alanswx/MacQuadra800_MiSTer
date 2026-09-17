@@ -2883,10 +2883,32 @@ wire [31:0] hint_pipe_addr = hint_pipe_dst ? hint_dst_addr :
                            ? hint_d16_addr : rf_rdata_a;
 wire        hint_ea   = (state == S_PIPE_SRD) ||
                         ((state == S_PIPE_DEA) && p_rmw);
-wire [31:0] hint_addr = hint_data ? m_addr_r :
-                        hint_bcc  ? (pc + sxb(ir[7:0])) :
-                        hint_pipe ? hint_pipe_addr :
-                        hint_ea   ? ea_addr : epf_ftail;
+// Redirect states present their target on the hint bus one cycle before
+// go_pc's issue_ifetch puts it on the request bus, so the demand fetch at
+// the target finds the cache's idle read already on it: a hinted two-clock
+// instruction read instead of a three-clock lookup (Alan's measurement:
+// three cycles from the redirect edge to the target's first decode against
+// four).  Every source is a register or one adder over registers, and each
+// is exactly the value the state hands to go_pc/finish_bcc.  A state that
+// does not redirect after all (a not-taken Bcc.W, a DBcc exit, RTR's CCR
+// word in S_RET2) has hinted a useless address, which costs nothing: the
+// only request a redirect-cycle hint can serve is the redirect's own, and
+// the fill engine's next fetch is hinted by epf_ftail in its own cycle.
+// Bcc.B is hinted from S_DECODE by hint_bcc above.
+wire        hint_redir = (state == S_BCC_EXT) || (state == S_DBCC1) ||
+                         (state == S_BSR_PUSH) || (state == S_JSR2) ||
+                         (state == S_JMP1) || (state == S_RET2) ||
+                         (state == S_RET3);
+wire [31:0] hint_redir_addr =
+    (state == S_BCC_EXT) ? br_base + (br_long ? imm : sxw(imm[15:0])) :
+    (state == S_DBCC1)   ? br_base + sxw(imm[15:0]) :
+    ((state == S_BSR_PUSH) || (state == S_JSR2)) ? br_tgt :
+    (state == S_JMP1)    ? ea_addr : m_val;
+wire [31:0] hint_addr = hint_data  ? m_addr_r :
+                        hint_bcc   ? (pc + sxb(ir[7:0])) :
+                        hint_pipe  ? hint_pipe_addr :
+                        hint_ea    ? ea_addr :
+                        hint_redir ? hint_redir_addr : epf_ftail;
 // The request bus carries only registered state.  The hint rides its own
 // bus, which only RAM address inputs and the MMU's hint copy listen to,
 // so the address arithmetic behind it never enters a request-cycle path
