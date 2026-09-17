@@ -331,7 +331,16 @@ Core phase 2 (playback on the ARM), gated on C5's numbers:
       (2354..2357) changes, and the SAMPLE cadence + interpolation as is;
       the ARM applies volume, so the LUT and its two multipliers go. The
       raw-audio window and the MODE SELECT page-$0E ports leave the RTL.
-- [~] D2 bench: `tb_ncr53c96` 476,872 / 0 (T19), `tb_scsi_cache` 279,315 / 0
+- [x] D2 **PROVEN ON HARDWARE 2026-09-16 23:03 (`2922294`, the seed-24
+      probe build `a719e24f`, `scratch/p2c/report.md`): the AppleCD Audio
+      Player plays -- Play 22:50:50, the counter running (00:12 / 00:43 /
+      01:14, track 3 at 3:24), Pause held 46 s and resumed from 01:15,
+      Next / Next / Prev / Prev, scan +16 s, volume down / up, Stop to
+      00:00; 12 min 32 s of playback, no dialog; Main's 25 `Mac CD: cmd`
+      lines (47 / 4B / CD / 01) match every displayed position to the
+      second; 8.1 + retail ISO passed too, no memory trouble from the
+      -0.727 ns CPU clock. A/UX skipped on the marginal build.** Old text:
+      bench: `tb_ncr53c96` 476,872 / 0 (T19), `tb_scsi_cache` 279,315 / 0
       x2; **`--check` 12:59 clean: `cd_audio` 371 ALUTs / 320 regs (phase 1:
       1,535 / 707; before the offload 2,566 / 852), `ncr53c96` self 2,329
       (was 2,571), the target with its engine 2,700 (was 4,106), DSP 43 (was
@@ -1009,3 +1018,28 @@ gate had no CD):
   queued through build_only.sh's wait-gate (which polls for any quartus
   process every 30 s and starts once none runs); after it seed 23, then
   the routability switch.
+- 2026-09-16 23:25, **the phase-2c probe PASSED** (operator,
+  `scratch/p2c/report.md`, 78 screenshots): on `a719e24f` (seed 24 of
+  `2922294`, clk_sys -0.727 ns) the AppleCD Audio Player plays. Play at
+  22:50:50 -> 00:12 at +13 s, 00:43 at +45 s, 01:14 at +76 s, track 3 at
+  +204 s (3:24, exact); Pause froze the counter at 01:15 for 46 s and Play
+  resumed from 01:15; Next wrapped to track 1 then stepped to track 2;
+  Prev restarted the track; the scan button held 3 s jumped ~16 s; the
+  volume slider down/up left playback running (no Main line: the MODE
+  SELECT forward is not logged); Stop -> Track 01 00:00 Stopped. 12 min
+  32 s of playback, no "not responding" at any point. Main logged 25
+  transport commands (47 PLAY AUDIO MSF incl. the FF:FF:FF resume form,
+  4B PAUSE/RESUME, CD the scan, 01 for Stop -- not 4E) and every `cur`
+  matches the displayed position to the second (19178 = 4:15.7 vs 01:15
+  into track 3; 6750 = track 2's start on all three seeks). Step 2 (8.1 +
+  retail ISO) PASSED: desktop at +119 s, idle flat 135 s, both volumes put
+  away, halt in 44 s. No bomb, no damaged volume, no artefacts on the
+  marginal CPU clock. Two lessons for briefs: a black animated
+  kaleidoscope on this image is the screen saver (a mouse button wakes
+  it, a key does not), and `click.sh` mis-calibrates while the player's
+  digits change every second (move by counted relative events and verify
+  the arrow in a zoomed grab). Box: the s24 probe core at the 8.1 halt
+  screen, Main pid 3365 -> `nohup_video.log` (5,928 lines), slots
+  restored. The release now waits only for a timing-clean seed of
+  `2922294` (21: -0.231 on one path; 24: -0.727; 22 queued behind the
+  sgiindy flow) and its full gate with A/UX at 32 MB.
