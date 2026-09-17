@@ -18,9 +18,8 @@ the memory notes `pickup-2026-09-08`, `one-quartus-flow-at-a-time`,
   shipped under the try-marginal policy; commit `7a2815f`). The full gate on
   that bitstream passed (`scratch/p2d/report.md`): the AppleCD player with
   every control over 14 min, 8.1 + retail ISO, A/UX 3.1 at 32 MB halting in
-  144 s. Seed 23 of the same netlist was still fitting at release time: if it
-  meets timing, a confirmation run (player + 8.1 + A/UX) and it replaces the
-  file (README row + section updated).
+  144 s. Seed 23 of the same netlist finished after the release: HDMI -7.5 ns,
+  clk_sys -2.9 ns -- the walk is closed, the release stands.
 - **Phase 2's Audio Player failure needed TWO RTL fixes**, both in and
   bench-proven (`tb_ncr53c96` 477,417 checks / 0; each negative run --
   the bench against the RTL before the fix -- fails):
@@ -86,11 +85,14 @@ the memory notes `pickup-2026-09-08`, `one-quartus-flow-at-a-time`,
 
 ## Do next, in order
 
-1. The seed-23 result (`scratch/build_phase2c_s23.log`): timing met ->
-   stage it, a confirmation gate (`scratch/p2d/BRIEF.md` with the new
-   file/md5), then replace `releases/MacQuadra800_20260916_2.rbf` and its
-   README numbers; a miss -> record the seed in the qsf comment block and
-   stop the walk (the release stands). The user pushes both branches.
+1. The seed walk is CLOSED: seed 23 fitted at 01:32 with HDMI -7.5 ns and
+   clk_sys -2.9 ns (the worst of 21 / 22 / 23 / 24), so the release stands
+   on seed 21 and the qsf default is seed 21 again. A clean fit, if ever
+   wanted: `python scratch/edit_qsf_routability.py on` with seed 21, then a
+   confirmation gate (`scratch/p2d/BRIEF.md` with the new file/md5) and a
+   swap of `releases/MacQuadra800_20260916_2.rbf` + its README numbers.
+   The user pushes both branches (core `optimize-SCSI`, Main fork
+   `mac-ethernet-pr-with-SCSI-Optimizations`).
 2. Follow-ups: the menu-core picture on .143 (framework side: the Linux
    image / Main / menu.rbf of 09-07/08; the Mac core's picture is fine); the
    128 MB A/UX shutdown hang (a 64 MB run, then the trace build
