@@ -242,7 +242,10 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # translation), seed 21 + the switch: 35,797 ALMs (85 %), CPU clock MET +0.139, clk_ram +0.445, HDMI -0.001 on one
 # sys_top video register (the seed-sensitive endpoint; try-builds policy). rbf in scratch/pipeline_b6/. The switch
 # FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS was set in the build tree for builds 3-6; it is NOT in this file yet.
+# 2026-09-17 20:10: the routability optimization joins the recipe. Builds 3-6 of the CPU-pipeline branch (85-87 % ALMs)
+# routed only with it, build 2 failed routing without it, and build 6 (the deployable candidate) was fitted with it.
 set_global_assignment -name SEED 21
+set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
 # the design no longer fits with speed-directed synthesis; all-area

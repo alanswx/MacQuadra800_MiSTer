@@ -888,3 +888,53 @@ in 82 to 123 s, clean Special -> Shut Down in 45 s through
 `scripts/mac_shutdown.sh`, no artefacts or dialogs in 36 minutes of use.
 The CPU-side gates for this RTL: `bench_loop` 94,368 -> 81,600 cycles, the
 first-100 corpus identical (33,335,739, 0 real diffs).
+
+## 17. CPU pipeline increments 1-8, the build-5 probe (2026-09-17, hardware)
+
+Branch `CPU-pipeline`, commit 24579aa (step 1 plus the R5/R6 hoists, the
+redirect-state hints, in-place stack pops and MOVEM transfers, the forward
+taken Bcc.B from the lookahead, MOVEM loads/stores and LINK/PEA retiring on
+their acknowledges; `docs/cpu-pipeline-increments-20260917.md`), seed 21
+with the fitter's routability optimization, 35,926 ALMs (86 %), rbf
+595297fb. This build MISSED the 33 MHz CPU clock by 1.042 ns (HDMI +0.341,
+RAM +0.408) and was run as a labelled timing probe under the try-builds
+policy; build 6 (c84a5e7) is the same RTL cycle for cycle with the CPU
+clock met (+0.139 ns) and is the deployable one. Speedometer 4.02 on the
+.143 box, Mac OS 8.1 from QuadSquad8.hda with a second disk and a CD
+mounted, 32 MB, one iteration, three Mix runs by the Opus operator
+(`scratch/pipeline_b5/report.md`). Baselines: section 16 (step 1, 0.877)
+and section 15 (the shipped CPU, 0.855).
+
+### Benchmark Mix (Quadra 605 = 1.0)
+
+| test | run 3 abs. | ratio | step 1 abs. | change vs step 1 |
+|---|---|---|---|---|
+| KWhetstones/sec | 672.463 | 2.286 | 656.707 | +2.4 % |
+| Dhrystones/sec | 11376.432 | 0.658 | 10756.326 | +5.8 % |
+| Towers (sec) | 1.110 | 0.575 | 1.161 | -4.4 % |
+| Quick Sort (sec) | 0.797 | 0.894 | 0.812 | -1.8 % |
+| Bubble Sort (sec) | 0.889 | 0.855 | 0.890 | -0.1 % |
+| Queens (sec) | 0.634 | 0.637 | 0.659 | -3.8 % |
+| Puzzle (sec) | 1.557 | 0.702 | 1.568 | -0.7 % |
+| Permutations (sec) | 1.746 | 0.466 | 1.842 | -5.2 % |
+| Int. Matrix (sec) | 0.960 | 0.838 | 0.992 | -3.2 % |
+| Sieve (sec) | 1.232 | 1.114 | 1.260 | -2.2 % |
+| **Average** | | **0.902** (runs: 0.900 / 0.902 / 0.902) | 0.877 | **+2.8 %**; +5.3 % over 0.855 |
+
+The call-heavy tests moved most (Dhrystones, Permutations, Towers, Queens),
+as the increments target: every BSR/JSR/RTS, LINK/UNLK and MOVEM now spends
+one to two cycles less per transfer. Bubble Sort, a register-and-branch
+loop, is unchanged. The three runs agree to 0.002 and the per-test times
+repeat to the millisecond, which a marginal path corrupting data would not.
+
+### Color QuickDraw and FPU
+
+| test | this build | step 1 |
+|---|---|---|
+| CQD average (Monochrome 0.688, Two bit 0.665, Four bit 0.662, Eight bit 0.637) | **0.663** | 0.643 (+3.1 %) |
+| FPU average (KWhetstones 2489.0/s 0.478, Matrix Mult. 1.398 s 0.505, FFT 0.682 s 0.421) | **0.468** | 0.464 (+0.9 %) |
+
+Boot to the Finder in 39 to 84 s, clean Shut Down in 46 s, no artefacts,
+dialogs or dropouts in 40 minutes. The CPU-side gates for this RTL:
+`bench_loop` 81,202 cycles, `pipe_bench` 122,190 (from 149,182 at step 1),
+the first-100 corpus 32,991,462 (from 33,335,739) with 0 real diffs.
