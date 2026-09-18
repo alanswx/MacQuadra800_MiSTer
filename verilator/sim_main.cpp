@@ -317,13 +317,13 @@ int verilate() {
 					prof_prev_state = st;
 					if (st == 9 || st == 10) {
 						uint8_t cst = SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__cst & 7;
-						uint32_t a = SIMEMU->__PVT__machine__DOT__cpu__DOT__mem_addr;
+						uint32_t a = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__mem_addr_q;
 						int r = prof_region(a);
 						if (st == 9) { prof_mrd_cst[cst]++; prof_mrd_region[r]++; }
 						else         { prof_mwr_cst[cst]++; prof_mwr_region[r]++; }
 					}
 					if (SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__idle_hit) {
-						if (SIMEMU->__PVT__machine__DOT__cpu__DOT__mem_instr) prof_fast_hit_i++;
+						if (SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__mem_instr_q) prof_fast_hit_i++;
 						else prof_fast_hit_d++;
 					}
 					if (st == 3) {
@@ -331,9 +331,9 @@ int verilate() {
 						else prof_fetch_nopend++;
 					}
 					if (SIMEMU->__PVT__machine__DOT__cpu__DOT__mem_ack) {
-						if (SIMEMU->__PVT__machine__DOT__cpu__DOT__mem_instr) prof_iack++;
+						if (SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__mem_instr_q) prof_iack++;
 						else {
-							int r = prof_region(SIMEMU->__PVT__machine__DOT__cpu__DOT__mem_addr);
+							int r = prof_region(SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__mem_addr_q);
 							if (SIMEMU->__PVT__machine__DOT__cpu__DOT__mem_write) prof_dack_wr[r]++;
 							else prof_dack_rd[r]++;
 						}
@@ -365,8 +365,8 @@ int verilate() {
 					       (unsigned long long)main_time);
 					for (int r = 0; r < 8; r++)
 						printf("[STOP] d%d=%08X a%d=%08X\n", r,
-						       SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__regfile__DOT__dreg[r], r,
-						       SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__regfile__DOT__areg[r]);
+						       SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__regfile__DOT__bank_a[r], r,
+						       SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__regfile__DOT__bank_a[8 + r]);
 					printf("[STOP] DSErrCode($AF0)=%04X\n",
 					       SIMEMU->ram[0x0AF0 >> 2] >> 16);
 					{
@@ -404,8 +404,8 @@ int verilate() {
 					next_heartbeat += heartbeat_every;
 					printf("[HB] cycle=%llu pc=%08X instr=%ld a3=%08X d7=%08X\n",
 					       (unsigned long long)main_time, hpc, cpu_trace_count,
-					       SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__regfile__DOT__areg[3],
-					       SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__regfile__DOT__dreg[7]);
+					       SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__regfile__DOT__bank_a[8 + 3],
+					       SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__regfile__DOT__bank_a[7]);
 					if (cpu_prof_enable) cpu_prof_print();
 					fflush(stdout);
 				}
@@ -678,8 +678,9 @@ int main(int argc, char** argv, char** env) {
 				uint32_t pc  = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__pc_i;
 				uint16_t ir  = VERTOPINTERN->debug_opcode;
 				uint16_t sr  = VERTOPINTERN->debug_sr;
-				auto &ds = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__regfile__DOT__dreg;
-				auto &as = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__regfile__DOT__areg;
+				// the MLAB regfile (2026-09-17): one bank, D0-D7 then A0-A7
+				auto &ds = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__regfile__DOT__bank_a;
+				auto *as = &SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__regfile__DOT__bank_a[8];
 				ImGui::Text("Quadra 800 — 68040 @ 33 MHz, 32 MB RAM, 1 MB ROM, 1 MB VRAM");
 				ImGui::Text("640x480, 256 colors max (DAFB II)");
 				ImGui::Text("overlay=%d  cycle=%llu  instr=%ld",
