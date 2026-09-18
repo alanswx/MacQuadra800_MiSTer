@@ -612,6 +612,14 @@ Finder.
 | `S_EXEC` | 23 M | 2.3 % |
 | `S_MOVEM_LOOP`, `S_PIPE_DST`, `S_PIPE_SDONE`, the rest | | < 1.5 % each |
 
+The run went on to the 8.1 desktop at frame 7200 (3.02 G clocks;
+`scratch/pipeline_b13/sim_prof_f7200.png`), which is also the full-machine
+boot gate of build 13's tree.  Its last quarter (2.27 G to 3.02 G, the
+extensions and the desktop coming up) has the same shape, more so: `S_MRD`
+38.3 %, `S_MWR` 17.6 %, `S_FETCH` 15.3 %, `S_IMMF` 4.9 %, `S_DECODE` 4.4 %,
+`S_EA_DISP` 3.7 %, `S_PIPE_START` 3.3 %, `S_PIPE_REGS` and `S_EXEC` 1.6 %
+each.
+
 Inside them: 40 % of the `S_MRD` clocks have the cache in `C_FILL` and 20 %
 in `C_PASS` (device reads, 32 clocks each: the SCSI and VIA polls); a RAM
 data read costs about 7.5 clocks at the margin and a RAM store about 4.9,
