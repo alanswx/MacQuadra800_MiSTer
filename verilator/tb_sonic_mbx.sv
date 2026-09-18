@@ -36,6 +36,7 @@ wire [63:0] mem_wdata;
 reg         mem_accept = 0, mem_rvalid = 0;
 reg  [63:0] mem_rdata = 0;
 
+wire [47:0] cpu_sample = 48'h2000_4080_1234;
 sonic_mbx dut (.*);
 
 //----------------------------------------------------------------------------

@@ -47,6 +47,9 @@
 //                         [55:40] guest read count; rewritten whenever it changes (Main
 //                         prints it: register READS never reach the ARM otherwise, so a
 //                         guest spin-polling a register is invisible without this)
+//    $81A       SAMPLE    FPGA->ARM [31:0] CPU PC | [47:32] SR, rewritten once per poll round:
+//                         a statistical profiler for a guest that spins where nothing else
+//                         can see it (Main prints the histogram)
 //    $820-$827  OPS       ARM->FPGA [0] dir (1 = to guest) | [31:16] bytes | [63:32] address
 //    $900-$9FF  RING      [0] valid | [3:1] tag (0 write, 1 reset) | [9:4] reg |
 //                         [31:16] data | [47:32] ISR_SET seq seen
@@ -72,6 +75,7 @@ module sonic_mbx
 	output reg        ack,
 	output reg [31:0] rdata,
 	output            irq,
+	input      [47:0] cpu_sample,    // {SR, PC} of the CPU, for the SAMPLE word
 
 	// guest-RAM master port into the service FSM: req level-held until the 1-cycle ack
 	output reg        dma_req,
@@ -95,7 +99,7 @@ module sonic_mbx
 localparam [11:0] AV_MAGIC = 12'h800, AV_WPTR = 12'h801, AV_SHAD = 12'h802,
                   AV_ISRSET = 12'h812, AV_ISRACK = 12'h813, AV_PROM = 12'h814,
                   AV_PTRS = 12'h816, AV_DMACMD = 12'h817, AV_DMASTAT = 12'h818,
-                  AV_DEBUG = 12'h819, AV_OPS = 12'h820, AV_RING = 12'h900;
+                  AV_DEBUG = 12'h819, AV_SAMPLE = 12'h81A, AV_OPS = 12'h820, AV_RING = 12'h900;
 localparam [63:0] MAGIC_V = 64'h4D635138_45544834;   // "McQ8ETH4"
 
 //----------------------------------------------------------------------------
@@ -170,11 +174,13 @@ wire [31:0] rd_swap  = {dma_rdata[7:0], dma_rdata[15:8], dma_rdata[23:16], dma_r
 //----------------------------------------------------------------------------
 localparam S_IDLE = 4'd0, S_WPTR0 = 4'd1, S_CMD = 4'd2, S_WPTR = 4'd3, S_CPURD = 4'd4,
            S_ISRACK = 4'd5, S_POLL = 4'd6, S_OP = 4'd7, S_XRD = 4'd8, S_XWR = 4'd9,
-           S_STAT = 4'd10, S_DEBUG = 4'd11;
+           S_STAT = 4'd10, S_DEBUG = 4'd11, S_SAMPLE = 4'd12;
 reg   [3:0] st;
 reg   [2:0] wsel;
 localparam W_ENTRY = 3'd0, W_WPTR = 3'd1, W_ISRACK = 3'd2, W_ACC = 3'd3, W_STAT = 3'd4,
-           W_DEBUG = 3'd5;
+           W_DEBUG = 3'd5, W_SAMPLE = 3'd6;
+reg  [47:0] sample;
+reg         sample_pend;
 // what the guest sees, for the ARM's stats: a frozen guest with irq high and no ISR write is an
 // interrupt that is not being delivered; with irq low it is the model that stopped raising
 reg  [15:0] rd_cnt;
@@ -187,6 +193,7 @@ assign mem_wdata = (wsel == W_ENTRY)  ? {16'd0, cmd_seq, cmd_data, 6'd0, cmd_reg
                    (wsel == W_ISRACK) ? {48'd0, isr_seq} :
                    (wsel == W_ACC)    ? acc :
                    (wsel == W_DEBUG)  ? {8'd0, dbg_sent} :
+                   (wsel == W_SAMPLE) ? {16'd0, sample} :
                                         {56'd0, dma_seq};
 
 reg  [15:0] poll_div;
@@ -241,6 +248,7 @@ always @(posedge clk) begin
 		mem_addr <= 0;      mem_rd <= 0;       mem_we <= 0;
 		poll_div <= 0;      poll_pend <= 1;    poll_step <= 0;    poll_q <= 0;
 		dbg_sent <= 0;      rd_cnt <= 0;       rd_last <= 0;      rd_prom <= 0;
+		sample <= 0;        sample_pend <= 0;
 	end
 	else begin
 		ack <= 0;
@@ -368,6 +376,11 @@ always @(posedge clk) begin
 				dbg_sent <= dbg_now;
 				start_wr(AV_DEBUG, W_DEBUG, S_DEBUG);
 			end
+			else if (sample_pend) begin
+				sample_pend <= 0;
+				sample <= cpu_sample;
+				start_wr(AV_SAMPLE, W_SAMPLE, S_SAMPLE);
+			end
 		end
 
 		S_WPTR0: if (wr_done) begin wptr_init <= 1; st <= S_IDLE; end
@@ -398,6 +411,8 @@ always @(posedge clk) begin
 
 		S_DEBUG: if (wr_done) st <= S_IDLE;
 
+		S_SAMPLE: if (wr_done) st <= S_IDLE;
+
 		S_POLL: if (rd_done) begin
 			case (poll_q)
 			2'd0: magic_ok <= (mem_rdata == MAGIC_V);
@@ -424,6 +439,7 @@ always @(posedge clk) begin
 				end
 			end
 			endcase
+			if (poll_q == 2'd3) sample_pend <= 1;
 			// until the service shows up only MAGIC is worth a read
 			poll_step <= (magic_ok || poll_q != 2'd0) ? poll_q + 2'd1 : 2'd0;
 			st <= S_IDLE;
