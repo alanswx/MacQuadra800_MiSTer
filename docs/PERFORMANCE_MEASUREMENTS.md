@@ -938,3 +938,18 @@ Boot to the Finder in 39 to 84 s, clean Shut Down in 46 s, no artefacts,
 dialogs or dropouts in 40 minutes. The CPU-side gates for this RTL:
 `bench_loop` 81,202 cycles, `pipe_bench` 122,190 (from 149,182 at step 1),
 the first-100 corpus 32,991,462 (from 33,335,739) with 0 real diffs.
+
+### Build 6, the same RTL with the CPU clock met (c84a5e7, rbf cda6ba11)
+
+Fitted with the fast hit's qualification moved off the live translation:
+35,797 ALMs (85 %), CPU clock +0.139 ns, RAM +0.445 ns, HDMI -0.001 ns on
+one `sys_top` video register.  Same operator procedure, same box and
+mounts (`scratch/pipeline_b6/report.md`): Benchmark Mix **0.900 / 0.902 /
+0.903** (run 3: KWhetstones 672.5/s, Dhrystones 11376/s, Towers 1.110 s,
+Quick Sort 0.797, Bubble Sort 0.889, Queens 0.634, Puzzle 1.556,
+Permutations 1.746, Int. Matrix 0.960, Sieve 1.232 s), CQD 0.660, FPU
+0.464 and 0.467 (Matrix Multiply is the one test with run-to-run spread,
+1.398 to 1.430 s across the day's runs), boot to the Finder in 45 to 85 s,
+clean Shut Down in 46 s, no artefact in any captured frame.  The two
+builds agree run for run, as cycle-identical RTL must; this is the
+deployable one.

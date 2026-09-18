@@ -244,6 +244,10 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS was set in the build tree for builds 3-6; it is NOT in this file yet.
 # 2026-09-17 20:10: the routability optimization joins the recipe. Builds 3-6 of the CPU-pipeline branch (85-87 % ALMs)
 # routed only with it, build 2 failed routing without it, and build 6 (the deployable candidate) was fitted with it.
+# Build 6 HARDWARE (Opus operator, scratch/pipeline_b6/report.md): 8.1 boots <= 85 s, liveness OK, Speedometer Mix
+# 0.900/0.902/0.903 (mean 0.902: +2.8 % over step 1, +5.5 % over the shipped 0.855), CQD 0.660, FPU 0.464/0.467, clean
+# 46 s shutdown, no artefact in any captured frame (the ARM framebuffer does not pass through the HDMI register, so the
+# 0.001 ns HDMI miss is judged at the display). The box was left at the 8.1 halt screen on this rbf (cda6ba11).
 set_global_assignment -name SEED 21
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
