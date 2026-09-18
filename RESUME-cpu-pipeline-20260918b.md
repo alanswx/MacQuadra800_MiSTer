@@ -108,3 +108,52 @@ hypothesis more than for it.
    `quadra800.sv` are safe because they require aligned longs.  And a
    store-path or cache change gets the three-tree sim frame comparison
    BEFORE its fit.
+
+## Update 2026-09-18 about 08:45: build 13 measured, 11/12 reverted, A/UX gate running
+
+- **Build 13 on hardware** (section 22): boots (Finder <= 100 s), **Mix
+  0.9285, mean of EIGHT valid runs** (+2.4 % over build 8, +8.6 % over the
+  shipped 0.855; Sieve +6.0 %, Permutations +3.7 %), CQD 0.670, FPU
+  0.466/0.468, **0 anomalous values in 11 series**, clean 47 s shutdown.
+- **Increments 11 and 12 are reverted on the branch** (4abb118, RTL only,
+  tests kept; the commit says the evidence is statistical).  The branch
+  head's synthesizable RTL is byte-identical to build 13's tree (4d09389),
+  so **build 13's rbf IS the head's bitstream**: no new build is needed
+  for a release candidate.
+- **The A/UX 3.1 half of the release gate is running on build 13** (Opus
+  operator, brief `scratch/pipeline_b13_aux/BRIEF.md`, report to
+  `scratch/pipeline_b13_aux/report.md`): pristine A/UX image from the
+  zip, `.s0` via the ready-made `.s0.aux`, boot to multiuser, CommandShell
+  `uname -a` / `ls` / `df`, `shutdown -h now`; on a wedge, a control run
+  on build 8's rbf; `.s0` restored to QuadSquad8 at the end.  The box is
+  at the 32 MB RAM option (`MacQuadra800.CFG` all zeros) and has been for
+  every measurement on this branch.  Increment 13's write-side MMU verdict
+  is what this tests.
+- Still owed for a release: CD audio by ear (the user), then
+  `releases/MacQuadra800_YYYYMMDD.rbf` + README row.  Their call.
+- **A current profile** is in the design note ("Where the clocks go on
+  build 13's core"): in the 8.1 boot bracket S_MRD 41 %, S_MWR 14.5 %,
+  S_FETCH 10 %, all the sequencer states together under 20 %; a RAM store
+  costs 4.9 clocks at the margin although posted.  Tool:
+  `scripts/cpu/sim_prof_diff.py <sim_prof.log> <fraction>`; the log is
+  `~/MQ_b13/verilator/sim_prof.log` in WSL (the run stops at frame 7201).
+
+## The recommended next increment
+
+**The store drain's write rate** (`rtl/sdram_beat32.sv` + `rtl/sdram.sv`):
+a posted longword is drained as two complete 16-bit SDRAM write
+transactions, each with its own ready handshake (`acc`), about 6 clk_sys
+per longword sustained (`docs/sdram-fast-path.md`: 21.7 MB/s for 64
+sequential writes).  While a drain is in flight the bridge is `busy`, so
+fills queue behind it too.  Issuing the two halves as consecutive WRITE
+commands to the open row (or a two-beat write burst; the mode register
+has `NO_WRITE_BURST = 1` today) should roughly halve that.  Expected: a
+few percent on boot/launch/block moves, under 1 % on the Speedometer Mix
+(Sieve and the store-heavy tests most).  Gates: `make tb_sdram` (both
+ranks, ZERO protocol errors), `tb_memory_path_registered_first_miss`,
+`tb_store_buffer`, the three-tree sim frame comparison, then the fit with
+the clk_ram and crossing reports (clk_ram has +0.67 ns on build 13 and the
+controller's command path is the historically tight one).  It adds a
+handful of LUTs.  After it: a store admitted while an instruction fill is
+in progress (a third of the store clocks in the boot bracket), then the
+plan's step 4.
