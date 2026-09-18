@@ -1084,7 +1084,17 @@ always @(posedge clk) begin
 		asc_d <= asc_irq_i; slot_d <= slot_any;
 		if (scsi_irq_i != scsi_d) via2_ifr[3] <= scsi_irq_i;
 		if (scsi_drq_i != drq_d)  via2_ifr[0] <= scsi_drq_i;
-		if (slot_any != slot_d) via2_ifr[1] <= slot_any;
+		// The any-slot flag is a LEVEL, not an edge latch.  It used to follow changes of
+		// slot_any, which is the OR of the sources: fine while DAFB's VBL was the only
+		// one, fatal with the SONIC beside it.  The guest clears the flag after serving
+		// one source; if the other is asserted by then the OR never changes again, the
+		// flag stays 0 and NO slot interrupt is ever delivered again, the 60 Hz VBL
+		// included (first Ethernet hardware run, 2026-09-18: a frozen machine with
+		// PKTRX pending and unacknowledged).  MAME's pseudo-VIA re-evaluates the bit on
+		// every source event and QEMU latches each slot's own edge; a level is the
+		// superset of both, and both sources here are cleared at the source (DAFB's
+		// interrupt status, the SONIC's ISR), so the flag cannot stick.
+		via2_ifr[1] <= slot_any;
 		if (asc_irq_i && !asc_d) via2_ifr[4] <= 1'b1;
 
 		case (astate)
@@ -1101,7 +1111,9 @@ always @(posedge clk) begin
 				if (sel_via2) begin
 					if (write) begin
 						case (rsel)
-						4'd13:   via2_ifr[6:0] <= via2_ifr[6:0] & ~(wbyte[6:0] & 7'h1b);
+						// bit 1 (any slot) is a live level: see above
+						4'd13:   via2_ifr[6:0] <= (via2_ifr[6:0] & ~(wbyte[6:0] & 7'h19) & 7'h7D)
+						                          | {5'd0, slot_any, 1'b0};
 						4'd14:   via2_ier[6:0] <= wbyte[7]
 						             ? (via2_ier[6:0] |  (wbyte[6:0] & 7'h1b))
 						             : (via2_ier[6:0] & ~(wbyte[6:0] & 7'h1b));
