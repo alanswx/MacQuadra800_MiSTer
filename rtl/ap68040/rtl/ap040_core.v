@@ -2464,7 +2464,10 @@ wire        n_apply_ok = !rd_valid && !n_inplace && (n_next != NX_NONE) && n_wor
 // again (step C); the record handover stays at every retire.
 wire        n_desc_ok  = rd_valid && (state != S_DECODE) && !aux_we &&
                          (regs_alu_fire || shift_fire ||
-                          ((state == S_MWR) && d_ack && (r_m_ret == S_NEXT)));
+                          ((state == S_MWR) && d_ack && (r_m_ret == S_NEXT)) ||
+                          // a resident target popped by S_FETCH (no fetch
+                          // slot to keep: the redirect's fetch just landed)
+                          (state == S_FETCH));
 // The unconditional transfers whose target the queue already holds --
 // BRA.W/.L, BSR.W/.L, JSR and JMP abs.W, abs.L and d16(PC) -- dispatch
 // from the retire that pops them straight into their branch state
@@ -4749,6 +4752,14 @@ always @(posedge clk) begin
 					exec_kind <= EK_ALU;
 					fc_ovr_v <= 0;
 					state <= S_DECODE;
+					// A resident target word is the queue head: hand it to the
+					// dispatch chain after the case (the descriptor, the
+					// record, the branch and DBcc dispatches) exactly as a
+					// retire's pop does, so the first instruction after a
+					// redirect skips S_DECODE when its class allows.  Not the
+					// forwarded word (rd_ir is the ring), not the handler's
+					// first word (the bank may have switched).  (2026-09-19)
+					if (epf_ready_pc && !in_exc) rd_queue_pop = 1;
 				end
 			end
 			// The queue does not run this stream -- a redirect that could not
