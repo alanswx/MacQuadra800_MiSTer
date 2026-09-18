@@ -516,6 +516,20 @@ below the cache has to be read against "misaligned word/long transactions
 appear here unsplit" in `wombat_cpu.sv`'s bus contract.  Build 13 =
 build 12's tree + this fix.
 
+**It was build 12's boot hang.**  Build 12 on hardware stopped at the bare
+grey screen before the pointer (measurements section 21).  The
+full-machine simulation, three trees from the same fast-boot ROM and disk:
+build 8 (control) and build 13 (build 12 + this fix) both replace the grey
+screen with the Happy Mac at frame 480 with identical frame hashes; build
+12 is still at the bare grey screen at frame 840.  The ROM's start-up code
+pushes longs on a word-aligned stack with the caches it has just enabled,
+which is exactly the crossing-store-then-fill shape.  (The harness had to
+be repaired first: it had not been built on this branch since the MLAB
+regfile and the hint bus renamed the signals its debug panels read,
+8359fa3.)  An early-boot hang is seconds of machine time, a few minutes
+in the sim: for a store-path or cache change, run the three-tree frame
+comparison (`scratch/pipeline_b12/simtree.sh`) BEFORE the fit.
+
 ### 15. BRA.B from any retire (2026-09-19)
 
 The lookahead arm resolved a short branch at the queue head only at a
@@ -581,7 +595,7 @@ return address with A7 backed out) stays in `t_branch_early`.
 | build 10 | 7f69882 (+ increment 13, the one-clock posted store) | 21 + the switch | 36,428 (87 %); synthesis 55,999 ALUTs | **met on every clock**: CPU +1.145 (the branch's best), HDMI +0.251, RAM +0.445, hold +0.252, TNS 0; clk_sys -> clk_ram request handoff +1.270 (build 8: +2.513; the 2026-09-02 fault's build: +0.276), clk_ram -> clk_sys +1.145 (`scratch/pipeline_b10/cross_*`) | 28a7e6dc (`scratch/pipeline_b10/`) | run dropped (fewer builds); a bisect point |
 | build 11 | 83ab536, the head | | not built. Its launcher was stopped in the wait-gate after build 9's finding, but only the outer shell died: the inner `build_only.sh` kept waiting and started the flow at 05:54 when the other session's fit ended -- on the worktree, which had been at build 12's commit since 05:35. What it built is build 12 (below) | | | |
 | build 12 | 78ba885 (build 8) + 13 + 14 + 15, WITHOUT 11 and 12 (bisect; the worktree's detached edca43e, verified clean and by content before the rbf was staged) | 21 + the switch | 36,071 (86 %); synthesis 55,480 ALUTs (build 8 + 56: increments 13-15 cost almost nothing; the record cache was the 550) | **met on every clock**: CPU +1.241 (the branch's best), HDMI +0.412, RAM +0.806, hold +0.198, TNS 0; clk_sys -> clk_ram request handoff **+1.384** (build 10 +1.270, build 8 +2.513), clk_ram -> clk_sys `line_done_handoff -> line_data` +1.241 = the CPU clock's worst path again (`scratch/pipeline_b12/cross_*`) | 555a954b (`scratch/pipeline_b12/`) | **DOES NOT BOOT**: the ROM clears the screen to the grey dither and stops before the pointer, the Happy Mac or any disk access; identical frames from +56 s to +858 s, `write_bytes` flat, no series run (section 21). One of 13/14/15 breaks early start-up with every clock met: logic, not timing. The bisect question about 11/12 is unanswered |
-| build 13 | build 12's tree + cf06fe6 (increment 14's line-crossing hole closed); the worktree's detached 4d09389 | 21 + the switch | (synthesis started 06:26, the only flow on the box) | | | |
+| build 13 | build 12's tree + cf06fe6 (increment 14's line-crossing hole closed); the worktree's detached 4d09389 | 21 + the switch | 36,089 (86 %) | **met on every clock**: CPU +0.772, RAM +0.668, HDMI +0.527, hold +0.204, TNS 0; clk_sys -> clk_ram request handoff **+0.727** (build 12 +1.384: a two-LUT change re-placed it), clk_ram -> clk_sys +0.772 (`scratch/pipeline_b13/cross_*`) | fde49a3c (`scratch/pipeline_b13/`) | full-machine sim first: build 12's tree sits at the bare grey screen through frame 840 (the hardware hang, reproduced), build 13's shows the Happy Mac at frame 480 exactly like the build-8 control (`scratch/pipeline_b13/sim_*.png`): **the line-crossing hole was the boot hang**. Hardware run in progress |
 
 (filled in as each build completes; the seed ledger is also in the `.qsf`.)
 

@@ -273,6 +273,12 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # sdram_beat32 req_tgl -> req_handoff +1.384 (b10 +1.270, b8 +2.513). rbf 555a954b = scratch/pipeline_b12/. The flow ran
 # under build 11's launcher, which had survived its stop in the wait-gate (the log is build_b11_s21r.log, copied to
 # build_b12_s21r.log); the tree was clean at edca43e from 05:35, the flow started 05:54. Build 11 (the head) was never built.
+# ON HARDWARE build 12 DOES NOT BOOT (bare grey screen, no pointer): increment 14's read-passes-store compared only the
+# first 16-byte line, so a fill passed a queued line-crossing store (fixed cf06fe6; the full-machine sim reproduces the
+# hang on build 12's tree and boots build 13's).
+# 2026-09-18 06:55 build 13 (build 12's tree + cf06fe6; build tree 4d09389), seed 21 + the switch: MEETS TIMING on every
+# clock -- 36,089 ALMs (86 %), clk_sys +0.772, HDMI +0.527, clk_ram +0.668, hold +0.204, TNS 0; req_tgl -> req_handoff
+# +0.727 (b12 +1.384). rbf fde49a3c = scratch/pipeline_b13/, on the box now.
 set_global_assignment -name SEED 21
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
