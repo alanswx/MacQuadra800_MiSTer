@@ -342,6 +342,68 @@ Gates: identical cycle counts to increment 10 on every bench (no bench
 pops a call in the four excluded states), corpus 32,979,913 with 0
 diffs.  Build 7b is this commit cherry-picked onto increment 9 alone.
 
+### 11. S_FETCH's resident pop hands the target to the dispatch chain (2026-09-19)
+
+The first instruction after a redirect whose word is already in the queue
+(a refill-buffer seed, a line offer that beat S_FETCH) went through
+S_DECODE unconditionally.  S_FETCH's resident pop now raises
+`rd_queue_pop` like a retire's pop, so the descriptor (allowed from
+S_FETCH: no fetch slot to protect), the record, and the transfer and DBcc
+dispatches apply to it; not the forwarded word (`rd_ir` is the ring) and
+not the handler's first word.  Cycle-identical on every bench (resident
+targets are rare there); a variant that also applied the record inside
+go_pc_now's resident dispatch duplicated two dispatch bodies for no shown
+gain and was dropped.
+
+### 12. The loop-top record cache (2026-09-19)
+
+Every closing branch of a tight loop -- a taken DBcc, Bcc.B or Bcc.W
+whose target sits in the refill sector -- dispatches the target word
+from the buffer straight into S_DECODE (`decode_dbcc_brf_now`), so the
+loop's first instruction paid the decode cycle on every iteration even
+when the record or the descriptor could have entered its pipe state
+directly (it could not: the record decodes the queue head, and the head
+in that cycle is the branch).  One entry now keeps the decode of the
+last instruction that entered S_DECODE from a refill dispatch (`trc_*`:
+the descriptor's fields or the record's value/valid pairs, captured
+after the case when S_DECODE runs with `trc_cap`), keyed by the word's
+address, its context and the sector's generation.  The next refill
+dispatch to the same word replays it: `apply_cached_desc` /
+`apply_cached_record` write exactly what `dispatch_reg_decode` /
+`apply_record` would, the immediates come from the sector's words
+(`brf_word`), and the queue bookkeeping consumes them with the opcode.
+
+The entry follows the buffer.  `brf_gen` counts every re-adoption of
+the sector and every invalidation (`epf_flush`, a CPU write into the
+sector, a new tag from a fetch or a line offer), and a hit requires the
+generation it was captured under: an entry can only replay the very
+fetch it was decoded from, so a rewritten word (CINV-disciplined, as
+always) is refetched, re-decoded and re-captured before it can be
+replayed.  Hazards are the ones the record already has at a retire: a
+base register written on the dispatch edge is caught by the pipe
+start's own landing-write check, the descriptor captures from the
+forwarded ports.  The hit compare sits on the early-target wire next to
+the seed count and only enables register writes, so it does not lengthen
+the seed cone.
+
+`t_branch_early` section J: loop tops of the record class closed by
+DBcc, by a Bcc.B at a producer's retire and by a Bcc.W; a descriptor
+loop top; loop tops with an immediate (both record forms); the base
+register written by the producer that resolves the branch; and the loop
+top rewritten between two runs of the same loop.  It passes on the
+pre-change core.
+
+| gate | before | after |
+|---|---:|---:|
+| AP suite | 24/24 | 24/24 (t_branch_early 62,698 -> 61,9xx) |
+| bench_loop phase 0 | 68,354 | **56,108 (-17.9 %)**: one cycle per iteration of the inner loop |
+| pipe_bench / branch_bench | 118,696 / 117,286 | unchanged (their loops span sectors; no refill dispatch) |
+| corpus-100 | 32,979,913 | 32,962,768 (-0.05 %), 0 diffs |
+
+What it costs: about 190 flops for the entry and a second write source on
+the pipe registers.  MOVEQ, register shifts and `#imm,Dn` at a loop top
+are not cached: in S_DECODE the descriptor leaves those to the body.
+
 ### Withdrawn: RTS/RTD/RTR from the pop (2026-09-18)
 
 A `dispatch_ret` that popped RTS/RTD/RTR into S_RET1 (or issued the pop

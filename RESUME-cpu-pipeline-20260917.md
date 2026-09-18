@@ -72,8 +72,16 @@ found a desktop alias and used it).
     (cycle-neutral: UNLK/RTS is bound by the acknowledge cycle); its
     tests stay.
 
+11. (2026-09-19, c979563) S_FETCH's resident pop hands the target word
+    to the dispatch chain; cycle-neutral on the benches.
+12. (2026-09-19) The loop-top record cache (`trc_*`, `brf_gen`,
+    `apply_cached_desc/record`): a refill-buffer dispatch replays the
+    cached decode of the loop's first instruction instead of S_DECODE.
+    bench_loop 68,354 -> 56,108 (-17.9 %), corpus 32,962,768 with 0
+    diffs, t_branch_early section J.  Build 9 = the head.
+
 Synthesis: 55,210 ALUTs at 77aa72a against the release's 56,965; 55,598
-at 8a9b392 (build 7, increment 9).
+at 8a9b392 (build 7, increment 9); 55,143 at build 7b; 55,424 at build 8.
 
 User instruction 2026-09-18 22:05: ONE synthesis at a time, and finish
 analysing a build before starting the next increment.

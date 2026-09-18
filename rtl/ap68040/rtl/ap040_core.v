@@ -686,6 +686,65 @@ reg [15:0] brf_valid;
 // flags -> carrier -> refill seed -> epf_ftail path.  (2026-09-18)
 reg  [3:0] brf_run [0:15];
 integer    brf_ri;
+// The loop-top record cache.  A refill-buffer dispatch (a taken DBcc,
+// Bcc.B or Bcc.W whose target sits in the sector -- every closing branch
+// of a tight loop) used to hand the target word to S_DECODE.  This entry
+// keeps the decode of the last instruction that entered S_DECODE that
+// way: the register-class descriptor's fields (dispatch_reg_decode) or
+// the record's value/valid pairs (apply_record), keyed by the word's
+// address, its context and the sector's generation.  The next dispatch
+// to the same word enters the target's pipe state directly, its
+// immediates taken from the buffer's words: one cycle off every
+// iteration.  brf_gen counts every re-adoption and invalidation of the
+// sector, so an entry can only replay the very fetch it was decoded
+// from; a rewritten word is refetched, re-decoded and re-captured first.
+// (2026-09-19)
+reg  [3:0] brf_gen;
+reg        trc_v;
+reg [31:1] trc_a;
+reg        trc_super;
+reg  [3:0] trc_gen;
+reg        trc_cap;                // S_DECODE entered from a refill dispatch: capture there
+reg        trc_desc;               // the entry is a descriptor ...
+reg  [5:0] trc_rd_alu;
+reg  [1:0] trc_rd_size, trc_rd_ssize, trc_rd_dsize, trc_rd_immn;
+reg        trc_rd_quick, trc_rd_imm, trc_rd_shift, trc_rd_flags, trc_rd_wbsup, trc_rd_sextw, trc_rd_rox;
+reg [31:0] trc_rd_qimm;
+reg  [3:0] trc_rd_sa, trc_rd_da;
+reg  [2:0] trc_next;               // ... or a record
+reg  [1:0] trc_immn;
+reg  [2:0] trc_p_src; reg trc_p_src_v;
+reg  [2:0] trc_p_dst; reg trc_p_dst_v;
+reg        trc_p_rmw; reg trc_p_rmw_v;
+reg        trc_p_wbsup; reg trc_p_wbsup_v;
+reg        trc_p_flags; reg trc_p_flags_v;
+reg        trc_p_sextw; reg trc_p_sextw_v;
+reg        trc_p_dst_mem_bit; reg trc_p_dst_mem_bit_v;
+reg  [3:0] trc_exec_kind; reg trc_exec_kind_v;
+reg  [1:0] trc_op_size; reg trc_op_size_v;
+reg  [5:0] trc_alu_op; reg trc_alu_op_v;
+reg  [3:0] trc_p_dreg; reg trc_p_dreg_v;
+reg  [1:0] trc_p_dsize; reg trc_p_dsize_v;
+reg  [1:0] trc_p_ssize; reg trc_p_ssize_v;
+reg  [3:0] trc_p_sreg; reg trc_p_sreg_v;
+reg  [2:0] trc_dst_rn_r; reg trc_dst_rn_r_v;
+reg  [2:0] trc_dst_mode_r; reg trc_dst_mode_r_v;
+reg  [2:0] trc_src_rn_r; reg trc_src_rn_r_v;
+reg  [2:0] trc_src_mode_r; reg trc_src_mode_r_v;
+reg  [3:0] trc_rr_a; reg trc_rr_a_v;
+reg  [3:0] trc_rr_b; reg trc_rr_b_v;
+reg [31:0] trc_src_val; reg trc_src_val_v;
+reg        trc_sh_rox; reg trc_sh_rox_v;
+reg        trc_md_isdiv; reg trc_md_isdiv_v;
+reg        trc_md_sign; reg trc_md_sign_v;
+reg        trc_lk_cyc; reg trc_lk_cyc_v;
+// a sector word of the refill buffer (k = word index 0..15)
+function [15:0] brf_word;
+	input [3:0] k;
+	begin
+		brf_word = k[0] ? brf_data[k[3:1]][15:0] : brf_data[k[3:1]][31:16];
+	end
+endfunction
 always @* begin
 	brf_run[15] = brf_valid[15] ? 4'd1 : 4'd0;
 	for (brf_ri = 14; brf_ri >= 0; brf_ri = brf_ri - 1)
@@ -1527,6 +1586,7 @@ task epf_flush;
 		epf_err   <= 0;
 		epf_brf   <= 0;
 		brf_valid <= 0;
+		brf_gen   <= brf_gen + 4'd1;
 		if (epf_pend) epf_kill <= 1;
 		epf_flushed = 1;
 	end
@@ -2814,9 +2874,81 @@ task decode_dbcc_brf;
 	end
 endtask
 
+// The cached decode's replay (see trc_*): the descriptor's fields as
+// dispatch_reg_decode writes them, or the record's pairs as apply_record
+// does, with the immediate taken from the sector's words.
+task apply_cached_desc;
+	input [31:0] immv;
+	begin
+		alu_op <= trc_rd_alu;
+		op_size <= trc_rd_size; p_ssize <= trc_rd_ssize; p_dsize <= trc_rd_dsize;
+		p_src <= trc_rd_quick ? SK_IMPL : (trc_rd_imm ? SK_IMM : SK_REG);
+		if (trc_rd_quick) src_val <= trc_rd_qimm;
+		exec_kind <= trc_rd_shift ? EK_SHIFT : EK_ALU;
+		if (trc_rd_shift) sh_rox <= trc_rd_rox;
+		if (trc_rd_imm) begin
+			src_val <= immv; imm <= immv; x_ext <= immv;
+		end
+		p_dst <= DK_REG; p_sreg <= trc_rd_sa; p_dreg <= trc_rd_da;
+		p_flags <= trc_rd_flags; p_wbsup <= trc_rd_wbsup; p_sextw <= trc_rd_sextw;
+		rr_a <= trc_rd_sa; rr_b <= trc_rd_da;
+		state <= S_PIPE_REGS;
+	end
+endtask
+
+task apply_cached_record;
+	input [31:0] immv;
+	begin
+		if (trc_p_src_v) p_src <= trc_p_src;
+		if (trc_p_dst_v) p_dst <= trc_p_dst;
+		if (trc_p_rmw_v) p_rmw <= trc_p_rmw;
+		if (trc_p_wbsup_v) p_wbsup <= trc_p_wbsup;
+		if (trc_p_flags_v) p_flags <= trc_p_flags;
+		if (trc_p_sextw_v) p_sextw <= trc_p_sextw;
+		if (trc_p_dst_mem_bit_v) p_dst_mem_bit <= trc_p_dst_mem_bit;
+		if (trc_exec_kind_v) exec_kind <= trc_exec_kind;
+		if (trc_op_size_v) op_size <= trc_op_size;
+		if (trc_alu_op_v) alu_op <= trc_alu_op;
+		if (trc_p_dreg_v) p_dreg <= trc_p_dreg;
+		if (trc_p_dsize_v) p_dsize <= trc_p_dsize;
+		if (trc_p_ssize_v) p_ssize <= trc_p_ssize;
+		if (trc_p_sreg_v) p_sreg <= trc_p_sreg;
+		if (trc_dst_rn_r_v) dst_rn_r <= trc_dst_rn_r;
+		if (trc_dst_mode_r_v) dst_mode_r <= trc_dst_mode_r;
+		if (trc_src_rn_r_v) src_rn_r <= trc_src_rn_r;
+		if (trc_src_mode_r_v) src_mode_r <= trc_src_mode_r;
+		if (trc_rr_a_v) rr_a <= trc_rr_a;
+		if (trc_rr_b_v) rr_b <= trc_rr_b;
+		if (trc_src_val_v) src_val <= trc_src_val;
+		if (trc_sh_rox_v) sh_rox <= trc_sh_rox;
+		if (trc_md_isdiv_v) md_isdiv <= trc_md_isdiv;
+		if (trc_md_sign_v) md_sign <= trc_md_sign;
+		if (trc_lk_cyc_v) lk_cyc <= trc_lk_cyc;
+		case (trc_next)
+			NX_PSTART: state <= S_PIPE_START;
+			NX_PREGS:  state <= S_PIPE_REGS;
+			NX_IMMF_PSTART: begin
+				imm <= immv;
+				state <= S_PIPE_START;
+			end
+			NX_IMMREG: begin
+				src_val <= immv; imm <= immv; x_ext <= immv;
+				state <= S_PIPE_REGS;
+			end
+			default: begin end
+		endcase
+	end
+endtask
+
+// the sector words the cached decode consumes with its opcode
+wire  [1:0] trc_nimm = trc_desc ? (trc_rd_imm ? trc_rd_immn : 2'd0) :
+                       ((trc_next == NX_IMMF_PSTART || trc_next == NX_IMMREG) ? trc_immn : 2'd0);
+
 task decode_dbcc_brf_now;
 	input [31:0] a;
-	reg  [15:0] fw;
+	reg  [15:0] fw, w1, w2;
+	reg  [31:0] immv;
+	reg         trc_hit;
 	begin
 		fw = a[1] ? brf_data[a[4:2]][15:0]
 		          : brf_data[a[4:2]][31:16];
@@ -2842,6 +2974,27 @@ task decode_dbcc_brf_now;
 		exec_kind <= EK_ALU;
 		fc_ovr_v <= 0;
 		state <= S_DECODE;
+		// The loop-top record cache: the same word, the same context, the
+		// same fetch of the sector (brf_gen), its immediates resident in
+		// the seed: enter the target's pipe state now instead of S_DECODE,
+		// consuming the immediate words with the opcode.  Otherwise
+		// S_DECODE captures this word's decode for the next time.
+		trc_hit = trc_v && (trc_a == a[31:1]) && (trc_super == sr_s) &&
+		          (trc_gen == brf_gen) && !aux_we &&
+		          (brf_seed_n >= (4'd1 + {2'd0, trc_nimm}));
+		w1 = brf_word(a[4:1] + 4'd1);
+		w2 = brf_word(a[4:1] + 4'd2);
+		immv = (trc_nimm == 2'd2) ? {w1, w2} : {16'd0, w1};
+		if (trc_hit) begin
+			trc_cap   <= 0;
+			epf_head  <= 3'd1 + {1'b0, trc_nimm};
+			epf_count <= brf_seed_n - 4'd1 - {2'd0, trc_nimm};
+			epf_next  <= a + 32'd2 + {29'd0, trc_nimm, 1'b0};
+			pc        <= a + 32'd2 + {29'd0, trc_nimm, 1'b0};
+			if (trc_desc) apply_cached_desc(immv);
+			else apply_cached_record(immv);
+		end
+		else trc_cap <= 1;
 	end
 endtask
 
@@ -4484,6 +4637,7 @@ always @(posedge clk) begin
 		// are clear.  Do not reset it: payload reset muxes only consume FPGA
 		// packing resources and the words are overwritten before becoming valid.
 		brf_tag <= 0; brf_super <= 0; brf_valid <= 0;
+		brf_gen <= 0; trc_v <= 0; trc_cap <= 0;
 		m_wr <= 0; m_size <= 0; m_addr_r <= 0; m_wdat <= 0; m_val <= 0;
 		ea_mode <= 0; ea_rn <= 0; ea_size <= 0;
 		ea_pcmode <= 0; ea_pcb <= 0; extw <= 0;
@@ -4603,8 +4757,10 @@ always @(posedge clk) begin
 					brf_data[{iline_log[4], i[1:0]}] <= mem_line_data[(127 - 32 * i) -: 32];
 				if (brf_tag == iline_log[31:5] && brf_super == epf_super)
 					brf_valid <= brf_valid | (16'h00FF << {iline_log[4], 3'd0});
-				else
+				else begin
 					brf_valid <= 16'h00FF << {iline_log[4], 3'd0};
+					brf_gen   <= brf_gen + 4'd1;
+				end
 				brf_tag <= iline_log[31:5];
 				brf_super <= epf_super;
 			end
@@ -4627,8 +4783,10 @@ always @(posedge clk) begin
 		// redirect's sector), so a CPU write into that sector invalidates
 		// it directly: the same stale-prefetch hazard, one buffer further.
 		if (d_ack && mem_write &&
-		    ((mem_addr_q[31:5] == brf_tag) || ((mem_addr_q + 32'd3) >> 5 == brf_tag)))
+		    ((mem_addr_q[31:5] == brf_tag) || ((mem_addr_q + 32'd3) >> 5 == brf_tag))) begin
 			brf_valid <= 0;
+			brf_gen   <= brf_gen + 4'd1;
+		end
 
 		case (state)
 			//------------------------------------------------------------ boot
@@ -8941,6 +9099,57 @@ always @(posedge clk) begin
 		         !(rfw_now && (rfw_now_a == {1'b0, rd_ir[2:0]})))
 			dispatch_dbcc;
 
+		// The loop-top record cache's capture: S_DECODE entered from a
+		// refill dispatch (trc_cap) keeps this instruction's decode -- the
+		// descriptor's fields when the descriptor covers it, else the
+		// record's pairs when the record enters a pipe state -- keyed by
+		// the word's address, context and the sector's generation, for the
+		// next refill dispatch to it.  A decode that raised an exception
+		// is not kept.  (2026-09-19)
+		if (state == S_DECODE) begin
+			trc_cap <= 0;
+			if (trc_cap && !xgo &&
+			    (rd_valid || (!n_inplace && (n_next != NX_NONE)))) begin
+				trc_v <= 1;
+				trc_a <= pc_i[31:1];
+				trc_super <= sr_s;
+				trc_gen <= brf_gen;
+				trc_desc <= rd_valid;
+				trc_rd_alu <= rd_alu;
+				trc_rd_size <= rd_size; trc_rd_ssize <= rd_ssize; trc_rd_dsize <= rd_dsize;
+				trc_rd_quick <= rd_quick; trc_rd_imm <= rd_imm; trc_rd_immn <= rd_immn;
+				trc_rd_shift <= rd_shift; trc_rd_rox <= (rd_ir[4:3] == 2'b10);
+				trc_rd_flags <= rd_flags; trc_rd_wbsup <= rd_wbsup; trc_rd_sextw <= rd_sextw;
+				trc_rd_qimm <= rd_qimm; trc_rd_sa <= rd_sa; trc_rd_da <= rd_da;
+				trc_next <= n_next; trc_immn <= n_immn;
+				trc_p_src <= n_p_src; trc_p_src_v <= n_p_src_v;
+				trc_p_dst <= n_p_dst; trc_p_dst_v <= n_p_dst_v;
+				trc_p_rmw <= n_p_rmw; trc_p_rmw_v <= n_p_rmw_v;
+				trc_p_wbsup <= n_p_wbsup; trc_p_wbsup_v <= n_p_wbsup_v;
+				trc_p_flags <= n_p_flags; trc_p_flags_v <= n_p_flags_v;
+				trc_p_sextw <= n_p_sextw; trc_p_sextw_v <= n_p_sextw_v;
+				trc_p_dst_mem_bit <= n_p_dst_mem_bit; trc_p_dst_mem_bit_v <= n_p_dst_mem_bit_v;
+				trc_exec_kind <= n_exec_kind; trc_exec_kind_v <= n_exec_kind_v;
+				trc_op_size <= n_op_size; trc_op_size_v <= n_op_size_v;
+				trc_alu_op <= n_alu_op; trc_alu_op_v <= n_alu_op_v;
+				trc_p_dreg <= n_p_dreg; trc_p_dreg_v <= n_p_dreg_v;
+				trc_p_dsize <= n_p_dsize; trc_p_dsize_v <= n_p_dsize_v;
+				trc_p_ssize <= n_p_ssize; trc_p_ssize_v <= n_p_ssize_v;
+				trc_p_sreg <= n_p_sreg; trc_p_sreg_v <= n_p_sreg_v;
+				trc_dst_rn_r <= n_dst_rn_r; trc_dst_rn_r_v <= n_dst_rn_r_v;
+				trc_dst_mode_r <= n_dst_mode_r; trc_dst_mode_r_v <= n_dst_mode_r_v;
+				trc_src_rn_r <= n_src_rn_r; trc_src_rn_r_v <= n_src_rn_r_v;
+				trc_src_mode_r <= n_src_mode_r; trc_src_mode_r_v <= n_src_mode_r_v;
+				trc_rr_a <= n_rr_a; trc_rr_a_v <= n_rr_a_v;
+				trc_rr_b <= n_rr_b; trc_rr_b_v <= n_rr_b_v;
+				trc_src_val <= n_src_val; trc_src_val_v <= n_src_val_v;
+				trc_sh_rox <= n_sh_rox; trc_sh_rox_v <= n_sh_rox_v;
+				trc_md_isdiv <= n_md_isdiv; trc_md_isdiv_v <= n_md_isdiv_v;
+				trc_md_sign <= n_md_sign; trc_md_sign_v <= n_md_sign_v;
+				trc_lk_cyc <= n_lk_cyc; trc_lk_cyc_v <= n_lk_cyc_v;
+			end
+		end
+
 		// The resident-target dispatch an arm or the lookahead asked for: it
 		// arms the queue and claims the port, so it runs before the fill engine.
 		if (pgo) go_pc_now(go_pc_t_early);
@@ -9001,6 +9210,7 @@ always @(posedge clk) begin
 						                  << mem_addr_q[4:1];
 						brf_tag <= mem_addr_q[31:5];
 						brf_super <= epf_super;
+						brf_gen <= brf_gen + 4'd1;
 					end
 				end
 			end

@@ -547,6 +547,96 @@ i_fail:
 i_odd:	nop
 i_ok:
 
+;----------------------------------------------- J: loop tops from the refill buffer
+	; a memory-source loop top (record class) closed by DBcc, by a Bcc.B
+	; resolved at the producer's retire, and by a Bcc.W
+	lea	(j_data).l,a0
+	moveq	#0,d0
+	moveq	#7,d1
+j1:	move.l	(a0)+,d2
+	add.l	d2,d0
+	dbra	d1,j1
+	chkl	d0,36,84
+	lea	(j_data).l,a0
+	moveq	#0,d0
+	moveq	#8,d1
+j2:	move.l	(a0)+,d2
+	add.l	d2,d0
+	subq.l	#1,d1
+	bne.s	j2
+	chkl	d0,36,85
+	lea	(j_data).l,a0
+	moveq	#0,d0
+	moveq	#8,d1
+j3:	move.l	(a0)+,d2
+	add.l	d2,d0
+	subq.l	#1,d1
+	bne.w	j3
+	chkl	d0,36,86
+	; a descriptor-class loop top, and loop tops with an immediate
+	moveq	#0,d0
+	moveq	#9,d1
+j4:	addq.l	#3,d0
+	dbra	d1,j4
+	chkl	d0,30,87
+	moveq	#0,d0
+	moveq	#4,d1
+j5:	move.l	#$1000,d2
+	add.l	d2,d0
+	dbra	d1,j5
+	chkl	d0,$5000,88
+	lea	(store_word).l,a0
+	move.l	#0,(a0)
+	moveq	#4,d1
+j6:	add.l	#7,(a0)
+	dbra	d1,j6
+	move.l	(a0),d0
+	chkl	d0,35,89
+	; the base register of the loop top written by the producer that
+	; resolves the closing branch: the replayed pipe start must read the
+	; landing value
+	lea	(j_data).l,a1
+	moveq	#0,d0
+	moveq	#8,d1
+	movea.l	a1,a0
+j7:	move.l	(a0),d2
+	add.l	d2,d0
+	addq.l	#4,a1
+	subq.l	#1,d1
+	movea.l	a1,a0
+	bne.s	j7
+	chkl	d0,36,90
+	; the loop top rewritten between two runs of the same loop: the cached
+	; decode must not replay the old opcode
+	lea	(j_data).l,a0
+	moveq	#0,d0
+	moveq	#0,d2
+	moveq	#0,d3
+	moveq	#7,d1
+	bsr.w	j_sub
+	chkl	d0,36,91
+	chkl	d3,0,92
+	lea	j8(pc),a2
+	move.w	#$2618,(a2)	; move.l (a0)+,d3
+	cinva	ic
+	lea	(j_data).l,a0
+	moveq	#0,d0
+	moveq	#0,d2
+	moveq	#0,d3
+	moveq	#7,d1
+	bsr.w	j_sub
+	chkl	d0,0,93
+	chkl	d3,8,94
+	bra.s	j_ok
+j_sub:
+j8:	move.l	(a0)+,d2
+	add.l	d2,d0
+	dbra	d1,j8
+	rts
+j_data:
+	dc.l	1,2,3,4,5,6,7,8
+j_ok:
+
 ;----------------------------------------------- done
 	move.w	#$600D,(DONEREG).l
 	stop	#$2700
