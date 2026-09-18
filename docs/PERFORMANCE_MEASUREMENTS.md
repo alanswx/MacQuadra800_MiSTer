@@ -1118,3 +1118,39 @@ and is the shape increment 12 targets: skipping the loop top's decode
 cycle also removes the fill engine's slot in it, so a loop whose body
 exceeds the seed pays a demand fetch instead (Alan's rule about the decode
 cycle after a read retire, in another form).
+
+## 21. CPU pipeline build 12, the bisect (2026-09-18, hardware): it does not boot
+
+Build 12 = build 8 (78ba885) plus increments 13 (the one-clock posted
+store), 14 (a read may pass one queued store) and 15 (BRA.B from any
+retire), WITHOUT increments 11 and 12; the build tree's detached edca43e,
+seed 21 with the routability optimization, timing MET on every clock (CPU
++1.241 ns, the branch's best; RAM +0.806, HDMI +0.412, hold +0.198; the
+33 -> 99 MHz request handoff +1.384), 36,071 ALMs (86 %), rbf 555a954b.
+Same box, disk and slots as sections 18-20; the Opus operator
+(`scratch/pipeline_b12/report.md`, seven frames).
+
+**Result: no series was run.** The box was found at build 9's Mac OS 8.1
+halt screen, the candidate's md5 was verified on the box and loaded at
+06:20:18. Six frames from +56 s to +858 s are byte-identical: the bare
+50 % grey desktop dither at 640x480, no pointer, no Happy Mac, no `?`
+floppy. `write_bytes` of the MiSTer process was flat in four clean
+windows (every step of the counter lines up with one of the operator's
+own screenshots) and `read_bytes` stayed 0: the guest never touched the
+disk. Builds 6 to 9 reach the Welcome splash in about 55 s and the Finder
+in 85-101 s on the same box. The core was left loaded at the hung screen;
+no input was sent, nothing was reloaded, `.s0`/`.s1`/`.s4` untouched.
+
+What it says: **one of increments 13, 14, 15 breaks the ROM's early
+start-up on hardware**, on a bitstream that meets every clock with the
+best CPU-clock margin of the branch, so this is logic, not timing. The
+bisect's own question (does an impossible Speedometer time appear without
+the record cache) is NOT answered: it needs a candidate that boots.
+Increments 13 and 14 had never run on hardware, and the CPU-only suite
+cannot see either (no store buffer below it; its memory is a 16-bit bus).
+Increment 14 had a real hole found by inspection the same morning (a read
+passing a line-crossing store, cf06fe6; design note section 14), which is
+the first suspect but is not shown to be this hang. The full-machine
+simulation (early boot is seconds of machine time, about 34x slower in
+the sim) is the tool: trees for build 12, build 12 + the fix, and build 8
+as the control.
