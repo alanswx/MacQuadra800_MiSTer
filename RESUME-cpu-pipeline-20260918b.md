@@ -275,3 +275,29 @@ menu core, WITHOUT the stdout log.  Rules adopted (memory
 by path; rebase release binaries onto an upstream Release commit, not
 master tip; diff against the last good binary's commit first.
 `scratch/MiSTer_bb1a08d3` must NOT go into `releases/`.
+
+## Update 2026-09-18 about 11:30: the updated Main boots from init; the box was tidied (paths above are stale)
+
+- The user had the binary swapped BY RENAME + REBOOT (their instruction;
+  do it that way: `mv MiSTer MiSTer.old && mv <new> MiSTer && sync &&
+  reboot`; `cp` over the running binary fails with "Text file busy").
+  `/media/fat/MiSTer` = **bb1a08d3**, started by init (`/proc/<pid>/exe`
+  md5 confirmed).  Whether the HDMI menu is normal after that clean boot
+  has NOT been reported yet: if it is, the earlier black screen was the
+  ssh hand-relaunch, not the binary (then caveat CLAUDE.md's relaunch
+  recipe); if not, test `MiSTer.test_no1316_979ccedf` the same way.
+- Cores: `/media/fat/_Unstable/` holds ONLY `MacQuadra800_20260918.rbf`
+  (fde49a3c).  The other 23 MacQuadra800/wombat33 rbfs were moved to
+  `/media/fat/rbf_archive_MacQuadra800_20260918/` (not menu-visible).
+- Main: `/media/fat` holds `MiSTer` (bb1a08d3), the latest official
+  `MiSTer.bak_upstream20260907_74b59a34`, `MiSTer.ini` (+ its .bak).  The
+  other 11 binaries, INCLUDING the known-good `MiSTer.clean_431da61a` and
+  `MiSTer.test_no1316_979ccedf`, are in `/media/fat/main_archive_20260918/`.
+  Rollback: `cd /media/fat && mv MiSTer MiSTer.bad && cp
+  main_archive_20260918/MiSTer.clean_431da61a MiSTer && sync && reboot`
+  (or from the repo: `releases/MiSTer_20260916`).
+- The user asked for the archives to be DELETED rather than kept; deleting
+  is left to them (both folders are safe to remove: every rbf is in
+  `releases/` or `scratch/pipeline_b*/`, the Main binaries in `releases/`
+  and `scratch/`).  Older operator briefs that name
+  `/media/fat/_Unstable/MacQuadra800_b*.rbf` must scp the file again.
