@@ -588,6 +588,55 @@ the RTL was withdrawn; its test section (RTS after an A7 write and
 after UNLK, RTD with and without a landing A7 write, RTR, the odd
 return address with A7 backed out) stays in `t_branch_early`.
 
+## Where the clocks go on build 13's core: a boot bracket (2026-09-18)
+
+The per-state table everyone has been steering by is Alan's checkpoint-15
+Speedometer bracket, fifteen increments old.  A current one, from the
+full-machine simulation of build 13's tree (`--prof`, cumulative `[PROF]`
+blocks at every heartbeat, differenced by `scripts/cpu/sim_prof_diff.py
+<log> <fraction>`): the Mac OS 8.1 boot from 1.0 G to 2.0 G clocks, the
+System file and extensions loading from disk, cold code and block copies.
+It is NOT the Speedometer regime (hot loops in the caches) and must not
+be read as one; it is the regime of boot time, application launch and the
+Finder.
+
+| state | clocks | share |
+|---|---:|---:|
+| `S_MRD` | 406 M | 41.0 % |
+| `S_MWR` | 144 M | 14.5 % |
+| `S_FETCH` | 103 M | 10.4 % |
+| `S_DECODE` | 62 M | 6.2 % |
+| `S_PIPE_START` | 45 M | 4.6 % |
+| `S_IMMF` | 33 M | 3.3 % |
+| `S_PIPE_REGS` | 32 M | 3.2 % |
+| `S_EXEC` | 23 M | 2.3 % |
+| `S_MOVEM_LOOP`, `S_PIPE_DST`, `S_PIPE_SDONE`, the rest | | < 1.5 % each |
+
+Inside them: 40 % of the `S_MRD` clocks have the cache in `C_FILL` and 20 %
+in `C_PASS` (device reads, 32 clocks each: the SCSI and VIA polls); a RAM
+data read costs about 7.5 clocks at the margin and a RAM store about 4.9,
+posted or not, because a third of the store clocks wait for a fill in
+progress (the fetch engine's prefetch fill owns the one port) and another
+third for the two-entry store queue to drain at the SDRAM's write rate
+(two 16-bit writes per longword through the 33/99 MHz bridge).  `S_FETCH`
+is almost entirely "fetch outstanding": instruction-cache misses.  The
+cache already acknowledges the waiting read on its first fill beat, the
+requested word first, so that lever is taken.
+
+What it says about the plan.  The sequencer states the increments have
+worked on (`S_DECODE`, the `S_PIPE_*` states, `S_EXEC`, `S_IMMF`) are
+under 20 % of this bracket; two thirds of it is SDRAM latency and the one
+memory port serialising fetch fills, data fills and store drains.  For
+OS-like code the levers are below the core: the store drain's write rate
+(one SDRAM burst for both halves of a longword, or write-combining
+adjacent longs of a block move), a store admitted while an instruction
+fill is in progress, and instruction and data fills that do not wait for
+each other.  For the Speedometer regime the hand-off's remaining sequencer
+levers (a Bcc.W / JSR (An) target, RTS through a return stack) are worth a
+few tenths of a percent each by the checkpoint-14 opcode counts (2.7 M RTS
+in 196 M dispatches); beyond them the cost is structural, which is the
+plan's step 4.
+
 ## Builds
 
 | build | content | seed | ALMs | timing | rbf | hardware |
