@@ -199,6 +199,78 @@ initial begin
 	if (pending || m_req) fail("queue did not become idle after ordered drain");
 
 	//------------------------------------------------------------------
+	// T4: a read of another line passes the one queued store that is not
+	// yet draining (the second of two: the first drains, the read wins the
+	// bus before the second), a read of the SAME line waits, and a full
+	// queue drains first.  (2026-09-19)
+	//------------------------------------------------------------------
+	buffered_store(32'h0000_4000, 32'hC0C0_0001);
+	buffered_store(32'h0000_4010, 32'hC0C0_0002);
+	expect_head(32'h0000_4000, 32'hC0C0_0001);
+	@(negedge clk);
+	s_req = 1; s_write = 0; s_addr = 32'h0000_5000;   // another line
+	repeat (3) @(posedge clk);
+	if (s_ack) fail("T4: read acknowledged under a full queue");
+	if (!(m_req && m_write && m_addr == 32'h0000_4000)) fail("T4: full queue did not keep draining first");
+	ack_head();                                        // the first store lands; count 1
+	guard = 0;
+	while (!(m_req && !m_write && dut.direct_active) && guard < 30) begin
+		@(posedge clk);
+		guard = guard + 1;
+	end
+	if (guard >= 30 || m_addr !== 32'h0000_5000) fail("T4: read of another line did not pass the queued store");
+	@(negedge clk);
+	m_rdata = 32'h5555_0001; m_ack = 1;
+	#1;
+	if (!s_ack || s_rdata !== 32'h5555_0001) fail("T4: passing read returned the wrong completion");
+	@(posedge clk);
+	@(negedge clk);
+	m_ack = 0; s_req = 0;
+	expect_head(32'h0000_4010, 32'hC0C0_0002);        // the passed store drains after it
+	// a read of the queued store's own line must wait for it
+	@(negedge clk);
+	s_req = 1; s_write = 0; s_addr = 32'h0000_4014;
+	repeat (3) @(posedge clk);
+	if (s_ack) fail("T4: same-line read acknowledged before the store drained");
+	if (!(m_req && m_write)) fail("T4: same-line read displaced the store's drain");
+	ack_head();
+	guard = 0;
+	while (!(m_req && !m_write && dut.direct_active) && guard < 30) begin
+		@(posedge clk);
+		guard = guard + 1;
+	end
+	if (guard >= 30 || m_addr !== 32'h0000_4014) fail("T4: same-line read did not start after the store drained");
+	@(negedge clk);
+	m_rdata = 32'h5555_0002; m_ack = 1;
+	@(posedge clk);
+	@(negedge clk);
+	m_ack = 0; s_req = 0;
+	repeat (3) @(posedge clk);
+	if (pending || m_req) fail("T4: queue did not become idle");
+	// a same-line read presented right after the capture of a single store
+	// must not pass it either
+	buffered_store(32'h0000_6000, 32'hD0D0_0001);
+	@(negedge clk);
+	s_req = 1; s_write = 0; s_addr = 32'h0000_600C;
+	repeat (2) @(posedge clk);
+	if (dut.direct_active) fail("T4: same-line read passed a freshly captured store");
+	expect_head(32'h0000_6000, 32'hD0D0_0001);
+	ack_head();
+	guard = 0;
+	while (!(m_req && !m_write && dut.direct_active) && guard < 30) begin
+		@(posedge clk);
+		guard = guard + 1;
+	end
+	if (guard >= 30 || m_addr !== 32'h0000_600C) fail("T4: same-line read did not follow the store");
+	@(negedge clk);
+	m_ack = 1;
+	@(posedge clk);
+	@(negedge clk);
+	m_ack = 0; s_req = 0;
+	repeat (3) @(posedge clk);
+	if (pending || m_req) fail("T4: queue did not become idle after the same-line read");
+
+	//------------------------------------------------------------------
 	// T4: disabling the host qualifier leaves even a low-address write
 	// on the ordinary path, so ROM/overlay and faulting targets stay safe.
 	//------------------------------------------------------------------

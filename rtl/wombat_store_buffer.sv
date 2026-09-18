@@ -5,9 +5,9 @@
 //  the DAFB VRAM window, which is on-chip block RAM that can never fault --
 //  may enter the queue. Their upstream acknowledgement is registered when
 //  the transaction is captured; the writes then drain in order through the
-//  ordinary bus. Reads and non-qualified writes cannot pass an older queued
-//  write, so a DAFB register write or a VRAM read-back still sees every
-//  earlier pixel store landed.
+//  ordinary bus. Non-qualified writes cannot pass an older queued write, so a
+//  DAFB register write still sees every earlier pixel store landed; a read
+//  may pass one queued write to another 16-byte line (see pass_ok below).
 //
 //  The queue sits below ap040_cache. Cache hits need no master transaction and
 //  may therefore run while a write drains, which is the latency this block is
@@ -83,7 +83,18 @@ wire pop  = drain_active && (m_ack || m_err);
 
 // Direct transactions wait until the queue is empty. Their live attributes
 // are stable under the upstream level-held request until s_ack or m_err.
-wire direct_request = s_req && !buffer_req && (count == 0) && !drain_active;
+// A read may pass ONE queued write whose 16-byte line differs from its own
+// (2026-09-19): a cache miss or a bypass read used to wait for both queued
+// stores to reach the SDRAM (about 5 % of the Speedometer bracket).  The
+// drain of the head starts the cycle after its capture, so in practice
+// the read passes the second of two queued stores once the first has
+// landed.  A read of the queued store's own line still waits (a fill must
+// see the store), non-qualified writes still wait, and a full queue always
+// drains first, so a third store stalling the CPU is never starved by a
+// stream of reads.
+wire pass_ok = (ENABLE != 0) && s_req && !s_write && !buffer_req &&
+               (count == 2'd1) && (s_addr[31:4] != q0_addr[31:4]);
+wire direct_request = s_req && !buffer_req && ((count == 0) || pass_ok) && !drain_active;
 
 assign pending = (count != 0);
 // A posted write is acknowledged in its capture cycle: nothing upstream
@@ -175,17 +186,20 @@ always @(posedge clk) begin
 			default: begin end
 		endcase
 
+		// a passing read eligible in the same cycle wins over the drain of
+		// the one queued write (the CPU waits on the read, not the write);
+		// with two queued the drain always goes first
 		if (drain_active) begin
 			if (m_ack || m_err) drain_active <= 0;
 		end
-		else if (!direct_active && (count != 0) && !m_ack && !m_err)
+		else if (!direct_active && (count != 0) && !direct_request &&
+		         !m_ack && !m_err)
 			drain_active <= 1;
 
 		if (direct_active) begin
 			if (m_ack || m_err) direct_active <= 0;
 		end
-		else if (!drain_active && (count == 0) && direct_request &&
-		         !m_ack && !m_err)
+		else if (!drain_active && direct_request && !m_ack && !m_err)
 			direct_active <= 1;
 	end
 end
