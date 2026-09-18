@@ -19,6 +19,7 @@ separate codename and are deliberately unchanged.
 | `rtl/sdram.sv`, `rtl/sdram_beat32.sv` | open-page BL8 SDRAM controller (99 MHz) and the 33↔99 MHz beat bridge with the retained 16-byte line |
 | `rtl/iosb.sv`, `rtl/scc.v`, `rtl/via6522.sv`, `rtl/asc*.sv` | I/O |
 | `rtl/ncr53c96.sv`, `rtl/cd_audio.sv` | 53C96 with three targets (ID 0/1 disks, ID 3 AppleCD CD-ROM) and the CD TOC/audio engine — `docs/cdrom.md` |
+| `rtl/sonic_mbx.sv` | built-in Ethernet: the FPGA half of the DP83932 SONIC (doorbell ring, local ISR/IMR, op-list DMA master); the chip model is in the Main fork — `docs/ethernet.md`. OSD default Off; `ETHERNET_OFF=1` in the `.qsf` builds without it. |
 | `rtl/ap68040/` | the AP68040 CPU, **vendored** (was a submodule until 2026-09-17; `rtl/ap68040/UPSTREAM.md` says which upstream commits it came from and how to port patches from `../AP68040`). Edit and commit it like any other RTL. |
 | `verilator/` | full-machine Verilator sim (`sim.v`, `sim_main.cpp`) plus directed testbenches (`tb_*.sv`, targets in `verilator/Makefile`) |
 | `SingleStepTests/` | CPU corpus benches |
