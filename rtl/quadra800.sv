@@ -25,7 +25,8 @@
 module quadra800
 #(
 	parameter RAM_ADDR_BITS = 27,             // address space ceiling: 128 MB
-	parameter CDROM         = 1               // 0 = no CD-ROM target (rtl/ncr53c96.sv)
+	parameter CDROM         = 1,              // 0 = no CD-ROM target (rtl/ncr53c96.sv)
+	parameter SONIC         = 1               // 0 = no built-in Ethernet (rtl/sonic_mbx.sv)
 )
 (
 	input         clk,
@@ -113,12 +114,30 @@ module quadra800
 	output [255:0] debug_status,
 	output [127:0] debug_status2,
 	output        debug_fault,
-	output        debug_halted
+	output        debug_halted,
+
+	// built-in Ethernet: the OSD switch (latched under reset by the top) and the
+	// DDR3 window port of rtl/sonic_mbx.sv (rd/we level-held until the 1-cycle
+	// accept; read data with rvalid)
+	input         eth_ena,
+	output [11:0] eth_mem_addr,
+	output        eth_mem_rd,
+	output        eth_mem_we,
+	output [63:0] eth_mem_wdata,
+	input         eth_mem_accept,
+	input         eth_mem_rvalid,
+	input  [63:0] eth_mem_rdata
 );
 
 localparam [1:0] MSEL_RAM  = 2'd0,
                  MSEL_ROM  = 2'd1,
                  MSEL_VRAM = 2'd2;
+
+// built-in Ethernet (sonic_mbx, below the service FSM): its interrupt, whether the
+// chip is there this session, and the D-cache snoop strobe of its RAM writes
+wire        sonic_irq;
+wire        sonic_present;
+reg         snoop_stb;
 
 //----------------------------------------------------------------------------
 // CPU bundle and the transaction-to-beat adapter
@@ -250,8 +269,8 @@ wombat_cpu cpu (
 	.walker_data(walker_data),
 	.walker_berr(walker_berr),
 
-	.snoop_stb(1'b0),
-	.snoop_addr(32'd0),
+	.snoop_stb(snoop_stb),
+	.snoop_addr({svc_addr, 2'b00}),
 
 	.nresetout(),
 	.nmi_ack_toggle(),
@@ -325,6 +344,7 @@ iosb #(.CDROM(CDROM)) iosb (
 	.stall_flt(cpu_stall_flt),
 
 	.vbl_irq(dafb_vbl),
+	.sonic_irq(sonic_irq),
 	.scsi_irq(1'b0),
 	.scsi_drq(1'b0),
 	.asc_irq(1'b0),
@@ -437,10 +457,14 @@ wire [29:2] ram_limit = (ram_cfg == 2'd0) ? 28'h0800000 :   // 32 MB
 // djMEMC acknowledges its whole DRAM window: probes beyond installed RAM
 // read open-bus zeros, never a bus error — the ROM's RAM sizing treats a
 // berr there as a fatal hardware fault (found the hard way; QEMU agrees).
-function [2:0] decode;       // 0 ram,1 rom,2 vram,3 iosb,4 berr,5 dafb,6 open
+function [2:0] decode;       // 0 ram,1 rom,2 vram,3 iosb,4 berr,5 dafb,6 open,7 sonic
 	input [31:2] a;
 	begin
-		if (a[31:28] == 4'h4)              decode = 3'd1;
+		// SONIC registers $A000-$A0FF and MAC PROM $8000-$8007, in every $40000 image of
+		// the I/O block; without the chip both stay iosb's inert read-0 space
+		if (sonic_present && a[31:24] == 8'h50 &&
+		    (a[17:8] == 10'h0A0 || a[17:3] == 15'h1000)) decode = 3'd7;
+		else if (a[31:28] == 4'h4)         decode = 3'd1;
 		else if (overlay && a[31:22] == 10'd0) decode = 3'd1;
 		else if (a[31:30] == 2'b00)
 			decode = (a[29:2] < ram_limit) ? 3'd0 : 3'd6;
@@ -452,9 +476,28 @@ function [2:0] decode;       // 0 ram,1 rom,2 vram,3 iosb,4 berr,5 dafb,6 open
 endfunction
 
 localparam S_IDLE = 3'd0, S_MEM = 3'd1, S_IOSB = 3'd2, S_BERR = 3'd3,
-           S_DAFB = 3'd4, S_OPEN = 3'd5;
+           S_DAFB = 3'd4, S_OPEN = 3'd5, S_SONIC = 3'd6;
 reg  [2:0] svc;
 reg        svc_walker;                        // owner of the beat in service
+reg        svc_dma;                           // ... or the SONIC's DMA engine
+
+// The SONIC is the machine's one bus master besides the CPU.  Its engine asks for
+// one longword beat at a time; beats alternate with the CPU's so neither starves,
+// and they go through the ordinary RAM port, so sdram_beat32 drops its retained
+// line on a DMA write exactly as it does on a CPU write.
+wire        dma_req, dma_we;
+wire [26:2] dma_addr;
+wire  [3:0] dma_be;
+wire [31:0] dma_wdata;
+reg         dma_ack;
+reg  [31:0] dma_rdata;
+reg         dma_turn;                         // the CPU had the last beat
+reg         sonic_sel, sonic_write, sonic_prom;
+reg   [7:2] sonic_addr;
+reg   [3:0] sonic_be;
+reg  [31:0] sonic_wdata;
+wire        sonic_ack;
+wire [31:0] sonic_rdata;
 reg        svc_bus_direct;                    // aligned RAM miss bypassed bus32
 reg [31:2] svc_addr;
 
@@ -512,6 +555,11 @@ always @(posedge clk) begin
 	end
 end
 
+wire cpu_want = walker_pend || bus_first_miss ||
+                (b_req && !b_ack && !cpu_berr && !line_cpu_wait);
+wire dma_take = (SONIC != 0) && dma_req && !dma_ack && !walker_pend &&
+                (dma_turn || !cpu_want);
+
 assign dbg_berr      = (svc == S_BERR);
 assign dbg_berr_addr = {svc_addr, 2'b00};
 assign dbg_overlay   = overlay;
@@ -522,6 +570,17 @@ always @(posedge clk) begin
 		svc          <= S_IDLE;
 		svc_walker   <= 0;
 		svc_bus_direct <= 0;
+		svc_dma      <= 0;
+		dma_ack      <= 0;
+		dma_rdata    <= 0;
+		dma_turn     <= 0;
+		snoop_stb    <= 0;
+		sonic_sel    <= 0;
+		sonic_write  <= 0;
+		sonic_prom   <= 0;
+		sonic_addr   <= 0;
+		sonic_be     <= 0;
+		sonic_wdata  <= 0;
 		svc_addr     <= 0;
 		walker_armed <= 1;
 		walker_ack   <= 0;
@@ -554,6 +613,8 @@ always @(posedge clk) begin
 		b_ack       <= 0;
 		bus_miss_ack <= 0;
 		cpu_berr    <= 0;
+		dma_ack     <= 0;
+		snoop_stb   <= 0;
 		if (!walker_req) walker_armed <= 1;
 
 		case (svc)
@@ -561,10 +622,31 @@ always @(posedge clk) begin
 			// walker first: it only runs mid-translation, never starves the
 			// CPU.  !b_ack/!cpu_berr: the adapter needs a cycle to retire a
 			// just-completed or just-faulted beat before b_req means "next".
-			if (walker_pend || bus_first_miss ||
-			    (b_req && !b_ack && !cpu_berr && !line_cpu_wait)) begin
+			// A SONIC DMA beat takes the turn after each CPU beat, or an idle bus.
+			if (dma_take) begin
+				svc_walker     <= 0;
+				svc_bus_direct <= 0;
+				dma_turn       <= 0;
+				svc_addr       <= {5'd0, dma_addr};
+				if ({3'd0, dma_addr} < ram_limit) begin
+					svc_dma    <= 1;
+					mem_req    <= 1;
+					mem_write  <= dma_we;
+					mem_addr   <= {5'd0, dma_addr};
+					mem_be     <= dma_be;
+					mem_wdata  <= dma_wdata;
+					mem_memsel <= MSEL_RAM;
+					svc        <= S_MEM;
+				end
+				else begin
+					dma_ack   <= 1;          // above the installed RAM: nothing there
+					dma_rdata <= 32'd0;
+				end
+			end
+			else if (cpu_want) begin
 				reg [31:2] a;
 				reg        wr;
+				dma_turn <= 1;
 				if (bus_first_miss) begin
 					svc_walker     <= 0;
 					svc_bus_direct <= 1;
@@ -617,6 +699,15 @@ always @(posedge clk) begin
 					svc        <= S_DAFB;
 				end
 				3'd6: svc <= S_OPEN;
+				3'd7: begin
+					sonic_sel   <= 1;
+					sonic_write <= wr;
+					sonic_prom  <= (a[15:12] == 4'h8);
+					sonic_addr  <= a[7:2];
+					sonic_be    <= walker_pend ? 4'b1111 : b_be;
+					sonic_wdata <= walker_pend ? walker_wdat : b_wdata;
+					svc         <= S_SONIC;
+				end
 				default: svc <= S_BERR;
 				endcase
 				end
@@ -624,7 +715,15 @@ always @(posedge clk) begin
 		end
 		S_MEM: if (mem_ack) begin
 			mem_req <= 0;
-			if (svc_walker) begin
+			if (svc_dma) begin
+				dma_ack   <= 1;
+				dma_rdata <= mem_rdata;
+				// the 68040's bus snoop: a write by the other master drops the
+				// D-cache's copy of that line (svc_addr is still the beat's)
+				snoop_stb <= mem_write;
+				svc_dma   <= 0;
+			end
+			else if (svc_walker) begin
 				walker_ack  <= 1;
 				walker_data <= mem_rdata;
 			end
@@ -660,6 +759,18 @@ always @(posedge clk) begin
 			end
 			svc <= S_IDLE;
 		end
+		S_SONIC: if (sonic_ack) begin
+			sonic_sel <= 0;
+			if (svc_walker) begin
+				walker_ack  <= 1;
+				walker_data <= sonic_rdata;
+			end
+			else begin
+				b_ack   <= 1;
+				b_rdata <= sonic_rdata;
+			end
+			svc <= S_IDLE;
+		end
 		S_DAFB: if (dafb_ack) begin
 			dafb_sel <= 0;
 			if (svc_walker) begin
@@ -691,5 +802,62 @@ always @(posedge clk) begin
 		endcase
 	end
 end
+
+//----------------------------------------------------------------------------
+// Built-in Ethernet — DP83932 SONIC front-end; the chip model is on the ARM
+// (docs in rtl/sonic_mbx.sv).  SONIC=0 (qsf: ETHERNET_OFF=1) builds a machine
+// without it; eth_ena=0 (OSD) holds it in reset, off the bus and off DDR3.
+//----------------------------------------------------------------------------
+generate
+if (SONIC != 0) begin : g_sonic
+	sonic_mbx sonic (
+		.clk(clk),
+		.nreset(nreset),
+		.ena(eth_ena),
+		.present(sonic_present),
+
+		.sel(sonic_sel),
+		.write(sonic_write),
+		.prom(sonic_prom),
+		.addr(sonic_addr),
+		.be(sonic_be),
+		.wdata(sonic_wdata),
+		.ack(sonic_ack),
+		.rdata(sonic_rdata),
+		.irq(sonic_irq),
+
+		.dma_req(dma_req),
+		.dma_we(dma_we),
+		.dma_addr(dma_addr),
+		.dma_be(dma_be),
+		.dma_wdata(dma_wdata),
+		.dma_ack(dma_ack),
+		.dma_rdata(dma_rdata),
+
+		.mem_addr(eth_mem_addr),
+		.mem_rd(eth_mem_rd),
+		.mem_we(eth_mem_we),
+		.mem_wdata(eth_mem_wdata),
+		.mem_accept(eth_mem_accept),
+		.mem_rvalid(eth_mem_rvalid),
+		.mem_rdata(eth_mem_rdata)
+	);
+end
+else begin : g_no_sonic
+	assign sonic_present = 1'b0;
+	assign sonic_irq     = 1'b0;
+	assign sonic_ack     = 1'b0;
+	assign sonic_rdata   = 32'd0;
+	assign dma_req       = 1'b0;
+	assign dma_we        = 1'b0;
+	assign dma_addr      = 25'd0;
+	assign dma_be        = 4'd0;
+	assign dma_wdata     = 32'd0;
+	assign eth_mem_addr  = 12'd0;
+	assign eth_mem_rd    = 1'b0;
+	assign eth_mem_we    = 1'b0;
+	assign eth_mem_wdata = 64'd0;
+end
+endgenerate
 
 endmodule

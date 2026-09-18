@@ -57,6 +57,7 @@ V_SRC = \
 	$(RTL)/rtc3430042.sv \
 	$(RTL)/easc.sv \
 	$(RTL)/ncr53c96.sv \
+	$(RTL)/sonic_mbx.sv \
 	$(RTL)/cd_audio.sv \
 	$(RTL)/scsi_cache.sv \
 	$(RTL)/adb.sv \
@@ -120,6 +121,20 @@ $(EXE): $(VOUT)
 tb_easc:
 	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME +define+SIMULATION=1 --top-module tb_easc --Mdir ./obj_dir_tb -o tb_easc tb_easc.sv $(RTL)/easc.sv
 	./obj_dir_tb/tb_easc
+
+# Built-in Ethernet front-end (rtl/sonic_mbx.sv): doorbell ring, on-demand
+# register reads, local ISR/IMR, CR overlay, the op-list DMA engine, reset
+# replay protection, bus watchdog, OSD-off inertness.
+#   make tb_sonic_mbx
+tb_sonic_mbx:
+	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME +define+SIMULATION=1 --top-module tb_sonic_mbx --Mdir ./obj_dir_tb -o tb_sonic_mbx tb_sonic_mbx.sv $(RTL)/sonic_mbx.sv
+	./obj_dir_tb/tb_sonic_mbx
+
+# sim.v builds the machine with SONIC=0 (no DDR3 window model), so the front-end's
+# wiring into quadra800.sv gets its own elaboration check:
+#   make lint_sonic
+lint_sonic:
+	$V --lint-only $(V_DEFINE) $(V_INC) --top-module quadra800 $(filter-out sim.v,$(V_SRC))
 
 # Directed unit test for the SDRAM beat bridge (rtl/sdram_beat32.sv) and the
 # controller under it, driven against a behavioural chip model. The GUI sim
