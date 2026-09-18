@@ -5,8 +5,12 @@ addresses, so the ROM's and the systems' own drivers bind to it: nothing to
 install in Mac OS beyond Apple's "Apple Built-In Ethernet" (already on the Quad
 Squad disk), no declaration ROM, no NuBus card.
 
-**Status 2026-09-18: implemented and bench-tested, not yet run on hardware.**
-A/UX networking is a later milestone (see "Open").
+**Status 2026-09-18 (late): works on hardware — DHCP, ARP, 1000/1000 pings,
+FTP — but only with two CPU memory fast paths switched off through the
+bring-up OSD bits (CFG bytes `40 06`); with them on, Open Transport's CAS/CAS2
+list code goes wrong under receive traffic. State, experiments and next steps:
+`RESUME-ethernet-20260918c.md`.** A/UX networking is a later milestone (see
+"Open").
 
 ## Using it
 
