@@ -157,3 +157,36 @@ controller's command path is the historically tight one).  It adds a
 handful of LUTs.  After it: a store admitted while an instruction fill is
 in progress (a third of the store clocks in the boot bracket), then the
 plan's step 4.
+
+## Update 2026-09-18 about 09:00: the A/UX gate is BLOCKED on the user's slot 4, and the box is NOT at a halt screen
+
+`scratch/pipeline_b13_aux/report.md` (21 screenshots).  Build 13 booted
+A/UX 3.1 from a pristine image (restored from the zip) to the multiuser
+Finder desktop between T0+342 s and T0+497 s: no panic, no garbled
+console, no streaks.  **(a) boot: PASS.**  (b) CommandShell and (c)
+`shutdown -h now` were NOT REACHED: a modal "This disk is unreadable: Do
+you want to initialize it?" came up at T0+122 s and never left.  Main's
+log names the cause: slot 4 holds the user's AUDIO CD
+(`games/MacLC/CD3/TIM_3-mac.CUE`), which A/UX's System 7 environment
+cannot read; Eject (17 times), Return, Escape and Cmd-. do not dismiss it;
+the Apple menu opens but CommandShell and Special -> Shut Down are greyed.
+Not attributable to the build (8.1 ran 59 minutes on the same core with
+the same slot 4).  The operator never went near Initialize.
+
+**STATE OF THE BOX: build 13 is RUNNING A/UX multiuser with that dialog
+up.  The user's `games/MacLC/MacLC_7-1-MiSTer.hda` (slot 1) is mounted
+READ-WRITE in it as "Macintosh HD".  Do NOT load a core over it** (rule 1;
+it is the user's disk).  `.s0` was already restored to QuadSquad8.hda (it
+takes effect at the next load); `.s1`/`.s4`/CFG untouched.  The way out
+needs the user: either they shut that guest down / dismiss the dialog at
+the display, or they say that `.s4` may be moved aside for A/UX runs
+(`mv MacQuadra800.s4 MacQuadra800.s4.off`, restore afterwards, as the
+2026-09-16 p2d gate did) and how they want the running guest ended.  The
+rerun is about 20 minutes once slot 4 is empty; the pristine A/UX image
+should be restored from the zip again first (this boot will not end
+cleanly).
+
+Operator finding worth folding into the guest scripts: A/UX never sees a
+button press with no pointer motion (the held-down frame is byte-identical);
+a press with a 1-pixel jiggle inverts the button.  That is why `menu.sh`
+works on A/UX and `click.sh`'s static click does not.
