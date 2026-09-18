@@ -9,6 +9,8 @@
 #   2. bench_loop with the per-state profile (phase 0/1 cycle counts),
 #      and pipe_bench (BSR/RTS, LINK/UNLK, MOVEM, forward Bcc; S_FETCH/DECODE/MRD/MWR
 #      of phase 0 printed: step 1 149182, redirect hints 147682, in-place pops 137684),
+#      and branch_bench (BSR.W/JSR abs.L/JSR d16(PC)/BRA.W/JMP abs.L with the JSR (An)
+#      and Bcc.W controls; before the early redirect 129778, with it 118784),
 #   3. the first-100 silicon corpus gate (scripts/cpu_corpus100_gate.sh):
 #      "CORPUS DONE in N cycles" and "REAL diffs: 0".
 # A pure area/code optimisation must leave every cycle count unchanged
@@ -31,6 +33,10 @@ echo "== pipe_bench ($LABEL)"
 ( cd "$W/tb" && vvp build/tb_prog.vvp +prog=build/pipe_bench.hex +prof +memlat > "$W/pipe.log" 2>&1 )
 grep -E "phase . passed|FAIL" "$W/pipe.log" | sed 's/^/   /'
 grep -E "PROF   state (3|4|9|10):" "$W/pipe.log" | head -4 | sed 's/^/   /'
+echo "== branch_bench ($LABEL)"
+( cd "$W/tb" && vvp build/tb_prog.vvp +prog=build/branch_bench.hex +prof +memlat > "$W/branch.log" 2>&1 )
+grep -E "phase . passed|FAIL" "$W/branch.log" | sed 's/^/   /'
+grep -E "PROF   state (3|4|9|10|51|52|55|56|57):" "$W/branch.log" | head -9 | sed 's/^/   /'
 echo "== corpus gate ($LABEL)"
 sed -i 's/\r$//' "$REPO/scripts/cpu_corpus100_gate.sh"
 bash "$REPO/scripts/cpu_corpus100_gate.sh" "$W/rtl" "$REPO/scripts/fixtures/corpus100/cpu.hex" "$REPO/scripts/fixtures/corpus100/results.bin" > "$W/gate.log" 2>&1

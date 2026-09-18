@@ -47,6 +47,15 @@ found a desktop alias and used it).
 7. 62be250 pushes issue in place (BSR.B/.W, JSR, PEA, LINK).
 8. 5206845 MOVEM stores from the loop (port A one register ahead), LINK and
    PEA retire on the acknowledge.
+9. (2026-09-18) BRA.W/.L, BSR.W/.L, JSR/JMP abs.W/abs.L/d16(PC) dispatch
+   from the retire that pops them straight into S_BCC_EXT/S_JSR1/S_JMP1
+   with the target fetch out in that cycle, hinted (`dispatch_branch`,
+   `sgo`, `hint_bd`); go_pc_now dispatches a resident target itself; the
+   S_MWR acknowledge folds S_BSR_PUSH/S_JSR2 when the stream is already
+   at br_tgt.  The plan's item 2 done exactly, without a table, for every
+   form whose target is in the queue words.  pipe_bench 122,190 ->
+   120,194, the new branch_bench 129,778 -> 118,784, corpus 32,980,201
+   with 0 diffs, the new t_branch_early leg passes on both cores.
 
 Synthesis: 55,210 ALUTs at 77aa72a against the release's 56,965.
 
@@ -86,7 +95,18 @@ Synthesis: 55,210 ALUTs at 77aa72a against the release's 56,965.
    (`scripts/cpu/timequest_worst_paths.tcl`) and the increment it names.
 2. A release needs the full gate (A/UX 3.1 at 32 MB, CD audio by ear): the
    user's call; nothing in `releases/` was touched.
-3. Further increments that are designed but not built: MOVEM's S_MOVEM_SET2
+3. Increment 9 (above) is gated and needs its build (b7, seed 21 + the
+   switch, in `../MacQuadra800_wt3`) and the Speedometer run by the Opus
+   operator (brief modelled on `scratch/pipeline_b6/BRIEF.md`; the box
+   was left at the 8.1 halt screen on build 6).  Expect the call-heavy
+   tests to move (JSR abs.L 9 -> 6 cycles, BSR.W 8 -> 6, JMP/BRA.W -2/-3).
+4. The rest of the plan's item 2, in order of expected value: RTS's pop
+   read issued from the retire that pops it (exact, one cycle per
+   return, no prediction); BRA.B/BSR.B after a non-producer retire
+   through the lookahead arm (cond 0000 needs no flags); then the table
+   proper for Bcc.W/.L and JSR/JMP (An) with a mispredict path that
+   re-arms the fall-through (design in section 9 of the design note).
+5. Further increments that are designed but not built: MOVEM's S_MOVEM_SET2
    folded into SET (decode selects An); the record applied to a resident
    target word in S_FETCH; the two-sector refill buffer (Alan's brf2, corpus
    -10 %, +2,300 ALMs, never pushed); the six-stage engine itself.

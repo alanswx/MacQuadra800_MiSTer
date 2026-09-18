@@ -189,6 +189,84 @@ Across items 3 to 8 pipe_bench went from 149,182 to 122,190 cycles
 (-18.1 %) and the corpus from 33,335,739 to 32,991,462 (-1.03 %), every
 row still matching silicon field for field.
 
+### 9. Unconditional transfers redirect at the pop, from the queue words (2026-09-18)
+
+The plan's item 2 asks for a branch target cache consulted on the queue
+head before decode.  For the transfers whose target is *in the queue
+words* -- BRA.W/.L, BSR.W/.L, JSR and JMP abs.W, abs.L and d16(PC) --
+a table would only predict what the head and the one or two words
+behind it already say exactly, so this increment computes the target
+from them instead (`bd_t = pc + 2 + sxw(w1)`, `{w1, w2}`, or the absolute
+word) and needs no prediction, no mispredict path and no storage.  The
+table proper is left for the forms it can help (Bcc.W/.L, JSR/JMP (An),
+RTS), see below.
+
+At the retire that pops one of these opcodes with its extension words
+resident (`rd_queue_pop && bd_ok`, a new arm after the lookahead arm),
+`dispatch_branch` pops the words with the opcode, as the record's
+immediate forms do, and enters the branch state directly (S_BCC_EXT with
+`imm`/`br_base`/`br_long`, or S_JSR1/S_JMP1 with `ea_addr`), skipping
+S_DECODE and the extension states; and when the port is free, the target
+is even and not the fall-through, and T1 is clear, it raises `sgo` and
+`issue_ifetch(bd_t)` runs once after the case, with `bd_t` on the hint
+bus in that cycle (`hint_bd`, registered-only select) so the fetch is a
+hinted two-clock read.  The branch state then does exactly what it did:
+`finish_bcc`/`go_pc` from S_BCC_EXT or S_JMP1, the push from S_BCC_EXT or
+S_JSR1 (now from the forwarded `dbg_a7_wb`, because the state runs while
+the retiring instruction's A7 write may still be landing).  Its
+`issue_ifetch` finds the stream already at the target and issues nothing.
+Two folds collect the cycles: `go_pc_now`'s plain path dispatches the
+target word at once when the stream is at `t` with the word resident
+(instead of S_FETCH popping it a cycle later; this also serves any
+redirect whose target happens to be the queue head), and the S_MWR
+acknowledge arm raises `go_pc(br_tgt)` itself for a BSR/JSR push whose
+stream is already at `br_tgt` -- the deferred-issue problem that kept
+Alan from folding S_BSR_PUSH/S_JSR2 into the acknowledge does not arise,
+since nothing is issued.  `go_pc_t_early` gains the S_MWR arm
+(`r_m_ret != S_NEXT ? br_tgt`, the lookahead's store-retire go_pc keeps
+`rd_bcc_t`).
+
+Why it is safe: every term of the dispatch and the hint is registered
+queue data, `pc`, `epf_count` and the state; the ALU flags never enter.
+The early fetch is speculative in the same sense as the fill engine's
+own: a fault on it is recorded (`epf_err`) and re-raised on demand, an
+odd target skips it and lets the state raise its address error, a trace
+or interrupt at the branch's own redirect takes the exception path with
+the stream flushed, and a store into the fetched window flushes it.
+`sys_retire` states and `aux_we` cycles are excluded, S_DECODE never
+dispatches this way (its `rd_ir` is `ir`), and the conditional forms are
+untouched.  The new `t_branch_early` leg of the AP suite checks each
+form after a register producer, a store, a load, LEA, NOP and another
+branch, the pushed return address and A7 (including an A7 write landing
+on the dispatch edge), T1 and T0 trace frames, the three odd-target
+frames, a level-2 interrupt swept over every cycle of the BSR.W and JSR
+windows, CINV-disciplined self-modifying displacements, and a target
+that is already resident; it passes on the pre-change core with the
+same expectations.
+
+Per transfer with the port free (cycles from the pop of the branch to
+the target's first decode; the push holds the port two cycles, the
+hinted fetch two): BSR.W 8 -> 6, JSR abs.L 9 -> 6, JMP abs.L 6 -> 3,
+BRA.W 5 -> 3.  The new `branch_bench` (BSR.W, JSR abs.L, JSR d16(PC),
+BRA.W, JMP abs.L per iteration, with JSR (An) and a Bcc.W as controls)
+measures 11 of the 13 cycles predicted per iteration.
+
+| gate | before | after |
+|---|---:|---:|
+| AP suite | 23/23 | 24/24 (t_branch_early added; 58,322 -> 58,216 cycles) |
+| bench_loop | 81,202 / 82,000 | unchanged |
+| pipe_bench phase 0 | 122,190 | 120,194 (-1.6 %): S_FETCH 6,131 -> 4,135, S_DECODE 18,516 -> 17,517, S_MWR 57,096 -> 59,095 (the push waits for the fetch) |
+| branch_bench phase 0 | 129,778 | 118,784 (-8.5 %): S_FETCH 23,214 -> 20,236, S_DECODE 22,016 -> 18,016, S_BSR_PUSH 1,000 -> 1, S_JSR2 3,000 -> 2,000 |
+| corpus-100 | 32,991,462 | 32,980,201 (-0.03 %), 0 diffs |
+
+Left for the table: Bcc.W/.L (the condition needs a prediction and a
+mispredict path that re-arms the fall-through), JSR/JMP (An) and other
+register-indirect forms, and RTS, whose pop read competes with the
+target fetch for the one port -- the exact alternative there is to issue
+the pop read from the retire that pops the RTS (one cycle, no
+prediction).  BRA.B/BSR.B after a non-producer retire can take the
+lookahead arm's go_pc with no flags (cond 0000), a one-line change.
+
 ## Builds
 
 | build | content | seed | ALMs | timing | rbf | hardware |

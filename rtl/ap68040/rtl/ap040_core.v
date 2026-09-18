@@ -692,6 +692,7 @@ reg        rd_queue_pop;
 reg        retire_req;
 reg        dgo;                   // an arm dispatched a resident branch target (decode_dbcc_brf): done once
 reg        pgo;                   // an arm redirected the flow (go_pc): performed once after the case
+reg        sgo;                   // dispatch_branch put the target fetch out at the pop (issue_ifetch once after the case)
 reg        igo;                   // an arm asked for extension words (immf): served once after the case
 reg  [1:0] igo_n;
 reg  [7:0] igo_ret;
@@ -2204,6 +2205,10 @@ wire [31:0] go_pc_t_early =
 	(state == S_RET2 || state == S_RET3)     ? m_val :
 	(state == S_BCC_EXT)                     ? rgo_bcc_ext_t :
 	(state == S_BSR_PUSH || state == S_JSR2) ? br_tgt :
+	// the push acknowledge's own redirect (a BSR/JSR whose target fetch
+	// went out at the pop); the lookahead arm's go_pc from a retiring
+	// store (r_m_ret == S_NEXT) keeps rd_bcc_t
+	((state == S_MWR) && (r_m_ret != S_NEXT)) ? br_tgt :
 	(state == S_DBCC1)                       ? rgo_dbcc_t :
 	(state == S_JMP1)                        ? ea_addr :
 	(state == S_FBCC)  ? pc_i + 32'd2 + (ir[6] ? imm : sxw(imm[15:0])) :
@@ -2444,6 +2449,68 @@ wire        n_apply_ok = !rd_valid && !n_inplace && (n_next != NX_NONE) && n_wor
 wire        n_desc_ok  = rd_valid && (state != S_DECODE) && !aux_we &&
                          (regs_alu_fire || shift_fire ||
                           ((state == S_MWR) && d_ack && (r_m_ret == S_NEXT)));
+// The unconditional transfers whose target the queue already holds --
+// BRA.W/.L, BSR.W/.L, JSR and JMP abs.W, abs.L and d16(PC) -- dispatch
+// from the retire that pops them straight into their branch state
+// (S_BCC_EXT, S_JSR1, S_JMP1), the extension words consumed with the
+// opcode as the record's immediate forms are, and when the port is free
+// the target fetch goes out in that same cycle, hinted (hint_bd): the
+// redirect the branch state raises two to five cycles later then finds
+// the stream already at the target and issues nothing, and go_pc_now
+// dispatches the resident word at once.  The decode cycle and the
+// target's demand fetch overlap the state's own work (the push of a BSR
+// or JSR, which the fetch in flight holds off until its acknowledge).
+// Every term here is registered queue data, pc, epf_count and state; the
+// ALU flags never enter, and the conditional forms keep the lookahead
+// arm and S_DECODE.  An odd target skips the fetch and lets the branch
+// state raise its address error as before; a fault on the early fetch is
+// recorded by the fill engine like any speculative fill's and re-raised
+// on demand.  (2026-09-18)
+wire        bd_bra    = (rd_ir[15:12] == 4'h6) && (rd_ir[11:9] == 3'b000) &&
+                        ((rd_ir[7:0] == 8'h00) || (rd_ir[7:0] == 8'hFF));
+wire        bd_jsrjmp = (rd_ir[15:8] == 8'h4E) && rd_ir[7] &&
+                        (rd_ir[5:3] == 3'b111) && (rd_ir[2:0] <= 3'd2);
+wire        bd_jmp    = bd_jsrjmp && rd_ir[6];
+wire        bd_long   = bd_bra ? (rd_ir[7:0] == 8'hFF) : (rd_ir[2:0] == 3'd1);
+wire        bd_abs    = bd_jsrjmp && !rd_ir[1];
+wire  [1:0] bd_n      = bd_long ? 2'd2 : 2'd1;
+wire [31:0] bd_immv   = bd_long ? {rd_w1, rd_w2} : {16'd0, rd_w1};
+wire [31:0] bd_disp   = bd_long ? {rd_w1, rd_w2} : sxw(rd_w1);
+wire [31:0] bd_t      = bd_abs ? bd_disp : (pc + 32'd2 + bd_disp);
+wire        bd_ok     = (bd_bra || bd_jsrjmp) &&
+                        (epf_count >= (4'd1 + {2'd0, bd_n})) &&
+                        (state != S_DECODE) && !aux_we && !sys_retire;
+// the early fetch: the port free, an even target that is not the
+// fall-through (the stream is there already, and go_pc_now dispatches a
+// resident target itself), T1 clear (a traced redirect takes the
+// exception path and the fetch would be wasted)
+wire [31:0] bd_fall   = pc + 32'd2 + {29'd0, bd_n, 1'b0};
+wire        bd_go     = bd_ok && !bd_t[0] && (bd_t != bd_fall) &&
+                        !epf_pend && !mem_req && !mem_ack && !sr[15];
+
+task dispatch_branch;
+	begin
+		epf_pop = 2'd1 + bd_n;
+		pc <= pc + 32'd2 + {29'd0, bd_n, 1'b0};
+		// as immf_now's inline pop: no speculative fill under a state
+		// that is about to push
+		epf_issue = 1;
+		if (bd_bra) begin
+			br_base <= pc + 32'd2;
+			br_long <= bd_long;
+			imm     <= bd_immv;
+			state   <= S_BCC_EXT;
+		end
+		else begin
+			ea_addr   <= bd_t;
+			ea_mode   <= 3'b111;
+			ea_rn     <= {1'b0, rd_ir[1:0]};
+			ea_pcmode <= rd_ir[1];
+			state     <= bd_jmp ? S_JMP1 : S_JSR1;
+		end
+		if (bd_go) sgo = 1;
+	end
+endtask
 // Step D: the record applied in the decode cycle itself.  The immediate
 // forms take the body's own inline paths (immf / immf_reg), so the queue
 // ownership rules and the deferred S_IMMF case are unchanged; rr_b for the
@@ -2794,6 +2861,30 @@ task go_pc_now;
 				epf_flush;
 				state <= S_POST_EXC;
 			end
+			// The stream already runs at the target with its first word
+			// resident (dispatch_branch put the fetch out at the pop, or
+			// the target is the word behind the branch): pop it now, as
+			// S_FETCH would a cycle later.  issue_ifetch would find the
+			// stream and issue nothing.  (2026-09-18)
+			else if (epf_armed && (epf_next == t) && (epf_super == sr_s) &&
+			         (epf_count != 4'd0) && !epf_flushed) begin
+				in_exc <= 0;
+				epf_pop = 2'd1;
+				ir <= epf_data[epf_head];
+				if (!movem_mem_op(epf_data[epf_head])) mm_resume <= 0;
+				perf_dispatch_toggle <= ~perf_dispatch_toggle;
+				pc_i <= t;
+				pc <= t + 32'd2;
+				tr_t1 <= sr[15];
+				tr_t0 <= sr[14];
+				flow_t0_pend <= 0;
+				t0_force <= t0_special(epf_data[epf_head]);
+				p_src <= SK_NONE; p_dst <= DK_NONE;
+				p_rmw <= 0; p_wbsup <= 0; p_flags <= 1; p_sextw <= 0;
+				p_dst_mem_bit <= 0;
+				exec_kind <= EK_ALU;
+				state <= S_DECODE;
+			end
 			else begin
 				issue_ifetch(t, sr_s);
 				pc_i <= t;
@@ -2947,13 +3038,21 @@ wire [31:0] hint_pop_addr = (state == S_DECODE)     ? dbg_a7_wb :
 // flags never enter the hint path.
 wire        hint_ftb = rd_is_bcc && (state == S_PIPE_REGS || state == S_EXEC ||
                                      state == S_PIPE_SDONE || state == S_MRD || state == S_MWR);
+// While an unconditional transfer with a resident target sits at the
+// queue head and the port is free, hint its target: if this cycle's
+// retire pops it, dispatch_branch's fetch is the hint's (a hinted
+// two-clock read); if not, a fill issued this cycle has merely lost its
+// idle-read match.  The acknowledge stays out of the select (it would
+// put the acknowledge in front of the hint's translation).
+wire        hint_bd  = bd_ok && !epf_pend && !mem_req && !sr[15];
 wire [31:0] hint_addr = hint_data  ? m_addr_r :
                         hint_bcc   ? (pc + sxb(ir[7:0])) :
                         hint_pipe  ? hint_pipe_addr :
                         hint_ea    ? ea_addr :
                         hint_pop   ? hint_pop_addr :
                         hint_redir ? hint_redir_addr :
-                        hint_ftb   ? rd_bcc_t : epf_ftail;
+                        hint_ftb   ? rd_bcc_t :
+                        hint_bd    ? bd_t : epf_ftail;
 // The request bus carries only registered state.  The hint rides its own
 // bus, which only RAM address inputs and the MMU's hint copy listen to,
 // so the address arithmetic behind it never enters a request-cycle path
@@ -4252,6 +4351,7 @@ always @(posedge clk) begin
 	retire_req = 0;
 	dgo = 0;
 	pgo = 0;
+	sgo = 0;
 	igo = 0; igo_n = 2'd0; igo_ret = 8'd0;
 	xgo = 0; xgo_vec = 8'd0; xgo_fmt = 4'd0; xgo_spc = 32'd0; xgo_addr = 32'd0;
 	mgo = 0; mgo_wr = 0; mgo_sz = 2'd0; mgo_ret = 8'd0; mgo_a = 32'd0; mgo_d = 32'd0;
@@ -4840,6 +4940,19 @@ always @(posedge clk) begin
 					else if (r_m_ret == S_PEA2) begin
 						rfw(4'd15, dbg_a7 - 32'd4);
 						fetch_next;
+					end
+					// BSR/JSR whose target fetch went out at the pop
+					// (dispatch_branch): the stream is already at
+					// br_tgt, so the redirect S_BSR_PUSH/S_JSR2 would
+					// raise a cycle later can be raised here without
+					// the deferred-issue problem (go_pc's issue_ifetch
+					// finds the stream and issues nothing).  Any other
+					// push keeps its redirect state.  (2026-09-18)
+					else if ((r_m_ret == S_BSR_PUSH || r_m_ret == S_JSR2) &&
+					         epf_armed && (epf_next == br_tgt) &&
+					         (epf_super == sr_s)) begin
+						rfw(4'd15, dbg_a7 - 32'd4);
+						go_pc(br_tgt);
 					end
 					else state <= r_m_ret;
 				end
@@ -5701,7 +5814,10 @@ always @(posedge clk) begin
 					if (tgt[0]) go_pc(tgt); // odd target: fault BEFORE the push
 					else begin
 						br_tgt <= tgt;
-						mwr(dbg_a7 - 32'd4, `AP040_SZ_L, pc, S_BSR_PUSH);
+						// the forwarded A7: dispatched from the pop
+						// (dispatch_branch) this state runs while the
+						// retiring instruction's A7 write is landing
+						mwr(dbg_a7_wb - 32'd4, `AP040_SZ_L, pc, S_BSR_PUSH);
 					end
 				end
 				else finish_bcc(tgt, cond_true(ir[11:8]));
@@ -5779,7 +5895,8 @@ always @(posedge clk) begin
 					    {ea_addr[31:1], 1'b0});
 				else begin
 					br_tgt <= ea_addr;
-					mwr(dbg_a7 - 32'd4, `AP040_SZ_L, pc, S_JSR2);
+					// the forwarded A7: see S_BCC_EXT
+					mwr(dbg_a7_wb - 32'd4, `AP040_SZ_L, pc, S_JSR2);
 				end
 			end
 
@@ -8750,12 +8867,21 @@ always @(posedge clk) begin
 				epf_pop = 2'd2;
 			end
 		end
+		// An unconditional transfer with a resident target at the head:
+		// into its branch state now, with the target fetch out when the
+		// port is free (see dispatch_branch).  (2026-09-18)
+		else if (rd_queue_pop && bd_ok)
+			dispatch_branch;
 
 		// The resident-target dispatch an arm or the lookahead asked for: it
 		// arms the queue and claims the port, so it runs before the fill engine.
 		if (pgo) go_pc_now(go_pc_t_early);
 		if (xgo) exc_now(xgo_vec, xgo_fmt, xgo_spc, xgo_addr);
 		if (dgo) decode_dbcc_brf_now(dbrf_a_early);
+		// dispatch_branch's early target fetch: the stream is re-armed at
+		// the target and the fetch issued (the port was checked free), so
+		// this runs before the fill engine like the redirects above.
+		if (sgo) issue_ifetch(bd_t, sr_s);
 
 		//-------------------------------------------------- fetch queue engine
 		// The queue fills itself: whenever the memory port is idle, the
