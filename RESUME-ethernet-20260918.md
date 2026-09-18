@@ -34,17 +34,34 @@ out of the repo. `origin/CPU-pipeline` still has it; removing it is the user's
 
 ## State
 
-- Main: unit test `support/mac/test/mac_q8_test.cpp` 49/49; cross-build
-  `scratch/MiSTer_7207759c`, **installed on the .143 box 2026-09-18 13:57 by
-  rename + reboot** (previous binary kept as `/media/fat/MiSTer.prev_bb1a08d3`;
-  rollback = rename back + reboot). It is `bb1a08d3`'s source plus `d277747`.
-- Core: `make tb_sonic_mbx` 37/37, `make lint_sonic` clean. First Quartus
-  compile (seed 21) running on `.153` from `69d9585`.
-- The MiSTer's eth0 is `ba:02:54:2d:d0:a3`, so the guest will be
-  `08:00:07:2d:d0:a3`.
-- `/media/fat/config/MacQuadra800.CFG` is 16 zero bytes; Ethernet On = byte 0
-  bit 6 (`0x40`), interface = bits 8:7 (0 = eth0). Patch the file before
-  `load_core` instead of driving the OSD blind.
+- Main: unit test `support/mac/test/mac_q8_test.cpp` 49/49. Installed on the
+  .143 box by rename + reboot: `088865ba` (= `a56296d`: the Q8 personality +
+  the `q8 fpga` stats line + delivered/filtered counts). Older binaries kept
+  as `/media/fat/MiSTer.prev_7207759c` and `MiSTer.prev_bb1a08d3` (the last
+  one is the pre-Ethernet Main; rollback = rename back + reboot).
+- Core: `make tb_sonic_mbx` 37/37, `make lint_sonic` clean.
+- **Ethernet build 1** (`69d9585`, seed 21, built on `.153`): 36,560 ALMs,
+  HDMI -0.306. On hardware: boots with Ethernet Off and On; the driver opens
+  once TCP/IP points at Ethernet; 12 packets sent, DMA round trips 36 us
+  average, 68 ISR posts all consumed — then **the whole guest froze**.
+  Cause: `iosb.sv`'s VIA2 any-slot flag followed edges of the OR of VBL and
+  SONIC; with two sources the flag is cleared while the other is asserted and
+  no slot interrupt (VBL included) is ever delivered again. Fixed `665a450`
+  (the flag is a level). Evidence in `scratch/eth/hw1/` (`hang_stats.txt`).
+- **Ethernet build 2** (`665a450`, seed 21, `.153`): meets timing everywhere
+  (36,502 ALMs, clk_sys +0.323, HDMI +0.314, clk_ram +0.716, hold +0.220);
+  rbf `2ea4d529` in `scratch/eth/build2/`; hardware run in `scratch/eth/hw2/`.
+- `sonic_mbx` by itself: 401.6 ALMs / 665 ALUTs / 0 RAM (build 1 fit report).
+- The MiSTer's eth0 is `ba:02:54:2d:d0:a3`, so the guest is
+  `08:00:07:2d:d0:a3` (confirmed: Main held unicast frames for that address,
+  i.e. the DHCP server answered it, so the PROM path is right).
+- `/media/fat/config/MacQuadra800.CFG`: Ethernet On = byte 0 bit 6 (`0x40`,
+  currently set; the Off copy is `MacQuadra800.CFG.bak_ethoff`), interface =
+  bits 8:7 (0 = eth0). Patch the file before `load_core` instead of driving
+  the OSD blind.
+- Reading `/tmp/mac_eth_stats`: `q8 fpga isr/imr/present/irq` is the FPGA's
+  own state; `regwr 05=` counts the guest's ISR acknowledgements. A frozen
+  guest with `irq=1` and a flat `05=` is an interrupt that is not delivered.
 
 ## QEMU ground truth gathered (WSL `~/qemu-work/sonic8.log`, `sonic8_mr.log`)
 
