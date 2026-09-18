@@ -209,6 +209,17 @@ initial begin
 	win[PTRS] = {win[WPTR][31:0], win[WPTR][31:0]};
 	wait_clk(800);
 	reg_rd(6'd0); check(got == 32'h00000094, "and follows the shadow once the applied index passes");
+	// the interrupt post carries the applied index too: TXP must be gone when TXDN shows
+	reg_wr(6'd5, 16'h0200);                                    // the masked TXDN from above
+	reg_wr(6'd4, 16'h0600);
+	reg_wr(6'd0, 16'h0002);
+	reg_rd(6'd0); check(got == 32'h00000096, "TXP overlay up again");
+	win[PTRS] = 64'd0;                                         // PTRS deliberately stale
+	win[ISRSET] = {win[WPTR][15:0], 16'd0, 1'b0, 15'h0200, 16'h0045};
+	while (!irq) @(posedge clk);
+	reg_rd(6'd0); check(got == 32'h00000094, "TXP reads clear in the TXDN handler's first CR read");
+	reg_wr(6'd5, 16'h0200);
+	win[PTRS] = {win[WPTR][31:0], win[WPTR][31:0]};
 
 	// DMA: three ops in one list
 	for (i = 0; i < 7; i = i + 1) xfer_set_byte(3 + i, 8'h10 + i);           // op0: 7 bytes -> $1003
