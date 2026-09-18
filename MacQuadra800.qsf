@@ -280,6 +280,11 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # clock -- 36,089 ALMs (86 %), clk_sys +0.772, HDMI +0.527, clk_ram +0.668, hold +0.204, TNS 0; req_tgl -> req_handoff
 # +0.727 (b12 +1.384). rbf fde49a3c = scratch/pipeline_b13/. ON HARDWARE: boots, Mix 0.9285 (mean of 8; b8 0.907, shipped
 # 0.855), CQD 0.670, 0 anomalous values in 11 series, clean shutdown. The branch head (11/12 reverted, 4abb118) = this RTL.
+# 2026-09-18 14:31 ethernet build 1 (69d9585 on add-ethernet = build 13's machine + rtl/sonic_mbx.sv and its wiring; built
+# on the second Quartus host, dani@192.168.99.153, same 17.0.2 Lite), seed 21 + the switch: 36,560 ALMs (87 %, +471;
+# sonic_mbx itself 401.6 ALMs / 665 ALUTs / 0 RAM), clk_sys +0.547, clk_ram +0.770, hold +0.214, HDMI VIOLATED -0.306
+# (TNS -0.504, the framework's video register again). rbf 815ee8b4 = scratch/eth/build1/, tried on hardware as a marginal
+# build (the miss is not on the CPU clock). Seed 22 of the same tree runs on .153 next.
 set_global_assignment -name SEED 21
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
