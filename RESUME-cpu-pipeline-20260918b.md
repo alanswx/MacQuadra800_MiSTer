@@ -324,3 +324,20 @@ rename-and-reboot swap) with the release core
 - The two archive folders on the box were left for the user to delete.
 - Branch `CPU-pipeline`: everything committed, NOTHING pushed (the user
   pushes).  Next engineering step: the store drain's write rate (above).
+
+## Worktrees are closed out; do not make new ones (the user, 2026-09-18)
+
+"Avoid using worktrees in the future since they confuse me too much."
+`../MacQuadra800_wt` (74db5cc, a 2026-09-12 store-buffer experiment with
+uncommitted edits), `_wt2` (b193aad, a seed-22 qsf edit) and `_wt3`
+(4d09389, this branch's build tree, clean) were saved into
+`scratch/worktree_closeout_20260918/`: each tree's HEAD and status,
+its uncommitted diff as a patch, and the build logs, TimeQuest reports and
+tcl scripts from its `scratch/`.  The temporary worktree in the session
+scratchpad was removed.  Removing the three directories themselves was
+left to the user (`git worktree remove --force ../MacQuadra800_wt` etc.,
+then `git worktree prune`).  EVERY instruction above that says "from
+`../MacQuadra800_wt3`" is obsolete: builds run in THIS checkout (commit
+first, hands off RTL/qsf/qip/sdc during the flow), and the crossing report
+is `quartus_sta -t scripts/cpu/timequest_cross_domain.tcl <tag>` from here.
+CLAUDE.md's Build section says so.

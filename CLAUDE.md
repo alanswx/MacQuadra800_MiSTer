@@ -42,6 +42,14 @@ bash scripts/build_only.sh --check    # Analysis & Synthesis only (~13 min), no 
   WSL's `C:\Windows\System32\bash.exe`; the build needs
   `C:\Program Files\Git\bin\bash.exe`. From PowerShell, launch it detached with
   `Start-Process` so a tool timeout cannot kill Quartus mid-fit.
+- **No git worktrees** (user, 2026-09-18: they are confusing). Build in this
+  checkout: commit what is to be built, launch `build_only.sh`, and do not
+  touch RTL, the `.qsf`, `files.qip` or the `.sdc` until the flow ends (docs
+  and `scratch/` are fine meanwhile). A variant or older RTL is a commit you
+  check out between builds; a full-machine sim copy comes from
+  `scripts/sim_tree_wsl.sh <name> <commit>` inside WSL. After each fit, before
+  the next build overwrites the db:
+  `quartus_sta -t scripts/cpu/timequest_cross_domain.tcl <tag>`.
 - **Never run two builds of this project at once** — they share `db/` and
   corrupt each other. **And never two Quartus flows on this box at all,
   worktrees included** (user, 2026-09-16): a seed walk runs one seed after
