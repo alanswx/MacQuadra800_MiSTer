@@ -88,7 +88,7 @@ wire        mem_instr;
 wire  [1:0] mem_size;
 wire [31:0] mem_addr;
 wire [31:0] mem_hint_addr, mm_hint_addr;
-wire        mem_hint_instr, mm_hint_instr, mm_hint_match;
+wire        mem_hint_instr, mm_hint_instr, mm_hint_match, mm_hint_wmatch;
 wire [21:0] mm_hint_ptag;
 wire [31:0] mem_wdata;
 wire  [2:0] mem_fc;
@@ -272,6 +272,7 @@ ap040_mmu mmu (
 	.m_hint_instr(mm_hint_instr),
 	.m_hint_ptag(mm_hint_ptag),
 	.m_hint_match(mm_hint_match),
+	.m_hint_wmatch(mm_hint_wmatch),
 	.m_wdata(mm_wdata),
 	.m_fc(mm_fc),
 	.m_ack(mm_ack),
@@ -355,11 +356,14 @@ if (AP040_ENABLE_CACHE != 0) begin : g_cache
 		.c_hint_instr(mm_hint_instr),
 		.c_hint_ptag(mm_hint_ptag),
 		.c_hint_match(mm_hint_match),
+		.c_hint_wmatch(mm_hint_wmatch),
 		.c_wdata(mm_wdata),
 		.c_fc(mm_fc),
 		.c_nocache(mm_nocache | ~cache_allow),
 		// same qualifier as wombat_store_buffer's buffer_req
 		// same qualifier as wombat_store_buffer's buffer_req: RAM and the DAFB VRAM window
+		.c_post_ok_hint(store_buffer_ok && ((mm_hint_ptag[21:20] == 2'b00) ||
+		                                    (mm_hint_ptag[21:11] == 11'b1111_1001_000))),
 		.c_post_ok(store_buffer_ok && ((mm_addr[31:30] == 2'b00) ||
 		                               (mm_addr[31:21] == 11'b1111_1001_000))),
 		.s_stb(snp_stb),

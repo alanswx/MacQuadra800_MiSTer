@@ -3168,6 +3168,28 @@ task pipe_go_regdst;
 endtask
 
 wire        hint_data = (state == S_MRD) && !m_issued;
+// Store hints: the address a store presents next cycle, from the state
+// that issues it (dst_addr from S_EXEC, A7 - 4 from the five push
+// states, mm_addr from the MOVEM loop, m_addr_r from S_MWR's own issue),
+// so the MMU's write-side verdict is registered when the request arrives
+// and the cache acknowledges a posted store in its request cycle
+// (fast_store).  A store that was not hinted takes the registered
+// acknowledge as before.  (2026-09-19)
+wire        hint_st_exec  = (state == S_EXEC) && (p_dst == DK_MEM);
+wire        hint_st_pushf = ((state == S_DECODE) && (ir[15:8] == 8'h61) &&
+                             (ir[7:0] != 8'h00) && (ir[7:0] != 8'hFF)) ||
+                            ((state == S_BCC_EXT) && (ir[11:8] == 4'h1)) ||
+                            (state == S_JSR1);
+wire        hint_st_push  = (state == S_PEA1) || (state == S_LINK2);
+wire        hint_st_movem = (state == S_MOVEM_LOOP) && !mm_dir;
+wire        hint_st_mwr   = (state == S_MWR) && !m_issued;
+wire        hint_store    = hint_st_exec || hint_st_pushf || hint_st_push ||
+                            hint_st_movem || hint_st_mwr;
+wire [31:0] hint_store_addr = hint_st_exec  ? dst_addr :
+                              hint_st_mwr   ? m_addr_r :
+                              hint_st_movem ? mm_addr :
+                              hint_st_pushf ? (dbg_a7_wb - 32'd4) :
+                                              (dbg_a7 - 32'd4);
 wire        hint_bcc  = (state == S_DECODE) && (ir[15:12] == 4'h6) &&
                         (ir[11:8] != 4'h1) &&
                         (ir[7:0] != 8'h00) && (ir[7:0] != 8'hFF);
@@ -3256,6 +3278,7 @@ wire        hint_ftb = rd_is_bcc && (state == S_PIPE_REGS || state == S_EXEC ||
 // put the acknowledge in front of the hint's translation).
 wire        hint_bd  = bd_ok && !epf_pend && !mem_req && !sr[15];
 wire [31:0] hint_addr = hint_data  ? m_addr_r :
+                        hint_store ? hint_store_addr :
                         hint_bcc   ? (pc + sxb(ir[7:0])) :
                         hint_pipe  ? hint_pipe_addr :
                         hint_ea    ? ea_addr :
@@ -3273,7 +3296,7 @@ wire [31:0] hint_addr = hint_data  ? m_addr_r :
 assign mem_addr  = mem_addr_q;
 assign mem_instr = mem_instr_q;
 assign mem_hint_addr  = mem_req ? mem_addr_q  : hint_addr;
-assign mem_hint_instr = mem_req ? mem_instr_q : !(hint_data || hint_pipe || hint_ea || hint_pop);
+assign mem_hint_instr = mem_req ? mem_instr_q : !(hint_data || hint_store || hint_pipe || hint_ea || hint_pop);
 
 //---------------------------------------------------------------------------
 // main state machine

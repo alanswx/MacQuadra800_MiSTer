@@ -81,6 +81,7 @@ module ap040_mmu
 	output            m_hint_instr,
 	output     [21:0] m_hint_ptag,  // the hint's physical tag, registered
 	output            m_hint_match, // the request is the registered hint
+	output            m_hint_wmatch,// ... and its page may be written now (see hq_wok)
 	output     [31:0] m_wdata,
 	output      [2:0] m_fc,
 	input             m_ack,
@@ -837,8 +838,18 @@ wire          mmu_quiet = (wst == W_IDLE) && !w_active && !pf_req && !pt_req &&
                           !sweep_on && !fill_we;
 wire          hn_ok    = (hn_ttr || !tc_e || uh_hit || hn_pipe) && mmu_quiet &&
                          !hn_ci && !hn_sprot;
+// The hint's write side, registered with the rest: the page carries no
+// accumulated write protection (entry bit 0, or the TTR's W bit for a
+// transparent hint) and its modified bit is already set (entry bit 1: the
+// first write to a page walks to set M, and must).  A store whose request
+// is such a hint is acknowledged by the cache in its request cycle
+// (the one-clock posted store, 2026-09-19); every other store takes the
+// registered path, faults included.
+wire          hn_wp    = hn_ttr ? (hn_ttr_a ? hn_ttra[2] : hn_ttrb[2]) :
+                         (tc_e && (uh_hit || hn_pipe)) ? (uh_ent[0] || !uh_ent[1]) : 1'b0;
+wire          hn_wok   = hn_ok && !hn_wp;
 reg  [31:0]   hq_addr;
-reg           hq_instr, hq_super, hq_ok;
+reg           hq_instr, hq_super, hq_ok, hq_wok;
 reg  [21:0]   hq_ptag;
 reg [127:0]   ttr_q;
 always @(posedge clk) begin
@@ -847,6 +858,7 @@ always @(posedge clk) begin
 	hq_super <= a_super;
 	hq_ptag  <= hn_pa[31:10];
 	hq_ok    <= nreset && hn_ok;
+	hq_wok   <= nreset && hn_wok;
 	ttr_q    <= {itt0, itt1, dtt0, dtt1};
 end
 assign m_hint_addr  = c_hint_addr;
@@ -855,6 +867,7 @@ assign m_hint_ptag  = hq_ptag;
 assign m_hint_match = c_req && hq_ok && (hq_addr == c_addr) && (hq_instr == c_instr) &&
                       (hq_super == a_super) && (tc == u_tc) &&
                       (ttr_q == {itt0, itt1, dtt0, dtt1}) && mmu_quiet;
+assign m_hint_wmatch = m_hint_match && hq_wok;
 
 endmodule
 

@@ -47,6 +47,7 @@ module ap040_cache
 	input             c_hint_instr,
 	input      [21:0] c_hint_ptag,   // its physical tag, registered by the MMU
 	input             c_hint_match,  // the request is that hint
+	input             c_hint_wmatch, // ... and the MMU vouches for writing its page now
 	input      [31:0] c_wdata,
 	input       [2:0] c_fc,
 	input             c_nocache,
@@ -54,7 +55,15 @@ module ap040_cache
 	// its store queue and never report a bus error for them), so the cache
 	// may acknowledge such a store on admission and drain it afterwards.
 	input             c_post_ok,
+	// The same predicate evaluated on the HINT's physical address (the
+	// platform derives it from c_hint_ptag, which the MMU registered), so
+	// the one-clock posted store below hangs off registers only; a store
+	// it acknowledges is posted whatever the live c_post_ok says (the two
+	// agree whenever the request is the hint, except when the store queue
+	// filled in between, and then the drain simply waits for it).
+	input             c_post_ok_hint,
 	output            c_ack,
+	output            c_posting,     // a posted store is draining (bench attribution)
 	output     [31:0] c_rdata,
 	// Instruction line sideband: one cycle after an instruction hit is
 	// acknowledged, the whole 16-byte physical line it came from (word 0 in
@@ -530,13 +539,14 @@ assign m_fc    = fill_active ? r_fc : (post_active ? p_fc : c_fc);
 // queue's ring write, the tightest path in the core).
 wire fast_hit;
 wire [31:0] fast_data;
-assign c_ack   = (pass_active && !post_active) ? m_ack : (ack_r | fast_hit);
+assign c_ack   = (pass_active && !post_active) ? m_ack : (ack_r | fast_hit | fast_store);
 // The offer is a level, not a pulse: the core refuses a line while a
 // queue fetch is outstanding or a data access acknowledges in the same
 // cycle, and a pulse lost to that refusal cost explicit fetches for the
 // rest of the line (Sieve, 2026-09-14).  The core's accept is idempotent.
 assign c_line_stb  = iline_valid && !iline_pending;
 assign c_busy      = fill_active || (cst == C_TAGW) || post_active;
+assign c_posting   = post_active;
 // A spanning store merges from its line read, which completes one cycle
 // after admission; a capture-cycle acknowledge would arrive first and
 // force the invalidate fallback (13 % more data fills in the Speedometer
@@ -738,6 +748,18 @@ assign fast_hit  = fast_accept && !err_hold && !m_err && fast_lane &&
                    !(s_stb && (s_addr[SETW+3:4] == hq_lo[SETW+3:4])) &&
                    !c_instr && c_hint_match;
 assign fast_data = lw_extract(hint_data_hit, c_size, hq_lo[1:0]);
+// The one-clock posted store: a data write that the platform posts
+// (c_post_ok), whose request is the registered hint and whose page the
+// MMU vouches for writing (c_hint_wmatch: translated, cacheable, not
+// write-protected, modified bit set), admitted in C_IDLE with nothing
+// owed.  The admission below does everything it did -- captures the
+// copy it drains from, sets post_active, books the hit-update -- on this
+// same edge; only the acknowledge moves from the registered ack_r a
+// cycle later to now.  Every term is a register or the MMU's registered
+// verdict, as for fast_hit.  (2026-09-19)
+wire        fast_store = (cst == C_IDLE) && !(cinv_req && !cinv_done) && !ack_r &&
+                         !err_hold && !m_err && c_write && !c_instr &&
+                         !store_inv_lost && c_post_ok_hint && c_hint_wmatch;
 
 // Any instruction hit that identified its way (a C_LOOK hit, or an idle
 // admission) reads that way's whole line on the same edge it acknowledges.
@@ -954,8 +976,10 @@ always @(posedge clk) begin
 							sline_ready <= 0;
 							// A posted store is acknowledged now and drained
 							// from its captured copy while the core moves on.
-							if (c_post_ok) begin
-								ack_r <= 1;
+							if (c_post_ok || fast_store) begin
+								// acknowledged now by fast_store, or next
+								// cycle by ack_r
+								if (!fast_store) ack_r <= 1;
 								post_active <= 1;
 								p_addr <= c_addr; p_wdata <= c_wdata;
 								p_size <= c_size; p_fc <= c_fc;

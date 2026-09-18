@@ -404,6 +404,69 @@ What it costs: about 190 flops for the entry and a second write source on
 the pipe registers.  MOVEQ, register shifts and `#imm,Dn` at a loop top
 are not cached: in S_DECODE the descriptor leaves those to the body.
 
+### 13. The one-clock posted store (2026-09-19)
+
+Stores were 12 % of the Speedometer bracket at 3.3 cycles each; a posted
+store's floor was two port cycles, the request and the registered
+acknowledge on admission (Alan's write-path checkpoint).  The read side
+has had a one-clock hit since step 1: the address goes out on the hint
+bus a cycle early, the MMU registers a verdict with its translation, and
+the cache acknowledges the request in its own cycle from registers only.
+This increment gives stores the same three parts.
+
+- **The core hints its stores** (`hint_store`): `dst_addr` from S_EXEC
+  for the memory-destination classes, `A7 - 4` (forwarded where the
+  state may run while an A7 write lands) from the five push states,
+  `mm_addr` from the MOVEM loop, `m_addr_r` from S_MWR's own issue; all
+  registers, taking precedence over the fetch hints in those states.
+- **The MMU's write verdict** (`hq_wok`, `m_hint_wmatch`): the hint's
+  page carries no accumulated write protection (entry bit 0, or the
+  TTR's W bit for a transparent hint) and its modified bit is already
+  set (entry bit 1: the first write to a page must walk to set M), on
+  top of the read verdict (translated, cacheable, not supervisor-only,
+  the MMU quiet).
+- **The cache's store fast lane** (`fast_store`): a data write in
+  C_IDLE with nothing owed whose request is the registered hint with the
+  write verdict, and which the platform posts -- judged on the hint's
+  registered physical tag (`c_post_ok_hint`, a new input beside the live
+  `c_post_ok`, which carries the MMU's live translation and may not
+  qualify a same-cycle acknowledge) -- is acknowledged in the request
+  cycle.  The admission does everything it did on that same edge
+  (captures the copy it drains from, sets `post_active`, books the
+  hit-update); a fast-acknowledged store is always posted, whatever the
+  live predicate says, so the two paths cannot disagree.  Every term is
+  a register or the MMU's registered verdict, as for `fast_hit`.
+
+The CPU-only suite had never exercised posting: its wrapper tied
+`c_post_ok` low ("no store queue below this bench").  It posts now, as
+the MiSTer wrapper does, which needed three bench adaptations, each a
+property of posting itself rather than of this change: the bench's
+magic-register page is its I/O and is never posted (its bus-error target
+lives there); the FC check attributes a bus cycle to the store that
+posted it, not to the exception processing the core may have entered by
+the time it drains (the cache exports `c_posting` for that); and the
+double-fault bench, which bus-errors an exception frame's stack write,
+keeps stores unposted through the wrapper's new `AP040_POST_STORES`
+parameter (a promise-never-faults store cannot carry that fault, on the
+board or anywhere).  With posting alone the benches move a lot and not
+uniformly (pipe_bench 118,696 -> 110,696, branch_bench 117,286 ->
+119,284, corpus 32,962,768 -> 32,249,564, 0 diffs): the bench's memory
+is a 16-bit bus with a seven-cycle write, so every store's drain
+dominates and the reads behind it wait.  On that model the fast lane
+changes nothing (the earlier acknowledge only moves the wait to the
+next access), so its gain is a hardware measurement; the suite is its
+correctness gate, and `t_mmu`'s write-protect, modified-bit and
+first-store-faults cases are exactly the ones a wrong write verdict
+would break.
+
+| gate (posting on) | posting alone | with the fast lane |
+|---|---:|---:|
+| AP suite | 24/24 | 24/24 |
+| bench_loop phase 0 | 55,916 | 55,914 |
+| pipe_bench phase 0 | 110,696 | 110,696 (the bench's drain dominates) |
+| branch_bench phase 0 | 119,284 | 119,284 |
+| corpus-100 | 32,249,564, 0 diffs | 32,248,984, 0 diffs |
+
 ### Withdrawn: RTS/RTD/RTR from the pop (2026-09-18)
 
 A `dispatch_ret` that popped RTS/RTD/RTR into S_RET1 (or issued the pop
@@ -430,6 +493,7 @@ return address with A7 backed out) stays in `t_branch_early`.
 | build 7 | 8a9b392 (+ increment 9) | 21 + the switch | 36,388 (87 %) | routed; CPU clock -1.575 (HDMI +0.333, RAM +0.538): rr_a -> regfile -> ALU shifter and zero compare -> flags -> the lookahead carrier selecting between go_pc_t_early and the early fetch's bd_t -> seed count -> epf_ftail (`scratch/pipeline_b7/worst_detail.txt`); rule 3 again, from a second issue_ifetch target | not deployable | |
 | build 7b | 8a9b392 + 788ab35 (the shared early-target wire, the valid-run seed count; increment 9 alone otherwise) | 21 + the switch | 35,807 (85 %); synthesis 55,143 ALUTs (-455 vs build 7) | **met on every clock**: CPU +0.580, HDMI +0.364, RAM +0.527, hold +0.147, TNS 0 | 9e3b7d9d (`scratch/pipeline_b7/`) | **Mix 0.905/0.908/0.907** (+0.55 % over build 6, +6.0 % over 0.855; Dhrystones +1.8 %, Permutations/Towers -1 %), CQD 0.662, FPU 0.468/0.464, 8.1 boot <= 97 s, clean 47 s shutdown, no artefact; two non-reproducing short last-test timings excluded (section 18 of `docs/PERFORMANCE_MEASUREMENTS.md`) |
 | build 8 | 78ba885, the branch head (increments 9 + 10 + 788ab35) | 21 + the switch | 35,952 (86 %); synthesis 55,424 ALUTs | **met on every clock**: CPU +1.114 (the branch's best), HDMI +0.217, RAM +0.914, hold +0.258, TNS 0. The twelve worst CPU-clock paths are all the SDRAM bridge's clk_ram -> clk_sys line handoff (`sdram_beat32 line_done_handoff -> line_data`, +1.114); no core path is among them (`scratch/pipeline_b8/worst_paths.txt`). The clk_sys -> clk_ram handoff toggle has +2.513 | 69c53878 (`scratch/pipeline_b8/`) | **Mix 0.905/0.908/0.908** (mean 0.907, flat against build 7b: Speedometer's loops close with Bcc, not DBcc), **CQD 0.666** (+0.6 %, all depths), FPU 0.468/0.465, 8.1 boot <= 101 s, clean 47 s shutdown, no artefact, no short timing in six series (section 19) |
+| build 9 | 4931e19, the head (increments 11 + 12 on build 8) | 21 + the switch | 36,400 (87 %); synthesis 56,024 ALUTs | **met on every clock**: CPU +1.007, HDMI +0.477, RAM +0.697, hold +0.249, TNS 0 | f061d1fc (`scratch/pipeline_b9/`) | (running) |
 
 (filled in as each build completes; the seed ledger is also in the `.qsf`.)
 

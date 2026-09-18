@@ -78,7 +78,17 @@ found a desktop alias and used it).
     `apply_cached_desc/record`): a refill-buffer dispatch replays the
     cached decode of the loop's first instruction instead of S_DECODE.
     bench_loop 68,354 -> 56,108 (-17.9 %), corpus 32,962,768 with 0
-    diffs, t_branch_early section J.  Build 9 = the head.
+    diffs, t_branch_early section J.  Build 9 (4931e19, seed 21 + the
+    switch) MEETS every clock: CPU +1.007, HDMI +0.477, RAM +0.697,
+    36,400 ALMs (87 %), rbf f061d1fc in `scratch/pipeline_b9/`, the
+    operator running it (launched 04:37).
+13. (2026-09-19, in gating) The one-clock posted store: store hints
+    from the core, a write-side MMU verdict (`hq_wok`), the cache's
+    `fast_store` on the hint's registered physical tag
+    (`c_post_ok_hint`); the CPU-only bench now POSTS stores (the
+    wrapper's `AP040_POST_STORES`, the magic page excluded, the FC check
+    attributing drains, the double-fault bench unposted).  The bench
+    cannot show the gain (16-bit bus, 7-cycle writes); hardware will.
 
 Synthesis: 55,210 ALUTs at 77aa72a against the release's 56,965; 55,598
 at 8a9b392 (build 7, increment 9); 55,143 at build 7b; 55,424 at build 8.

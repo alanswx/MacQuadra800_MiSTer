@@ -17,7 +17,10 @@ module ap040_tg68k_compat
 	parameter AP040_HAS_MMU      = 1,
 	parameter AP040_HAS_FPU      = 1,
 	parameter AP040_ENABLE_CACHE = 1,
-	parameter AP040_FAST_SIM     = 0
+	parameter AP040_FAST_SIM     = 0,
+	// Post stores to on-board RAM (the MiSTer wrapper's behaviour).  A bench
+	// that bus-errors a RAM write to test the fault path sets it to 0.
+	parameter AP040_POST_STORES  = 1
 )
 (
 	input         clk,
@@ -95,7 +98,7 @@ wire        mem_instr;
 wire  [1:0] mem_size;
 wire [31:0] mem_addr;
 wire [31:0] mem_hint_addr, mm_hint_addr;
-wire        mem_hint_instr, mm_hint_instr, mm_hint_match;
+wire        mem_hint_instr, mm_hint_instr, mm_hint_match, mm_hint_wmatch;
 wire [21:0] mm_hint_ptag;
 wire [31:0] mem_wdata;
 wire  [2:0] mem_fc;
@@ -279,6 +282,7 @@ ap040_mmu mmu (
 	.m_hint_instr(mm_hint_instr),
 	.m_hint_ptag(mm_hint_ptag),
 	.m_hint_match(mm_hint_match),
+	.m_hint_wmatch(mm_hint_wmatch),
 	.m_wdata(mm_wdata),
 	.m_fc(mm_fc),
 	.m_ack(mm_ack),
@@ -337,6 +341,9 @@ end
 wire        snp_stb  = cache_snoop_stb | wsnp_pend;
 wire [31:0] snp_addr = cache_snoop_stb ? cache_snoop_addr : wsnp_addr;
 
+// a posted store is draining (the bench's FC check attributes those bus
+// cycles to the store, not to whatever the core is doing by then)
+wire        cache_posting;
 generate
 if (AP040_ENABLE_CACHE != 0) begin : g_cache
 	// With the snoop port wired up, chip RAM is cacheable too: a chipset
@@ -388,14 +395,26 @@ if (AP040_ENABLE_CACHE != 0) begin : g_cache
 		.c_hint_instr(mm_hint_instr),
 		.c_hint_ptag(mm_hint_ptag),
 		.c_hint_match(mm_hint_match),
+		.c_hint_wmatch(mm_hint_wmatch),
 		.c_wdata(mm_wdata),
 		.c_fc(mm_fc),
 		.c_nocache(mm_nocache | ~cache_allow |
 		           (mm_instr & cache_chip & ~cache_allow_all)),
-		.c_post_ok(1'b0),   // no store queue below this bench: never post
+		// Post stores to on-board RAM as the MiSTer wrapper does (its
+		// predicate: RAM or the VRAM window); the cache drains them from
+		// its captured copy, so the bench needs no queue of its own.  The
+		// bench's magic registers at $F1xx are its I/O (the bus-error
+		// target at $F140 among them) and are never posted.
+		// Tied low until 2026-09-19, which left every posted-store path
+		// unexercised by the suite.
+		.c_post_ok((AP040_POST_STORES != 0) && (mm_addr[31:30] == 2'b00) && (mm_addr[15:8] != 8'hF1)),
+		// the same on the hint's physical tag (pa[31:10]): the magic page
+		// group $F000-$F3FF is excluded whole
+		.c_post_ok_hint((AP040_POST_STORES != 0) && (mm_hint_ptag[21:20] == 2'b00) && (mm_hint_ptag[5:0] != 6'b111100)),
 		.s_stb(snp_stb),
 		.s_addr(snp_addr),
 		.c_ack(mm_ack),
+		.c_posting(cache_posting),
 		.c_rdata(mm_rdata),
 		.c_line_stb(mm_line_stb),
 		.c_line_tag(mm_line_tag),
@@ -419,6 +438,7 @@ if (AP040_ENABLE_CACHE != 0) begin : g_cache
 	);
 end
 else begin : g_nocache
+	assign cache_posting = 1'b0;
 	// no internal caches: the MMU talks straight to the bus adapter and
 	// CINV/CPUSH complete immediately (a 68040 whose caches never fill).
 	// The Minimig build uses this and relies on cpu_cache_new in the RAM
