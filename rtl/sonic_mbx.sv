@@ -36,7 +36,8 @@
 //    $800       MAGIC     ARM->FPGA "McQ8ETH4": the service is up
 //    $801       WPTR      FPGA->ARM doorbell write index, monotonic
 //    $802-$811  SHAD      ARM->FPGA register 4n+k at bits [16k+15:16k] of word n
-//    $812       ISR_SET   ARM->FPGA [15:0] seq | [30:16] bits to OR into ISR
+//    $812       ISR_SET   ARM->FPGA [15:0] seq | [30:16] bits to OR into ISR |
+//                         [63:48] applied index at the time of the post
 //    $813       ISR_ACK   FPGA->ARM [15:0] seq consumed
 //    $814       MACPROM   ARM->FPGA byte k = PROM byte k
 //    $816       PTRS      ARM->FPGA [31:0] ring read index | [63:32] applied index
@@ -221,9 +222,17 @@ wire        post_now = (st == S_POLL) && mem_rvalid && (poll_q == 2'd1) && !isr_
                        (mem_rdata[15:0] != isr_seq);
 wire [14:0] isr_clr  = (reg_commit && h_reg == 6'd5) ? w16[14:0] : 15'd0;
 wire [14:0] isr_set  = post_now ? mem_rdata[30:16] : 15'd0;
-// same for the CR overlay: a clear decided on the old index never eats a new write
+// same for the CR overlay: a clear decided on the old index never eats a new write.
+// The applied index rides in the ISR post as well as in PTRS: on the chip TXP clears in the
+// instant TXDN sets, and Apple's driver reads CR inside its TXDN handler -- with the index only
+// in PTRS the interrupt could be raised one poll step before the overlay dropped, the handler
+// saw the transmitter still busy and parked its pending CAM load for good (first hardware day:
+// DHCP completed, then no ARP, no multicast, a livelocked Finder; QEMU's trace shows the
+// driver reading CR=$0028 there).
 wire [15:0] aptr_d   = mem_rdata[47:32] - cr_idx;
-wire        ovl_clr  = (st == S_POLL) && mem_rvalid && (poll_q == 2'd2) && !aptr_d[15];
+wire [15:0] aptr_p   = mem_rdata[63:48] - cr_idx;
+wire        ovl_clr  = (st == S_POLL) && mem_rvalid &&
+                       ((poll_q == 2'd2 && !aptr_d[15]) || (post_now && !aptr_p[15]));
 wire [15:0] ovl_set  = (reg_commit && h_reg == 6'd0) ? (w16 & 16'h03BF) : 16'd0;
 
 // a write is finished when it is accepted; a read when its data arrives
