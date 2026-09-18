@@ -232,3 +232,25 @@ allowed after a look.
   `/media/fat/MiSTer` is the user's step (the box runs
   `releases/MiSTer_20260916`, md5 431da61a).  When it has passed the CD
   audio check it becomes `releases/MiSTer_20260918`.
+
+## Update 2026-09-18 about 10:30: the rebuilt Main is INSTALLED on the .143 box (the user asked)
+
+For the user's end-to-end CD audio test.  The box was at the MiSTer menu
+(the user had loaded it).  `/media/fat/MiSTer` = **bb1a08d3a829814c47d18888ee43ca73**
+(`scratch/MiSTer_bb1a08d3`, also kept on the box as `MiSTer.new_bb1a08d3`),
+relaunched by hand on `menu.rbf` with its stdout appended to
+`/media/fat/nohup_video.log` (a `=== relaunch ... Main bb1a08d3 ===` marker
+line precedes it), so `Mac CD: cmd` lines will be there.  The previous
+binary is untouched as `/media/fat/MiSTer.clean_431da61a` (md5 431da61a =
+`releases/MiSTer_20260916`).  Revert:
+`cd /media/fat && killall MiSTer; cp MiSTer.clean_431da61a MiSTer && sync`
+and relaunch (or power-cycle).  A power cycle starts Main WITHOUT the
+stdout log.  The release core is on the box as
+`/media/fat/_Unstable/MacQuadra800_20260918.rbf` (md5 verified).  `.s4` is
+still empty from the user's Eject; `games/MacQuadra800/ToneTest.cue` is
+there for them to mount.  Screenshots do not show the HDMI output (the
+2026-09-17 stale-object Main gave a black menu on HDMI only): the user
+judges the menu at the display.  If the CD audio test passes, copy
+`scratch/MiSTer_bb1a08d3` to `releases/MiSTer_20260918`, note it in
+`releases/README.md` and CLAUDE.md's gate text, and strike the "CD audio
+NOT RUN" caveat from the 20260918 release section.
