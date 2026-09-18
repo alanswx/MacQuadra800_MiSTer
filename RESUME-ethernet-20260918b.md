@@ -1,5 +1,8 @@
 # RESUME PROMPT — Quadra 800 built-in Ethernet, end of 2026-09-18
 
+> **Superseded by `RESUME-ethernet-20260918c.md`** (the hand-over version: the
+> A2 soak result, the FTP observation, RTL pointers, operating knowledge).
+
 Paste this file as the opening prompt of the next session (working directory
 `C:\Temp\mistercore\MacQuadra800_MiSTer`). Read `CLAUDE.md` (binding hardware
 rules), then `docs/ethernet.md` (design + instruments), then the day log in
