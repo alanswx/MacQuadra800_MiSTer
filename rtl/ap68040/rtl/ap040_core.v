@@ -2260,6 +2260,17 @@ wire [31:0] rd_immv = (rd_immn == 2'd2) ? {rd_w1, rd_w2} : {16'd0, rd_w1};
 wire        rd_is_bcc = (rd_ir[15:12] == 4'h6) && (rd_ir[11:8] != 4'h1) &&
                         (rd_ir[7:0] != 8'h00) && (rd_ir[7:0] != 8'hFF);
 wire [31:0] rd_bcc_t  = pc + 32'd2 + sxb(rd_ir[7:0]);
+// BRA.B (condition 0000, always true) is resolved by the lookahead arm
+// from ANY retire, not only a flag producer's: the redirect goes out at
+// the pop instead of from S_DECODE a cycle later.  Only from a state
+// without a target arm of its own on go_pc_t_early (the not-taken
+// Bcc.W/FBcc and the DBcc/FDBcc exits keep S_DECODE's path, as does a
+// LINK/PEA retire from S_MWR) and not after a system retire.  (2026-09-19)
+wire        rd_is_bra = rd_is_bcc && (rd_ir[11:8] == 4'h0);
+wire        rd_bra_state = !sys_retire &&
+                           (state != S_BCC_EXT) && (state != S_DBCC1) &&
+                           (state != S_FBCC) && (state != S_FDBCC) &&
+                           !((state == S_MWR) && (r_m_ret != S_NEXT));
 // The redirect target and the resident-dispatch target formed from
 // registers by the current state, so that the hoisted go_pc_now and
 // decode_dbcc_brf_now start their refill-seed compare, seed loop and
@@ -9074,10 +9085,14 @@ always @(posedge clk) begin
 		// acknowledge would otherwise sit in this decision's path (the
 		// address hint's translation to the acknowledge, -1.26 ns).
 		else if (rd_is_bcc && rd_queue_pop && !aux_we && (state != S_DECODE) &&
-		         rd_bcc_fl_ok && !rd_bcc_t[0] &&
+		         (rd_bcc_fl_ok || rd_is_bra) && !rd_bcc_t[0] &&
 		         !sr[15] && !sr[14] && !irq_pend &&
 		         (regs_alu_fire ||
-		          ((state == S_MWR) && d_ack && (r_m_ret == S_NEXT)))) begin
+		          ((state == S_MWR) && d_ack && (r_m_ret == S_NEXT)) ||
+		          // BRA.B needs no flags: from any retire whose state
+		          // has no target arm of its own on go_pc_t_early
+		          // (2026-09-19)
+		          (rd_is_bra && rd_bra_state))) begin
 			// Taken: only the refill-buffer dispatch (the loop case); a
 			// target outside the buffered sector keeps the ordinary
 			// S_DECODE path (a go_pc expansion here cost 700 ALMs and

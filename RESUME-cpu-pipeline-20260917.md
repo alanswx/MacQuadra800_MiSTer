@@ -94,6 +94,9 @@ found a desktop alias and used it).
     store to another 16-byte line in `wombat_store_buffer` (`pass_ok`;
     the full queue drains first, same-line reads wait); unit bench T4
     passes.  Build 11 after build 10's flow.
+15. (2026-09-19) BRA.B resolved by the lookahead arm from any retire
+    (`rd_is_bra`, `hint_bra`); cycle-identical on the benches, 0 diffs.
+    Build 11 = 14 + 15 on build 10.
 
 Synthesis: 55,210 ALUTs at 77aa72a against the release's 56,965; 55,598
 at 8a9b392 (build 7, increment 9); 55,143 at build 7b; 55,424 at build 8.

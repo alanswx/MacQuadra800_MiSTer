@@ -492,6 +492,20 @@ both after the drain started and right after a capture, the full queue
 draining first): ALL TESTS PASSED.  The CPU-only suite has no store
 buffer; the hardware run is the gate, as for increment 13.  Build 11.
 
+### 15. BRA.B from any retire (2026-09-19)
+
+The lookahead arm resolved a short branch at the queue head only at a
+flag producer's retire, because it judges the condition on that
+producer's flags.  BRA.B's condition is always true, so the arm now
+fires for it from any retire (`rd_is_bra`), with the same guards, from
+a state without a target arm of its own on `go_pc_t_early` (the
+not-taken Bcc.W/FBcc and the DBcc/FDBcc exits, a LINK/PEA retire from
+S_MWR keep S_DECODE's path) and not after a system retire; `hint_bra`
+puts the target on the hint bus in that cycle for the states `hint_ftb`
+does not cover.  One cycle per BRA.B after a LEA, an UNLK, a MOVEM, a
+bit operation or any other non-producer.  Cycle-identical on the
+benches and the corpus (none has that shape), 0 diffs, suite 24/24.
+
 ### Withdrawn: RTS/RTD/RTR from the pop (2026-09-18)
 
 A `dispatch_ret` that popped RTS/RTD/RTR into S_RET1 (or issued the pop
