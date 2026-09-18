@@ -467,6 +467,31 @@ would break.
 | branch_bench phase 0 | 119,284 | 119,284 |
 | corpus-100 | 32,249,564, 0 diffs | 32,248,984, 0 diffs |
 
+### 14. A read may pass one queued store (2026-09-19, the plan's item 3)
+
+`wombat_store_buffer` let no direct transaction start until its queue
+was empty: a cache miss or a bypass read behind two posted stores waited
+for both to reach the SDRAM, about 50 M cycles of the bracket by Alan's
+profile.  A read whose 16-byte line differs from the one queued write
+may now take the bus ahead of it (`pass_ok`), and wins over that write's
+drain when both are eligible in the same cycle, since the CPU waits on
+the read and not on the write.  The drain of a head starts the cycle
+after its capture, so in practice the read passes the second of two
+queued stores once the first has landed.  A read of the queued store's
+own line still waits (a fill must see the store), non-qualified writes
+still wait (a device register write still sees every earlier RAM store
+landed), and a full queue always drains first, so a third store stalling
+the CPU is never starved by a stream of reads -- the failure mode of
+Alan's four-entry read-around (`CPU_SB4_20260915.md`).  Instruction
+fetches pass like any read: a store into the fetched line is a
+same-line read and waits.
+
+Gate: the buffer's Verilator unit bench with a new T4 (the pass and its
+completion, the passed store draining after it, same-line reads waiting
+both after the drain started and right after a capture, the full queue
+draining first): ALL TESTS PASSED.  The CPU-only suite has no store
+buffer; the hardware run is the gate, as for increment 13.  Build 11.
+
 ### Withdrawn: RTS/RTD/RTR from the pop (2026-09-18)
 
 A `dispatch_ret` that popped RTS/RTD/RTR into S_RET1 (or issued the pop

@@ -89,6 +89,11 @@ found a desktop alias and used it).
     wrapper's `AP040_POST_STORES`, the magic page excluded, the FC check
     attributing drains, the double-fault bench unposted).  The bench
     cannot show the gain (16-bit bus, 7-cycle writes); hardware will.
+    Committed 7f69882; build 10 launched 04:40.
+14. (2026-09-19, 6c62890) The plan's item 3: a read may pass one queued
+    store to another 16-byte line in `wombat_store_buffer` (`pass_ok`;
+    the full queue drains first, same-line reads wait); unit bench T4
+    passes.  Build 11 after build 10's flow.
 
 Synthesis: 55,210 ALUTs at 77aa72a against the release's 56,965; 55,598
 at 8a9b392 (build 7, increment 9); 55,143 at build 7b; 55,424 at build 8.
