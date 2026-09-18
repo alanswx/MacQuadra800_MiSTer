@@ -63,11 +63,14 @@ core halted and re-check after launch):
 | all fast paths on (builds 2-7) | `40 00` | hang/bomb within seconds of RX |
 | A: store buffer off + line off | `40 06` | **works**: 108/108, then 1000/1000 1400-byte pings, clean shutdown, FTP works |
 | B: store buffer off only | `40 02` | DHCP/ARP/6 pings fine, then **crashed** ~31 pings into a 1400-byte soak (PC wedged at `$517CAC`); run once |
-| C: line off only | `40 04` | **NOT RUN** — it was queued at the end of this session and cancelled for lack of budget |
+| C: line off only | `40 04` | **survives so far**: CFG `4004` verified at launch (19:29), 6/6 + 250/250 + 250/250 + 69/69 1400-byte pings, 0 lost (`scratch/eth/hw10/`), then the operator run was cancelled mid-round-3 at 19:40; the guest was still answering ping at 19:56 with the user's FTP traffic on top. Not a finished soak, and B was only run once |
 
-Reading of the table: B fails later than all-on, so the two paths contribute
-separately — either two bugs, or one multi-master race whose odds both change.
-The D-cache itself (still on in A, with the snoop) is sound.
+Reading of the table: **C points at the retained-line fast paths and away from
+the store buffer.** Line ON fails (all-on in seconds, B in ~31 pings); line OFF
+works (A over 1000 pings, C over 575 pings plus FTP) whether or not the store
+buffer is on. The store buffer seems only to change how fast the line bug
+bites. The D-cache itself (on in A and C, with the snoop) is sound. Caveat: one
+run each of B and C; repeat both before building on it.
 
 ### How the pieces fit (for whoever reads the RTL next)
 
@@ -111,10 +114,15 @@ second bus master, which is exactly what is implicated.
 
 ## 2. Next steps, in order
 
-1. **Run experiment C** (`40 04`), and B once more for statistics. ~15 min
-   each, no build needed (recipe in section 3). If C fails too, the common
-   factor is DMA beats interleaving with CPU traffic; if C survives, the bug is
-   confined to the retained-line paths and B's crash is that alone.
+1. **Repeat C to a full soak and B once more** for statistics (~15 min each,
+   no build, recipe in section 3). C's first run survived (above), so the
+   working theory is: the bug is in the retained-line paths and the store
+   buffer is innocent. Then go straight to step 4's split of `dbg_sw[1]`
+   (`line_cpu_match` / `bus_line_match` / the cache's `fill_line_match`) to
+   find which of the three line shortcuts is the one, and read that path
+   against a DMA write beat that is requested but not yet accepted by
+   `sdram_beat32` (the line is still valid in that window) and against
+   `mem_line_pending`.
 2. **Reproduce in simulation** with the REAL wrapper: a directed bench of
    `wombat_cpu` + `wombat_store_buffer` + `sdram_beat32` + the service FSM
    (a cut-down `quadra800`, or `quadra800` itself with a stub I/O side) running
@@ -177,9 +185,10 @@ only on this PC.
 
 ## 4. The 44 KB/s FTP observation (user, 2026-09-18 late; not investigated)
 
-Direction and CFG at the time were not recorded; the box had been left at
-`40 06`, i.e. with both fast paths off, which makes every store and many reads
-slow — but the number itself is suspicious: 44 KB/s is ~30 full-size segments
+Direction was not recorded. The box was in experiment A (`40 06`) until 19:26
+and in experiment C (`40 04`, only the retained line off) from 19:29; the user
+reported the number at about 19:40, so most likely under C. Either way a fast
+path was off, which slows memory — but the number itself is suspicious: 44 KB/s is ~30 full-size segments
 per second, **one per ~33 ms, while a ping round trip is 3-4 ms**. That smells
 of a once-per-tick pacing rather than raw CPU speed. Places to look: how often
 `mac_eth_poll()` (`../Main_MiSTer/support/mac/mac.cpp:111`) actually runs when
@@ -199,8 +208,13 @@ the same stall.
   `mac-ethernet-pr-with-SCSI-Optimizations-with-q800-eth`, head `68637c9`
   (`../Main_MiSTer`, clean tree). Previous binaries on the box:
   `MiSTer.prev_e2255642`, `MiSTer.prev_bb1a08d3` (the pre-Ethernet one). Core =
-  Ethernet build 8 in `_Unstable/`. CFG `40 06` when last touched by me; the
-  Ethernet-Off copy is `MacQuadra800.CFG.bak_ethoff`. Guest TCP/IP: built-in
+  Ethernet build 8 in `_Unstable/`. **CFG is `40 04` (experiment C) and the 8.1
+  guest has been running under it since 19:29 on 2026-09-18** (checked
+  read-only at 19:56: `xxd` = `4004`, core MacQuadra800, guest answers ping):
+  the operator run that set it up was cancelled before its restore step. Shut
+  the guest down cleanly before anything else, and set byte 1 back to `06` if a
+  known-good configuration is wanted. The Ethernet-Off copy is
+  `MacQuadra800.CFG.bak_ethoff`. Guest TCP/IP: built-in
   Ethernet, DHCP, load at startup. **The user has been using the guest since
   (FTP): its state is unknown — look before touching.**
 - The Quad Squad image was yanked several times on 2026-09-18 while hung; it
