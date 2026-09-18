@@ -267,6 +267,12 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # 2026-09-19 04:40 build 10 (7f69882: + increment 13, the one-clock posted store), seed 21 + the switch: MEETS TIMING on
 # every clock -- 36,428 ALMs (87 %), clk_sys +1.145 (the best of the branch), HDMI +0.251, clk_ram +0.445, TNS 0;
 # synthesis 55,999 ALUTs. rbf 28a7e6dc = scratch/pipeline_b10/, runs after build 9.
+# 2026-09-18 06:17 (machine clock; the entries above ran a day ahead) build 12, the bisect (build tree edca43e = build 8 +
+# increments 13, 14, 15, WITHOUT 11 and 12), seed 21 + the switch: MEETS TIMING on every clock -- 36,071 ALMs (86 %),
+# clk_sys +1.241 (the best of the branch), HDMI +0.412, clk_ram +0.806, hold +0.198, TNS 0; synthesis 55,480 ALUTs;
+# sdram_beat32 req_tgl -> req_handoff +1.384 (b10 +1.270, b8 +2.513). rbf 555a954b = scratch/pipeline_b12/. The flow ran
+# under build 11's launcher, which had survived its stop in the wait-gate (the log is build_b11_s21r.log, copied to
+# build_b12_s21r.log); the tree was clean at edca43e from 05:35, the flow started 05:54. Build 11 (the head) was never built.
 set_global_assignment -name SEED 21
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
