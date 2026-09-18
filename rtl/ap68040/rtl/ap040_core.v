@@ -693,6 +693,8 @@ reg        retire_req;
 reg        dgo;                   // an arm dispatched a resident branch target (decode_dbcc_brf): done once
 reg        pgo;                   // an arm redirected the flow (go_pc): performed once after the case
 reg        sgo;                   // dispatch_branch put the target fetch out at the pop (issue_ifetch once after the case)
+reg        rfw_now;               // an arm called rfw this cycle ...
+reg  [3:0] rfw_now_a;             // ... for this register
 reg        igo;                   // an arm asked for extension words (immf): served once after the case
 reg  [1:0] igo_n;
 reg  [7:0] igo_ret;
@@ -1649,6 +1651,9 @@ task rfw;
 	input [31:0] d;
 	begin
 		rf_we <= 1; rf_waddr <= a; rf_wdata <= d;
+		// this cycle's write, for the dispatches after the case that
+		// select a port the write would land on (dispatch_dbcc)
+		rfw_now = 1; rfw_now_a = a;
 	end
 endtask
 
@@ -2509,6 +2514,31 @@ task dispatch_branch;
 			state     <= bd_jmp ? S_JMP1 : S_JSR1;
 		end
 		if (bd_go) sgo = 1;
+	end
+endtask
+
+// DBcc takes the same dispatch from the pop into S_DBCC1: the displacement
+// is consumed with the opcode and Dn is selected on port A, which the
+// state reads settled a cycle later exactly as it did after S_DECODE.
+// Refused when the retiring arm writes that Dn this cycle (rfw_now: the
+// write would land while S_DBCC1 reads the port).  The state's target,
+// condition, count, refill dispatch and exit are untouched; the decode
+// cycle goes, and so does the speculative fill that cycle used to let
+// out in front of the state (immf's inline pop then fell to S_IMMF).
+// (2026-09-18)
+wire        dd_ok = (rd_ir[15:12] == 4'h5) && (rd_ir[7:3] == 5'b11001) &&
+                    (epf_count >= 4'd2) && (state != S_DECODE) &&
+                    !aux_we && !sys_retire;
+
+task dispatch_dbcc;
+	begin
+		epf_pop = 2'd2;
+		pc <= pc + 32'd4;
+		epf_issue = 1;
+		br_base <= pc + 32'd2;
+		imm     <= {16'd0, rd_w1};
+		rr_a    <= {1'b0, rd_ir[2:0]};
+		state   <= S_DBCC1;
 	end
 endtask
 // Step D: the record applied in the decode cycle itself.  The immediate
@@ -4352,6 +4382,7 @@ always @(posedge clk) begin
 	dgo = 0;
 	pgo = 0;
 	sgo = 0;
+	rfw_now = 0; rfw_now_a = 4'd0;
 	igo = 0; igo_n = 2'd0; igo_ret = 8'd0;
 	xgo = 0; xgo_vec = 8'd0; xgo_fmt = 4'd0; xgo_spc = 32'd0; xgo_addr = 32'd0;
 	mgo = 0; mgo_wr = 0; mgo_sz = 2'd0; mgo_ret = 8'd0; mgo_a = 32'd0; mgo_d = 32'd0;
@@ -8872,6 +8903,11 @@ always @(posedge clk) begin
 		// port is free (see dispatch_branch).  (2026-09-18)
 		else if (rd_queue_pop && bd_ok)
 			dispatch_branch;
+		// DBcc with its displacement resident: into S_DBCC1 now, unless the
+		// retiring arm writes its Dn on this edge (see dispatch_dbcc).
+		else if (rd_queue_pop && dd_ok &&
+		         !(rfw_now && (rfw_now_a == {1'b0, rd_ir[2:0]})))
+			dispatch_dbcc;
 
 		// The resident-target dispatch an arm or the lookahead asked for: it
 		// arms the queue and claims the port, so it runs before the fill engine.

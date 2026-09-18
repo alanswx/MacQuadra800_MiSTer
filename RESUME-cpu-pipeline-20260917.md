@@ -56,8 +56,14 @@ found a desktop alias and used it).
    form whose target is in the queue words.  pipe_bench 122,190 ->
    120,194, the new branch_bench 129,778 -> 118,784, corpus 32,980,201
    with 0 diffs, the new t_branch_early leg passes on both cores.
+10. (2026-09-18) DBcc dispatched from the pop into S_DBCC1
+    (`dispatch_dbcc`; refused when the retiring arm writes its Dn,
+    `rfw_now`): bench_loop 81,202 -> 68,354 (-15.8 %), pipe_bench
+    118,696, branch_bench 117,286, corpus 32,979,913 with 0 diffs.
+    Not in build 7 (which is increment 9 alone).
 
-Synthesis: 55,210 ALUTs at 77aa72a against the release's 56,965.
+Synthesis: 55,210 ALUTs at 77aa72a against the release's 56,965; 55,598
+at 8a9b392 (build 7, increment 9).
 
 ## Rules learned today
 

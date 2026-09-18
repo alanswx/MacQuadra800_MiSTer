@@ -406,6 +406,84 @@ g1:	chkl	d3,$C0FFEE,60
 	cmpa.l	sp,a4
 	bne	sp_fail
 
+;----------------------------------------------- H: DBcc from the pop
+	moveq	#0,d0
+	moveq	#0,d1
+	move.w	#4,d1		; the counter written just before the loop
+h1:	addq.l	#1,d0		; a producer retire pops the DBcc
+	dbra	d1,h1
+	chkl	d0,5,65
+	chkl	d1,$FFFF,66
+	; the hazard: the producer writes the DBcc's counter on the edge that
+	; pops it; a stale port would read 0 and fall through
+	moveq	#0,d0
+	moveq	#0,d1
+h2:	addq.l	#1,d0
+	cmp.l	#4,d0
+	beq.s	h3
+	move.w	#1,d1
+	dbra	d1,h2		; 1 -> 0: always taken
+	failt	67
+h3:	chkl	d1,0,68
+	; the condition true: no decrement, fall through to the right word
+	moveq	#7,d1
+	moveq	#0,d3
+	tst.l	d3
+	dbeq	d1,h_never
+	chkl	d1,7,69
+	; after a store retire and after a load retire
+	moveq	#0,d0
+	moveq	#2,d1
+h4:	addq.l	#1,d0
+	move.l	d0,(a0)
+	dbra	d1,h4
+	chkl	d0,3,70
+	moveq	#0,d0
+	moveq	#2,d1
+h5:	addq.l	#1,d0
+	move.l	(a0),d3
+	dbra	d1,h5
+	chkl	d0,3,71
+	; the loop counter as the producer's destination register, long form
+	moveq	#0,d0
+	moveq	#3,d1
+h6:	addq.l	#1,d0
+	addi.l	#0,d1		; writes d1 (unchanged) on the popping edge
+	dbra	d1,h6
+	chkl	d0,4,72
+	; an odd target: the address error names the DBcc, A7 untouched
+	move.l	sp,d5
+	move.l	#h7,(resume).l
+	moveq	#1,d1
+h_dbodd:
+	dc.w	$51C9,$0003	; dbra d1,*+5
+h7:	chkcnt	cnt_addr,5,73
+	move.l	(addr_pc).l,d0
+	lea	h_dbodd(pc),a0
+	cmpa.l	d0,a0
+	bne	h_fail
+	move.l	(addr_sp).l,d0
+	add.l	#12,d0
+	cmp.l	d5,d0
+	bne	h_fail
+	; T0 traces the taken DBcc at its target
+	clr.w	(cnt_trace).l
+	move.w	#$6000,sr
+	moveq	#0,d0
+	moveq	#1,d1
+h8:	addq.l	#1,d0
+h_dbt:	dbra	d1,h8
+	move.w	#$2000,sr
+	chkcnt	cnt_trace,2,74
+	chktrace	0,h8,h_dbt,75
+	chkl	d0,2,76
+	bra.s	h_ok
+h_never:
+	failt	77
+h_fail:
+	failt	78
+h_ok:
+
 ;----------------------------------------------- done
 	move.w	#$600D,(DONEREG).l
 	stop	#$2700

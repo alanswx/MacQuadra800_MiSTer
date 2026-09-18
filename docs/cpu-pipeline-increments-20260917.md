@@ -267,6 +267,41 @@ the pop read from the retire that pops the RTS (one cycle, no
 prediction).  BRA.B/BSR.B after a non-producer retire can take the
 lookahead arm's go_pc with no flags (cond 0000), a one-line change.
 
+### 10. DBcc dispatched from the pop into S_DBCC1 (2026-09-18)
+
+The same dispatch for DBcc: at the retire that pops a DBcc whose
+displacement word is resident, `dispatch_dbcc` pops both words, sets
+`br_base`/`imm`, selects Dn on port A and enters S_DBCC1, which reads
+the settled port a cycle later exactly as it did after S_DECODE; the
+state's target, condition, count, refill dispatch and exit are
+untouched.  The one hazard is a retiring arm writing that Dn on the
+popping edge (`MOVE.W #n,Dn / DBcc Dn`: the write lands while S_DBCC1
+reads the port): `rfw` now raises a blocking carrier (`rfw_now`,
+`rfw_now_a`) and the dispatch is refused when it names the DBcc's
+register, leaving S_DECODE's path.  This is the "DBcc resolved in
+decode" item of the plan with the two-word pop accounting borrowed from
+increment 9.  Besides the decode cycle, the pop's `epf_issue` keeps the
+fill engine off the port in that cycle, so S_DBCC1 finds the port free
+for its refill dispatch: before, a fill let out at the pop made the
+decode cycle's inline displacement pop fall to S_IMMF and cost a third
+cycle on some loop closures.
+
+`t_branch_early` gains a DBcc section: the counter written just before
+the loop, the counter written by the very instruction that pops the DBcc
+(the hazard, both the word and the ADDI long form), the condition true
+with no decrement, loops after a store and a load retire, the exit
+falling through to the right word, the odd-target address error and the
+T0 trace at the target.  It passes on the pre-change core with the same
+expectations.
+
+| gate | before | after |
+|---|---:|---:|
+| AP suite | 24/24 | 24/24 (t_branch_early 60,132 -> 60,020 cycles) |
+| bench_loop phase 0 | 81,202 | 68,354 (-15.8 %): one cycle per closing DBcc |
+| pipe_bench phase 0 | 120,194 | 118,696 |
+| branch_bench phase 0 | 118,784 | 117,286 |
+| corpus-100 | 32,980,201 | 32,979,913, 0 diffs |
+
 ## Builds
 
 | build | content | seed | ALMs | timing | rbf | hardware |
