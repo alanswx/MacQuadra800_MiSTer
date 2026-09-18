@@ -323,6 +323,7 @@ set_global_assignment -name VERILOG_MACRO "MISTER_DISABLE_ADAPTIVE=1"
 # ============================================================================
 #set_global_assignment -name VERILOG_MACRO "SCSI_TRACE=1"
 #set_global_assignment -name VERILOG_MACRO "CDROM_OFF=1"
+#set_global_assignment -name VERILOG_MACRO "ETHERNET_OFF=1"
 set_global_assignment -name VERILOG_MACRO "CACHE_CD_OFF=1"
 #set_global_assignment -name VERILOG_MACRO "VIDEO_512_OFF=1"
 set_global_assignment -name VERILOG_MACRO "CACHE_SMALL=1"
@@ -508,6 +509,7 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/rtc3430042.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/easc.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/ncr53c96.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/cd_audio.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/sonic_mbx.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/scsi_cache.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/adb.sv
 set_global_assignment -name VERILOG_FILE rtl/dpram.v

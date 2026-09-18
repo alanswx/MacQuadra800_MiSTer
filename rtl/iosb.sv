@@ -49,6 +49,7 @@ module iosb
 
 	// device interrupt lines (stage 3+ sources; quiet today)
 	input         vbl_irq,
+	input         sonic_irq,       // built-in Ethernet (rtl/sonic_mbx.sv): slot $9, VIA2 port A bit 0
 	input         scsi_irq,
 	input         scsi_drq,
 	input         asc_irq,
@@ -440,7 +441,7 @@ end
 //----------------------------------------------------------------------------
 reg  [7:0] via2_ifr;      // bit 7 = summary, computed below
 reg  [7:0] via2_ier;
-wire [7:0] nubus_irqs = {1'b1, ~vbl_irq, 6'b111111};  // bit 6 = internal video (QEMU VIA2_NUBUS_IRQ_INTVIDEO); 5:0 = slots E..9 idle
+wire [7:0] nubus_irqs = {1'b1, ~vbl_irq, 5'b11111, ~sonic_irq};  // bit 6 = internal video (QEMU VIA2_NUBUS_IRQ_INTVIDEO); 5:1 = slots E..A idle; 0 = slot $9, the SONIC (MAME via2_irq_w<0x01>)
 wire       slot_any   = (nubus_irqs & 8'h79) != 8'h79;
 
 reg vbl_d, scsi_d, drq_d, asc_d, slot_d;
