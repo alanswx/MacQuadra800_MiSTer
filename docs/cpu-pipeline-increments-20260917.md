@@ -492,6 +492,30 @@ both after the drain started and right after a capture, the full queue
 draining first): ALL TESTS PASSED.  The CPU-only suite has no store
 buffer; the hardware run is the gate, as for increment 13.  Build 11.
 
+**The hole in it (found 2026-09-18 by inspection, cf06fe6).**  `pass_ok`
+compared the first 16-byte line of the read with the first line of the
+queued store, and neither transfer has to sit inside one line.  The
+cache posts a store that straddles two lines UNSPLIT (its "complex
+write": a long at $xD-$xF or a word at $xF; 68k stacks are only
+word-aligned, so a long push at $xE is ordinary Mac code) and clears
+BOTH cache lines.  The next read of the second line is therefore a miss,
+its fill passed the queued store, read the SDRAM before the store's tail
+bytes had landed, and the cache kept the stale bytes after the store
+drained: silent corruption of up to three bytes, visible only to a later
+read of that line.  The mirror case is a bypass read that straddles two
+lines passing a store queued to its second line: wrong data straight to
+the core.  Build 12 was fitted from the tree with the hole.  The fix is
+exact and costs two LUTs: a crossing store is never passed and a crossing
+read never passes (`xfer_cross`, a 4-bit offset and a size each, the
+queued one from registers).  Unit bench T5 fails on the old RTL at its
+first check and passes now: a read of a crossing store's second line,
+a crossing long read and a crossing word read against a store queued to
+their second line, and the control that a non-crossing word at $xE still
+passes.  The lesson for the next store-path change: every address compare
+below the cache has to be read against "misaligned word/long transactions
+appear here unsplit" in `wombat_cpu.sv`'s bus contract.  Build 13 =
+build 12's tree + this fix.
+
 ### 15. BRA.B from any retire (2026-09-19)
 
 The lookahead arm resolved a short branch at the queue head only at a
@@ -557,6 +581,7 @@ return address with A7 backed out) stays in `t_branch_early`.
 | build 10 | 7f69882 (+ increment 13, the one-clock posted store) | 21 + the switch | 36,428 (87 %); synthesis 55,999 ALUTs | **met on every clock**: CPU +1.145 (the branch's best), HDMI +0.251, RAM +0.445, hold +0.252, TNS 0; clk_sys -> clk_ram request handoff +1.270 (build 8: +2.513; the 2026-09-02 fault's build: +0.276), clk_ram -> clk_sys +1.145 (`scratch/pipeline_b10/cross_*`) | 28a7e6dc (`scratch/pipeline_b10/`) | run dropped (fewer builds); a bisect point |
 | build 11 | 83ab536, the head | | not built. Its launcher was stopped in the wait-gate after build 9's finding, but only the outer shell died: the inner `build_only.sh` kept waiting and started the flow at 05:54 when the other session's fit ended -- on the worktree, which had been at build 12's commit since 05:35. What it built is build 12 (below) | | | |
 | build 12 | 78ba885 (build 8) + 13 + 14 + 15, WITHOUT 11 and 12 (bisect; the worktree's detached edca43e, verified clean and by content before the rbf was staged) | 21 + the switch | 36,071 (86 %); synthesis 55,480 ALUTs (build 8 + 56: increments 13-15 cost almost nothing; the record cache was the 550) | **met on every clock**: CPU +1.241 (the branch's best), HDMI +0.412, RAM +0.806, hold +0.198, TNS 0; clk_sys -> clk_ram request handoff **+1.384** (build 10 +1.270, build 8 +2.513), clk_ram -> clk_sys `line_done_handoff -> line_data` +1.241 = the CPU clock's worst path again (`scratch/pipeline_b12/cross_*`) | 555a954b (`scratch/pipeline_b12/`) | (the run is in progress: eight Mix runs, the anomaly tally is the headline) |
+| build 13 | build 12's tree + cf06fe6 (increment 14's line-crossing hole closed); the worktree's detached 4d09389 | 21 + the switch | (synthesis started 06:26, the only flow on the box) | | | |
 
 (filled in as each build completes; the seed ledger is also in the `.qsf`.)
 
