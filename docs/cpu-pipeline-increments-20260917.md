@@ -506,6 +506,27 @@ does not cover.  One cycle per BRA.B after a LEA, an UNLK, a MOVEM, a
 bit operation or any other non-producer.  Cycle-identical on the
 benches and the corpus (none has that shape), 0 diffs, suite 24/24.
 
+### The build-9 finding in simulation (2026-09-19)
+
+A new suite leg, `t_loops_irq`, runs checksummed loop workloads of every
+shape the record cache replays (a signed bubble sort with data-dependent
+branches, DBcc loops whose counter is the loop top's index or whose base
+is written by the closing instruction, immediate and descriptor loop
+tops, nested loops sharing the one entry, a body longer than the seed, a
+Bcc.W loop with a memory top, and the memory-destination tops: the Sieve
+shape `clr.b 0(a0,d0.w)`, fills with (An)+, memory-to-memory moves, ADDQ
+to memory, a store of the counter) once quietly and again under 400
+level-2 interrupts at rotating intervals, comparing the checksums.  It
+passes on the head (with 11 and 12; 152,240 cycles) and on the bisect
+tree (without; 152,966).  The CPU-only simulation does not reproduce the
+board fault; what it lacks is the real memory path (the store buffer,
+the SDRAM bridge and its 33/99 MHz crossing).  Build 7b also had "loops
+that did not run" readings, build 8 none; build 10's request-handoff
+crossing margin is +1.270 ns where build 8 had +2.513, and the crossing
+note (`docs/sdram-open-row-crossing.md`) records real PLL skew the
+constraints do not model.  Build 12, the bisect, decides between the
+two.
+
 ### Withdrawn: RTS/RTD/RTR from the pop (2026-09-18)
 
 A `dispatch_ret` that popped RTS/RTD/RTR into S_RET1 (or issued the pop
@@ -533,7 +554,7 @@ return address with A7 backed out) stays in `t_branch_early`.
 | build 7b | 8a9b392 + 788ab35 (the shared early-target wire, the valid-run seed count; increment 9 alone otherwise) | 21 + the switch | 35,807 (85 %); synthesis 55,143 ALUTs (-455 vs build 7) | **met on every clock**: CPU +0.580, HDMI +0.364, RAM +0.527, hold +0.147, TNS 0 | 9e3b7d9d (`scratch/pipeline_b7/`) | **Mix 0.905/0.908/0.907** (+0.55 % over build 6, +6.0 % over 0.855; Dhrystones +1.8 %, Permutations/Towers -1 %), CQD 0.662, FPU 0.468/0.464, 8.1 boot <= 97 s, clean 47 s shutdown, no artefact; two non-reproducing short last-test timings excluded (section 18 of `docs/PERFORMANCE_MEASUREMENTS.md`) |
 | build 8 | 78ba885, the branch head (increments 9 + 10 + 788ab35) | 21 + the switch | 35,952 (86 %); synthesis 55,424 ALUTs | **met on every clock**: CPU +1.114 (the branch's best), HDMI +0.217, RAM +0.914, hold +0.258, TNS 0. The twelve worst CPU-clock paths are all the SDRAM bridge's clk_ram -> clk_sys line handoff (`sdram_beat32 line_done_handoff -> line_data`, +1.114); no core path is among them (`scratch/pipeline_b8/worst_paths.txt`). The clk_sys -> clk_ram handoff toggle has +2.513 | 69c53878 (`scratch/pipeline_b8/`) | **Mix 0.905/0.908/0.908** (mean 0.907, flat against build 7b: Speedometer's loops close with Bcc, not DBcc), **CQD 0.666** (+0.6 %, all depths), FPU 0.468/0.465, 8.1 boot <= 101 s, clean 47 s shutdown, no artefact, no short timing in six series (section 19) |
 | build 9 | 4931e19, the head (increments 11 + 12 on build 8) | 21 + the switch | 36,400 (87 %); synthesis 56,024 ALUTs | **met on every clock**: CPU +1.007, HDMI +0.477, RAM +0.697, hold +0.249, TNS 0 | f061d1fc (`scratch/pipeline_b9/`) | **A FINDING**: 2 of 5 Mix runs with impossible loop-test times (Bubble Sort 0.022 s, Quick Sort 0.273 s, Dhrystones 17712/s), mid-series; the valid runs Mix 0.911/0.910/0.911 (+0.4 %), Sieve +2.0 % slower, CQD 0.668, FPU 0.470/0.468; clean boot and shutdown (section 20). Increments 11-12 held out; build 12 bisects |
-| build 10 | 7f69882 (+ increment 13, the one-clock posted store) | 21 + the switch | 36,428 (87 %); synthesis 55,999 ALUTs | **met on every clock**: CPU +1.145 (the branch's best), HDMI +0.251, RAM +0.445, hold +0.252, TNS 0 | 28a7e6dc (`scratch/pipeline_b10/`) | after build 9's run |
+| build 10 | 7f69882 (+ increment 13, the one-clock posted store) | 21 + the switch | 36,428 (87 %); synthesis 55,999 ALUTs | **met on every clock**: CPU +1.145 (the branch's best), HDMI +0.251, RAM +0.445, hold +0.252, TNS 0; clk_sys -> clk_ram request handoff +1.270 (build 8: +2.513; the 2026-09-02 fault's build: +0.276), clk_ram -> clk_sys +1.145 (`scratch/pipeline_b10/cross_*`) | 28a7e6dc (`scratch/pipeline_b10/`) | run dropped (fewer builds); a bisect point |
 | build 11 | 83ab536, the head | | not built: stopped in the wait-gate after build 9's finding | | | |
 | build 12 | 78ba885 (build 8) + 13 + 14 + 15, WITHOUT 11 and 12 (bisect; the worktree's detached commit) | 21 + the switch | (wait-gated behind another session's sgiindy fit) | | | the next run; build 10's run dropped (fewer builds, the user's call) |
 
