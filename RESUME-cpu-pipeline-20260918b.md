@@ -254,3 +254,24 @@ judges the menu at the display.  If the CD audio test passes, copy
 `scratch/MiSTer_bb1a08d3` to `releases/MiSTer_20260918`, note it in
 `releases/README.md` and CLAUDE.md's gate text, and strike the "CD audio
 NOT RUN" caveat from the 20260918 release section.
+
+## Update 2026-09-18 about 10:55: the rebuilt Main gave a BLACK SCREEN; reverted, box rebooted
+
+The user saw a black screen with Main `bb1a08d3` (clean build of the fork
+rebased onto upstream master tip 3d7a844).  NOT yesterday's cause (stale
+objects): the build was clean.  The good `431da61a` was the clean build of
+the pre-rebase head `ae708d3` (Main_MiSTer reflog), and `git diff ae708d3
+HEAD` is exactly upstream f80abdc..3d7a844, three commits; only #1316
+"Rotate analog OSD to match core direction" (4145f1d) touches display code
+(OsdEnable now sends x/y/w/h/rot words per OSD target).  Suspect, not
+proven: both binaries log an identical video start-up and screenshots do
+not see HDMI.  Test binary with only #1316 reverted:
+`scratch/MiSTer_no1316_979ccedf`, on the box as
+`/media/fat/MiSTer.test_no1316_979ccedf`, NOT installed; run it by path
+with the user watching.  `/media/fat/MiSTer` is `431da61a` again and the
+box was REBOOTED at the user's request (10:50): Main runs from init, the
+menu core, WITHOUT the stdout log.  Rules adopted (memory
+`main-wsl-stale-objects`): never install an untested Main, run candidates
+by path; rebase release binaries onto an upstream Release commit, not
+master tip; diff against the last good binary's commit first.
+`scratch/MiSTer_bb1a08d3` must NOT go into `releases/`.
