@@ -184,6 +184,7 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS), .SONIC(0)) machine (
 	.debug_fault(debug_cpu_fault),
 	.debug_halted(debug_cpu_halted),
 	.eth_ena(1'b0),
+	.dbg_sw(3'd0),
 	.eth_mem_addr(),
 	.eth_mem_rd(),
 	.eth_mem_we(),
