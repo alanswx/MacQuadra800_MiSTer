@@ -63,6 +63,52 @@ out of the repo. `origin/CPU-pipeline` still has it; removing it is the user's
   own state; `regwr 05=` counts the guest's ISR acknowledgements. A frozen
   guest with `irq=1` and a flat `05=` is an interrupt that is not delivered.
 
+## The first hardware day, in order (2026-09-18)
+
+Evidence for each step is under `scratch/eth/hw1` .. `hw7` (stats, register
+traces, captures, guest RAM dumps, screenshots) and `scratch/eth/build1` ..
+
+1. **Build 1** froze the guest: `iosb.sv`'s VIA2 any-slot flag was an edge
+   latch on the OR of VBL and SONIC. Fixed `665a450` (a level). Not seen since.
+2. **Build 2**: DHCP DISCOVER answered by an OFFER the guest ignored. Capture +
+   QEMU source: in 32-bit mode the chip keeps the receive buffer pointer
+   longword-aligned; the MAME-derived model packed frames at odd addresses.
+   Fixed in Main `3ad68f5`; DHCP then completes in 6 ms.
+3. Still hangs/crashes seconds after receive traffic starts, in three shapes:
+   a Finder livelock in shared-library code, a runaway exception stack (first
+   frame: format-$7 access error, PC $01D2207E, fault address $517CE208), a
+   plain bomb "Finder error type 10".
+4. Instruments built for this (all still in): the FPGA's DEBUG word (ISR, IMR,
+   irq, guest read count + last register read) and SAMPLE word (CPU PC + SR);
+   Main's register-write trace, packet capture, guest-RAM dump through the DMA
+   engine, PC histogram, and `/tmp/mac_eth_dbg` switches (1 = drop guest-RAM
+   writes, 2 = refuse every received frame). See `docs/ethernet.md`.
+5. **QEMU reference** (WSL `~/qemu-work`: `qs8_eth.hda` = the box's image of
+   17:16, `qemu_net.py` = a scripted DHCP/ARP/ping LAN on QEMU's UDP socket
+   NIC, `qemu_replay.py` = replays a hardware capture): the same image does
+   DHCP, gratuitous ARP, answers ARP and ping, reloads the CAM with a multicast
+   address right after the REQUEST, and survives eleven replays of the very
+   frames that kill the FPGA guest. The register WRITE sequences match ours
+   one for one up to the point of death.
+6. Narrowing on hardware with the switches: with receive refused the guest is
+   perfectly healthy (desktop, clock, DHCP retransmits with back-off); turned
+   on at the live desktop it bombs within ten delivered frames -- while a
+   guest RAM dump shows every descriptor and every frame byte-exact against
+   the capture, pointers aligned, the ring recycled by the driver.
+7. So RAM is right and what the CPU sees is not: builds 5 and 6 had the D-cache
+   snoop OFF (an experiment, `ede6d62`). Apple's driver marks a recycled
+   receive descriptor with $FF in the top byte of its length longword, so a
+   stale cached copy is a 4 GB length. The earlier snoop-ON builds (2-4) each
+   still had another bug (alignment, the TXP overlay race `6341570`, the early
+   applied index). **Build 7 = snoop on + every fix** is the test that has not
+   been run yet (`54ae465`).
+
+If build 7 still dies: the snoop port of the vendored `ap040_cache` under
+hundreds of snoops per frame concurrent with CPU stores is the next suspect
+(`store_inv_lost`, the hint path); a directed bench there, or a coarser
+scheme (hold the CPU off the bus for the length of a DMA list and invalidate
+once), are the two ways forward.
+
 ## QEMU ground truth gathered (WSL `~/qemu-work/sonic8.log`, `sonic8_mr.log`)
 
 This ROM + a copy of the Quad Squad disk, 5.5 minutes: the ROM reads `CR` as a
