@@ -367,7 +367,7 @@ return address with A7 backed out) stays in `t_branch_early`.
 | build 6 | c84a5e7 (+ fast_hit qualified from registers only) | 21 + the switch | 35,797 (85 %) | CPU +0.139, RAM +0.445, HDMI -0.001 (one `sys_top` video register) | cda6ba11 (`scratch/pipeline_b6/`) | **Mix 0.900/0.902/0.903**, CQD 0.660, FPU 0.464/0.467, 8.1 boot <= 85 s, clean 46 s shutdown, no artefact in any captured frame |
 | build 7 | 8a9b392 (+ increment 9) | 21 + the switch | 36,388 (87 %) | routed; CPU clock -1.575 (HDMI +0.333, RAM +0.538): rr_a -> regfile -> ALU shifter and zero compare -> flags -> the lookahead carrier selecting between go_pc_t_early and the early fetch's bd_t -> seed count -> epf_ftail (`scratch/pipeline_b7/worst_detail.txt`); rule 3 again, from a second issue_ifetch target | not deployable | |
 | build 7b | 8a9b392 + 788ab35 (the shared early-target wire, the valid-run seed count; increment 9 alone otherwise) | 21 + the switch | 35,807 (85 %); synthesis 55,143 ALUTs (-455 vs build 7) | **met on every clock**: CPU +0.580, HDMI +0.364, RAM +0.527, hold +0.147, TNS 0 | 9e3b7d9d (`scratch/pipeline_b7/`) | **Mix 0.905/0.908/0.907** (+0.55 % over build 6, +6.0 % over 0.855; Dhrystones +1.8 %, Permutations/Towers -1 %), CQD 0.662, FPU 0.468/0.464, 8.1 boot <= 97 s, clean 47 s shutdown, no artefact; two non-reproducing short last-test timings excluded (section 18 of `docs/PERFORMANCE_MEASUREMENTS.md`) |
-| build 8 | 78ba885, the branch head (increments 9 + 10 + 788ab35) | 21 + the switch | 35,952 (86 %); synthesis 55,424 ALUTs | **met on every clock**: CPU +1.114 (the branch's best), HDMI +0.217, RAM +0.914, hold +0.258, TNS 0 | 69c53878 (`scratch/pipeline_b8/`) | after build 7b's run |
+| build 8 | 78ba885, the branch head (increments 9 + 10 + 788ab35) | 21 + the switch | 35,952 (86 %); synthesis 55,424 ALUTs | **met on every clock**: CPU +1.114 (the branch's best), HDMI +0.217, RAM +0.914, hold +0.258, TNS 0. The twelve worst CPU-clock paths are all the SDRAM bridge's clk_ram -> clk_sys line handoff (`sdram_beat32 line_done_handoff -> line_data`, +1.114); no core path is among them (`scratch/pipeline_b8/worst_paths.txt`). The clk_sys -> clk_ram handoff toggle has +2.513 | 69c53878 (`scratch/pipeline_b8/`) | **Mix 0.905/0.908/0.908** (mean 0.907, flat against build 7b: Speedometer's loops close with Bcc, not DBcc), **CQD 0.666** (+0.6 %, all depths), FPU 0.468/0.465, 8.1 boot <= 101 s, clean 47 s shutdown, no artefact, no short timing in six series (section 19) |
 
 (filled in as each build completes; the seed ledger is also in the `.qsf`.)
 
@@ -385,6 +385,20 @@ redirect bodies share one state-selected target so the branch lookahead's
 flags only gate an enable.  The HDMI miss of 0.001 ns sits on the
 framework's own video register and is judged at the display; the release
 gate (A/UX 3.1 at 32 MB, CD audio by ear) has not been run on this branch.
+
+Outcome of 2026-09-18: increment 9 (the unconditional transfers redirect
+at the pop, the plan's item 2 in its exact form) measured 0.907 on build
+7b (+0.55 % over build 6, the gain in the call-heavy tests) once its
+early fetch shared the redirect target wire and the refill seed count
+came from precomputed valid runs; that restructuring also gave the CPU
+clock +0.580 ns and then +1.114 ns of margin (builds 7b and 8) against
+build 6's +0.139, and the worst CPU-clock path is now the SDRAM bridge's
+crossing rather than anything in the core.  Increment 10 (DBcc from the
+pop) is exact and gated, cut the directed loop bench by 15.8 %, and is
+flat on the Speedometer Mix (Pascal loops are Bcc loops); it shows in
+CQD (+0.6 %).  Build 8 = the branch head: Mix 0.907, CQD 0.666, every
+clock met including HDMI, 35,952 ALMs.  An RTS/RTD/RTR-from-the-pop
+increment was tried and withdrawn as cycle-neutral.
 
 ## Not done, and why
 

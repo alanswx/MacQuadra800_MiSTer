@@ -131,15 +131,31 @@ analysing a build before starting the next increment.
    db was overwritten before it could be read).  Build 8 (78ba885, the branch head = increments 9
    + 10 + 788ab35, seed 21 + the switch) also MEETS every clock: CPU
    +1.114 (the branch's best), HDMI +0.217, RAM +0.914, hold +0.258,
-   35,952 ALMs (86 %), rbf 69c53878 in `scratch/pipeline_b8/` with its
-   brief; it runs on the box after build 7b's run (one operator at a
-   time on the .143 box).
-4. The rest of the plan's item 2, in order of expected value: RTS's pop
-   read issued from the retire that pops it (exact, one cycle per
-   return, no prediction); BRA.B/BSR.B after a non-producer retire
-   through the lookahead arm (cond 0000 needs no flags); then the table
-   proper for Bcc.W/.L and JSR/JMP (An) with a mispredict path that
-   re-arms the fall-through (design in section 9 of the design note).
+   35,952 ALMs (86 %), rbf 69c53878 in `scratch/pipeline_b8/`.  ON
+   HARDWARE (`scratch/pipeline_b8/report.md`, section 19): Mix
+   0.905/0.908/0.908 (mean 0.907, flat against 7b: Speedometer's Pascal
+   loops close with Bcc, not DBcc), CQD 0.666 (+0.6 %), FPU 0.468/0.465,
+   no short timing in six series, clean boot and shutdown.  The worst
+   CPU-clock path of build 8 is the SDRAM bridge's clk_ram -> clk_sys
+   line handoff (+1.114), not the core (`scratch/pipeline_b8/worst_paths.txt`).
+   The .143 box was left at the 8.1 halt screen on build 8's rbf
+   (`/media/fat/_Unstable/MacQuadra800_b8_s21r_69c53878.rbf`), `.s0`
+   QuadSquad8.hda, `.s1`/`.s4` the user's MacLC disk and CD, untouched.
+   Build 8 is the branch's release candidate if the user wants one: it
+   meets every clock including HDMI; the full gate (A/UX 3.1 at 32 MB, CD
+   audio by ear) has not been run on this branch.
+4. What is left of the plan's item 2 is small: BRA.B after a non-producer
+   retire through the lookahead arm (cond 0000 needs no flags, a hint
+   term too), and the table proper for Bcc.W/.L and JSR/JMP (An) with a
+   mispredict path that re-arms the fall-through (design in section 9 of
+   the design note); RTS from the pop was tried and is cycle-neutral.
+   The larger remaining levers are on the store path: a one-clock posted
+   store (stores are 12 % of the bracket at two port cycles each; needs a
+   write-side hint verdict in ap040_mmu -- write protection and the
+   descriptor's modified bit -- and a store fast lane in ap040_cache next
+   to the read one), and the plan's item 3 (reads passing pending stores,
+   about 5 %); either is a cache/MMU change that wants the full-machine
+   sim in the loop.  The CPU clock now has +1.1 ns to spend.
 5. Further increments that are designed but not built: MOVEM's S_MOVEM_SET2
    folded into SET (decode selects An); the record applied to a resident
    target word in S_FETCH; the two-sector refill buffer (Alan's brf2, corpus

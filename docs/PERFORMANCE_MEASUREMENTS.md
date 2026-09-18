@@ -1013,3 +1013,56 @@ before (about one run in six, attributed to the SDRAM 33/99 MHz handoff
 crossing, `docs/sdram-open-row-crossing.md`). Not established either way;
 the build-8 run watches for it and the crossing margin of each fitted tree
 is checked (section 19 will say).
+
+## 19. CPU pipeline increment 10, build 8 (2026-09-18, hardware)
+
+Branch `CPU-pipeline`, commit 78ba885 (build 7b plus increment 10: a DBcc
+whose displacement word is resident dispatches from the retire that pops
+it straight into S_DBCC1; `docs/cpu-pipeline-increments-20260917.md`
+section 10), seed 21 with the routability optimization, timing MET on
+every clock (CPU +1.114 ns, HDMI +0.217, RAM +0.914, hold +0.258), 35,952
+ALMs (86 %), rbf 69c53878. Same box, disk, slots and procedure as section
+18, three Mix runs by the Opus operator, all valid
+(`scratch/pipeline_b8/report.md`, 52 screenshots). Baseline = section 18's
+build 7b (0.905/0.908/0.907).
+
+### Benchmark Mix (Quadra 605 = 1.0)
+
+| test | run 1 | run 2 | run 3 | ratio (run 3) | build 7b mean | change (mean of 3) |
+|---|---|---|---|---|---|---|
+| KWhetstones/sec | 673.428 | 678.414 | 678.375 | 2.306 | 676.433 | 0.0 % |
+| Dhrystones/sec | 11617.540 | 11619.748 | 11620.577 | 0.672 | 11577.371 | +0.4 % |
+| Towers (sec) | 1.100 | 1.100 | 1.100 | 0.581 | 1.0993 | +0.1 % |
+| Quick Sort (sec) | 0.793 | 0.792 | 0.792 | 0.900 | 0.7923 | 0.0 % |
+| Bubble Sort (sec) | 0.888 | 0.888 | 0.888 | 0.855 | 0.8880 | 0.0 % |
+| Queens (sec) | 0.633 | 0.633 | 0.633 | 0.638 | 0.6327 | +0.1 % |
+| Puzzle (sec) | 1.565 | 1.559 | 1.556 | 0.702 | 1.5610 | -0.1 % |
+| Permutations (sec) | 1.728 | 1.728 | 1.728 | 0.470 | 1.7273 | 0.0 % |
+| Int. Matrix (sec) | 0.962 | 0.958 | 0.959 | 0.840 | 0.9593 | 0.0 % |
+| Sieve (sec) | 1.234 | 1.231 | 1.231 | 1.114 | 1.2327 | -0.1 % |
+| **Average** | **0.905** | **0.908** | **0.908** | | 0.9067 | **+0.03 %** (mean 0.907); +6.1 % over 0.855 |
+
+Increment 10 is flat on the Mix to well inside the 0.33 % run-to-run
+spread, although the directed loop bench dropped 15.8 %: Speedometer's
+Pascal loops close with ADDQ/CMP/Bcc, which the lookahead already handles,
+and DBcc lives in the Toolbox and QuickDraw. Nothing regressed.
+
+### Color QuickDraw and FPU
+
+| test | this build | build 7b |
+|---|---|---|
+| CQD average (Monochrome 9.987 s 0.691, Two bit 11.406 s 0.669, Four bit 13.051 s 0.666, Eight bit 16.570 s 0.639) | **0.666** | 0.662 (+0.6 %; all four depths faster) |
+| FPU average (KWhetstones 2492.9/2495.7 per s 0.478/0.479, Matrix Mult. 1.397/1.429 s, FFT 0.682 s 0.421) | **0.468 / 0.465** | 0.468 / 0.464 |
+
+The small CQD gain is where the DBcc loops are. Boot to the Finder in
+<= 101 s, clean Special -> Shut Down in 47 s, no artefact, dialog, dropout
+or system error in 36 minutes, and no implausibly short timing in any of
+the six series (section 18's anomaly did not recur; one clean session
+does not settle its cause).
+
+Where the branch stands: the shipped core 0.855, build 6 (increments 1-8)
+0.902, build 7b (+ increment 9) 0.907, build 8 (+ increment 10) 0.907 with
+CQD 0.666 -- +6.1 % on the Mix and +3.9 % on CQD over the shipped core,
+on a core 1,192 ALMs smaller (35,952 against 37,144), with every clock met
+and the CPU clock's worst path now outside the core (the SDRAM bridge's
+clk_ram -> clk_sys line handoff, +1.114 ns).
