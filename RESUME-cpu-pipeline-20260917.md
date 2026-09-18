@@ -119,11 +119,16 @@ analysing a build before starting the next increment.
    seed 21 + the switch) MEETS TIMING on every clock: CPU +0.580 (build
    6: +0.139), HDMI +0.364, RAM +0.527, hold +0.147, 35,807 ALMs (85 %),
    synthesis 55,143 ALUTs -- the valid-run seed count paid for increment
-   9's logic.  rbf 9e3b7d9d in `scratch/pipeline_b7/`, brief filled
-   (`scratch/pipeline_b7/BRIEF.md`); the Opus operator runs it on the
-   .143 box (the box was at the 8.1 halt screen on build 6).  Expect the
-   call-heavy tests to move (JSR abs.L 9 -> 6 cycles, BSR.W 8 -> 6,
-   JMP/BRA.W -2/-3).  Build 8 (78ba885, the branch head = increments 9
+   9's logic.  rbf 9e3b7d9d in `scratch/pipeline_b7/`.  ON HARDWARE
+   (`scratch/pipeline_b7/report.md`, section 18 of
+   docs/PERFORMANCE_MEASUREMENTS.md): Mix 0.905/0.908/0.907 (+0.55 %
+   over build 6, +6.0 % over the shipped 0.855; Dhrystones +1.8 %,
+   Permutations and Towers -1 %), CQD 0.662, FPU 0.468/0.464, clean
+   boot and shutdown, no artefact.  Two non-reproducing implausibly
+   short last-test timings (Sieve 0.850 once, CQD Eight bit 5.043 once)
+   were excluded and replaced; the build-8 run watches for a repeat and
+   build 8's clk_sys->clk_ram crossing margin is +2.513 ns (7b's fitted
+   db was overwritten before it could be read).  Build 8 (78ba885, the branch head = increments 9
    + 10 + 788ab35, seed 21 + the switch) also MEETS every clock: CPU
    +1.114 (the branch's best), HDMI +0.217, RAM +0.914, hold +0.258,
    35,952 ALMs (86 %), rbf 69c53878 in `scratch/pipeline_b8/` with its

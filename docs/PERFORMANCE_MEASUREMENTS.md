@@ -953,3 +953,63 @@ Permutations 1.746, Int. Matrix 0.960, Sieve 1.232 s), CQD 0.660, FPU
 clean Shut Down in 46 s, no artefact in any captured frame.  The two
 builds agree run for run, as cycle-identical RTL must; this is the
 deployable one.
+
+## 18. CPU pipeline increment 9, build 7b (2026-09-18, hardware)
+
+Branch `CPU-pipeline`, commits 8a9b392 + 788ab35 (build 6 plus increment 9:
+BRA.W/.L, BSR.W/.L, JSR and JMP abs.W/abs.L/d16(PC) dispatch from the retire
+that pops them with the target fetch issued in that cycle; and the timing
+commit that routes that fetch through the one shared early-target wire and
+computes the refill seed count from the sector's precomputed valid runs;
+`docs/cpu-pipeline-increments-20260917.md` sections 9 and 9b), seed 21 with
+the fitter's routability optimization, timing MET on every clock (CPU
++0.580 ns, HDMI +0.364, RAM +0.527, hold +0.147), 35,807 ALMs (85 %), rbf
+9e3b7d9d. Speedometer 4.02 on the .143 box, Mac OS 8.1 from QuadSquad8.hda
+with a second disk and a CD mounted, 32 MB, one iteration, four Mix runs by
+the Opus operator of which three are valid (`scratch/pipeline_b7/report.md`,
+65 screenshots). Baseline = section 17's build 6 (0.900/0.902/0.903).
+
+### Benchmark Mix (Quadra 605 = 1.0)
+
+| test | run 1 | run 2 | run 4 | ratio (run 4) | build 6 run 3 | change (mean of 3) |
+|---|---|---|---|---|---|---|
+| KWhetstones/sec | 673.213 | 677.995 | 678.090 | 2.305 | 672.5 | +0.8 % |
+| Dhrystones/sec | 11578.314 | 11582.605 | 11571.194 | 0.669 | 11376 | +1.8 % |
+| Towers (sec) | 1.100 | 1.099 | 1.099 | 0.581 | 1.110 | -1.0 % |
+| Quick Sort (sec) | 0.793 | 0.792 | 0.792 | 0.900 | 0.797 | -0.6 % |
+| Bubble Sort (sec) | 0.888 | 0.888 | 0.888 | 0.856 | 0.889 | -0.1 % |
+| Queens (sec) | 0.633 | 0.632 | 0.633 | 0.638 | 0.634 | -0.2 % |
+| Puzzle (sec) | 1.565 | 1.557 | 1.561 | 0.700 | 1.556 | +0.1 % |
+| Permutations (sec) | 1.728 | 1.727 | 1.727 | 0.471 | 1.746 | -1.1 % |
+| Int. Matrix (sec) | 0.962 | 0.958 | 0.958 | 0.840 | 0.960 | -0.1 % |
+| Sieve (sec) | 1.234 | 1.231 | 1.233 | 1.112 | 1.232 | 0.0 % |
+| **Average** | **0.905** | **0.908** | **0.907** | | 0.902 | **+0.55 %** (mean 0.907); +6.0 % over 0.855 |
+
+Run 3 was invalid: nine rows repeated runs 1-2 to 0.1 % but Sieve read
+0.850 s (1.231-1.234 everywhere else); it was reported, not averaged, and
+replaced by run 4, where Sieve was back at 1.233. The gain is confined to
+the call- and branch-heavy tests increment 9 targets (Dhrystones,
+Permutations, Towers, Quick Sort); nothing is measurably slower.
+
+### Color QuickDraw and FPU
+
+| test | this build | build 6 |
+|---|---|---|
+| CQD average (Monochrome 10.052 s 0.687, Two bit 11.500 s 0.664, Four bit 13.160 s 0.661, Eight bit 16.673 s 0.635) | **0.662** | 0.660 (+0.3 %) |
+| FPU average (KWhetstones 2491.8/2492.4 per s 0.478, Matrix Mult. 1.398/1.430 s, FFT 0.682 s 0.421) | **0.468 / 0.464** | 0.464 / 0.467 |
+
+The first CQD run was also invalid (Eight bit 5.043 s against 16.7 s in
+every other run) and was repeated. Boot to the Finder in <= 97 s, clean
+Special -> Shut Down in 47 s, no artefact, dialog, dropout or system error
+in 47 minutes.
+
+### The two short timings
+
+Both implausible values were the last test of their series (Sieve closes
+the Mix, Eight bit closed the CQD run), both were on screen before the
+alert was dismissed, and neither reproduced. Build 6's session on the
+preceding RTL saw none; the project has seen impossible single-test times
+before (about one run in six, attributed to the SDRAM 33/99 MHz handoff
+crossing, `docs/sdram-open-row-crossing.md`). Not established either way;
+the build-8 run watches for it and the crossing margin of each fitted tree
+is checked (section 19 will say).
