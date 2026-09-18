@@ -114,15 +114,17 @@ analysing a build before starting the next increment.
    (`scripts/cpu/timequest_worst_paths.tcl`) and the increment it names.
 2. A release needs the full gate (A/UX 3.1 at 32 MB, CD audio by ear): the
    user's call; nothing in `releases/` was touched.
-3. Build 7b (increment 9 + the 9b timing fix, cherry-picked onto 8a9b392
-   in `../MacQuadra800_wt3`, seed 21 + the switch) is the next synthesis;
-   if it meets the CPU clock, the Speedometer run by the Opus operator
-   (brief drafted: `scratch/pipeline_b7/BRIEF.md`, md5/timing/ALMs to
-   fill; the box was left at the 8.1 halt screen on build 6).  Expect the
+3. Build 7b (increment 9 + the 9b timing commit 788ab35, cherry-picked
+   onto 8a9b392 in `../MacQuadra800_wt3` as its detached commit 2d9a8a0,
+   seed 21 + the switch) MEETS TIMING on every clock: CPU +0.580 (build
+   6: +0.139), HDMI +0.364, RAM +0.527, hold +0.147, 35,807 ALMs (85 %),
+   synthesis 55,143 ALUTs -- the valid-run seed count paid for increment
+   9's logic.  rbf 9e3b7d9d in `scratch/pipeline_b7/`, brief filled
+   (`scratch/pipeline_b7/BRIEF.md`); the Opus operator runs it on the
+   .143 box (the box was at the 8.1 halt screen on build 6).  Expect the
    call-heavy tests to move (JSR abs.L 9 -> 6 cycles, BSR.W 8 -> 6,
-   JMP/BRA.W -2/-3).  Then build 8 = increment 10 on top, its own run.
-   Area: build 7 was +591 ALMs over build 6 (36,388, still 756 below the
-   shipped core); the branch's pairing rule owes a removal.
+   JMP/BRA.W -2/-3).  Then build 8 = increment 10 (e11ebc7 + 788ab35 =
+   the branch head) as its own synthesis and run.
 4. The rest of the plan's item 2, in order of expected value: RTS's pop
    read issued from the retire that pops it (exact, one cycle per
    return, no prediction); BRA.B/BSR.B after a non-producer retire
