@@ -27,13 +27,12 @@ module quadra800
 	parameter RAM_ADDR_BITS = 27,             // address space ceiling: 128 MB
 	parameter CDROM         = 1,              // 0 = no CD-ROM target (rtl/ncr53c96.sv)
 	parameter SONIC         = 1,              // 0 = no built-in Ethernet (rtl/sonic_mbx.sv)
-	// 1 = every SONIC DMA write beat pulses the CPU's D-cache snoop (invalidate).  OFF:
-	// Mac OS makes DMA buffers non-cacheable through the MMU (LockMemory on a 68040), and
-	// wombat_cpu honours the CM bits, so the snoop is not what keeps the guest coherent --
-	// while hundreds of snoops per frame, concurrent with arbitrary CPU stores, are a
-	// stimulus ap040_cache's snoop port never had from the MMU walker.  Ethernet builds
-	// 2-4 (snoop on) hung or crashed the guest soon after receive traffic began.
-	parameter SONIC_SNOOP   = 0
+	// 1 = every SONIC DMA write beat pulses the CPU's D-cache snoop (the 68040's bus-snoop
+	// invalidate).  It has to be on: with it off (Ethernet builds 5 and 6) the guest bombs
+	// within ten received frames although every frame and descriptor in RAM is byte-exact --
+	// Apple's driver marks a recycled receive descriptor with $FF in the top byte of its
+	// length longword, and a stale cached copy of that longword is a 4 GB length.
+	parameter SONIC_SNOOP   = 1
 )
 (
 	input         clk,
