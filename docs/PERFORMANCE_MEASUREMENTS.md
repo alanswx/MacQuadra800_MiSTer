@@ -1066,3 +1066,55 @@ CQD 0.666 -- +6.1 % on the Mix and +3.9 % on CQD over the shipped core,
 on a core 1,192 ALMs smaller (35,952 against 37,144), with every clock met
 and the CPU clock's worst path now outside the core (the SDRAM bridge's
 clk_ram -> clk_sys line handoff, +1.114 ns).
+
+## 20. CPU pipeline increments 11-12, build 9 (2026-09-19, hardware): a finding
+
+Branch `CPU-pipeline`, commit 4931e19 (build 8 plus increment 11, S_FETCH's
+resident pop handed to the dispatch chain, and increment 12, the loop-top
+record cache: `docs/cpu-pipeline-increments-20260917.md` sections 11 and
+12), seed 21 with the routability optimization, timing MET on every clock
+(CPU +1.007 ns, HDMI +0.477, RAM +0.697), 36,400 ALMs (87 %), rbf f061d1fc.
+Same box, disk, slots and procedure as sections 18-19; five Mix runs by the
+Opus operator of which three are valid (`scratch/pipeline_b9/report.md`, 57
+screenshots).
+
+### The finding
+
+Two of five Mix runs returned physically impossible single-test times, in
+three loop-heavy integer tests and mid-series: run 1 Bubble Sort **0.022 s**
+(0.887 in every valid run, 40 times short) and Quick Sort **0.273 s**
+(0.774); run 2 Dhrystones **17712/s** (11773, +52 %). The other nine rows
+of each run were normal to 0.2 %. A loop that "finishes" forty times sooner
+is a loop that did not run: this is wrong execution, not a timer artefact.
+Build 8 showed nothing of the kind in six series; build 7b's two short
+readings were last-of-series and far smaller. Increment 12 replays a cached
+decode of the first instruction of every tight loop and is the prime
+suspect; the mechanism is not established from the operator seat
+(Speedometer checks no results). Increments 11 and 12 are therefore held
+out of the release path: build 12 is a bisect (build 8 plus increments 13,
+14 and 15, without 11 and 12), and the record cache goes back to
+simulation under interrupts before it returns.
+
+### The valid runs (Quadra 605 = 1.0)
+
+| test | run 3 | run 4 | run 5 | ratio (run 5) | build 8 run 3 | change |
+|---|---|---|---|---|---|---|
+| KWhetstones/sec | 678.500 | 678.490 | 678.388 | 2.306 | 678.375 | 0.0 % |
+| Dhrystones/sec | 11773.096 | 11774.796 | 11773.459 | 0.681 | 11620.577 | +1.3 % |
+| Towers (sec) | 1.099 | 1.099 | 1.099 | 0.581 | 1.100 | -0.1 % |
+| Quick Sort (sec) | 0.774 | 0.774 | 0.774 | 0.920 | 0.792 | -2.3 % |
+| Bubble Sort (sec) | 0.887 | 0.887 | 0.887 | 0.857 | 0.888 | -0.1 % |
+| Queens (sec) | 0.633 | 0.633 | 0.633 | 0.638 | 0.633 | 0.0 % |
+| Puzzle (sec) | 1.551 | 1.558 | 1.559 | 0.701 | 1.556 | 0.0 % |
+| Permutations (sec) | 1.728 | 1.728 | 1.728 | 0.470 | 1.728 | 0.0 % |
+| Int. Matrix (sec) | 0.939 | 0.940 | 0.937 | 0.859 | 0.959 | -2.2 % |
+| Sieve (sec) | 1.256 | 1.257 | 1.255 | 1.093 | 1.231 | **+2.0 % slower** |
+| **Average** | **0.911** | **0.910** | **0.911** | | 0.908 | **+0.4 %** (mean 0.911); +6.5 % over 0.855 |
+
+CQD 0.668 (build 8: 0.666), FPU 0.470 / 0.468 (0.468 / 0.465), boot to the
+Finder <= 89 s, clean Shut Down in 49 s, no artefact, dialog or dropout.
+The Sieve regression is consistent across all six runs of the two builds
+and is the shape increment 12 targets: skipping the loop top's decode
+cycle also removes the fill engine's slot in it, so a loop whose body
+exceeds the seed pays a demand fetch instead (Alan's rule about the decode
+cycle after a read retire, in another form).

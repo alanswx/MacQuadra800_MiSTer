@@ -80,8 +80,16 @@ found a desktop alias and used it).
     bench_loop 68,354 -> 56,108 (-17.9 %), corpus 32,962,768 with 0
     diffs, t_branch_early section J.  Build 9 (4931e19, seed 21 + the
     switch) MEETS every clock: CPU +1.007, HDMI +0.477, RAM +0.697,
-    36,400 ALMs (87 %), rbf f061d1fc in `scratch/pipeline_b9/`, the
-    operator running it (launched 04:37).
+    36,400 ALMs (87 %), rbf f061d1fc in `scratch/pipeline_b9/`.  ON
+    HARDWARE (section 20): A FINDING -- 2 of 5 Mix runs with impossible
+    loop-test times (Bubble Sort 0.022 s, Quick Sort 0.273 s, Dhrystones
+    17712/s), mid-series; build 8 never showed this.  Wrong execution,
+    the record cache the prime suspect.  Valid runs Mix 0.911 (+0.4 %),
+    Sieve +2 % slower.  Increments 11+12 are HELD OUT: build 12 = build 8
+    + 13 + 14 + 15 (the worktree's detached edca43e), wait-gated 05:37
+    behind another session's sgiindy fit; builds 10 and 11's runs dropped
+    (the user: fewer builds, combine changes).  The record cache goes
+    back to simulation under interrupts before it returns.
 13. (2026-09-19, in gating) The one-clock posted store: store hints
     from the core, a write-side MMU verdict (`hq_wok`), the cache's
     `fast_store` on the hint's registered physical tag
