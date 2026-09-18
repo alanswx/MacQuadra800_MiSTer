@@ -95,6 +95,11 @@ localparam CONF_STR = {
 	"-;",
 	"O[6],Ethernet (on reset),Off,On;",
 	"O[8:7],Net interface,eth0,eth1,wlan0,tap0;",
+	// BRING-UP ONLY (2026-09-18, remove before a release): machine fast paths off, to find what
+	// Open Transport's CAS/CAS2 list code trips over.  All latched under reset.
+	"O[9],Dbg store buffer,On,Off;",
+	"O[10],Dbg SDRAM line,On,Off;",
+	"O[11],Dbg DMA snoop,On,Off;",
 `endif
 	"-;",
 	"T[0],Reset;",
@@ -500,7 +505,11 @@ localparam SONIC_EN = 0;
 localparam SONIC_EN = 1;
 `endif
 reg         eth_ena = 1'b0;
-always @(posedge clk_sys) if (reset) eth_ena <= (SONIC_EN != 0) && status[6];
+reg   [2:0] dbg_sw  = 3'd0;
+always @(posedge clk_sys) if (reset) begin
+	eth_ena <= (SONIC_EN != 0) && status[6];
+	dbg_sw  <= status[11:9];
+end
 wire [11:0] eth_mem_addr;
 wire        eth_mem_rd, eth_mem_we;
 wire [63:0] eth_mem_wdata;
@@ -579,6 +588,7 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS), .CDROM(CDROM_EN), .SONIC(SONIC_EN)) m
 	.debug_halted(),
 
 	.eth_ena(eth_ena),
+	.dbg_sw(dbg_sw),
 	.eth_mem_addr(eth_mem_addr),
 	.eth_mem_rd(eth_mem_rd),
 	.eth_mem_we(eth_mem_we),

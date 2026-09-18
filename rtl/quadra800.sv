@@ -126,6 +126,10 @@ module quadra800
 	// DDR3 window port of rtl/sonic_mbx.sv (rd/we level-held until the 1-cycle
 	// accept; read data with rvalid)
 	input         eth_ena,
+	// BRING-UP switches (OSD, latched under reset by the top; all 0 = the shipped machine):
+	// [0] no store buffer / posted stores, [1] no retained-SDRAM-line fast paths,
+	// [2] no D-cache snoop for SONIC DMA writes
+	input   [2:0] dbg_sw,
 	output [11:0] eth_mem_addr,
 	output        eth_mem_rd,
 	output        eth_mem_we,
@@ -138,6 +142,10 @@ module quadra800
 localparam [1:0] MSEL_RAM  = 2'd0,
                  MSEL_ROM  = 2'd1,
                  MSEL_VRAM = 2'd2;
+
+// bring-up switch [1]: the retained SDRAM line as if it were never valid
+wire        line_valid_sw   = mem_line_valid   && !dbg_sw[1];
+wire        line_pending_sw = mem_line_pending && !dbg_sw[1];
 
 // built-in Ethernet (sonic_mbx, below the service FSM): its interrupt, whether the
 // chip is there this session, and the D-cache snoop strobe of its RAM writes
@@ -252,10 +260,10 @@ wombat_cpu cpu (
 	.berr(cpu_berr),
 	// The retained SDRAM line is physical RAM only.  During boot overlay the
 	// same low CPU addresses select ROM, so keep the sideband disabled there.
-	.cache_line_valid(!overlay && mem_line_valid),
+	.cache_line_valid(!overlay && line_valid_sw),
 	.cache_line_tag({5'd0, mem_line_tag}),
 	.cache_line_data(mem_line_data),
-	.store_buffer_ok(!overlay),
+	.store_buffer_ok(!overlay && !dbg_sw[0]),
 
 	.bus_req(bus_req),
 	.bus_write(bus_write),
@@ -515,9 +523,9 @@ reg         walker_armed;
 // established platform beat. A request for the still-arriving tail waits here
 // instead of launching a redundant SDRAM transaction for the same line.
 wire line_cpu_match = b_req && !b_write && (decode(b_addr) == 3'd0) &&
-	                  mem_line_valid && (b_addr[26:4] == mem_line_tag);
+	                  line_valid_sw && (b_addr[26:4] == mem_line_tag);
 wire line_cpu_wait  = b_req && !b_write && (decode(b_addr) == 3'd0) &&
-	                  mem_line_pending &&
+	                  line_pending_sw &&
 	                  (b_addr[26:4] == mem_line_pending_tag);
 wire [31:0] line_cpu_data = (b_addr[3:2] == 2'd0) ? mem_line_data[127:96] :
 	                        (b_addr[3:2] == 2'd1) ? mem_line_data[95:64]  :
@@ -534,9 +542,9 @@ wire bus_ram_eligible = (svc == S_IDLE) && !walker_pend && !cpu_berr &&
 	                    !bus_ack_adapter && bus_req && !bus_write &&
 	                    (bus_size == 2'd2) && (bus_addr[1:0] == 2'b00) &&
 	                    (decode(bus_addr[31:2]) == 3'd0);
-wire bus_line_match = bus_ram_eligible && mem_line_valid &&
+wire bus_line_match = bus_ram_eligible && line_valid_sw &&
 	                  (bus_addr[26:4] == mem_line_tag);
-wire bus_line_wait  = bus_ram_eligible && mem_line_pending &&
+wire bus_line_wait  = bus_ram_eligible && line_pending_sw &&
 	                  (bus_addr[26:4] == mem_line_pending_tag);
 wire bus_first_miss = bus_ram_eligible && !bus_line_match && !bus_line_wait;
 wire [31:0] bus_line_data = (bus_addr[3:2] == 2'd0) ? mem_line_data[127:96] :
@@ -726,7 +734,7 @@ always @(posedge clk) begin
 				dma_rdata <= mem_rdata;
 				// the 68040's bus snoop: a write by the other master drops the
 				// D-cache's copy of that line (svc_addr is still the beat's)
-				snoop_stb <= mem_write && (SONIC_SNOOP != 0);
+				snoop_stb <= mem_write && (SONIC_SNOOP != 0) && !dbg_sw[2];
 				svc_dma   <= 0;
 			end
 			else if (svc_walker) begin
