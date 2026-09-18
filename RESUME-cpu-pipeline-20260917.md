@@ -123,8 +123,12 @@ analysing a build before starting the next increment.
    (`scratch/pipeline_b7/BRIEF.md`); the Opus operator runs it on the
    .143 box (the box was at the 8.1 halt screen on build 6).  Expect the
    call-heavy tests to move (JSR abs.L 9 -> 6 cycles, BSR.W 8 -> 6,
-   JMP/BRA.W -2/-3).  Then build 8 = increment 10 (e11ebc7 + 788ab35 =
-   the branch head) as its own synthesis and run.
+   JMP/BRA.W -2/-3).  Build 8 (78ba885, the branch head = increments 9
+   + 10 + 788ab35, seed 21 + the switch) also MEETS every clock: CPU
+   +1.114 (the branch's best), HDMI +0.217, RAM +0.914, hold +0.258,
+   35,952 ALMs (86 %), rbf 69c53878 in `scratch/pipeline_b8/` with its
+   brief; it runs on the box after build 7b's run (one operator at a
+   time on the .143 box).
 4. The rest of the plan's item 2, in order of expected value: RTS's pop
    read issued from the retire that pops it (exact, one cycle per
    return, no prediction); BRA.B/BSR.B after a non-producer retire

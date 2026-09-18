@@ -367,6 +367,7 @@ return address with A7 backed out) stays in `t_branch_early`.
 | build 6 | c84a5e7 (+ fast_hit qualified from registers only) | 21 + the switch | 35,797 (85 %) | CPU +0.139, RAM +0.445, HDMI -0.001 (one `sys_top` video register) | cda6ba11 (`scratch/pipeline_b6/`) | **Mix 0.900/0.902/0.903**, CQD 0.660, FPU 0.464/0.467, 8.1 boot <= 85 s, clean 46 s shutdown, no artefact in any captured frame |
 | build 7 | 8a9b392 (+ increment 9) | 21 + the switch | 36,388 (87 %) | routed; CPU clock -1.575 (HDMI +0.333, RAM +0.538): rr_a -> regfile -> ALU shifter and zero compare -> flags -> the lookahead carrier selecting between go_pc_t_early and the early fetch's bd_t -> seed count -> epf_ftail (`scratch/pipeline_b7/worst_detail.txt`); rule 3 again, from a second issue_ifetch target | not deployable | |
 | build 7b | 8a9b392 + 788ab35 (the shared early-target wire, the valid-run seed count; increment 9 alone otherwise) | 21 + the switch | 35,807 (85 %); synthesis 55,143 ALUTs (-455 vs build 7) | **met on every clock**: CPU +0.580, HDMI +0.364, RAM +0.527, hold +0.147, TNS 0 | 9e3b7d9d (`scratch/pipeline_b7/`) | (running) |
+| build 8 | 78ba885, the branch head (increments 9 + 10 + 788ab35) | 21 + the switch | 35,952 (86 %); synthesis 55,424 ALUTs | **met on every clock**: CPU +1.114 (the branch's best), HDMI +0.217, RAM +0.914, hold +0.258, TNS 0 | 69c53878 (`scratch/pipeline_b8/`) | after build 7b's run |
 
 (filled in as each build completes; the seed ledger is also in the `.qsf`.)
 

@@ -258,6 +258,9 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # the sector valid runs), seed 21 + the switch: MEETS TIMING on every clock -- 35,807 ALMs (85 %), clk_sys +0.580,
 # HDMI +0.364, clk_ram +0.527, hold +0.147, TNS 0; synthesis 55,143 ALUTs (build 7: 55,598). rbf 9e3b7d9d =
 # scratch/pipeline_b7/MacQuadra800_b7b_s21r_9e3b7d9d.rbf, the hardware candidate for increment 9.
+# 2026-09-18 22:40 build 8 (78ba885 = the branch head: increments 9 + 10 (DBcc from the pop) + 788ab35), seed 21 + the
+# switch: MEETS TIMING on every clock -- 35,952 ALMs (86 %), clk_sys +1.114 (the best of the branch), HDMI +0.217,
+# clk_ram +0.914, hold +0.258, TNS 0; synthesis 55,424 ALUTs. rbf 69c53878 = scratch/pipeline_b8/, runs after 7b.
 set_global_assignment -name SEED 21
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
