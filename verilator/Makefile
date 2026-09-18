@@ -7,8 +7,11 @@ RTL = ../rtl
 AP  = ../rtl/ap68040/rtl
 V_INC = +incdir+$(RTL) +incdir+$(AP) -I$(AP)
 
+# mirror of ../Main_MiSTer/support/mac (scripts/sync_main_mac.sh): the CD
+# response builders and playhead the sims serve the CD slot's windows with
+MAINMAC = sim/mac
 V_DEFINE = +define+SIMULATION=1 \
-	-CFLAGS "-I../sim/imgui -I../sim/ -g" \
+	-CFLAGS "-I../sim/imgui -I../sim/ -I../sim/mac -g" \
 	--timescale-override 1ps/1ps -Wno-TIMESCALEMOD \
 	-I$(RTL)
 V_DEFINE += -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-IMPLICIT \
@@ -74,6 +77,7 @@ C_SRC = \
 	sim_main.cpp \
 	sim/sim_console.cpp sim/sim_video.cpp sim/sim_input.cpp sim/sim_clock.cpp \
 	sim/sim_audio.cpp sim/sim_blkdevice.cpp \
+	sim/cd_window.cpp $(MAINMAC)/mac_cdrom_resp.cpp $(MAINMAC)/mac_cdrom_play.cpp \
 	sim/m68kdasm.c sim/m68k_dasm_stubs.cpp \
 	sim/imgui/imgui_impl_sdl.cpp sim/imgui/imgui_impl_opengl2.cpp \
 	sim/imgui/imgui_draw.cpp sim/imgui/imgui_widgets.cpp \
@@ -141,8 +145,18 @@ tb_scsi_cache_mbcd:
 	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME -Wno-CASEINCOMPLETE -Wno-BLKSEQ +define+SIMULATION=1 +define+VERILATOR=1 -Wno-MULTIDRIVEN -Wno-SYNCASYNCNET -Wno-COMBDLY +incdir+$(RTL) --top-module tb_scsi_cache +define+MB_CD_TB=1 --Mdir ./obj_dir_tbc_mbcd -o tb_scsi_cache_mbcd tb_scsi_cache.sv $(RTL)/scsi_cache.sv
 	./obj_dir_tbc_mbcd/tb_scsi_cache_mbcd
 
+# cd_audio table dump for the golden-bytes test of Main's response builders
+# (scripts/cd_resp_golden.sh builds it and runs it once per TOC shape):
+#   make tb_cd_audio_dump && ./obj_dir_tb/tb_cd_audio_dump +blob=x.blob.hex +out=x.rtl.bin
+# CD_AUDIO_REF is the pre-2026-09-16 cd_audio.sv (the last one that built the
+# tables); scripts/cd_resp_golden.sh extracts it from git into scratch/, next
+# to the cd_vol_lut.vh it includes (the volume law left the RTL with phase 2).
+CD_AUDIO_REF ?= ../scratch/cd_resp_golden/cd_audio_ref.sv
+tb_cd_audio_dump:
+	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME -Wno-CASEINCOMPLETE -Wno-BLKSEQ +define+SIMULATION=1 +define+VERILATOR=1 -Wno-MULTIDRIVEN -Wno-SYNCASYNCNET -Wno-COMBDLY -Wno-PINMISSING -Wno-UNUSEDSIGNAL +incdir+$(RTL) +incdir+$(dir $(CD_AUDIO_REF)) --top-module tb_cd_audio_dump --Mdir ./obj_dir_tb -o tb_cd_audio_dump tb_cd_audio_dump.sv $(CD_AUDIO_REF)
+
 tb_ncr53c96:
-	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME -Wno-CASEINCOMPLETE -Wno-BLKSEQ +define+SIMULATION=1 +define+VERILATOR=1 -Wno-MULTIDRIVEN -Wno-SYNCASYNCNET -Wno-COMBDLY +incdir+$(RTL) --top-module tb_ncr53c96 --Mdir ./obj_dir_tb -o tb_ncr53c96 tb_ncr53c96.sv $(RTL)/ncr53c96.sv $(RTL)/cd_audio.sv
+	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME -Wno-CASEINCOMPLETE -Wno-BLKSEQ +define+SIMULATION=1 +define+VERILATOR=1 -Wno-MULTIDRIVEN -Wno-SYNCASYNCNET -Wno-COMBDLY +incdir+$(RTL) -CFLAGS "-I$(abspath sim) -I$(abspath sim/mac)" --top-module tb_ncr53c96 --Mdir ./obj_dir_tb -o tb_ncr53c96 tb_ncr53c96.sv $(RTL)/ncr53c96.sv $(RTL)/cd_audio.sv cd_win_dpi.cpp sim/cd_window.cpp $(MAINMAC)/mac_cdrom_resp.cpp $(MAINMAC)/mac_cdrom_play.cpp
 	./obj_dir_tb/tb_ncr53c96
 
 # Directed timing/data test for the transaction-to-beat adapter's registered

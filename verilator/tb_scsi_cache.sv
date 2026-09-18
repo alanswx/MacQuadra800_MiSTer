@@ -45,7 +45,7 @@ wire [15:0] stat_hits, stat_misses;
 `endif
 scsi_cache #(.SECT0(`CACHE_S0_TB), .SECT1(`CACHE_S1_TB), .SECT2(16), .PF_DEPTH(8), .CACHE_CD(`CACHE_CD_TB), .MB_CD(`MB_CD_TB)) dut (
 	.clk(clk), .nreset(nreset),
-	.e_lba(e_lba), .e_rd(e_rd), .e_wr(e_wr), .e_ack(e_ack),
+	.e_lba(e_lba), .e_blk_cnt(6'd0), .e_rd(e_rd), .e_wr(e_wr), .e_ack(e_ack),
 	.e_buff_addr(e_buff_addr), .e_buff_dout(e_buff_dout), .e_buff_din(e_buff_din), .e_buff_wr(e_buff_wr),
 	.p_lba(p_lba), .p_blk_cnt(p_blk_cnt), .p_rd(p_rd), .p_wr(p_wr), .p_ack(p_ack),
 	.p_buff_addr(p_buff_addr), .p_buff_dout(p_buff_dout), .p_buff_din(p_buff_din), .p_buff_wr(p_buff_wr),

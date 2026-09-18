@@ -60,9 +60,10 @@ reg         img_mounted = 0;
 reg  [63:0] img_size = 0;
 wire [31:0] io_lba;
 wire        io_rd, io_wr;
-reg         io_ack = 0;
-reg   [7:0] sd_buff_addr = 0;
+reg   [2:0] io_ack = 3'b000;                 // per slot, like sd_ack
+reg  [12:0] sd_buff_addr = 0;                // wide: a 5-block frame streams 1280 words
 reg  [15:0] sd_buff_dout = 0;
+wire  [5:0] io_blk_cnt;                      // blocks - 1 the DUT wants (the frame window: 4)
 wire [15:0] sd_buff_din;
 reg         sd_buff_wr = 0;
 
@@ -74,8 +75,17 @@ always #5 clk = ~clk;
 // (the CD-ROM) with the same bytes, so a CD read of logical block N must
 // return HPS blocks 4N..4N+3.  Target 1 is mounted late (T16g).
 wire [2:0] io_rd_v, io_wr_v;
-assign io_rd = io_rd_v[0] | io_rd_v[1] | io_rd_v[2];
-assign io_wr = io_wr_v[0] | io_wr_v[1];
+assign io_rd = |io_rd_v;
+assign io_wr = |io_wr_v;                     // slot 2 writes its command block
+
+// The CD slot's windows (LBA >= $40000000: the MCDA blob, the response
+// window, the command block, the next-frame window) are served by the Main
+// fork's own builders through sim/cd_window.cpp (cd_win_dpi.cpp).
+import "DPI-C" function int  cdwin_dpi_read(input int lba, input int sz);
+import "DPI-C" function int  cdwin_dpi_rbyte(input int i);
+import "DPI-C" function void cdwin_dpi_wbyte(input int i, input int b);
+import "DPI-C" function void cdwin_dpi_write(input int lba);
+import "DPI-C" function void cdwin_dpi_mount(input int bytes);
 reg        cd_mount = 0, d1_mount = 0;
 reg  [7:0] sel_id = 8'h00;                   // R_SELID the helpers write
 ncr53c96 dut (
@@ -84,8 +94,8 @@ ncr53c96 dut (
 	.dma_rd(dma_rd), .dma_wr(dma_wr), .dma_wdata(dma_wdata),
 	.dma_rdata(dma_rdata), .dma_valid(dma_valid), .drq(drq), .irq(irq),
 	.img_mounted({cd_mount, d1_mount, img_mounted}), .img_size(img_size),
-	.io_lba(io_lba), .io_rd(io_rd_v), .io_wr(io_wr_v), .io_ack({io_ack, io_ack, io_ack}),
-	.sd_buff_addr({5'd0, sd_buff_addr}), .sd_buff_dout(sd_buff_dout),
+	.io_lba(io_lba), .io_rd(io_rd_v), .io_wr(io_wr_v), .io_blk_cnt(io_blk_cnt), .io_ack(io_ack),
+	.sd_buff_addr(sd_buff_addr), .sd_buff_dout(sd_buff_dout),
 	.sd_buff_din(sd_buff_din), .sd_buff_wr(sd_buff_wr)
 );
 
@@ -100,33 +110,62 @@ reg [7:0] disk [0:NBLK*512-1];
 
 integer k2;
 reg [7:0] it2;
-integer d_state = 0, d_lat = 0, d_i = 0, d_lba = 0;
+integer d_state = 0, d_lat = 0, d_i = 0, d_lba = 0, d_win = 0, d_r = 0;
+integer d_words = 256;                       // words this transaction streams (blocks x 256)
+integer d_slot = 0;                          // the slot being served (the cache's E_IDLE priority: 0, 1, 2)
+integer bad_disk_req = 0;                    // disk-slot requests carrying a window address or a block count
+reg [7:0] d_b0, d_b1;
 integer dev_lat = 40;                        // device round trip, settable per test
-integer wr_blocks = 0;                       // blocks the device has accepted
+integer wr_blocks = 0;                       // disk blocks the device has accepted (window writes not counted)
+integer win_writes = 0;                      // command blocks the ARM side received
+integer frame_reads = 0;                     // next-frame window reads (the engine's fetch loop)
+integer frame_blk = -1;                      // ...and the block count the last one asked for
+integer stat_reads = 0;                      // $CC status-window reads (the engine's pokes and the guest's own)
+integer poke_stbs = 0;                       // fwd_stb pulses: one per forwarded transport command
+integer collisions = 0;                      // cycles in which the nexus and the audio engine both hold a request while nobody owns the channel
+
+always @(posedge clk) if (dut.ca_fwd_stb) poke_stbs <= poke_stbs + 1;
+always @(posedge clk) if (dut.nexus_req && dut.ca_io_rd && !dut.eng_owns) collisions <= collisions + 1;
 
 always @(posedge clk) begin
 	sd_buff_wr <= 0;
 	case (d_state)
 	0: begin
 		if (io_rd || io_wr) begin
+			// the lowest slot with a request bit is served (scsi_cache E_IDLE),
+			// with the address and block count on the bus in this cycle --
+			// which is how a merged request goes astray
+			d_slot  = (io_rd_v[0] | io_wr_v[0]) ? 0 : (io_rd_v[1] | io_wr_v[1]) ? 1 : 2;
 			d_lba   <= io_lba;
 			d_lat   <= dev_lat;              // short but non-zero round trip (default 40)
-			d_state <= io_rd ? 1 : 3;
+			d_win   = (d_slot == 2) && (io_lba >= 32'h4000_0000);
+			d_words = (io_rd_v[d_slot] && d_win) ? (io_blk_cnt + 1) * 256 : 256;
+			if (d_slot != 2 && (io_lba >= NBLK || io_blk_cnt != 0)) bad_disk_req <= bad_disk_req + 1;
+			if (d_win && io_rd_v[d_slot]) d_r = cdwin_dpi_read(io_lba, (io_blk_cnt + 1) * 512);
+			if (d_win && io_rd_v[d_slot] && io_lba == 32'h7C00_0000) begin frame_reads <= frame_reads + 1; frame_blk <= io_blk_cnt; end
+			if (d_win && io_rd_v[d_slot] && io_lba == 32'h7ECC_0000) stat_reads <= stat_reads + 1;
+			d_state <= io_rd_v[d_slot] ? 1 : 3;
 		end
 	end
 	// ---- read: hold ack high while the 256 words stream in
 	1: begin
 		if (d_lat != 0) d_lat <= d_lat - 1;
-		else begin io_ack <= 1; d_i <= 0; d_state <= 2; end
+		else begin io_ack[d_slot] <= 1'b1; d_i <= 0; d_state <= 2; end
 	end
 	2: begin
-		if (d_i < 256) begin
-			sd_buff_addr <= d_i[7:0];
-			sd_buff_dout <= (d_lba < NBLK) ? {disk[d_lba*512 + d_i*2], disk[d_lba*512 + d_i*2 + 1]} : 16'h0000;
+		if (d_i < d_words) begin
+			sd_buff_addr <= d_i[12:0];
+			if (d_win) begin
+				// the DPI bytes come back as 32-bit ints: narrow them first
+				d_b0 = cdwin_dpi_rbyte(d_i*2);
+				d_b1 = cdwin_dpi_rbyte(d_i*2 + 1);
+				sd_buff_dout <= {d_b0, d_b1};
+			end
+			else sd_buff_dout <= (d_lba < NBLK) ? {disk[d_lba*512 + d_i*2], disk[d_lba*512 + d_i*2 + 1]} : 16'h0000;
 			sd_buff_wr   <= 1;
 			d_i          <= d_i + 1;
 		end
-		else begin io_ack <= 0; d_state <= 0; end
+		else begin io_ack <= 3'b000; d_state <= 0; end
 	end
 	// ---- write: same handshake, sampling sd_buff_din.  sbuf's port S read
 	// (q_s) is REGISTERED, so sd_buff_din this cycle reflects the address
@@ -138,21 +177,31 @@ always @(posedge clk) begin
 	// address settle before sampling, exactly like this.
 	3: begin
 		if (d_lat != 0) d_lat <= d_lat - 1;
-		else begin io_ack <= 1; d_i <= 0; d_state <= 4; end
+		else begin io_ack[d_slot] <= 1'b1; d_i <= 0; d_state <= 4; end
 	end
 	4: begin
 		// TWO-cycle round trip: the tb's sd_buff_addr register delays the
 		// address one cycle, and sbuf's q_s read register delays the data a
 		// second, so sd_buff_din reflects the address driven TWO cycles ago.
 		if (d_i >= 2 && d_i < 258) begin
-			disk[d_lba*512 + (d_i-2)*2]     <= sd_buff_din[15:8];
-			disk[d_lba*512 + (d_i-2)*2 + 1] <= sd_buff_din[7:0];
+			if (d_win) begin
+				cdwin_dpi_wbyte((d_i-2)*2,     sd_buff_din[15:8]);
+				cdwin_dpi_wbyte((d_i-2)*2 + 1, sd_buff_din[7:0]);
+			end
+			else if (d_lba < NBLK) begin
+				disk[d_lba*512 + (d_i-2)*2]     <= sd_buff_din[15:8];
+				disk[d_lba*512 + (d_i-2)*2 + 1] <= sd_buff_din[7:0];
+			end
 		end
 		if (d_i < 258) begin
-			if (d_i < 256) sd_buff_addr <= d_i[7:0];
+			if (d_i < 256) sd_buff_addr <= d_i[12:0];
 			d_i <= d_i + 1;
 		end
-		else begin io_ack <= 0; wr_blocks <= wr_blocks + 1; d_state <= 0; end
+		else begin
+			io_ack <= 3'b000; d_state <= 0;
+			if (d_win) begin cdwin_dpi_write(d_lba); win_writes <= win_writes + 1; end
+			else wr_blocks <= wr_blocks + 1;
+		end
 	end
 	endcase
 end
@@ -302,6 +351,7 @@ task unix_select(input [7:0] selcmd, input integer n, input integer identify);
 endtask
 
 integer blk, byi;
+integer t20_wr, t20_col;
 
 initial begin
 	for (blk = 0; blk < NBLK; blk = blk + 1)
@@ -1084,14 +1134,19 @@ initial begin
 
 	$display("-- T16c CD-ROM: mount 16 x 2048 (the 64-block device), READ CAPACITY");
 	img_size = 64*512;
+	cdwin_dpi_mount(64*512);                     // the window device follows the disc
 	cd_mount = 1; @(negedge clk); @(negedge clk); cd_mount = 0;
 	// the audio engine fetches its TOC blob (the device serves zeros there,
 	// so it synthesizes the single-track TOC) and grinds the M:S:F divider
 	guard = 0;
 	while (!dut.ca_toc_ready && guard < 400000) begin @(negedge clk); guard = guard + 1; end
-	$display("   TOC ready after %0d cycles (mst=%0d toc_valid=%b n=%0d leadout_lba=%0d img_blocks=%0d)", guard,
-	         dut.g_cd_audio.cd_audio_i.mst, dut.g_cd_audio.cd_audio_i.toc_valid, dut.g_cd_audio.cd_audio_i.n_tracks,
-	         dut.g_cd_audio.cd_audio_i.leadout_lba, dut.g_cd_audio.cd_audio_i.img_blocks);
+	$display("   TOC ready after %0d cycles (mst=%0d magic=%b%b ver=%0d disc_audio=%b)", guard,
+	         dut.g_cd_audio.cd_audio_i.mst, dut.g_cd_audio.cd_audio_i.hdr_m0, dut.g_cd_audio.cd_audio_i.hdr_m1,
+	         dut.g_cd_audio.cd_audio_i.hdr_ver, dut.g_cd_audio.cd_audio_i.disc_audio);
+	expect8("T16c blob header parsed (MCDA v2, a data disc)", {7'd0, dut.g_cd_audio.cd_audio_i.disc_audio}, 8'h00);
+	if (!(dut.g_cd_audio.cd_audio_i.hdr_m0 && dut.g_cd_audio.cd_audio_i.hdr_m1)) begin
+		fails = fails + 1; $display("  FAIL T16c the MCDA magic was not seen in the blob header");
+	end
 	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
 	cdb[0]=8'h25; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0;
 	cdb[6]=0; cdb[7]=0; cdb[8]=0; cdb[9]=0;
@@ -1542,7 +1597,7 @@ initial begin
 	wait_irq(500, ok);
 	read_regs(st, sp, it);
 	expect8("T16k eject phase STATUS", {5'd0, st[2:0]}, {5'd0, PH_STAT});
-	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_wr(R_CMD, 8'h11); wait_irq(2000, ok);      // the eject is a round trip to the ARM now
 	reg_rd(R_FIFO, b); expect8("T16k eject status GOOD", b, 8'h00);
 	reg_rd(R_FIFO, b);
 	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
@@ -2014,6 +2069,365 @@ initial begin
 	wait_irq(500, ok); reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
 	reg_rd(R_FIFO, b); expect8("T17 astat status GOOD", b, 8'h00); reg_rd(R_FIFO, b);
 	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	sel_id = 8'h00;
+
+	// A shutdown resets the SCSI bus and ejects the CD right after.  The
+	// reset owes the ARM a $FE notice; on a slow platform that write is still
+	// in flight when the eject's own forward is raised, and the second must
+	// queue behind the first (both reach the ARM, STATUS waits for both).
+	$display("-- T18 CD-ROM: eject selected while the bus-reset notice is still in flight (forwards serialize)");
+	dev_lat = 3000;
+	byi = win_writes;
+	reg_wr(R_CMD, 8'h03);                          // RESET SCSI BUS: $FE owed
+	repeat (8) @(negedge clk);
+	reg_rd(R_INTR, b);
+	repeat (60) @(negedge clk);                    // the notice is being written now
+	sel_id = 8'h03;
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h1B; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=8'h02; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(20000, ok);
+	read_regs(st, sp, it);
+	expect8("T18 eject phase STATUS", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+	reg_wr(R_CMD, 8'h11); wait_irq(20000, ok);     // held until both forwards are acked
+	reg_rd(R_FIFO, b); expect8("T18 eject status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	guard = 0;
+	while (win_writes - byi < 2 && guard < 20000) begin @(negedge clk); guard = guard + 1; end
+	checks = checks + 1;
+	if (win_writes - byi != 2) begin fails = fails + 1; $display("  FAIL T18 command blocks received %0d, want 2", win_writes - byi); end
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h00; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok);
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T18 TUR after eject CHECK", b, 8'h02);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	reg_wr(R_CMD, 8'h03);                          // RESET SCSI BUS: the disc is back
+	repeat (8) @(negedge clk);
+	reg_rd(R_INTR, b);
+	repeat (8000) @(negedge clk);                  // let that notice complete on the slow device
+	dev_lat = 40;
+	sel_id = 8'h00;
+
+	// Phase 2: the transport commands are forwarded to the ARM's playhead, the
+	// engine asks the ARM its state ($CC window) after each one and streams
+	// frames from the next-frame window while it says "playing"; the status
+	// commands come from the response window.  The device is the flat
+	// 16-sector disc: the ARM plays silence, but the state and the playhead
+	// are real (sim/cd_window.cpp = the Main fork's own mac_cdrom_play.cpp).
+	$display("-- T19 CD-ROM: PLAY AUDIO MSF forwarded, status poked, frames fetched; $CC/$C2/$42 from the window; PAUSE/RESUME/STOP");
+	sel_id = 8'h03;
+	byi = win_writes; k2 = frame_reads; it2 = stat_reads[7:0];
+	// PLAY AUDIO MSF 00:02:00 .. 00:02:08 = disc LBA 0..8 (the +150 form)
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h47; cdb[1]=0; cdb[2]=0; cdb[3]=8'd0; cdb[4]=8'd2; cdb[5]=8'd0; cdb[6]=8'd0; cdb[7]=8'd2; cdb[8]=8'd8; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	expect8("T19 play phase STATUS", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+	reg_wr(R_CMD, 8'h11); wait_irq(2000, ok);      // STATUS waits for the ARM's ack
+	reg_rd(R_FIFO, b); expect8("T19 play status GOOD", b, 8'h00);
+	reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	if (win_writes - byi != 1) begin fails = fails + 1; $display("  FAIL T19 command blocks received %0d, want 1", win_writes - byi); end
+	// the engine asks the ARM: playing
+	guard = 0;
+	while (dut.g_cd_audio.cd_audio_i.ast != 8'd0 && guard < 20000) begin @(negedge clk); guard = guard + 1; end
+	expect8("T19 engine state after the poke: play", dut.g_cd_audio.cd_audio_i.ast, 8'h00);
+	if (stat_reads[7:0] - it2 != 8'd1) begin fails = fails + 1; $display("  FAIL T19 status pokes %0d, want 1", stat_reads[7:0] - it2); end
+	// ...and fills both halves from the next-frame window, 5 blocks each
+	guard = 0;
+	while (dut.g_cd_audio.cd_audio_i.fr_valid != 2'b11 && guard < 40000) begin @(negedge clk); guard = guard + 1; end
+	expect8("T19 both frame halves valid", {6'd0, dut.g_cd_audio.cd_audio_i.fr_valid}, 8'h03);
+	if (frame_reads - k2 != 2) begin fails = fails + 1; $display("  FAIL T19 frame reads %0d, want 2", frame_reads - k2); end
+	expect8("T19 frame read is a 5-block transaction", frame_blk[7:0], 8'd4);
+	expect8("T19 generation latched", {7'd0, dut.g_cd_audio.cd_audio_i.gen_r == dut.g_cd_audio.cd_audio_i.pad_gen}, 8'h01);
+	// AUDIO STATUS from the window: playing, ctrl $14
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'hCC; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0; cdb[6]=0; cdb[7]=0; cdb[8]=8'd6; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	expect8("T19 astat phase DATA IN", {5'd0, st[2:0]}, {5'd0, PH_DIN});
+	set_tc(16'd6); reg_wr(R_CMD, 8'h90);
+	pdma_rd(b); expect8("T19 astat play", b, 8'h00);
+	pdma_rd(b); expect8("T19 astat[1]", b, 8'h00);
+	pdma_rd(b); expect8("T19 astat ctrl", b, 8'h14);
+	for (k = 0; k < 3; k = k + 1) pdma_rd(b);
+	wait_irq(500, ok); reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T19 astat status GOOD", b, 8'h00); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	// READ Q SUBCODE from the window: ctrl, track 1 BCD, index 1, then MSF;
+	// the playhead sits two frames in (two fetches): abs F = 02
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'hC2; cdb[8]=8'd9;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	set_tc(16'd9); reg_wr(R_CMD, 8'h90);
+	pdma_rd(b); expect8("T19 subq ctrl", b, 8'h14);
+	pdma_rd(b); expect8("T19 subq track", b, 8'h01);
+	pdma_rd(b); expect8("T19 subq index", b, 8'h01);
+	for (k = 0; k < 5; k = k + 1) pdma_rd(b);
+	pdma_rd(b); expect8("T19 subq abs F = 2 frames in", b, 8'h02);
+	wait_irq(500, ok); reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T19 subq status GOOD", b, 8'h00); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	// READ SUB-CHANNEL format 1: audio status $11 (playing), format byte 1
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h42; cdb[1]=0; cdb[2]=8'h40; cdb[3]=8'h01; cdb[4]=0; cdb[5]=0; cdb[6]=0; cdb[7]=0; cdb[8]=8'd16; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	set_tc(16'd16); reg_wr(R_CMD, 8'h90);
+	pdma_rd(b);
+	pdma_rd(b); expect8("T19 subch audio status playing", b, 8'h11);
+	pdma_rd(b); pdma_rd(b);
+	pdma_rd(b); expect8("T19 subch format 1", b, 8'h01);
+	for (k = 0; k < 11; k = k + 1) pdma_rd(b);
+	wait_irq(500, ok); reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T19 subch status GOOD", b, 8'h00); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	// the cadence consumes a frame (588 samples at 44.1 kHz of a 33 MHz clock)
+	// and the freed half is refilled
+	guard = 0;
+	while (frame_reads - k2 < 3 && guard < 800000) begin @(negedge clk); guard = guard + 1; end
+	if (frame_reads - k2 != 3) begin fails = fails + 1; $display("  FAIL T19 third frame not fetched after a frame was consumed (%0d reads)", frame_reads - k2); end
+	else $display("   T19 third frame fetched after %0d cycles", guard);
+	// PAUSE: forwarded, the poke says paused, the buffered frames are dropped
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h4B; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0; cdb[6]=0; cdb[7]=0; cdb[8]=8'h00; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	reg_wr(R_CMD, 8'h11); wait_irq(2000, ok);
+	reg_rd(R_FIFO, b); expect8("T19 pause status GOOD", b, 8'h00); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	guard = 0;
+	while (dut.g_cd_audio.cd_audio_i.ast != 8'd1 && guard < 20000) begin @(negedge clk); guard = guard + 1; end
+	expect8("T19 engine state after PAUSE", dut.g_cd_audio.cd_audio_i.ast, 8'h01);
+	expect8("T19 one poke per forwarded command (PLAY, PAUSE)", poke_stbs[7:0], 8'd2);
+	expect8("T19 frames dropped on PAUSE", {6'd0, dut.g_cd_audio.cd_audio_i.fr_valid}, 8'h00);
+	k2 = frame_reads;
+	repeat (50000) @(negedge clk);
+	if (frame_reads != k2) begin fails = fails + 1; $display("  FAIL T19 fetches while paused"); end
+	// RESUME: playing again, the fetch loop restarts
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[8]=8'h01;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	reg_wr(R_CMD, 8'h11); wait_irq(2000, ok);
+	reg_rd(R_FIFO, b); expect8("T19 resume status GOOD", b, 8'h00); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	guard = 0;
+	while (frame_reads - k2 < 2 && guard < 60000) begin @(negedge clk); guard = guard + 1; end
+	expect8("T19 engine state after RESUME", dut.g_cd_audio.cd_audio_i.ast, 8'h00);
+	if (frame_reads - k2 != 2) begin fails = fails + 1; $display("  FAIL T19 frame reads after RESUME %0d, want 2", frame_reads - k2); end
+	// STOP PLAY: idle, nothing buffered
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h4E; cdb[8]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	reg_wr(R_CMD, 8'h11); wait_irq(2000, ok);
+	reg_rd(R_FIFO, b); expect8("T19 stop status GOOD", b, 8'h00); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	guard = 0;
+	while (dut.g_cd_audio.cd_audio_i.ast != 8'd5 && guard < 20000) begin @(negedge clk); guard = guard + 1; end
+	expect8("T19 engine state after STOP", dut.g_cd_audio.cd_audio_i.ast, 8'h05);
+	expect8("T19 one poke per forwarded command (RESUME, STOP)", poke_stbs[7:0], 8'd4);
+	expect8("T19 nothing buffered after STOP", {6'd0, dut.g_cd_audio.cd_audio_i.fr_valid}, 8'h00);
+	// AUDIO STATUS: idle
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'hCC; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0; cdb[6]=0; cdb[7]=0; cdb[8]=8'd6; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	set_tc(16'd6); reg_wr(R_CMD, 8'h90);
+	pdma_rd(b); expect8("T19 astat idle after STOP", b, 8'h05);
+	for (k = 0; k < 5; k = k + 1) pdma_rd(b);
+	wait_irq(500, ok); reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	sel_id = 8'h00;
+
+	// The nexus and the audio engine decide their channel requests in the
+	// same cycle from the same registered state -- the nexus on !io_busy,
+	// the engine on ch_grant -- so both can go up together.  Make it happen
+	// on purpose: the engine's status poke (its housekeeping read after a
+	// forwarded transport command) is in flight on a slow platform, the
+	// cadence frees a half meanwhile so the frame fetch waits in F_REQ, and
+	// a nexus request waits on io_busy; the cycle after the poke's ack falls
+	// both are raised.  Before the channel owner register the platform saw
+	// the DISK's flush with the engine's address and block count (a write
+	// into nowhere and, its ack masked, the same request served again for
+	// ever: the Quad Squad image with system error 41 and the AppleCD
+	// player's "drive not responding", 2026-09-16).  Twice: a disk WRITE
+	// flush, then a guest AUDIO STATUS window read.  The test asserts its
+	// own preconditions, so a drift of the cadence against the 300,000-cycle
+	// device shows as a failure, never as a silent pass.
+	$display("-- T20 CD-ROM: a disk WRITE flush, then a guest $CC read, raised in the same cycle as the engine's frame fetch (channel owner)");
+	sel_id = 8'h03;
+	k2 = frame_reads; byi = collisions;
+	// (a) PLAY AUDIO MSF 00:02:00 .. 00:02:16 (the whole 16-sector disc):
+	// forwarded, poked, both halves fetched
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h47; cdb[1]=0; cdb[2]=0; cdb[3]=8'd0; cdb[4]=8'd2; cdb[5]=8'd0; cdb[6]=8'd0; cdb[7]=8'd2; cdb[8]=8'd16; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	reg_wr(R_CMD, 8'h11); wait_irq(2000, ok);
+	reg_rd(R_FIFO, b); expect8("T20 play status GOOD", b, 8'h00); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	guard = 0;
+	while (dut.g_cd_audio.cd_audio_i.fr_valid != 2'b11 && guard < 40000) begin @(negedge clk); guard = guard + 1; end
+	expect8("T20 playing with both halves valid", {6'd0, dut.g_cd_audio.cd_audio_i.fr_valid}, 8'h03);
+	if (frame_reads - k2 != 2) begin fails = fails + 1; $display("  FAIL T20 frame reads %0d, want 2", frame_reads - k2); end
+
+	// (b) the platform turns slow.  A second PLAY (the ARM moves its playhead;
+	// the engine keeps playing what it holds until the next frame's pad shows
+	// the new generation) takes 300,000 cycles to forward and its status
+	// poke another 300,000; one frame is ~442,000 cycles, so the cadence
+	// frees a half while the poke is in flight and the fetch queues in F_REQ.
+	dev_lat = 300000;
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h47; cdb[1]=0; cdb[2]=0; cdb[3]=8'd0; cdb[4]=8'd2; cdb[5]=8'd4; cdb[6]=8'd0; cdb[7]=8'd2; cdb[8]=8'd16; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	reg_wr(R_CMD, 8'h11); wait_irq(320000, ok);        // STATUS is held until the forward's ack
+	reg_rd(R_FIFO, b); expect8("T20 play 2 status GOOD", b, 8'h00); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	guard = 0;
+	while (!dut.g_cd_audio.cd_audio_i.hk_act && guard < 200) begin @(negedge clk); guard = guard + 1; end
+	expect8("T20 status poke in flight", {7'd0, dut.g_cd_audio.cd_audio_i.hk_act}, 8'h01);
+
+	// (c) a disk WRITE(6) of one block at LBA 60, pushed as one TC=512 TI:
+	// the bytes drain into the sector buffer while the poke is out, the
+	// flush waits on io_busy (so does the chunk's bus service: nexus_io)
+	sel_id = 8'h00;
+	t20_wr = wr_blocks;
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h0A; cdb[1]=0; cdb[2]=0; cdb[3]=8'd60; cdb[4]=8'd1; cdb[5]=0;
+	unix_select(8'h42, 6, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	expect8("T20 write phase DATA OUT", {5'd0, st[2:0]}, {5'd0, PH_DOUT});
+	reg_wr(R_CMD, 8'h01);
+	set_tc(16'd512); reg_wr(R_CMD, 8'h90);
+	for (k = 0; k < 512; k = k + 1) begin
+		guard = 0;
+		while (!drq && guard < 100000) begin @(negedge clk); guard = guard + 1; end
+		if (guard >= 100000) begin fails = fails + 1; $display("  FAIL T20 DREQ stalled at byte %0d", k); k = 512; end
+		else pdma_wr((k*5 + 3) & 8'hFF);
+	end
+	// the preconditions: the poke still out, the flush waiting on it, and
+	// the cadence frees a half before the poke ends -> the fetch queues
+	guard = 0;
+	while (dut.g_cd_audio.cd_audio_i.fst != 2'd1 && dut.g_cd_audio.cd_audio_i.hk_act && guard < 500000) begin @(negedge clk); guard = guard + 1; end
+	expect8("T20 poke still in flight when the fetch queued", {7'd0, dut.g_cd_audio.cd_audio_i.hk_act}, 8'h01);
+	expect8("T20 fetch waiting in F_REQ", {6'd0, dut.g_cd_audio.cd_audio_i.fst}, 8'h01);
+	expect8("T20 flush waiting on io_busy", {7'd0, (dut.sbuf_pos == 10'd512) && !dut.io_wr_i && !dut.flush_pending}, 8'h01);
+	dev_lat = 40;                                   // whatever follows the poke is quick
+	guard = 0;
+	while (dut.g_cd_audio.cd_audio_i.hk_act && guard < 320000) begin @(negedge clk); guard = guard + 1; end
+	repeat (8) @(negedge clk);
+	if (collisions - byi == 0) begin fails = fails + 1; $display("  FAIL T20 no same-cycle collision was produced (the flush vs the fetch)"); end
+	else $display("   T20 flush/fetch collision cycles: %0d", collisions - byi);
+	// the write completes: its bus service comes once the flush (and the
+	// engine's fetch behind it) is done, with STATUS showing
+	wait_irq(20000, ok); read_regs(st, sp, it);
+	expect8("T20 phase STATUS after the write", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T20 write status GOOD", b, 8'h00); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	// the block landed where it was sent, once, intact; no disk request went
+	// out with the engine's address or block count
+	guard = 0;
+	while (wr_blocks - t20_wr != 1 && guard < 20000) begin @(negedge clk); guard = guard + 1; end
+	checks = checks + 1;
+	if (wr_blocks - t20_wr != 1) begin fails = fails + 1; $display("  FAIL T20 disk blocks written %0d, want 1", wr_blocks - t20_wr); end
+	for (k = 0; k < 512; k = k + 1) begin
+		if (disk[60*512 + k] !== ((k*5 + 3) & 8'hFF)) begin
+			fails = fails + 1;
+			if (fails < 20) $display("  FAIL T20 disk byte %0d: got %02X want %02X", k, disk[60*512 + k], (k*5 + 3) & 8'hFF);
+		end
+		checks = checks + 1;
+	end
+	expect8("T20 no disk request astray", bad_disk_req[7:0], 8'd0);
+	// the queued frame fetch went out after the flush, 5 blocks at its own
+	// address; the poke's answer was "playing"; the new position's frames
+	// fill both halves (the generation change drops the old one)
+	guard = 0;
+	while (frame_reads - k2 < 3 && guard < 20000) begin @(negedge clk); guard = guard + 1; end
+	if (frame_reads - k2 < 3) begin fails = fails + 1; $display("  FAIL T20 the queued frame fetch never went out (%0d frame reads)", frame_reads - k2); end
+	expect8("T20 frame read is a 5-block transaction", frame_blk[7:0], 8'd4);
+	expect8("T20 engine playing after the poke", dut.g_cd_audio.cd_audio_i.ast, 8'h00);
+	guard = 0;
+	while (dut.g_cd_audio.cd_audio_i.fr_valid != 2'b11 && guard < 40000) begin @(negedge clk); guard = guard + 1; end
+	expect8("T20 both halves valid again", {6'd0, dut.g_cd_audio.cd_audio_i.fr_valid}, 8'h03);
+
+	// (d) the same collision with a guest window read: a third PLAY, its
+	// poke in flight, the cadence frees a half, the guest's AUDIO STATUS
+	// waits on io_busy
+	sel_id = 8'h03;
+	dev_lat = 300000;
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h47; cdb[1]=0; cdb[2]=0; cdb[3]=8'd0; cdb[4]=8'd2; cdb[5]=8'd8; cdb[6]=8'd0; cdb[7]=8'd2; cdb[8]=8'd16; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	reg_wr(R_CMD, 8'h11); wait_irq(320000, ok);
+	reg_rd(R_FIFO, b); expect8("T20 play 3 status GOOD", b, 8'h00); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	guard = 0;
+	while (!dut.g_cd_audio.cd_audio_i.hk_act && guard < 200) begin @(negedge clk); guard = guard + 1; end
+	expect8("T20 status poke 3 in flight", {7'd0, dut.g_cd_audio.cd_audio_i.hk_act}, 8'h01);
+	t20_col = collisions; k2 = frame_reads;
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'hCC; cdb[1]=0; cdb[2]=0; cdb[3]=0; cdb[4]=0; cdb[5]=0; cdb[6]=0; cdb[7]=0; cdb[8]=8'd6; cdb[9]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	expect8("T20 astat phase DATA IN", {5'd0, st[2:0]}, {5'd0, PH_DIN});
+	guard = 0;
+	while (dut.g_cd_audio.cd_audio_i.fst != 2'd1 && dut.g_cd_audio.cd_audio_i.hk_act && guard < 500000) begin @(negedge clk); guard = guard + 1; end
+	expect8("T20 poke 3 still in flight when the fetch queued", {7'd0, dut.g_cd_audio.cd_audio_i.hk_act}, 8'h01);
+	expect8("T20 fetch waiting in F_REQ (2)", {6'd0, dut.g_cd_audio.cd_audio_i.fst}, 8'h01);
+	expect8("T20 window read waiting on io_busy", {7'd0, (dut.blocks_left == 32'd1) && !dut.io_rd_i && (dut.phase == PH_DIN)}, 8'h01);
+	dev_lat = 40;
+	guard = 0;
+	while (dut.g_cd_audio.cd_audio_i.hk_act && guard < 320000) begin @(negedge clk); guard = guard + 1; end
+	repeat (8) @(negedge clk);
+	if (collisions - t20_col == 0) begin fails = fails + 1; $display("  FAIL T20 no same-cycle collision was produced (the window read vs the fetch)"); end
+	else $display("   T20 window-read/fetch collision cycles: %0d", collisions - t20_col);
+	// the guest gets its 6 bytes from its own window, the engine its frame
+	set_tc(16'd6); reg_wr(R_CMD, 8'h90);
+	pdma_rd(b); expect8("T20 astat after the collision: playing", b, 8'h00);
+	pdma_rd(b); expect8("T20 astat[1]", b, 8'h00);
+	pdma_rd(b); expect8("T20 astat ctrl", b, 8'h14);
+	for (k = 0; k < 3; k = k + 1) pdma_rd(b);
+	// the chunk ends while the engine's fetch behind the window read is
+	// still out: the phase must move to STATUS now, not when the fetch ends
+	// (the AppleCD player's first poll after PLAY hung in DATA IN, 2026-09-16)
+	wait_irq(500, ok); read_regs(st, sp, it);
+	expect8("T20 fetch still in flight at the chunk end", {7'd0, dut.ca_io_active}, 8'h01);
+	expect8("T20 astat phase STATUS at the chunk end", {5'd0, st[2:0]}, {5'd0, PH_STAT});
+	reg_wr(R_CMD, 8'h11); wait_irq(500, ok);
+	reg_rd(R_FIFO, b); expect8("T20 astat status GOOD", b, 8'h00); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	guard = 0;
+	while (frame_reads - k2 < 1 && guard < 20000) begin @(negedge clk); guard = guard + 1; end
+	if (frame_reads - k2 < 1) begin fails = fails + 1; $display("  FAIL T20 the queued frame fetch never went out after the window read"); end
+	expect8("T20 frame read is a 5-block transaction (2)", frame_blk[7:0], 8'd4);
+	expect8("T20 engine playing after poke 3", dut.g_cd_audio.cd_audio_i.ast, 8'h00);
+	guard = 0;
+	while (dut.g_cd_audio.cd_audio_i.fr_valid != 2'b11 && guard < 40000) begin @(negedge clk); guard = guard + 1; end
+	expect8("T20 both halves valid again (2)", {6'd0, dut.g_cd_audio.cd_audio_i.fr_valid}, 8'h03);
+	expect8("T20 no disk request astray (2)", bad_disk_req[7:0], 8'd0);
+
+	// (e) STOP, so the engine is idle for whatever follows
+	reg_wr(R_CMD, 8'h02); repeat (4) @(negedge clk);
+	cdb[0]=8'h4E; cdb[8]=0;
+	unix_select(8'h42, 10, 1);
+	wait_irq(500, ok); read_regs(st, sp, it);
+	reg_wr(R_CMD, 8'h11); wait_irq(2000, ok);
+	reg_rd(R_FIFO, b); expect8("T20 stop status GOOD", b, 8'h00); reg_rd(R_FIFO, b);
+	reg_wr(R_CMD, 8'h12); wait_irq(500, ok); read_regs(st, sp, it);
+	guard = 0;
+	while (dut.g_cd_audio.cd_audio_i.ast != 8'd5 && guard < 20000) begin @(negedge clk); guard = guard + 1; end
+	expect8("T20 engine idle after STOP", dut.g_cd_audio.cd_audio_i.ast, 8'h05);
 	sel_id = 8'h00;
 
 	$display("== tb_ncr53c96: %0d checks, %0d failures ==", checks, fails);

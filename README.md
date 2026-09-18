@@ -2,7 +2,7 @@
 
 A MiSTer FPGA core (DE10-Nano) for the Apple **Macintosh Quadra 800**
 (codename *Wombat*): an authentic 33 MHz 68040 bus, the AP68040 CPU
-(Alan Steremberg's core, a git submodule), 128 MB of SDRAM main memory,
+(Adam Polkosnik's core with Alan Steremberg's performance work, vendored in `rtl/ap68040/`), 128 MB of SDRAM main memory,
 DAFB built-in video, NCR 53C96 SCSI with two hard disks and an AppleCD
 CD-ROM (data, audio, TOC), Z8530 SCC serial (MIDI / MT32-pi), ASC/EASC
 sound, ADB via the VIA. It boots Mac OS 7.x / 8.1 and A/UX 3.1, and
@@ -44,7 +44,7 @@ codename and stay.
 | `MacQuadra800.{qpf,qsf,sdc,sv}` | the Quartus project; `MacQuadra800.sv` is the MiSTer `emu` top. The `.qsf` **is** the release recipe: its default switches and seed are what ships |
 | `files.qip` | the RTL file list (mirrored in the `.qsf`; add new RTL to both) |
 | `rtl/quadra800.sv` | the machine: address decode, service FSM, ROM overlay, fast paths |
-| `rtl/wombat_cpu.sv`, `rtl/ap68040/` | the CPU wrapper (MMU, cache, store buffer) and the **AP68040 submodule** |
+| `rtl/wombat_cpu.sv`, `rtl/ap68040/` | the CPU wrapper (MMU, cache, store buffer) and the **vendored AP68040** (`rtl/ap68040/UPSTREAM.md`) |
 | `rtl/sdram*.sv`, `rtl/wombat_bus32.sv`, `rtl/wombat_store_buffer.sv` | open-page BL8 SDRAM at 99 MHz, the 33/99 MHz beat bridge, the write queue |
 | `rtl/ncr53c96.sv`, `rtl/cd_audio.sv`, `rtl/scsi_cache.sv` | SCSI: the 53C96 with disks + AppleCD, the CD TOC/audio engine, the block cache in front of hps_io |
 | `rtl/iosb.sv`, `rtl/scc.v`, `rtl/via6522.sv`, `rtl/asc*.sv`, `rtl/dafb*.sv` | I/O, serial, ADB, sound, video |
@@ -120,9 +120,9 @@ comment block that records what the release recipe is. Rules of thumb:
 - A LAB is 10 ALMs; the fitter reports a shortfall in LABs (4,191 in this
   part). Fitter register-packing knobs change nothing here: the pressure is
   LUT logic.
-- The CPU's own tests: `sh rtl/ap68040/tb/run_tests.sh` inside the
-  submodule (iverilog + vasm), and the corpus benches below. The submodule's
-  remote is `alanswx/AP68040`; commit there first, then bump the pointer here.
+- The CPU's own tests: `sh rtl/ap68040/tb/run_tests.sh` (iverilog + vasm),
+  and the corpus benches below. The CPU is vendored, not a submodule: commit
+  changes to it here; `rtl/ap68040/UPSTREAM.md` records its origin.
 
 ## Simulation
 

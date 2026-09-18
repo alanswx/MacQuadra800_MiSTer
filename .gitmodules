@@ -1,3 +1,0 @@
-[submodule "rtl/ap68040"]
-	path = rtl/ap68040
-	url = https://github.com/alanswx/AP68040.git

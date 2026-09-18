@@ -3,6 +3,7 @@
 #include <string>
 #include <cstring>
 #include <cstdlib>
+#include "cd_window.h"
 
 #include "sim_blkdevice.h"
 #include "sim_console.h"
@@ -111,9 +112,10 @@ void SimBlockDevice::BeforeEval(long long cycles)
       // 0's 'ER' driver-descriptor signature, so the ROM saw no Mac disk and
       // rescanned forever, 2026-09-09).  Lead the first word by one tick.
       if (reading && (*sd_buff_wr==0) &&  (bytecnt<xfer_bytes) && ack_ticks > 0) {
-         // Read 2 bytes and combine into 16-bit word
-         int byte1 = disk[i].get();
-         int byte2 = disk[i].get();
+         // Read 2 bytes and combine into 16-bit word (a window: from the
+         // block cd_window built at the request)
+         int byte1 = win ? winbuf[bytecnt]     : disk[i].get();
+         int byte2 = win ? winbuf[bytecnt + 1] : disk[i].get();
          *sd_buff_dout = (byte1 << 8) | (byte2 & 0xFF);
          *sd_buff_addr = bytecnt/2;  // Word address
          bytecnt += 2;
@@ -127,7 +129,11 @@ void SimBlockDevice::BeforeEval(long long cycles)
         // commandArgsPlusMatch returns "" (never NULL) when the plusarg is
         // absent, so `!ptr` was always false and every write was silently
         // discarded — test the string's emptiness, not the pointer
-        if (!Verilated::commandArgsPlusMatch("ignore_scsi_writes")[0]) {
+        if (win) {
+          winbuf[bytecnt]     = (word >> 8) & 0xFF;
+          winbuf[bytecnt + 1] = word & 0xFF;
+        }
+        else if (!Verilated::commandArgsPlusMatch("ignore_scsi_writes")[0]) {
           disk[i].put((word >> 8) & 0xFF);
           disk[i].put(word & 0xFF);
         }
@@ -140,7 +146,8 @@ void SimBlockDevice::BeforeEval(long long cycles)
         // and the Mac OS boot's first volume write was lost, after which the
         // scsi_cache, left mid-transfer by the early ack drop, never completed
         // the next read (the ROM parked in its SCSI Manager, 2026-09-12).
-        disk[i].flush();
+        if (win) cdwin_write(win_lba, winbuf, xfer_bytes);   // the command block
+        else disk[i].flush();
         *sd_buff_addr = 0;
         writing = false;
       } else if(writing) {
@@ -165,6 +172,7 @@ fprintf(stderr,"mounting.. %d\n",i);
            mountQueue[i]=0;
            *img_size = disk_size[i];
            if (img_readonly) *img_readonly=1;
+           if (i == 2) cdwin_mount((uint64_t)disk_size[i]);   // the CD slot's window device follows the disc
 fprintf(stderr,"img_size .. %llu\n",(unsigned long long)*img_size);
            disk[i].seekg(0);
            bitset(*img_mounted,i);
@@ -200,11 +208,6 @@ fprintf(stderr,"mounting flag cleared  %d\n",i);
                 writing = true;
         }
 
-        disk[i].clear();
-        disk[i].seekg((lba) * kBLKSZ);
-        disk[i].seekp((lba) * kBLKSZ);
-      //  printf("seek %06X lba: (%x) (%d,%d) drive %d reading %d writing %d ack %x\n", (lba) * kBLKSZ,lba,lba,kBLKSZ,i,reading,writing,*sd_ack);
-        bytecnt = 0;
         // A multi-block transaction (hps_io sd_blk_cnt = sectors - 1) moves
         // its sectors back to back under one ack, the buffer address running
         // on past 255: this is how the scsi_cache's 8-sector groups arrive
@@ -212,13 +215,32 @@ fprintf(stderr,"mounting flag cleared  %d\n",i);
         // seven stale ones, and no image has booted in this sim since the
         // block cache landed (2026-09-07).
         xfer_bytes = (sd_blk_cnt ? ((int)*sd_blk_cnt + 1) : 1) * kBLKSZ;
+        if (xfer_bytes > (int)sizeof(winbuf)) xfer_bytes = sizeof(winbuf);
+        // the CD slot's windows never touch the image file
+        win = (i == 2) && cdwin_is_window((unsigned int)lba);
+        win_lba = (unsigned int)lba;
+        if (win) {
+          if (reading) cdwin_read(win_lba, winbuf, xfer_bytes);
+        } else {
+          disk[i].clear();
+          disk[i].seekg((lba) * kBLKSZ);
+          disk[i].seekp((lba) * kBLKSZ);
+        }
+      //  printf("seek %06X lba: (%x) (%d,%d) drive %d reading %d writing %d ack %x\n", (lba) * kBLKSZ,lba,lba,kBLKSZ,i,reading,writing,*sd_ack);
+        bytecnt = 0;
         *sd_buff_addr = 0;
         ack_delay = blkdev_read_latency();
       }
     }
 
     if (current_disk == i) {
-      if (ack_delay==1) {
+      int was = bitcheck(*sd_ack,i) ? 1 : 0;
+      // ack_delay also paces a mount pulse; only a transfer that actually
+      // started (reading/writing) may raise the ack.  A mount countdown
+      // expiring while a request was merely held used to raise sd_ack for
+      // nothing, release the slot, and leave the ack high forever (the
+      // phase-1 CD boot: the reset notice and the CD mount coincide).
+      if (ack_delay==1 && (reading || writing)) {
            bitset(*sd_ack,i);
            ack_ticks++;
            //printf("setting sd_ack: %x\n",*sd_ack);
@@ -227,10 +249,14 @@ fprintf(stderr,"mounting flag cleared  %d\n",i);
            ack_ticks = 0;
            //printf("clearing sd_ack: %x\n",*sd_ack);
       }
+      if (blkdev_dbg() && was != (bitcheck(*sd_ack,i) ? 1 : 0))
+        fprintf(stderr, "[BLK %lld] ack %s disk %d ack_delay=%d reading=%d writing=%d bytecnt=%d win=%d mount_pending=%d\n",
+                cycles, was ? "fall" : "rise", i, ack_delay, reading, writing, bytecnt, win, (int)bitcheck(*img_mounted,i));
       if((ack_delay > 1) || ((ack_delay == 1) && !reading && !writing))
         ack_delay--;
       if (ack_delay==0 && !reading && !writing) {
         if (blkdev_dbg()) fprintf(stderr, "[BLK %lld] done disk %d bytecnt=%d\n", cycles, i, bytecnt);
+        bitclear(*sd_ack,i);          // never hand the slot back with its ack up
         current_disk=-1;
       }
     }

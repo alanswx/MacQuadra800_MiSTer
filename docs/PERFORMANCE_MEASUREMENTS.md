@@ -775,3 +775,469 @@ boot saved and the patched warm path never saved one -- except that the
 pristine ROM lands in the same loop after its RAM test, so it is a
 sim-vs-hardware difference in what the System reads at start-up, still
 unexplained (see `RESUME-alan-perf.md`); the OS-phase profile waits on it.
+
+## 15. The vendored AP68040 with Adam Polkosnik's fixes (2026-09-17, hardware)
+
+`releases/MacQuadra800_20260916_2.rbf` as replaced on 2026-09-17 (md5
+`8552a409`, seed 21, timing met +0.244 ns, 37,144 ALMs): the 20260915 CPU
+(checkpoint 15 + R1..R4) with the bitfield sizing, FPSP BUSY resume, MOVEM
+CM continuation, nonresident ATC, memind, shared ALU/FPU datapaths and the
+MLAB integer register file (`docs/cpu-upstream-2026-09.md`). Speedometer
+4.02 on the .143 box, Mac OS 8.1 from QuadSquad8.hda with a second disk and
+a CD mounted, one iteration of each test, run by the user; screenshot
+`perf/speedometer402_vendored_cpu_20260917.png`. The 20260915 column is
+run 1 of the three-run operator session of 2026-09-16 00:45
+(`scratch/gate_fix/report.md`), same image before its restore.
+
+![Speedometer 4.02 on the vendored CPU](perf/speedometer402_vendored_cpu_20260917.png)
+
+### Benchmark Mix (Quadra 605 = 1.0)
+
+| test | this build abs. | ratio | 20260915 abs. | ratio |
+|---|---|---|---|---|
+| KWhetstones/sec | 641.245 | 2.180 | 640.080 | 2.176 |
+| Dhrystones/sec | 9983.463 | 0.578 | 9983.682 | 0.578 |
+| Towers (sec) | 1.229 | 0.520 | 1.196 | 0.534 |
+| Quick Sort (sec) | 0.817 | 0.872 | 0.812 | 0.877 |
+| Bubble Sort (sec) | 0.886 | 0.857 | 0.887 | 0.857 |
+| Queens (sec) | 0.687 | 0.587 | 0.686 | 0.588 |
+| Puzzle (sec) | 1.605 | 0.680 | 1.597 | 0.684 |
+| Permutations (sec) | 1.883 | 0.432 | 1.882 | 0.432 |
+| Int. Matrix (sec) | 1.027 | 0.784 | 1.027 | 0.783 |
+| Sieve (sec) | 1.296 | 1.058 | 1.296 | 1.058 |
+| **Average** | | **0.855** | | **0.857** (runs 2/3: 0.859) |
+
+Every row is within 3 % of the 20260915 run and eight of the ten are within
+one unit of the last digit; Towers is the one mover (+33 ms), on a single
+iteration with four Finder windows and a CD mounted. The sim gates had
+already said this: `bench_loop` and the corpus run are cycle-identical
+between the two CPUs. The fixes are correctness and area, not speed.
+
+### Color QuickDraw
+
+| depth | this build abs. (s) | ratio | 20260915 |
+|---|---|---|---|
+| Monochrome | 10.689 | 0.646 | not run |
+| Two bit | 11.983 | 0.637 | not run |
+| Four bit | 13.308 | 0.653 | not run |
+| Eight bit | 16.847 | 0.629 | 17.497 s = 0.605 |
+| Sixteen bit | greyed out | | |
+| **Average** | | **0.641** (four depths) | 0.605 (8-bit only) |
+
+The 8-bit row is the comparable one: 3.7 % faster than 20260915, within
+what the video-side idle traffic (a second disk and a CD this time) and a
+single iteration can move. The four-depth average is a new baseline.
+
+### Performance Rating
+
+| component | ratio |
+|---|---|
+| CPU | 0.684 |
+| Graphics | 0.741 |
+| Disk | 0.859 |
+| Math | 8.052 |
+| **PR** | **0.810** |
+
+First Speedometer 4.02 Performance Rating recorded on this core; earlier PR
+tables in this file are Speedometer 3.23 on Mac OS 7.5.5 and do not compare.
+The FPU test (Cmd+F) was not run this time; 20260915's was 0.449.
+
+## 16. CPU pipeline step 1: the one-clock data-cache hit (2026-09-17, hardware)
+
+Branch `CPU-pipeline`, commit 86b6b04 (the shipped 20260916_2 CPU plus Alan
+Steremberg's one-clock data hit on a dedicated hint bus, AP68040 6e65192;
+`docs/cpu-pipeline-increments-20260917.md`), seed 21, timing met on every
+clock (CPU +0.036 ns, HDMI +0.056 ns), 37,439 ALMs (89 %), rbf d157f555.
+Speedometer 4.02 on the .143 box, Mac OS 8.1 from QuadSquad8.hda with a
+second disk and a CD mounted, one iteration of each test, three Benchmark
+Mix runs by the Opus operator (`scratch/pipeline_step1/report.md`, 53
+screenshots). Physical RAM 32 MB on this boot. Baseline = section 15 (the
+user's run of the shipped CPU on this box).
+
+### Benchmark Mix (Quadra 605 = 1.0)
+
+| test | run 1 | run 2 | run 3 | ratio (run 3) | section 15 abs. | change |
+|---|---|---|---|---|---|---|
+| KWhetstones/sec | 652.385 | 656.763 | 656.707 | 2.233 | 641.245 | +2.2 % |
+| Dhrystones/sec | 10756.451 | 10755.794 | 10756.326 | 0.622 | 9983.463 | +7.7 % |
+| Towers (sec) | 1.161 | 1.161 | 1.161 | 0.550 | 1.229 | -5.5 % |
+| Quick Sort (sec) | 0.813 | 0.812 | 0.812 | 0.877 | 0.817 | -0.6 % |
+| Bubble Sort (sec) | 0.890 | 0.890 | 0.890 | 0.854 | 0.886 | +0.5 % |
+| Queens (sec) | 0.659 | 0.659 | 0.659 | 0.612 | 0.687 | -4.1 % |
+| Puzzle (sec) | 1.572 | 1.564 | 1.568 | 0.697 | 1.605 | -2.3 % |
+| Permutations (sec) | 1.842 | 1.842 | 1.842 | 0.441 | 1.883 | -2.2 % |
+| Int. Matrix (sec) | 1.007 | 1.002 | 0.992 | 0.812 | 1.027 | -2.6 % |
+| Sieve (sec) | 1.264 | 1.261 | 1.260 | 1.089 | 1.296 | -2.7 % |
+| **Average** | **0.875** | **0.878** | **0.879** | | **0.855** | **+2.6 %** (mean 0.877) |
+
+Spread 0.004 across the three runs, no invalid time, no first-run outlier.
+Nine of ten tests faster; Bubble Sort is 0.5 % slower in all three runs (its
+inner loop is register/branch bound, and the change touches data reads
+only). The simulated prediction for this change was +2.5 %.
+
+### Color QuickDraw and FPU
+
+| test | this build | section 15 |
+|---|---|---|
+| CQD average (Monochrome 0.663, Two bit 0.643, Four bit 0.643, Eight bit 0.621) | **0.643** | 0.641 (+0.3 %) |
+| FPU average (KWhetstones 2449.5/s 0.470, Matrix Mult. 1.408 s 0.502, FFT 0.682 s 0.421) | **0.464** | 0.449 (+3.3 %) |
+
+The CQD dialog on this launch had only 8 bits/pixel checked; the operator
+re-checked the four depths of section 15 before running. Boot to the Finder
+in 82 to 123 s, clean Special -> Shut Down in 45 s through
+`scripts/mac_shutdown.sh`, no artefacts or dialogs in 36 minutes of use.
+The CPU-side gates for this RTL: `bench_loop` 94,368 -> 81,600 cycles, the
+first-100 corpus identical (33,335,739, 0 real diffs).
+
+## 17. CPU pipeline increments 1-8, the build-5 probe (2026-09-17, hardware)
+
+Branch `CPU-pipeline`, commit 24579aa (step 1 plus the R5/R6 hoists, the
+redirect-state hints, in-place stack pops and MOVEM transfers, the forward
+taken Bcc.B from the lookahead, MOVEM loads/stores and LINK/PEA retiring on
+their acknowledges; `docs/cpu-pipeline-increments-20260917.md`), seed 21
+with the fitter's routability optimization, 35,926 ALMs (86 %), rbf
+595297fb. This build MISSED the 33 MHz CPU clock by 1.042 ns (HDMI +0.341,
+RAM +0.408) and was run as a labelled timing probe under the try-builds
+policy; build 6 (c84a5e7) is the same RTL cycle for cycle with the CPU
+clock met (+0.139 ns) and is the deployable one. Speedometer 4.02 on the
+.143 box, Mac OS 8.1 from QuadSquad8.hda with a second disk and a CD
+mounted, 32 MB, one iteration, three Mix runs by the Opus operator
+(`scratch/pipeline_b5/report.md`). Baselines: section 16 (step 1, 0.877)
+and section 15 (the shipped CPU, 0.855).
+
+### Benchmark Mix (Quadra 605 = 1.0)
+
+| test | run 3 abs. | ratio | step 1 abs. | change vs step 1 |
+|---|---|---|---|---|
+| KWhetstones/sec | 672.463 | 2.286 | 656.707 | +2.4 % |
+| Dhrystones/sec | 11376.432 | 0.658 | 10756.326 | +5.8 % |
+| Towers (sec) | 1.110 | 0.575 | 1.161 | -4.4 % |
+| Quick Sort (sec) | 0.797 | 0.894 | 0.812 | -1.8 % |
+| Bubble Sort (sec) | 0.889 | 0.855 | 0.890 | -0.1 % |
+| Queens (sec) | 0.634 | 0.637 | 0.659 | -3.8 % |
+| Puzzle (sec) | 1.557 | 0.702 | 1.568 | -0.7 % |
+| Permutations (sec) | 1.746 | 0.466 | 1.842 | -5.2 % |
+| Int. Matrix (sec) | 0.960 | 0.838 | 0.992 | -3.2 % |
+| Sieve (sec) | 1.232 | 1.114 | 1.260 | -2.2 % |
+| **Average** | | **0.902** (runs: 0.900 / 0.902 / 0.902) | 0.877 | **+2.8 %**; +5.3 % over 0.855 |
+
+The call-heavy tests moved most (Dhrystones, Permutations, Towers, Queens),
+as the increments target: every BSR/JSR/RTS, LINK/UNLK and MOVEM now spends
+one to two cycles less per transfer. Bubble Sort, a register-and-branch
+loop, is unchanged. The three runs agree to 0.002 and the per-test times
+repeat to the millisecond, which a marginal path corrupting data would not.
+
+### Color QuickDraw and FPU
+
+| test | this build | step 1 |
+|---|---|---|
+| CQD average (Monochrome 0.688, Two bit 0.665, Four bit 0.662, Eight bit 0.637) | **0.663** | 0.643 (+3.1 %) |
+| FPU average (KWhetstones 2489.0/s 0.478, Matrix Mult. 1.398 s 0.505, FFT 0.682 s 0.421) | **0.468** | 0.464 (+0.9 %) |
+
+Boot to the Finder in 39 to 84 s, clean Shut Down in 46 s, no artefacts,
+dialogs or dropouts in 40 minutes. The CPU-side gates for this RTL:
+`bench_loop` 81,202 cycles, `pipe_bench` 122,190 (from 149,182 at step 1),
+the first-100 corpus 32,991,462 (from 33,335,739) with 0 real diffs.
+
+### Build 6, the same RTL with the CPU clock met (c84a5e7, rbf cda6ba11)
+
+Fitted with the fast hit's qualification moved off the live translation:
+35,797 ALMs (85 %), CPU clock +0.139 ns, RAM +0.445 ns, HDMI -0.001 ns on
+one `sys_top` video register.  Same operator procedure, same box and
+mounts (`scratch/pipeline_b6/report.md`): Benchmark Mix **0.900 / 0.902 /
+0.903** (run 3: KWhetstones 672.5/s, Dhrystones 11376/s, Towers 1.110 s,
+Quick Sort 0.797, Bubble Sort 0.889, Queens 0.634, Puzzle 1.556,
+Permutations 1.746, Int. Matrix 0.960, Sieve 1.232 s), CQD 0.660, FPU
+0.464 and 0.467 (Matrix Multiply is the one test with run-to-run spread,
+1.398 to 1.430 s across the day's runs), boot to the Finder in 45 to 85 s,
+clean Shut Down in 46 s, no artefact in any captured frame.  The two
+builds agree run for run, as cycle-identical RTL must; this is the
+deployable one.
+
+## 18. CPU pipeline increment 9, build 7b (2026-09-18, hardware)
+
+Branch `CPU-pipeline`, commits 8a9b392 + 788ab35 (build 6 plus increment 9:
+BRA.W/.L, BSR.W/.L, JSR and JMP abs.W/abs.L/d16(PC) dispatch from the retire
+that pops them with the target fetch issued in that cycle; and the timing
+commit that routes that fetch through the one shared early-target wire and
+computes the refill seed count from the sector's precomputed valid runs;
+`docs/cpu-pipeline-increments-20260917.md` sections 9 and 9b), seed 21 with
+the fitter's routability optimization, timing MET on every clock (CPU
++0.580 ns, HDMI +0.364, RAM +0.527, hold +0.147), 35,807 ALMs (85 %), rbf
+9e3b7d9d. Speedometer 4.02 on the .143 box, Mac OS 8.1 from QuadSquad8.hda
+with a second disk and a CD mounted, 32 MB, one iteration, four Mix runs by
+the Opus operator of which three are valid (`scratch/pipeline_b7/report.md`,
+65 screenshots). Baseline = section 17's build 6 (0.900/0.902/0.903).
+
+### Benchmark Mix (Quadra 605 = 1.0)
+
+| test | run 1 | run 2 | run 4 | ratio (run 4) | build 6 run 3 | change (mean of 3) |
+|---|---|---|---|---|---|---|
+| KWhetstones/sec | 673.213 | 677.995 | 678.090 | 2.305 | 672.5 | +0.8 % |
+| Dhrystones/sec | 11578.314 | 11582.605 | 11571.194 | 0.669 | 11376 | +1.8 % |
+| Towers (sec) | 1.100 | 1.099 | 1.099 | 0.581 | 1.110 | -1.0 % |
+| Quick Sort (sec) | 0.793 | 0.792 | 0.792 | 0.900 | 0.797 | -0.6 % |
+| Bubble Sort (sec) | 0.888 | 0.888 | 0.888 | 0.856 | 0.889 | -0.1 % |
+| Queens (sec) | 0.633 | 0.632 | 0.633 | 0.638 | 0.634 | -0.2 % |
+| Puzzle (sec) | 1.565 | 1.557 | 1.561 | 0.700 | 1.556 | +0.1 % |
+| Permutations (sec) | 1.728 | 1.727 | 1.727 | 0.471 | 1.746 | -1.1 % |
+| Int. Matrix (sec) | 0.962 | 0.958 | 0.958 | 0.840 | 0.960 | -0.1 % |
+| Sieve (sec) | 1.234 | 1.231 | 1.233 | 1.112 | 1.232 | 0.0 % |
+| **Average** | **0.905** | **0.908** | **0.907** | | 0.902 | **+0.55 %** (mean 0.907); +6.0 % over 0.855 |
+
+Run 3 was invalid: nine rows repeated runs 1-2 to 0.1 % but Sieve read
+0.850 s (1.231-1.234 everywhere else); it was reported, not averaged, and
+replaced by run 4, where Sieve was back at 1.233. The gain is confined to
+the call- and branch-heavy tests increment 9 targets (Dhrystones,
+Permutations, Towers, Quick Sort); nothing is measurably slower.
+
+### Color QuickDraw and FPU
+
+| test | this build | build 6 |
+|---|---|---|
+| CQD average (Monochrome 10.052 s 0.687, Two bit 11.500 s 0.664, Four bit 13.160 s 0.661, Eight bit 16.673 s 0.635) | **0.662** | 0.660 (+0.3 %) |
+| FPU average (KWhetstones 2491.8/2492.4 per s 0.478, Matrix Mult. 1.398/1.430 s, FFT 0.682 s 0.421) | **0.468 / 0.464** | 0.464 / 0.467 |
+
+The first CQD run was also invalid (Eight bit 5.043 s against 16.7 s in
+every other run) and was repeated. Boot to the Finder in <= 97 s, clean
+Special -> Shut Down in 47 s, no artefact, dialog, dropout or system error
+in 47 minutes.
+
+### The two short timings
+
+Both implausible values were the last test of their series (Sieve closes
+the Mix, Eight bit closed the CQD run), both were on screen before the
+alert was dismissed, and neither reproduced. Build 6's session on the
+preceding RTL saw none; the project has seen impossible single-test times
+before (about one run in six, attributed to the SDRAM 33/99 MHz handoff
+crossing, `docs/sdram-open-row-crossing.md`). Not established either way;
+the build-8 run watches for it and the crossing margin of each fitted tree
+is checked (section 19 will say).
+
+## 19. CPU pipeline increment 10, build 8 (2026-09-18, hardware)
+
+Branch `CPU-pipeline`, commit 78ba885 (build 7b plus increment 10: a DBcc
+whose displacement word is resident dispatches from the retire that pops
+it straight into S_DBCC1; `docs/cpu-pipeline-increments-20260917.md`
+section 10), seed 21 with the routability optimization, timing MET on
+every clock (CPU +1.114 ns, HDMI +0.217, RAM +0.914, hold +0.258), 35,952
+ALMs (86 %), rbf 69c53878. Same box, disk, slots and procedure as section
+18, three Mix runs by the Opus operator, all valid
+(`scratch/pipeline_b8/report.md`, 52 screenshots). Baseline = section 18's
+build 7b (0.905/0.908/0.907).
+
+### Benchmark Mix (Quadra 605 = 1.0)
+
+| test | run 1 | run 2 | run 3 | ratio (run 3) | build 7b mean | change (mean of 3) |
+|---|---|---|---|---|---|---|
+| KWhetstones/sec | 673.428 | 678.414 | 678.375 | 2.306 | 676.433 | 0.0 % |
+| Dhrystones/sec | 11617.540 | 11619.748 | 11620.577 | 0.672 | 11577.371 | +0.4 % |
+| Towers (sec) | 1.100 | 1.100 | 1.100 | 0.581 | 1.0993 | +0.1 % |
+| Quick Sort (sec) | 0.793 | 0.792 | 0.792 | 0.900 | 0.7923 | 0.0 % |
+| Bubble Sort (sec) | 0.888 | 0.888 | 0.888 | 0.855 | 0.8880 | 0.0 % |
+| Queens (sec) | 0.633 | 0.633 | 0.633 | 0.638 | 0.6327 | +0.1 % |
+| Puzzle (sec) | 1.565 | 1.559 | 1.556 | 0.702 | 1.5610 | -0.1 % |
+| Permutations (sec) | 1.728 | 1.728 | 1.728 | 0.470 | 1.7273 | 0.0 % |
+| Int. Matrix (sec) | 0.962 | 0.958 | 0.959 | 0.840 | 0.9593 | 0.0 % |
+| Sieve (sec) | 1.234 | 1.231 | 1.231 | 1.114 | 1.2327 | -0.1 % |
+| **Average** | **0.905** | **0.908** | **0.908** | | 0.9067 | **+0.03 %** (mean 0.907); +6.1 % over 0.855 |
+
+Increment 10 is flat on the Mix to well inside the 0.33 % run-to-run
+spread, although the directed loop bench dropped 15.8 %: Speedometer's
+Pascal loops close with ADDQ/CMP/Bcc, which the lookahead already handles,
+and DBcc lives in the Toolbox and QuickDraw. Nothing regressed.
+
+### Color QuickDraw and FPU
+
+| test | this build | build 7b |
+|---|---|---|
+| CQD average (Monochrome 9.987 s 0.691, Two bit 11.406 s 0.669, Four bit 13.051 s 0.666, Eight bit 16.570 s 0.639) | **0.666** | 0.662 (+0.6 %; all four depths faster) |
+| FPU average (KWhetstones 2492.9/2495.7 per s 0.478/0.479, Matrix Mult. 1.397/1.429 s, FFT 0.682 s 0.421) | **0.468 / 0.465** | 0.468 / 0.464 |
+
+The small CQD gain is where the DBcc loops are. Boot to the Finder in
+<= 101 s, clean Special -> Shut Down in 47 s, no artefact, dialog, dropout
+or system error in 36 minutes, and no implausibly short timing in any of
+the six series (section 18's anomaly did not recur; one clean session
+does not settle its cause).
+
+Where the branch stands: the shipped core 0.855, build 6 (increments 1-8)
+0.902, build 7b (+ increment 9) 0.907, build 8 (+ increment 10) 0.907 with
+CQD 0.666 -- +6.1 % on the Mix and +3.9 % on CQD over the shipped core,
+on a core 1,192 ALMs smaller (35,952 against 37,144), with every clock met
+and the CPU clock's worst path now outside the core (the SDRAM bridge's
+clk_ram -> clk_sys line handoff, +1.114 ns).
+
+## 20. CPU pipeline increments 11-12, build 9 (2026-09-19, hardware): a finding
+
+Branch `CPU-pipeline`, commit 4931e19 (build 8 plus increment 11, S_FETCH's
+resident pop handed to the dispatch chain, and increment 12, the loop-top
+record cache: `docs/cpu-pipeline-increments-20260917.md` sections 11 and
+12), seed 21 with the routability optimization, timing MET on every clock
+(CPU +1.007 ns, HDMI +0.477, RAM +0.697), 36,400 ALMs (87 %), rbf f061d1fc.
+Same box, disk, slots and procedure as sections 18-19; five Mix runs by the
+Opus operator of which three are valid (`scratch/pipeline_b9/report.md`, 57
+screenshots).
+
+### The finding
+
+Two of five Mix runs returned physically impossible single-test times, in
+three loop-heavy integer tests and mid-series: run 1 Bubble Sort **0.022 s**
+(0.887 in every valid run, 40 times short) and Quick Sort **0.273 s**
+(0.774); run 2 Dhrystones **17712/s** (11773, +52 %). The other nine rows
+of each run were normal to 0.2 %. A loop that "finishes" forty times sooner
+is a loop that did not run: this is wrong execution, not a timer artefact.
+Build 8 showed nothing of the kind in six series; build 7b's two short
+readings were last-of-series and far smaller. Increment 12 replays a cached
+decode of the first instruction of every tight loop and is the prime
+suspect; the mechanism is not established from the operator seat
+(Speedometer checks no results). Increments 11 and 12 are therefore held
+out of the release path: build 12 is a bisect (build 8 plus increments 13,
+14 and 15, without 11 and 12), and the record cache goes back to
+simulation under interrupts before it returns.
+
+### The valid runs (Quadra 605 = 1.0)
+
+| test | run 3 | run 4 | run 5 | ratio (run 5) | build 8 run 3 | change |
+|---|---|---|---|---|---|---|
+| KWhetstones/sec | 678.500 | 678.490 | 678.388 | 2.306 | 678.375 | 0.0 % |
+| Dhrystones/sec | 11773.096 | 11774.796 | 11773.459 | 0.681 | 11620.577 | +1.3 % |
+| Towers (sec) | 1.099 | 1.099 | 1.099 | 0.581 | 1.100 | -0.1 % |
+| Quick Sort (sec) | 0.774 | 0.774 | 0.774 | 0.920 | 0.792 | -2.3 % |
+| Bubble Sort (sec) | 0.887 | 0.887 | 0.887 | 0.857 | 0.888 | -0.1 % |
+| Queens (sec) | 0.633 | 0.633 | 0.633 | 0.638 | 0.633 | 0.0 % |
+| Puzzle (sec) | 1.551 | 1.558 | 1.559 | 0.701 | 1.556 | 0.0 % |
+| Permutations (sec) | 1.728 | 1.728 | 1.728 | 0.470 | 1.728 | 0.0 % |
+| Int. Matrix (sec) | 0.939 | 0.940 | 0.937 | 0.859 | 0.959 | -2.2 % |
+| Sieve (sec) | 1.256 | 1.257 | 1.255 | 1.093 | 1.231 | **+2.0 % slower** |
+| **Average** | **0.911** | **0.910** | **0.911** | | 0.908 | **+0.4 %** (mean 0.911); +6.5 % over 0.855 |
+
+CQD 0.668 (build 8: 0.666), FPU 0.470 / 0.468 (0.468 / 0.465), boot to the
+Finder <= 89 s, clean Shut Down in 49 s, no artefact, dialog or dropout.
+The Sieve regression is consistent across all six runs of the two builds
+and is the shape increment 12 targets: skipping the loop top's decode
+cycle also removes the fill engine's slot in it, so a loop whose body
+exceeds the seed pays a demand fetch instead (Alan's rule about the decode
+cycle after a read retire, in another form).
+
+## 21. CPU pipeline build 12, the bisect (2026-09-18, hardware): it does not boot
+
+Build 12 = build 8 (78ba885) plus increments 13 (the one-clock posted
+store), 14 (a read may pass one queued store) and 15 (BRA.B from any
+retire), WITHOUT increments 11 and 12; the build tree's detached edca43e,
+seed 21 with the routability optimization, timing MET on every clock (CPU
++1.241 ns, the branch's best; RAM +0.806, HDMI +0.412, hold +0.198; the
+33 -> 99 MHz request handoff +1.384), 36,071 ALMs (86 %), rbf 555a954b.
+Same box, disk and slots as sections 18-20; the Opus operator
+(`scratch/pipeline_b12/report.md`, seven frames).
+
+**Result: no series was run.** The box was found at build 9's Mac OS 8.1
+halt screen, the candidate's md5 was verified on the box and loaded at
+06:20:18. Six frames from +56 s to +858 s are byte-identical: the bare
+50 % grey desktop dither at 640x480, no pointer, no Happy Mac, no `?`
+floppy. `write_bytes` of the MiSTer process was flat in four clean
+windows (every step of the counter lines up with one of the operator's
+own screenshots) and `read_bytes` stayed 0: the guest never touched the
+disk. Builds 6 to 9 reach the Welcome splash in about 55 s and the Finder
+in 85-101 s on the same box. The core was left loaded at the hung screen;
+no input was sent, nothing was reloaded, `.s0`/`.s1`/`.s4` untouched.
+
+What it says: **one of increments 13, 14, 15 breaks the ROM's early
+start-up on hardware**, on a bitstream that meets every clock with the
+best CPU-clock margin of the branch, so this is logic, not timing. The
+bisect's own question (does an impossible Speedometer time appear without
+the record cache) is NOT answered: it needs a candidate that boots.
+Increments 13 and 14 had never run on hardware, and the CPU-only suite
+cannot see either (no store buffer below it; its memory is a 16-bit bus).
+Increment 14 had a real hole found by inspection the same morning (a read
+passing a line-crossing store, cf06fe6; design note section 14), which is
+the first suspect but is not shown to be this hang. The full-machine
+simulation (early boot is seconds of machine time, about 34x slower in
+the sim) is the tool: trees for build 12, build 12 + the fix, and build 8
+as the control.
+
+## 22. CPU pipeline increments 13-15, build 13 (2026-09-18, hardware)
+
+Build 13 = build 12's tree plus cf06fe6 (increment 14's line-crossing hole
+closed) and nothing else: build 8 + increment 13 (the one-clock posted
+store) + 14 (a read may pass one queued store to another line) + 15 (BRA.B
+from any retire), WITHOUT increments 11 and 12.  Build tree 4d09389, seed
+21 with the routability optimization, timing MET on every clock (CPU
++0.772 ns, RAM +0.668, HDMI +0.527, hold +0.204; the 33 -> 99 MHz request
+handoff +0.727), 36,089 ALMs (86 %), rbf fde49a3c.  Same box, disk, slots
+and procedure as sections 18-21; the Opus operator
+(`scratch/pipeline_b13/report.md`, 71 screenshots), loaded over build 12's
+verified hung grey screen.
+
+**It boots**: the Starting Up splash at +57 s, the Finder at <= 100 s
+(build 8 <= 101 s).  The two bitstreams differ by cf06fe6 alone, so the
+store-buffer fix is what cured build 12's hang, on hardware as in the
+simulation.
+
+**Anomaly tally: 0 anomalous values in 11 series** (eight Benchmark Mix
+runs, one Color QuickDraw run of four depths, two FPU runs).  On the same
+workload build 9 (with the record cache) gave three impossible values in
+2 of 5 Mix runs; at that rate eight clean runs by luck are under 2 %.
+Increments 11 and 12 were reverted on the branch on this evidence
+(4abb118, which says what the evidence is and is not).
+
+### Benchmark Mix (Quadra 605 = 1.0), eight valid runs
+
+| test | run 1 | run 2 | run 3 | run 4 | run 5 | mean of 8 | build 8 run 3 | change |
+|---|---|---|---|---|---|---|---|---|
+| KWhetstones/sec | 683.790 | 689.018 | 688.744 | 689.007 | 688.984 | 688.314 | 678.375 | +1.5 % |
+| Dhrystones/sec | 11840.793 | 11842.557 | 11842.717 | 11842.027 | 11841.012 | 11841.841 | 11620.577 | +1.9 % |
+| Towers (sec) | 1.072 | 1.072 | 1.072 | 1.072 | 1.072 | 1.072 | 1.100 | +2.6 % |
+| Quick Sort (sec) | 0.789 | 0.788 | 0.788 | 0.788 | 0.788 | 0.788 | 0.792 | +0.5 % |
+| Bubble Sort (sec) | 0.869 | 0.868 | 0.868 | 0.869 | 0.869 | 0.869 | 0.888 | +2.2 % |
+| Queens (sec) | 0.615 | 0.615 | 0.614 | 0.615 | 0.615 | 0.615 | 0.633 | +2.9 % |
+| Puzzle (sec) | 1.564 | 1.556 | 1.561 | 1.554 | 1.561 | 1.559 | 1.556 | -0.2 % (inside its 0.35 % spread) |
+| Permutations (sec) | 1.664 | 1.664 | 1.664 | 1.664 | 1.664 | 1.664 | 1.728 | +3.7 % |
+| Int. Matrix (sec) | 0.949 | 0.946 | 0.944 | 0.945 | 0.943 | 0.944 | 0.959 | +1.6 % |
+| Sieve (sec) | 1.161 | 1.158 | 1.157 | 1.158 | 1.156 | 1.157 | 1.231 | **+6.0 %** |
+| **Average** | **0.926** | **0.928** | **0.929** | **0.929** | **0.929** | **0.9285** (runs 6-8: 0.929 each) | 0.908 | **+2.4 %** over build 8's 0.907; **+8.6 %** over 0.855 |
+
+Sieve's 1.161 s in run 1 tripped the brief's mechanical ">5 % fast" flag;
+it repeated in all eight runs to 0.4 % and is the store path's gain (its
+inner loop is `clr.b 0(a0,d0.w)`: a store per iteration).  The largest
+deviation of any row across the eight runs is 0.75 %.
+
+### Color QuickDraw and FPU
+
+| test | this build | build 8 |
+|---|---|---|
+| CQD average (Monochrome 9.926 s, Two bit 11.359, Four bit 12.991, Eight bit 16.499) | **0.670** | 0.666 (+0.6 %) |
+| FPU average (KWhetstones 2508.4/s, FFT 0.680 s, Matrix Mult. 1.425/1.411 s) | 0.466 / 0.468 | 0.468 / 0.465 (unchanged) |
+
+Clean Special -> Shut Down in 47 s, no artefact, dialog, dropout or system
+error in 59 minutes; the box was left at the 8.1 halt screen on build 13's
+rbf.  (The screenshots are taken upstream of the `sys_top` HDMI register;
+they do not judge the HDMI pins.)
+
+Where the branch stands: the shipped core 0.855, build 6 (increments 1-8)
+0.902, builds 7b/8 (+ 9, 10) 0.907, **build 13 (+ 13, 14, 15) 0.9285**:
++8.6 % on the Mix and +4.2 % on CQD over the shipped core, on a core 1,055
+ALMs smaller (36,089 against 37,144), every clock met.  The store path was
+worth what the profile said: stores were 12 % of the bracket and reads
+behind stores 5 %; the Mix moved 2.4 %.
+
+### A/UX 3.1 on build 13 (the second half of the release gate)
+
+Same rbf, the OSD RAM option at 32 MB (`MacQuadra800.CFG` all zeros, as
+for every measurement on this branch), the A/UX image restored pristine
+from `backup/HD60_512-AUX3.1-Installed.zip` first
+(`scratch/pipeline_b13_aux/report.md`, two operator sessions).  Boot to
+the multiuser Finder desktop between +342 s and +497 s, no panic, no
+garbled console, no streaks.  A modal "This disk is unreadable: Do you
+want to initialize it?" then held the Finder until the user ejected the
+disc at the display: slot 4 held their audio/mixed-mode CUE, which A/UX's
+System 7 environment cannot read (Mac OS 8.1 ignores the same disc
+silently, on build 9 as on build 13; not a build matter).  After that:
+CommandShell from the Apple menu, a root shell, `uname -a` = `A/UX
+localhos 3.1 SVR2 mc68040`, `ls -l /etc | head -20` and `df` sane and
+aligned, every command back to its prompt; `shutdown -h now` reached "You
+may now switch off your Macintosh safely." within 127 s (the shipped
+core's figure), no `callrpc RPC: Port mapper failure`, no wedge.  **PASS**,
+with increment 13's write-side MMU verdict and the posted-store lane in
+play under a paging Unix.  Operator notes: A/UX does not register a button
+press without pointer motion (press with a 1-pixel jiggle); `menu.sh item`
+misreads the first row under the panel's top border on A/UX.

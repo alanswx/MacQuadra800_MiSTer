@@ -1,0 +1,128 @@
+# RESUME -- optimize-SCSI, hand-off 2026-09-17 ~00:50 (supersedes the 23:50 one) -- PHASE 2 RELEASED
+
+Read this, then `docs/scsi-hps-offload-plan.md` sections 9 (checklist),
+9b (phases) and the tail of 10 (log; the 22:35 entry is the latest), then
+the memory notes `pickup-2026-09-08`, `one-quartus-flow-at-a-time`,
+`prefer-hardware-over-sim`, `mister-92-box` (off limits),
+`bash-tool-heredoc-backslashes`.
+
+## Where things stand
+
+- **Core branch `optimize-SCSI`** (unpushed; the user pushes). RTL tip =
+  **`2922294`**; docs/qsf commits after it up to `7eb0f00`. Main fork
+  branch `mac-ethernet-pr-with-SCSI-Optimizations` at `ae708d3` (unpushed);
+  binary: **`431da61a` is the correct build of `ae708d3`** (staged on .143
+  as `/media/fat/MiSTer.clean_431da61a`, awaiting the user's display test);
+  `898854ef` and the other 16-Sep builds were mis-linked with 28-Aug
+  objects (a black menu on HDMI) -- see the plan log 02:05 and the memory
+  note `main-wsl-stale-objects`. No Main source change pending.
+- **Phase 1 RELEASED** as `releases/MacQuadra800_20260916.rbf` (`1eae0fb7`).
+- **Phase 2 RELEASED 2026-09-17 00:45** as `releases/MacQuadra800_20260916_2.rbf`
+  (`ab1da889`, `2922294`, seed 21, the CPU clock 0.231 ns short on ONE path,
+  shipped under the try-marginal policy; commit `7a2815f`). The full gate on
+  that bitstream passed (`scratch/p2d/report.md`): the AppleCD player with
+  every control over 14 min, 8.1 + retail ISO, A/UX 3.1 at 32 MB halting in
+  144 s. Seed 23 of the same netlist finished after the release: HDMI -7.5 ns,
+  clk_sys -2.9 ns -- the walk is closed, the release stands.
+- **Phase 2's Audio Player failure needed TWO RTL fixes**, both in and
+  bench-proven (`tb_ncr53c96` 477,417 checks / 0; each negative run --
+  the bench against the RTL before the fix -- fails):
+  1. `3ec22e4`: `abort_nexus` armed `io_discard` on `io_busy`, which
+     includes the engine's transfer, so a guest command selected during a
+     frame fetch lost its own first read.
+  2. `2922294`: a DATA IN phase moves to STATUS only while `nexus_io` is
+     quiet, and `nexus_io` included `ca_io_active`; the completion is
+     evaluated once, so a poll whose last byte drained while a fetch was
+     out stayed in DATA IN for ever -- right after PLAY (the poke and two
+     fetches back to back) the driver's first poll hit it every time:
+     "drive not responding" 4-8 s in, counter at 00:00. The seed-23 probe
+     of fix 1 alone (`scratch/p2b/report.md`) proved the ARM side right
+     (Main's seven `cmd 47` lines: the playhead ran the 7:02 disc in real
+     time, the guest read its position correctly at every player launch)
+     and the polling wrong. Fix: `nexus_io` without `ca_io_active`; the
+     data-out chunk completion waits while a full sector is still owed
+     (`sbuf_pos == 512`, no list) so a write cannot lose its flush.
+- **T20** now forces the same-cycle collision on purpose (the poke in
+  flight on a 300,000-cycle platform, a half freed by the cadence so the
+  fetch waits in F_REQ, a disk flush / a `$CC` read waiting on io_busy),
+  asserts its preconditions, and checks the phase at the chunk end with
+  the fetch provably in flight; the platform model serves the lowest slot,
+  acks per slot, counts astray disk requests.
+- **The fix is PROVEN on hardware** (23:03, `scratch/p2c/report.md`): on
+  `a719e24f` (seed 24 of `2922294`, clk_sys -0.727) the AppleCD player
+  played 12 min 32 s -- Play (00:12 / 00:43 / 01:14, track 3 at 3:24),
+  Pause held 46 s and resumed from 01:15, Next / Prev, scan +16 s, volume
+  down / up, Stop to 00:00 -- no dialog; Main's 25 `Mac CD: cmd` lines (47,
+  4B, CD, 01 for Stop) match every displayed position to the second; 8.1 +
+  retail ISO passed; no memory trouble on the marginal clock.
+- **Fits of `2922294`** (the qsf comment block has every seed): 21 clk_sys
+  -0.231 on ONE path (rbf `ab1da889`, `scratch/MacQuadra800_phase2c_s21_ab1da889.rbf`,
+  staged as `_Unstable/MacQuadra800_phase2c_s21.rbf`), 24 -0.727
+  (`a719e24f`, the probe build, staged as `_phase2c_s24`), 22 -1.413 TNS
+  -108 (`e7e3280c`). **Seed 23 fitting** since 23:39 (wait-gated,
+  `scratch/build_phase2c_s23.log`, a waiter greps for `RESULT:`); after it
+  `python scratch/edit_qsf_routability.py on` (FITTER_AGGRESSIVE_ROUTABILITY
+  ALWAYS) with seed 21. **The FULL release gate is running on the seed-21
+  build** under the try-marginal policy (Opus operator, `scratch/p2d/BRIEF.md`,
+  report `scratch/p2d/report.md`: the player first, 8.1 + retail ISO, A/UX
+  at 32 MB). If a later seed meets timing it gets a confirmation run and
+  ships instead; otherwise `ab1da889` ships with the CPU-clock note.
+- **The user's "no video" (22:00)**: the MiSTer was power-cycled; the user
+  reported no picture at the MENU core. Established read-only: the FPGA is
+  configured, the ADV7513 is PLL-locked and sees the sink (a Realtek device
+  whose EDID prefers 1280x720), Main's startup log is clean, and the Mac
+  core's picture is perfect through the same scaler and HDMI path (the boot
+  screen and the Finder captured after a `load_core` at 22:15). CORRECTION
+  01:45: the 529x240 captures of the menu core are Main's native-res grab of
+  the menu core's own video, which carries nothing in framebuffer mode --
+  they are noise by construction and prove nothing about the menu's HDMI
+  picture (the 1280x720 capture of 09-08 shows it fine). The report stays
+  unexplained by the box; the user's observation with the Mac core up is
+  owed. Main binaries for a revert test are listed in the plan log 01:45.
+  Main is relaunched by hand, stdout appended to **`/media/fat/nohup_video.log`**.
+- Remote mouse MOTION dies across every `load_core` and only a Main
+  relaunch at the menu core revives it (event15 is MiSTer's own node; the
+  mrext devices are event16-18; never restart the remote service). The
+  p2c brief relaunches Main before every load and runs the player first.
+- The A/UX shutdown "wedge" is the 128 MB RAM option (32 MB halts); the
+  core's RAM decode is a flat power-of-two window with open bus above it.
+
+## Do next, in order
+
+1. The seed walk is CLOSED: seed 23 fitted at 01:32 with HDMI -7.5 ns and
+   clk_sys -2.9 ns (the worst of 21 / 22 / 23 / 24), so the release stands
+   on seed 21 and the qsf default is seed 21 again. A clean fit, if ever
+   wanted: `python scratch/edit_qsf_routability.py on` with seed 21, then a
+   confirmation gate (`scratch/p2d/BRIEF.md` with the new file/md5) and a
+   swap of `releases/MacQuadra800_20260916_2.rbf` + its README numbers.
+   The user pushes both branches (core `optimize-SCSI`, Main fork
+   `mac-ethernet-pr-with-SCSI-Optimizations`).
+2. Follow-ups: the menu-core picture on .143 (framework side: the Linux
+   image / Main / menu.rbf of 09-07/08; the Mac core's picture is fine); the
+   128 MB A/UX shutdown hang (a 64 MB run, then the trace build
+   `_Unstable/MacQuadra800_trace7_phase1.rbf`); Speedometer on an image that
+   has it; the 8.1 boot freeze at the extension icons seen once at 08:10;
+   the skip buttons moving two tracks per injected click (a remote-injection
+   press-duration artefact, not the core -- verify with a real mouse).
+
+## Box (.143) state at 00:39 (after the p2d operator)
+
+Core `_Unstable/MacQuadra800_phase2c_s21.rbf` (= the release) at the A/UX
+halt screen; Main pid 6071, stdout `/media/fat/nohup_video.log` (12,272
+lines); `.s0` Quad Squad (clean), `.s1` FreshTest, `.s4` the retail ISO;
+RAM 32 MB; the A/UX image restored from the backup at 00:27 and halted
+cleanly since; `AudioTest.cue/.bin` in `games/MacQuadra800/`; `_Unstable/`
+holds the s21 / s24 (phase 2c), s23 / s24 (phase 2b), s22 (phase 2), phase-1
+s21b, 20260915, 20260908_3 and trace7 rbfs.
+
+## Rules (user)
+
+Only the .143 box. One Quartus flow at a time (check `Get-CimInstance
+Win32_Process` for `quartus*`). Hardware over the sim (short directed
+benches only). Restore a damaged image from `backup/`; for A/UX never wait
+for the fsck. A/UX gates at 32 MB. Opus operators for all guest driving
+(resume the same agent on an HTTP 529). Commit as work lands, do not push.
+Command = keycode 56 (Left Alt), Option = 125, `MISTER_HOST=192.168.99.143`.
+Never reload a core while a guest runs unless it is provably dead. Edit
+scripts go in `scratch/edit_*.py` via the Write tool (heredocs with `$`,
+quotes or backslashes break).

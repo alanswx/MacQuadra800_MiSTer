@@ -13,6 +13,8 @@
 # Usage:
 #   bash scripts/scsi_trace.sh [seconds]      # deploy + capture (default 150)
 #   bash scripts/scsi_trace.sh --capture-only [seconds]
+#   bash scripts/scsi_trace.sh --decode-only [file]   # decode a capture already in scratch/scsi_trace.txt
+#                                                     # (or the given raw file), no box access
 #
 # Leaves the raw stream in scratch/scsi_trace.txt and a decoded listing in
 # scratch/scsi_trace.decoded.txt.
@@ -22,23 +24,28 @@ cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" || exit 1
 SSH="ssh -i $MISTER_SSH_KEY -o ConnectTimeout=8 root@$MISTER_HOST"
 
 CAPTURE_ONLY=0
+DECODE_ONLY=0
+RAW=scratch/scsi_trace.txt
 if [ "${1:-}" = "--capture-only" ]; then CAPTURE_ONLY=1; shift; fi
+if [ "${1:-}" = "--decode-only" ]; then DECODE_ONLY=1; shift; RAW="${1:-$RAW}"; fi
 SECS="${1:-150}"
 
 log() { echo "[$(date +%H:%M:%S)] $*"; }
 
-if [ "$CAPTURE_ONLY" = 0 ]; then
-    log "=== deploy ==="
-    bash scripts/deploy_screenshot.sh || exit 1
+if [ "$DECODE_ONLY" = 0 ]; then
+    if [ "$CAPTURE_ONLY" = 0 ]; then
+        log "=== deploy ==="
+        bash scripts/deploy_screenshot.sh || exit 1
+    fi
+
+    log "=== capturing ${SECS}s from /dev/ttyS1 ==="
+    # shellcheck disable=SC2086
+    $SSH "stty -F /dev/ttyS1 115200 raw -echo; timeout $SECS cat /dev/ttyS1 > /tmp/scsi_trace.txt; wc -c /tmp/scsi_trace.txt"
+    scp -q -i "$MISTER_SSH_KEY" "root@$MISTER_HOST:/tmp/scsi_trace.txt" scratch/scsi_trace.txt || exit 1
+    log "raw: scratch/scsi_trace.txt ($(wc -c < scratch/scsi_trace.txt) bytes)"
 fi
 
-log "=== capturing ${SECS}s from /dev/ttyS1 ==="
-# shellcheck disable=SC2086
-$SSH "stty -F /dev/ttyS1 115200 raw -echo; timeout $SECS cat /dev/ttyS1 > /tmp/scsi_trace.txt; wc -c /tmp/scsi_trace.txt"
-scp -q -i "$MISTER_SSH_KEY" "root@$MISTER_HOST:/tmp/scsi_trace.txt" scratch/scsi_trace.txt || exit 1
-log "raw: scratch/scsi_trace.txt ($(wc -c < scratch/scsi_trace.txt) bytes)"
-
-python - scratch/scsi_trace.txt > scratch/scsi_trace.decoded.txt <<'PY'
+python - "$RAW" > "${RAW%.txt}.decoded.txt" <<'PY'
 import sys, re
 TAG = {
  "=":"ARMED (first Unix-dialect command seen)",
@@ -130,5 +137,5 @@ if hb:
 print()
 print("total records: %d" % len(recs))
 PY
-log "decoded: scratch/scsi_trace.decoded.txt"
-tail -60 scratch/scsi_trace.decoded.txt
+log "decoded: ${RAW%.txt}.decoded.txt"
+tail -60 "${RAW%.txt}.decoded.txt"

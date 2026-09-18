@@ -63,6 +63,8 @@ module scsi_cache
 
 	// ---- engine side (ncr53c96's block port, via iosb)
 	input  [31:0] e_lba,
+	input   [5:0] e_blk_cnt,             // blocks - 1 the engine wants for a PASS-THROUGH read (the CD-DA
+	                                     // frame window: 5 blocks); cached transactions size themselves
 	input   [2:0] e_rd,
 	input   [2:0] e_wr,
 	output reg [2:0] e_ack,
@@ -231,6 +233,7 @@ localparam [3:0] E_IDLE = 4'd0, E_DECIDE = 4'd1, E_FLUSHALL = 4'd2, E_REBASE = 4
 reg  [3:0] est;
 reg  [1:0] r_slot;
 reg [31:0] r_lba;
+reg  [5:0] r_blk;                    // the engine's block count for a pass-through
 reg        r_wr;
 reg  [7:0] r_word;                   // 0..255 (bit 8 = done)
 reg        r_word_done;
@@ -286,6 +289,7 @@ reg        dem_wr;                   // ...a flush-all step is a write
 reg        dem_pt;
 reg  [5:0] dem_idx;
 reg        dem_grp_r;
+reg  [5:0] dem_blk;                  // pass-through: blocks - 1, as the engine asked
 
 // prefetch bookkeeping: whole groups, two ahead
 reg  [1:0] pf_slot;
@@ -358,7 +362,7 @@ always @(posedge clk) begin
 			c_base <= win_base[r_slot];
 			c_sect <= slot_base(r_slot) + {2'd0, (dem_grp_r ? {dem_idx[5:3], 3'd0} : dem_idx)};
 			p_lba  <= dem_pt ? r_lba : (win_base[r_slot] + {26'd0, (dem_grp_r ? {dem_idx[5:3], 3'd0} : dem_idx)});
-			p_blk_cnt <= dem_grp_r ? 6'd7 : 6'd0;
+			p_blk_cnt <= dem_pt ? dem_blk : (dem_grp_r ? 6'd7 : 6'd0);
 			if (dem_wr) p_wr[r_slot] <= 1; else p_rd[r_slot] <= 1;
 			cst <= C_REQ;
 		end
@@ -456,14 +460,15 @@ always @(posedge clk) begin
 	case (est)
 	E_IDLE: begin
 		e_ack <= 3'b000;
-		if (e_rd[0] | e_wr[0]) begin r_slot <= 2'd0; r_wr <= e_wr[0]; r_lba <= e_lba; est <= E_DECIDE; end
-		else if (e_rd[1] | e_wr[1]) begin r_slot <= 2'd1; r_wr <= e_wr[1]; r_lba <= e_lba; est <= E_DECIDE; end
-		else if (e_rd[2] | e_wr[2]) begin r_slot <= 2'd2; r_wr <= e_wr[2]; r_lba <= e_lba; est <= E_DECIDE; end
+		if (e_rd[0] | e_wr[0]) begin r_slot <= 2'd0; r_wr <= e_wr[0]; r_lba <= e_lba; r_blk <= e_blk_cnt; est <= E_DECIDE; end
+		else if (e_rd[1] | e_wr[1]) begin r_slot <= 2'd1; r_wr <= e_wr[1]; r_lba <= e_lba; r_blk <= e_blk_cnt; est <= E_DECIDE; end
+		else if (e_rd[2] | e_wr[2]) begin r_slot <= 2'd2; r_wr <= e_wr[2]; r_lba <= e_lba; r_blk <= e_blk_cnt; est <= E_DECIDE; end
 	end
 	E_DECIDE: begin
 		if (r_pt) begin                              // uncacheable: hand the buses over
 			if (!dem_req) begin
 				dem_req <= 1; dem_wr <= r_wr; dem_pt <= 1; dem_idx <= 0; dem_grp_r <= 0;
+				dem_blk <= r_wr ? 6'd0 : r_blk;
 				est <= E_PT;
 			end
 		end
@@ -589,7 +594,7 @@ end
 // mount state and power-up values
 initial begin
 	cst = C_IDLE; est = E_IDLE; e_ack = 0; p_rd = 0; p_wr = 0; c_pt = 0; c_grp = 0; p_blk_cnt = 0;
-	dem_req = 0; dem_grp_r = 0; pf_left = 0; pf_slot = 0; pf_grp = 0; fl_slot = 0; fl_idx = 0; idle_ctr = 0;
+	dem_req = 0; dem_grp_r = 0; dem_blk = 0; r_blk = 0; pf_left = 0; pf_slot = 0; pf_grp = 0; fl_slot = 0; fl_idx = 0; idle_ctr = 0;
 	stat_hits = 0; stat_misses = 0; mounted = 0; e_buff_wr = 0; we_a = 0;
 	for (i = 0; i < 3; i = i + 1) begin
 		win_base[i] = 0; win_ok[i] = 0; valid[i] = 0; dirty[i] = 0; size_r[i] = 0;

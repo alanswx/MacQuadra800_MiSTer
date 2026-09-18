@@ -1,198 +1,289 @@
 #!/usr/bin/env bash
-# scripts/mac_shutdown.sh — shut Mac OS down from INSIDE the guest (Special ->
-# Shut Down) before swapping cores.
+# scripts/mac_shutdown.sh -- Special -> Shut Down in the Mac OS 8.1 Finder,
+# driven from the host and checked against a screenshot before the press and
+# before the release. This is the one Mac OS shutdown walker;
+# scripts/guest/shutdown_finder.sh and scripts/guest/shutdown.sh run it.
 #
 # WHY THIS EXISTS. Reloading the core while Mac OS is running is a hard
 # power-cut on a mounted HFS volume. Doing it repeatedly on 2026-08-30 corrupted
 # the Quad Squad image badly enough that it hung mid-boot at a repeatable offset
-# — which then got misdiagnosed as an RTL fault more than once. Always shut the
+# -- which then got misdiagnosed as an RTL fault more than once. Always shut the
 # guest down first; only load a new core once the screen says it is safe.
 #
-# HOW IT DRIVES THE MOUSE. mrext sends RELATIVE motion and Mac OS applies mouse
-# acceleration, so one big delta does NOT move a predictable number of pixels.
-# Everything here therefore moves in 1-pixel steps, which stays under the
-# acceleration threshold and tracks 1:1. The cursor is first "pinned" to the
-# top-left by driving it hard into the corner, giving a known origin — the ADB
-# mouse only reports deltas, so there is no absolute position to read back.
+# HOW IT AIMS (recalibrated 2026-09-16). mrext sends only RELATIVE motion, so
+# there is no absolute position to command or read back. On 2026-09-16 both
+# walkers failed on the 8.1 Finder: this one stepped 70 motion events right
+# (~105 px, View) and slid along the bar with the button HELD, chasing a scale
+# it re-derived from whichever title was open; shutdown_finder.sh aimed at
+# x=229 -- Special on A/UX's Finder, Help on 8.1's -- and looked for the lit
+# row at x 295..335, past the right edge of 8.1's Special panel (149..264), so
+# it never saw one. An Opus operator then shut the Finder down by hand with the
+# closed loop below, and this script is that loop:
 #
-# STATUS 2026-08-30 (evening): WORKING. The click failed until the via6522
-# shift-clock fix (docs/adb-via-shift.md) -- the mouse button is bit 7 of ADB
-# Talk R0 byte 0 and every delivered byte reached the driver shifted one place
-# left, so the button bit was thrown away. mrext's payloads were always right;
-# it was the core. (Note the payloads ARE `left_down`/`left_up`; `mouseBtn:1`
-# and `:0` are logged by mrext and do nothing.)
+#   1. Pin the pointer: 60 x mouse:-12,-12 drives it into the top-left corner,
+#      the one position the screen edge makes certain. Grab that frame.
+#   2. Read the frame before pressing anything (scripts/finder_probe.py
+#      screen): not already halted, a Mac OS menu bar, no menu pulled down,
+#      and the glyphs of "Special" centred at SPECIAL_X -- which also shows the
+#      Finder is in front and no modal dialog has dimmed its menus.
+#   3. With the button UP, move onto the title: down onto the bar first, then
+#      across (a press on the top rows of the bar does not always land on the
+#      title). Measured 2026-09-16 at 0.02 s pacing: 1.47-1.51 px per motion
+#      event in both axes; 6 x mouse:0,1 then 123 x mouse:1,0 put the pointer
+#      at (183,7). Find the pointer by difference against the pinned frame
+#      (scripts/guest/probe_cursor.py) and correct with the scale that move
+#      actually achieved, until the pointer is on the title.
+#   4. Press only then. Check that the menu pulled down is the one under the
+#      pointer and find the bottom border of its panel (finder_probe.py panel).
+#   5. Walk down to the middle of the last row, which sits directly on that
+#      border (60 x mouse:0,1 from the title reached it by hand). Re-probe and
+#      correct -- from the lit row, or, when no row is lit, from the pointer
+#      found against the post-press frame -- and release IN PLACE only when
+#      the lit row is the last one. Restart is the row directly above Shut
+#      Down, and a Quadra's Special menu has no Sleep item.
+#   6. Wait for the "It is now safe to switch off your Macintosh" screen.
 #
-# The step counts below were RE-MEASURED after that fix and are motion EVENTS,
-# not pixels: ~1.5 px each. They were 1:1 before, because the same bug also
-# doubled the deltas -- so do not restore the old numbers, and re-measure with
-# a screenshot rather than trusting either set blindly.
+# Pacing: 0.008 s between motion events outruns the ~90 Hz ADB poll and moves
+# are silently lost (2026-09-08); 0.02 s is what the scale was measured at.
+# The button payloads are mousebtn:left_down / left_up -- mouseBtn:1 and :0 are
+# logged by mrext and do nothing.
 #
-# Pacing matters: 0.008 s between motion events outruns the ~90 Hz ADB poll and
-# the moves are silently lost. 0.02 s is what these counts were measured at.
+# THE BUTTON. A held button wedges the Finder in a menu track and looks exactly
+# like a hung CPU (CLAUDE.md rule 4). Every exit -- success, refusal, failure,
+# Ctrl-C, SIGTERM, SIGHUP -- sends mousebtn:left_up, and an exit with the button
+# down first slides straight up onto the menu title so the release selects
+# nothing. SIGKILL, or a Windows process-tree kill when a tool times out, cannot
+# be trapped: after one, run --release. A run takes one to three minutes; give
+# it a timeout of five or more.
+#
+# KEYBOARD, for chores around a shutdown (closing windows, answering a dialog):
+# Command is PS/2 Left Alt in this core's ADB map (rtl/adb.sv:530, PS/2 0x11 ->
+# ADB $37), Linux keycode 56 to scripts/mister_ws.py; Right Alt (100) is Command
+# too. Keycode 125 (Left Meta) is Option ($3A, rtl/adb.sv:800), not Command:
+# "cmd-W" sent with it types into the Finder's type-select. cmd-W is
+#     python scripts/mister_ws.py --host "$MISTER_HOST" down:56 raw:17 up:56
+#
+# SCOPE. The Mac OS 8.1 Finder at 640x480 (Quad Squad, the retail CD, the fresh
+# MacOS8-MiSTer disk). A/UX's Finder is refused on purpose: its Special title
+# sits at x~231 behind a Label menu, its menus highlight by black inversion and
+# its Special menu ends in Logout -- "release on the last row" would log out.
+# Shut A/UX down with `shutdown -h now` in a CommandShell
+# (scripts/guest/type.sh -r 'shutdown -h now'). The System 7.1 Finder on the
+# A/UX disk's MacPartition, which the old shutdown_finder.sh was tuned for, has
+# the same title layout and highlight and is refused as well.
 #
 # Usage:
-#   bash scripts/mac_shutdown.sh            # do it, with verification shots
-#   bash scripts/mac_shutdown.sh --dry-run  # print the plan only
-#
-# Verify before you trust it: shots land in scratch/shutdown_*.png.
+#   bash scripts/mac_shutdown.sh              # shut down, with verification shots
+#   bash scripts/mac_shutdown.sh --dry-run    # print the plan, send nothing
+#   bash scripts/mac_shutdown.sh --release    # free a held button: slide up, left_up
+# Exit: 0  the halt screen is showing (it already was, or Shut Down reached it)
+#       3  refused or failed with nothing selected -- read the log and the shots
+#       4  Shut Down selected but no halt screen within HALT_WAIT s: look before
+#          loading any core (a save dialog? still closing?)
+# Env:  SPECIAL_X (181)  PX_PER_EVENT_X100 (149)  MENU_DELAY (0.02)  HALT_WAIT (120)
+# Shots land in scratch/shutdown/.
 set -u
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" || exit 1
 [ -r scripts/local.env ] && . scripts/local.env
 : "${MISTER_HOST:?set MISTER_HOST in scripts/local.env}"
 
-DRY=0
-[ "${1:-}" = "--dry-run" ] && DRY=1
+MODE=run
+case "${1:-}" in
+    "")        ;;
+    --dry-run) MODE=dry ;;
+    --release) MODE=release ;;
+    *) echo "usage: bash scripts/mac_shutdown.sh [--dry-run | --release]" >&2; exit 2 ;;
+esac
 
-WS="python scripts/mister_ws.py --host $MISTER_HOST --delay ${MENU_DELAY:-0.02}"
+SPECIAL_X=${SPECIAL_X:-181}      # centre of the Special title on the 8.1 Finder; Help is ~230
+S=${PX_PER_EVENT_X100:-149}      # px per motion event x100; re-measured from every long move
+MENU_DELAY=${MENU_DELAY:-0.02}
+HALT_WAIT=${HALT_WAIT:-120}
+BAR_Y=9                          # aim at the middle of the 20 px menu bar ...
+Y_MIN=3; Y_MAX=15                # ... and accept these rows
+X_TOL=10                         # px from the title centre; the title spans 149..212
+POS_TRIES=6
+WALK_TRIES=8
 
-# Menu-bar geometry as MOTION EVENTS at 0.02 s (see STATUS above), measured
-# 2026-08-30 against the Mac OS 8 Finder at 640x480: 100 events lands on View,
-# 120 on Special -- but the scale is NOT stable between runs (a later run put
-# 120 events at x=330, past Help), so this is only a starting point and the
-# loop below corrects by screenshot. Titles in pixels: apple 26 | File 53 |
-# Edit 88 | View 127 | Special 180 | Help 230, y = 9.
-SPECIAL_X=70
-MENUBAR_Y=4
+WS="python scripts/mister_ws.py --host $MISTER_HOST --delay $MENU_DELAY"
+P=scratch/shutdown
 
-# Emit N one-pixel steps in a direction.
-steps() { local n=$1 dx=$2 dy=$3 out=""; while [ "$n" -gt 0 ]; do out="$out mouse:$dx,$dy"; n=$((n-1)); done; echo "$out"; }
+log()    { echo "[$(date +%H:%M:%S)] $*"; }
+ws()     { $WS "$@" >/dev/null 2>&1; }
+# N motion events of (dx,dy), as mister_ws.py arguments
+steps()  { local n=$1 dx=$2 dy=$3 out=""; while [ "$n" -gt 0 ]; do out="$out mouse:$dx,$dy"; n=$((n-1)); done; echo "$out"; }
+# signed motion events for a signed pixel distance $1 at scale $2, rounded
+events() { local a=${1#-} n; n=$(( (a * 100 + $2 / 2) / $2 )); [ "$1" -lt 0 ] && n=$(( -n )); echo "$n"; }
+clamp()  { local v=$1; [ "$v" -lt 50 ] && v=50; [ "$v" -gt 800 ] && v=800; echo "$v"; }
+# move <x events> <y events>, both signed; y first
+move() {
+    local nx=$1 ny=$2 args=""
+    [ "$ny" -gt 0 ] && args="$(steps "$ny" 0 1)"
+    [ "$ny" -lt 0 ] && args="$(steps $(( -ny )) 0 -1)"
+    [ "$nx" -gt 0 ] && args="$args $(steps "$nx" 1 0)"
+    [ "$nx" -lt 0 ] && args="$args $(steps $(( -nx )) -1 0)"
+    [ -z "$args" ] || ws $args
+}
+# a fresh screenshot, or failure -- never a stale file left by an earlier run
+shot()   { rm -f "$1"; bash scripts/grab_fresh.sh "$1" >/dev/null 2>&1 && [ -s "$1" ]; }
 
-PIN=$(steps 60 -12 -12)        # drive hard into the top-left corner
-# down onto the menu bar FIRST, then across: y=0 is the very top row of the
-# bar and a press there does not always land on the title.
-TO_SPECIAL="$(steps $MENUBAR_Y 0 1) $(steps $SPECIAL_X 1 0)"
-
-if [ "$DRY" = 1 ]; then
-    echo "would pin to (0,0), then move to Special ($SPECIAL_X,$MENUBAR_Y), open it,"
-    echo "screenshot, walk down to Shut Down and click."
+if [ "$MODE" = dry ]; then
+    nx=$(events "$SPECIAL_X" "$S"); ny=$(events "$BAR_Y" "$S")
+    echo "host $MISTER_HOST, $MENU_DELAY s per event, shots in $P/. Would:"
+    echo "  1. pin the pointer (60 x mouse:-12,-12) and grab the background frame"
+    echo "  2. refuse unless it shows a menu bar with nothing pulled down and Special centred at x=$SPECIAL_X"
+    echo "  3. button up: $ny x mouse:0,1 then $nx x mouse:1,0 toward ($SPECIAL_X,$BAR_Y) at $S/100 px per event;"
+    echo "     probe the pointer and correct (up to $POS_TRIES looks) until it is within $X_TOL px of the"
+    echo "     title centre on rows $Y_MIN..$Y_MAX"
+    echo "  4. mousebtn:left_down; check Special is the menu open and find its bottom border"
+    echo "  5. walk down to the last row's middle; release in place only when the last row is lit"
+    echo "     (up to $WALK_TRIES looks), otherwise slide up onto the title and release on nothing"
+    echo "  6. wait up to ${HALT_WAIT}s for the safe-to-switch-off screen"
     exit 0
 fi
 
-log() { echo "[$(date +%H:%M:%S)] $*"; }
-mkdir -p scratch
+if [ "$MODE" = release ]; then
+    log "sliding the pointer straight up onto the menu bar, then mousebtn:left_up"
+    if ws $(steps 30 0 -12) mousebtn:left_up; then log "released"; exit 0; fi
+    log "mister_ws.py failed -- is the remote at $MISTER_HOST:${MISTER_HTTP_PORT:-8182} up?"
+    exit 3
+fi
 
-log "pinning cursor to top-left"
-$WS $PIN >/dev/null 2>&1
-
-log "moving toward Special ($SPECIAL_X,$MENUBAR_Y) and opening a menu"
-$WS $TO_SPECIAL >/dev/null 2>&1
-$WS mousebtn:left_down sleep:0.4 >/dev/null 2>&1
-
-# The event-to-pixel scale is NOT stable -- moves get coalesced into one ADB
-# report and Mac OS accelerates the coalesced delta -- so a fixed step count
-# lands one menu over often enough to matter (it opened Help, not Special, on
-# the first run after the ADB fix). Slide along the bar with the button held,
-# which drags the pulled-down menu with it, until the open title is Special.
-# Titles on a 640x480 Finder: apple 9 | View 105 | Special 149 | Help 208.
-SPECIAL_MIN=140
-SPECIAL_MAX=195
-SPECIAL_MID=170
-x0=""
-found=0
-for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
-    bash scripts/grab_fresh.sh scratch/shutdown_menu.png >/dev/null 2>&1
-    read -r st a b <<<"$(python scripts/menubar_probe.py scratch/shutdown_menu.png)"
-    if [ "$st" != "OPEN" ]; then
-        # a press in the empty part of the bar, right of Help, opens nothing
-        log "no menu open (probe: $st) — stepping left"
-        $WS $(steps 12 -1 0) >/dev/null 2>&1
-        continue
-    fi
-    x0=$a
-    if [ "$x0" -ge "$SPECIAL_MIN" ] && [ "$x0" -le "$SPECIAL_MAX" ]; then
-        log "Special is open (title x=$x0)"
-        found=1
-        break
-    fi
-    # the event-to-pixel scale is unstable (measured between ~1.3 and ~12 px
-    # per event depending on guest and coalescing), so MEASURE it from what
-    # the previous move actually did and step by half the remaining error;
-    # a fixed divisor oscillated View <-> Help for minutes on 2026-09-07.
-    if [ "${prev_x0:--1}" -ge 0 ] && [ "${sent:-0}" -gt 1 ]; then
-        moved=$(( x0 - prev_x0 )); am=${moved#-}
-        [ "$am" -gt 0 ] && scale=$(( am * 100 / sent ))
-        [ "$scale" -lt 50 ] && scale=50; [ "$scale" -gt 900 ] && scale=900
-    fi
-    scale=${scale:-400}
-    err=$(( SPECIAL_MID - x0 ))
-    aerr=${err#-}
-    n=$(( aerr * 100 / scale / 2 ))
-    [ "$n" -lt 1 ] && n=1
-    [ "$n" -gt 40 ] && n=40
-    prev_x0=$x0; sent=$n
-    if [ "$err" -gt 0 ]; then
-        log "open title at x=$x0 scale=$scale — stepping right $n"
-        $WS $(steps "$n" 1 0) >/dev/null 2>&1
+BUTTON=up          # "down" from the moment a left_down may have reached the guest
+# release [cancel] -- cancel slides straight up onto the menu title first, so
+# the release selects nothing; plain releases where the pointer is
+release() {
+    if [ "${1:-}" = cancel ]; then ws $(steps 30 0 -12) mousebtn:left_up; else ws mousebtn:left_up; fi
+    BUTTON=up
+}
+finish() {
+    local rc=$?
+    trap '' INT TERM HUP          # let the release go out
+    if [ "$BUTTON" = down ]; then
+        log "leaving with the button down: sliding up onto the menu title and releasing (nothing selected)"
+        release cancel
     else
-        log "open title at x=$x0 scale=$scale — stepping left $n"
-        $WS $(steps "$n" -1 0) >/dev/null 2>&1
+        ws mousebtn:left_up       # the explicit release on every exit; harmless when up
+    fi
+    exit "$rc"
+}
+trap finish EXIT
+trap 'log "interrupted (SIGINT)"; exit 130' INT
+trap 'log "terminated (SIGTERM)"; exit 143' TERM
+trap 'log "hung up (SIGHUP)"; exit 129' HUP
+fail() { log "$*"; exit 3; }
+
+mkdir -p "$P"
+
+# ---- 1-2: pin, look, refuse anything that is not the 8.1 Finder at rest ----
+log "pinning the pointer into the top-left corner"
+ws $(steps 60 -12 -12) || fail "mister_ws.py failed -- is the remote at $MISTER_HOST:${MISTER_HTTP_PORT:-8182} up?"
+shot "$P/00_pinned.png" || fail "no fresh screenshot -- is video capture alive? (scripts/grab_fresh.sh)"
+line=$(python scripts/finder_probe.py screen "$P/00_pinned.png" "$SPECIAL_X")
+read -r st a b _ <<<"$line"
+case "$st" in
+    SPECIAL)   AIM_X=$a; log "Finder menu bar at rest: $line" ;;
+    HALT)      log "already at the safe-to-switch-off screen, nothing to do"; exit 0 ;;
+    NOBAR)     fail "no Mac OS menu bar on screen (the MiSTer menu? a console? a full-screen dialog?) -- refusing" ;;
+    MENUOPEN)  fail "a menu is already pulled down (title x=$a..$b), perhaps a sticky one from an interrupted run: close it (Escape, or a click on the desktop) and retry" ;;
+    ELSEWHERE) fail "the Special title is at x=$a, not SPECIAL_X=$SPECIAL_X -- x~231 is A/UX's Finder, which is refused (see the header); otherwise rerun with SPECIAL_X=$a" ;;
+    NOSPECIAL) fail "no Special title on the menu bar ($line): another application is in front, or a dialog has dimmed the Finder's menus -- bring the Finder forward and retry" ;;
+    *)         fail "finder_probe.py failed: '$line'" ;;
+esac
+
+# ---- 3: button up, onto the title, verified absolutely ----
+nx=$(events "$AIM_X" "$S"); ny=$(events "$BAR_Y" "$S")
+log "button up: $ny x mouse:0,1 onto the bar, $nx x mouse:1,0 across to Special"
+move "$nx" "$ny"
+cx=0; on=0
+for try in $(seq 1 "$POS_TRIES"); do
+    shot "$P/1${try}_aim.png" || fail "no fresh screenshot"
+    probe=$(python scripts/guest/probe_cursor.py "$P/00_pinned.png" "$P/1${try}_aim.png")
+    case "$probe" in
+        CURSOR*) x=${probe#*x=}; x=${x%% *}; y=${probe##*y=} ;;
+        *) fail "pointer not found ($probe): did it move at all? Remote input goes dead if the mrext service restarts under a running core (CLAUDE.md rule 3)" ;;
+    esac
+    # the scale the last move achieved -- only a long x move says much
+    m=$(( x - cx ))
+    [ "${nx#-}" -ge 8 ] && [ $(( m * nx )) -gt 0 ] && S=$(clamp $(( ${m#-} * 100 / ${nx#-} )))
+    dx=$(( AIM_X - x ))
+    if [ "${dx#-}" -le "$X_TOL" ] && [ "$y" -ge "$Y_MIN" ] && [ "$y" -le "$Y_MAX" ]; then on=1; break; fi
+    nx=$(events "$dx" "$S"); ny=0
+    if [ "$y" -lt "$Y_MIN" ] || [ "$y" -gt "$Y_MAX" ]; then ny=$(events $(( BAR_Y - y )) "$S"); fi
+    log "pointer at ($x,$y), Special at ($AIM_X,$BAR_Y), $S/100 px per event: moving $nx,$ny"
+    cx=$x
+    move "$nx" "$ny"
+done
+[ "$on" = 1 ] || fail "could not put the pointer on Special (last seen at ($x,$y))"
+
+# ---- 4: press, and check what opened ----
+log "pointer on Special at ($x,$y), $S/100 px per event: pressing"
+PRESS_Y=$y
+BUTTON=down
+ws mousebtn:left_down sleep:0.4
+shot "$P/20_pressed.png" || fail "no fresh screenshot after the press"
+line=$(python scripts/finder_probe.py panel "$P/20_pressed.png" "$AIM_X")
+read -r st f _ <<<"$line"
+case "$st" in
+    NOROW|ROW) FRAME=$f ;;
+    *) fail "pressed on Special, but its menu is not what opened: $line" ;;
+esac
+TARGET=$(( FRAME - 8 ))
+log "Special is open ($line): the last row's middle is y=$TARGET"
+
+# ---- 5: walk down to the last row; release only on it ----
+py=$PRESS_Y
+n=$(events $(( TARGET - py )) "$S")
+log "button held: $n x mouse:0,1 down to y=$TARGET"
+move 0 "$n"
+lit=0
+for try in $(seq 1 "$WALK_TRIES"); do
+    shot "$P/3${try}_walk.png" || fail "no fresh screenshot"
+    line=$(python scripts/finder_probe.py panel "$P/3${try}_walk.png" "$AIM_X")
+    read -r st f y0 y1 last _ <<<"$line"
+    case "$st" in
+        ROW)
+            [ "$last" = 1 ] && { lit=1; break; }
+            ny=$(( (y0 + y1) / 2 )) ;;
+        NOROW)
+            # no row lit: between rows, on a disabled item, or off the panel.
+            # The pointer is the only change since the press below its old spot.
+            probe=$(python scripts/guest/probe_cursor.py "$P/20_pressed.png" "$P/3${try}_walk.png" --min-y $(( PRESS_Y + 18 )))
+            case "$probe" in
+                CURSOR*) ny=${probe##*y=} ;;
+                *) fail "no row is lit and the pointer is not in sight ($probe)" ;;
+            esac ;;
+        CLOSED|OTHER|NOPANEL)
+            # Only vertical moves since the press, so the menu cannot really
+            # have changed. Read this as a misread frame, not a closed menu:
+            # releasing in place would select the row under the pointer, while
+            # the slide up onto the title (the exit path) selects nothing.
+            fail "Special's menu no longer reads as open: $line" ;;
+        *) fail "finder_probe.py failed: '$line'" ;;
+    esac
+    m=$(( ny - py ))
+    [ "${n#-}" -ge 10 ] && [ $(( m * n )) -gt 0 ] && S=$(clamp $(( ${m#-} * 100 / ${n#-} )))
+    py=$ny
+    n=$(events $(( TARGET - py )) "$S"); [ "$n" -eq 0 ] && n=1
+    log "$st, pointer near y=$py ($line): moving $n toward y=$TARGET"
+    move 0 "$n"
+done
+[ "$lit" = 1 ] || fail "could not confirm Shut Down as the lit row"
+
+log "the lit row $y0..$y1 sits on the panel border at y=$f, so it is Shut Down: releasing in place"
+# Released in place. Do NOT nudge the pointer first: Restart is the row above.
+release
+
+# ---- 6: the guest parks itself ----
+log "waiting up to ${HALT_WAIT}s for the safe-to-switch-off screen"
+end=$(( SECONDS + HALT_WAIT ))
+while [ "$SECONDS" -lt "$end" ]; do
+    sleep 5
+    shot "$P/40_after.png" || continue
+    if [ "$(python scripts/finder_probe.py halt "$P/40_after.png")" = HALT ]; then
+        log "HALTED: $P/40_after.png shows the safe-to-switch-off screen"
+        exit 0
     fi
 done
-
-if [ "$found" != 1 ]; then
-    log "could not land on Special — releasing above the menu, nothing selected"
-    $WS $(steps 40 0 -1) mousebtn:left_up >/dev/null 2>&1
-    exit 3
-fi
-
-# Special menu (Mac OS 8.1): Clean Up Window / Empty Trash / Eject / Erase Disk
-# / --- / Sleep / Restart / Shut Down.  Items are 16 px; Shut Down is the last.
-# The menu is held OPEN with the button down and released over the item, which
-# is the classic Mac press-drag-release a real user performs.
-# Walk down to Shut Down. Same unstable scale as the horizontal walk, and here
-# it matters more: Restart is the row directly above Shut Down. The probe
-# reports the highlighted band AND the panel bottom, so the screenshot says
-# where the pointer actually is -- step, re-probe, and only release once the
-# LAST item (gap 0-4) is the highlighted one.
-SHUTDOWN_DY=${SHUTDOWN_DY:-20}    # deliberately an UNDERshoot; the loop closes it
-log "walking down $SHUTDOWN_DY events into the menu"
-$WS $(steps "$SHUTDOWN_DY" 0 1) >/dev/null 2>&1
-
-seen_item=0
-ok=0
-for attempt in $(seq 1 25); do
-    bash scripts/grab_fresh.sh scratch/shutdown_hover.png >/dev/null 2>&1
-    probe=$(python scripts/menuitem_probe.py scratch/shutdown_hover.png "$x0")
-    case "$probe" in
-        ITEM*)
-            seen_item=1
-            gap=${probe##*gap=}
-            if [ "$gap" -le 4 ]; then
-                log "Shut Down is highlighted ($probe)"
-                ok=1
-                break
-            fi
-            n=$(( gap / 4 )); [ "$n" -lt 1 ] && n=1
-            log "highlight is ${gap}px above the panel bottom — stepping down $n"
-            $WS $(steps "$n" 0 1) >/dev/null 2>&1 ;;
-        NOITEM*)
-            if [ "$seen_item" = 1 ]; then
-                log "below the last row — stepping back up"
-                $WS mouse:0,-1 >/dev/null 2>&1
-            else
-                log "not inside the menu yet — stepping down"
-                $WS $(steps 3 0 1) >/dev/null 2>&1
-            fi ;;
-        *)
-            log "menu vanished (probe: $probe) — aborting"
-            break ;;
-    esac
-done
-
-if [ "$ok" != 1 ]; then
-    log "could not confirm Shut Down — releasing back on the menu title, nothing selected"
-    $WS $(steps 60 0 -1) mousebtn:left_up >/dev/null 2>&1
-    log "hover shot for diagnosis: scratch/shutdown_hover.png"
-    exit 3
-fi
-
-log "hover shot: scratch/shutdown_hover.png"
-# Released in place. Do NOT nudge the pointer to release: Restart is the row
-# directly above Shut Down, and Erase Disk two above that.
-$WS mousebtn:left_up >/dev/null 2>&1
-
-log "released over Shut Down; waiting for the guest to park"
-sleep 12
-bash scripts/grab_fresh.sh scratch/shutdown_done.png >/dev/null 2>&1
-log "final shot: scratch/shutdown_done.png"
-log "Only load another core once that shows the shutdown screen."
+log "Shut Down was selected but no halt screen after ${HALT_WAIT}s: look at $P/40_after.png (a save dialog? still closing?) before loading any core"
+exit 4

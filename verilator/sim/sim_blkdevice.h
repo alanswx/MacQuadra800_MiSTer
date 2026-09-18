@@ -40,6 +40,12 @@ public:
 	bool mountQueue[kVDNUM];
 	std::fstream disk[kVDNUM];
 
+	// The CD slot's windows (LBA >= 0x40000000 on disk 2) are served by
+	// sim/cd_window.cpp -- the Main fork's builders -- not by the image file.
+	bool win;
+	unsigned int win_lba;
+	unsigned char winbuf[4096];
+
 	// cycles is the sim's half-cycle counter: must be 64-bit — an int
 	// wraps negative at 2^31 (~1.07G machine cycles) and the <2000 boot
 	// guard then disables the block device forever, mid-transfer

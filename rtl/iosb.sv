@@ -80,6 +80,7 @@ module iosb
 	output [31:0] io_lba,
 	output  [2:0] io_rd,
 	output  [2:0] io_wr,
+	output  [5:0] io_blk_cnt,           // blocks - 1 the CD-DA frame fetch wants (else 0)
 	input   [2:0] io_ack,
 	input  [12:0] sd_buff_addr,
 	input  [15:0] sd_buff_dout,
@@ -555,6 +556,7 @@ ncr53c96 #(.CDROM(CDROM)) scsi (
 	.io_lba(io_lba),
 	.io_rd(io_rd),
 	.io_wr(io_wr),
+	.io_blk_cnt(io_blk_cnt),
 	.io_ack(io_ack),
 	.sd_buff_addr(sd_buff_addr),
 	.sd_buff_dout(sd_buff_dout),
