@@ -212,3 +212,23 @@ in a file, and the user's EARS, see CLAUDE.md), then
 State of the box: build 13 loaded, A/UX halt text, `.s0` =
 QuadSquad8.hda (effective at the next load), so the next `load_core` is
 allowed after a look.
+
+## Update 2026-09-18 about 10:20: RELEASED, and the Main fork rebuilt
+
+- **`releases/MacQuadra800_20260918.rbf`** (md5 fde49a3cf474d5c07aff26c592200125,
+  commit 71011be) at the user's request: build 13 = the branch head's RTL
+  and qsf settings (verified by diff).  The README section records the gate
+  as run (8.1 + Speedometer, A/UX 3.1 at 32 MB) and says plainly that the
+  **CD-audio item was NOT run on this bitstream** (CD/SCSI RTL unchanged
+  from 20260916_2).  It still wants the ToneTest pass and the user's ears.
+- **The Main fork was rebuilt** at the user's request after their rebase:
+  `../Main_MiSTer` branch `mac-ethernet-pr-with-SCSI-Optimizations`, head
+  2d93232 (the twelve Mac commits) on upstream 3d7a844 (2026-09-18, past
+  Release 20260912).  Clean build (`scripts/build_main_wsl.sh`, no object
+  older than today, 0 warnings): **`scratch/MiSTer_bb1a08d3`**, md5
+  bb1a08d3a829814c47d18888ee43ca73, 1,211,428 bytes, ARM ELF, carries
+  `macquadra800` and the `Mac CD: cmd` log line.  NOT installed on the box
+  and NOT copied into `releases/`: it has not run on hardware, and replacing
+  `/media/fat/MiSTer` is the user's step (the box runs
+  `releases/MiSTer_20260916`, md5 431da61a).  When it has passed the CD
+  audio check it becomes `releases/MiSTer_20260918`.
