@@ -284,7 +284,12 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # on the second Quartus host, dani@192.168.99.153, same 17.0.2 Lite), seed 21 + the switch: 36,560 ALMs (87 %, +471;
 # sonic_mbx itself 401.6 ALMs / 665 ALUTs / 0 RAM), clk_sys +0.547, clk_ram +0.770, hold +0.214, HDMI VIOLATED -0.306
 # (TNS -0.504, the framework's video register again). rbf 815ee8b4 = scratch/eth/build1/, tried on hardware as a marginal
-# build (the miss is not on the CPU clock). Seed 22 of the same tree runs on .153 next.
+# build (the miss is not on the CPU clock). ON HARDWARE: Mac OS 8.1 boots with Ethernet Off and On, the driver opens, 12
+# packets out, DMA round trips 36 us average -- then the whole guest FREEZES: iosb's VIA2 any-slot flag followed edges of
+# the OR of VBL and SONIC and lost the interrupt for good (fixed 665a450). The seed 22 fit of this tree was abandoned.
+# 2026-09-18 15:33 ethernet build 2 (665a450: + the any-slot flag as a level, + the front-end's DEBUG word), seed 21 + the
+# switch, on .153: MEETS TIMING on every clock -- 36,502 ALMs (87 %), clk_sys +0.323, HDMI +0.314, clk_ram +0.716, hold
+# +0.220, TNS 0. rbf 2ea4d529 = scratch/eth/build2/.
 set_global_assignment -name SEED 21
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
