@@ -271,6 +271,106 @@ initial begin
 	if (pending || m_req) fail("T4: queue did not become idle after the same-line read");
 
 	//------------------------------------------------------------------
+	// T5: line-crossing transfers never pass.  The cache posts a store
+	// that straddles two 16-byte lines unsplit (a long at $xE: 68k stacks
+	// are only word-aligned) and invalidates both lines, so the next read
+	// of the SECOND line is a fill that must see the store's tail; and a
+	// bypass read that straddles two lines must see a store queued to its
+	// second line.  pass_ok compared only the first line of each.
+	//------------------------------------------------------------------
+	buffered_store(32'h0000_7000, 32'hE0E0_0001);
+	buffered_store(32'h0000_701E, 32'hE0E0_0002);      // bytes 701E..7021
+	expect_head(32'h0000_7000, 32'hE0E0_0001);
+	@(negedge clk);
+	s_req = 1; s_write = 0; s_size = 2'd2; s_addr = 32'h0000_7020;   // the store's second line
+	ack_head();                                        // the first store lands; count 1
+	repeat (2) @(posedge clk);
+	if (dut.direct_active) fail("T5: a read of a crossing store's second line passed it");
+	expect_head(32'h0000_701E, 32'hE0E0_0002);
+	ack_head();
+	guard = 0;
+	while (!(m_req && !m_write && dut.direct_active) && guard < 30) begin
+		@(posedge clk);
+		guard = guard + 1;
+	end
+	if (guard >= 30 || m_addr !== 32'h0000_7020) fail("T5: the second-line read did not follow the crossing store");
+	@(negedge clk);
+	m_ack = 1;
+	@(posedge clk);
+	@(negedge clk);
+	m_ack = 0; s_req = 0;
+	repeat (3) @(posedge clk);
+	if (pending || m_req) fail("T5: queue did not become idle after the crossing store");
+	// the mirror: a crossing READ against a store queued to its second line
+	buffered_store(32'h0000_8000, 32'hF0F0_0001);
+	buffered_store(32'h0000_8020, 32'hF0F0_0002);
+	expect_head(32'h0000_8000, 32'hF0F0_0001);
+	@(negedge clk);
+	s_req = 1; s_write = 0; s_size = 2'd2; s_addr = 32'h0000_801E;   // bytes 801E..8021
+	ack_head();
+	repeat (2) @(posedge clk);
+	if (dut.direct_active) fail("T5: a crossing read passed a store queued to its second line");
+	expect_head(32'h0000_8020, 32'hF0F0_0002);
+	ack_head();
+	guard = 0;
+	while (!(m_req && !m_write && dut.direct_active) && guard < 30) begin
+		@(posedge clk);
+		guard = guard + 1;
+	end
+	if (guard >= 30 || m_addr !== 32'h0000_801E) fail("T5: the crossing read did not follow the store");
+	@(negedge clk);
+	m_ack = 1;
+	@(posedge clk);
+	@(negedge clk);
+	m_ack = 0; s_req = 0;
+	// a word at $xF crosses too; a word at $xE and a byte at $xF do not
+	buffered_store(32'h0000_9000, 32'hA0A0_0001);
+	buffered_store(32'h0000_9020, 32'hA0A0_0002);
+	expect_head(32'h0000_9000, 32'hA0A0_0001);
+	@(negedge clk);
+	s_req = 1; s_write = 0; s_size = 2'd1; s_addr = 32'h0000_901F;   // bytes 901F..9020
+	ack_head();
+	repeat (2) @(posedge clk);
+	if (dut.direct_active) fail("T5: a crossing word read passed a store queued to its second line");
+	expect_head(32'h0000_9020, 32'hA0A0_0002);
+	ack_head();
+	guard = 0;
+	while (!(m_req && !m_write && dut.direct_active) && guard < 30) begin
+		@(posedge clk);
+		guard = guard + 1;
+	end
+	if (guard >= 30) fail("T5: the crossing word read did not follow the store");
+	@(negedge clk);
+	m_ack = 1;
+	@(posedge clk);
+	@(negedge clk);
+	m_ack = 0; s_req = 0; s_size = 2'd2;
+	repeat (3) @(posedge clk);
+	if (pending || m_req) fail("T5: queue did not become idle");
+	// a word at $xE of another line still passes (it does not cross)
+	buffered_store(32'h0000_A000, 32'hB0B0_0001);
+	buffered_store(32'h0000_A020, 32'hB0B0_0002);
+	expect_head(32'h0000_A000, 32'hB0B0_0001);
+	@(negedge clk);
+	s_req = 1; s_write = 0; s_size = 2'd1; s_addr = 32'h0000_A01E;   // bytes A01E..A01F
+	ack_head();
+	guard = 0;
+	while (!(m_req && !m_write && dut.direct_active) && guard < 30) begin
+		@(posedge clk);
+		guard = guard + 1;
+	end
+	if (guard >= 30 || m_addr !== 32'h0000_A01E) fail("T5: a non-crossing word read at $xE no longer passes");
+	@(negedge clk);
+	m_ack = 1;
+	@(posedge clk);
+	@(negedge clk);
+	m_ack = 0; s_req = 0; s_size = 2'd2;
+	expect_head(32'h0000_A020, 32'hB0B0_0002);
+	ack_head();
+	repeat (3) @(posedge clk);
+	if (pending || m_req) fail("T5: queue did not become idle after the non-crossing pass");
+
+	//------------------------------------------------------------------
 	// T4: disabling the host qualifier leaves even a low-address write
 	// on the ordinary path, so ROM/overlay and faulting targets stay safe.
 	//------------------------------------------------------------------

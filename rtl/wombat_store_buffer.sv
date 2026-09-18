@@ -92,8 +92,27 @@ wire pop  = drain_active && (m_ack || m_err);
 // see the store), non-qualified writes still wait, and a full queue always
 // drains first, so a third store stalling the CPU is never starved by a
 // stream of reads.
+// Both transfers must sit inside one line for that compare to mean anything.
+// The cache posts a store that straddles two lines UNSPLIT (a long at $xD-$xF,
+// a word at $xF: 68k stacks are only word-aligned) and invalidates both lines,
+// so the next read of the SECOND line is a fill that must see the store's
+// tail; and a bypass read that straddles two lines must see a store queued
+// to its second line.  Neither ever passes (2026-09-18; unit bench T5).
+function xfer_cross;
+	input [3:0] a;
+	input [1:0] sz;
+	begin
+		case (sz)
+			2'd0:    xfer_cross = 1'b0;               // byte
+			2'd1:    xfer_cross = (a == 4'hF);         // word
+			2'd2:    xfer_cross = (a >= 4'hD);         // long
+			default: xfer_cross = 1'b1;               // no such size: never pass
+		endcase
+	end
+endfunction
 wire pass_ok = (ENABLE != 0) && s_req && !s_write && !buffer_req &&
-               (count == 2'd1) && (s_addr[31:4] != q0_addr[31:4]);
+               (count == 2'd1) && (s_addr[31:4] != q0_addr[31:4]) &&
+               !xfer_cross(q0_addr[3:0], q0_size) && !xfer_cross(s_addr[3:0], s_size);
 wire direct_request = s_req && !buffer_req && ((count == 0) || pass_ok) && !drain_active;
 
 assign pending = (count != 0);
