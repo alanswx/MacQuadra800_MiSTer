@@ -12,6 +12,7 @@ must never be flashed (`scripts/deploy_screenshot.sh` refuses one).
 
 | build | md5 | timing | notes |
 |---|---|---|---|
+| `MacQuadra800_20260918.rbf` | `fde49a3cf474d5c07aff26c592200125` | met, **+0.204 ns hold / +0.527 ns setup worst** (HDMI +0.527, `clk_ram` +0.668, `clk_sys` +0.772) | **The CPU pipeline increments: Speedometer 4.02 Benchmark Mix 0.9285 (0.855 on 20260916_2, +8.6 %), Color QuickDraw 0.670, on a core 1,055 ALMs smaller.** A one-clock data-cache hit on a dedicated hint bus, redirects that hint and issue their target from the retire that pops them (BRA/BSR/JSR/JMP, DBcc, short Bcc), pops/pushes/MOVEM issued in place, a one-clock posted store with a write-side MMU verdict, and a read that may pass one queued store to another line. Mac OS 8.1 and A/UX 3.1 (32 MB) pass the gate; eight Mix runs + CQD + FPU with zero anomalous values. **The CD-audio item of the gate was NOT run on this bitstream** (the CD/SCSI RTL is unchanged from 20260916_2). Seed 21; 86 % ALMs. |
 | `MacQuadra800_20260916_2.rbf` | `8552a4094e151bf7b853916a9099e2c2` | met, **+0.244 ns setup** (HDMI +0.255, `clk_sys` +0.442, `clk_ram` +0.851) | **The AP68040 vendored into the repo with Adam Polkosnik's September fixes** (replaces the 2026-09-17 00:42 file `ab1da889`, same SCSI/CD RTL, whose CPU clock missed by 0.231 ns): memory bitfield reads sized by span, FPSP BUSY-frame FRESTORE resume (the Quadra ROM uses it), MOVEM saved-EA/SSW.CM continuation, nonresident ATC entries, our memind reserved-encoding fix, shared ALU adders and FPU normalizer, the integer register file in MLABs. Cycle-identical to the 20260915 CPU on the sim gates; Speedometer 4.02 Benchmark Mix **0.855** (0.858 on 20260915), Color QuickDraw 0.641 over four depths (8-bit 0.629 vs 0.605), Performance Rating 0.810. Mac OS 8.1 boots with a second disk and a CD mounted; A/UX and CD audio not re-run on this file (unchanged RTL outside the CPU, gated on `ab1da889`). Ships with `releases/MiSTer_20260916` (`431da61a`). Seed 21; 37,144 ALMs (89 %). |
 | `MacQuadra800_20260916.rbf` | `1eae0fb7ed8de620751af3efb94047fb` | met, **+0.247 ns setup** (HDMI +0.442, `clk_sys` +0.729, `clk_ram` +0.732) | **The CD-ROM target's responses come from the ARM (SCSI offload phase 1): -510 ALMs, timing met.** INQUIRY, MODE SENSE, READ TOC and the Apple status commands are served by the Main fork through window reads of the CD slot; MODE SELECT, eject and the resets are forwarded through a command block with STATUS held until the ARM acks. **Requires the Main fork `ae708d3` or later for any CD image.** Mac OS 8.1: Finder in 126 s with the retail ISO, idle clock in step over 4 min, keyboard, the CD's window, both guest volumes of the retail disc put away from the Finder, the OT ISO hot-mounted from the OSD and put away, the retail disc re-mounted, `mac_shutdown.sh` to the halt screen in 61 s; Speedometer not re-measured (the restored Quad Squad image lacks it; the CPU/SDRAM path is unchanged from 20260915). A/UX 3.1 at **32 MB**: desktop in 120 s, `uname -a` = `A/UX localhos 3.1 SVR2 mc68040`, `shutdown -h now` to the halt screen in 131 s. **Known: A/UX 3.1 hangs its shutdown when the RAM option is 128 MB, on this build and on 20260915 / 20260908_3 alike (six runs); run A/UX at 32 MB.** Seed 21; 38,128 ALMs (91 %). |
 | `MacQuadra800_20260915.rbf` | `4c80a3be96cb46992d00002484f9f67a` | **VIOLATED by 0.095 ns on the HDMI domain** (one `sys_top` `hdmi_dv_hs -> hs` register); `clk_sys` +0.712 ns, `clk_ram` positive | **Alan Steremberg's checkpoint-15 AP68040 (`167c5e8`) with the multi-site sequencer tasks hoisted (R1..R4, `8778213`), and the 53C96 fix for the Mac OS 8.1 boot hang it exposed.** Speedometer 4.02 Benchmark Mix **0.858** (0.462 on the 2026-09-12 store head, 0.360 on 20260908_3), CQD 0.605, FPU 0.449. Mac OS 8.1 Finder in 106 s, clean shutdown; A/UX 3.1: multiuser desktop in 148 s, `uname -a` = `A/UX localhos 3.1 SVR2 mc68040`, `shutdown -h now` to the halt screen in 127 s. Shipped as a marginal build by decision (2026-09-16): the miss is on the framework's video output register, not on the CPU clock. Seed 22; 38,711 ALMs (92 %). |
@@ -26,6 +27,101 @@ must never be flashed (`scripts/deploy_screenshot.sh` refuses one).
 | `wombat33_20260831_1.rbf` | `3901ef5705f58dba3279c0417412f5f8` | met, +0.243 ns | **Sound works.** Fixes the watch-cursor wedge (ASC FIFOSTAT reported an empty FIFO as full) and hooks up the $806 volume slider. |
 | `wombat33_20260830.rbf` | `64c79dfb93ceefb549200c78671cdc31` | met, +0.248 ns | **ADB actually works** — the mouse button reaches the guest and motion stops inventing input. |
 | `wombat33_20260829.rbf` | `4c46a65c3a48b44ddb6f4fd6808d0422` | met, +0.245 ns | First build that boots Mac OS unattended. |
+
+## `MacQuadra800_20260918.rbf`
+
+md5 `fde49a3cf474d5c07aff26c592200125`, seed 21 with
+`FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS` (now part of the
+committed recipe), **timing met on every clock**: `clk_sys` (the 33 MHz CPU
+clock) +0.772 ns, `clk_ram` +0.668 ns, HDMI +0.527 ns, worst hold +0.204 ns,
+TNS 0; the SDRAM bridge's 33 -> 99 MHz request handoff (`sdram_beat32
+req_tgl -> req_handoff`) has +0.727 ns and the return path +0.772 ns; no
+`open_row` altsyncram in the map report. **36,089 ALMs (86 %)**, 25,140
+registers: 1,055 ALMs SMALLER than 20260916_2. Built 2026-09-18 06:55 on
+branch `CPU-pipeline` from the detached build tree `4d09389`, whose
+synthesizable RTL and qsf settings are identical to the branch head's
+(`4abb118` and later; verified by diff, only test benches and comments
+differ), with the qsf-default recipe (balanced synthesis, register
+duplication off, `CACHE_CD_OFF`, `CACHE_SMALL`, `MISTER_DISABLE_ALSA`,
+`MISTER_DOWNSCALE_NN`, `MISTER_DISABLE_ADAPTIVE`; composite Y/C kept; tracer
+off). It was "build 13" of the branch; its staging directory is
+`scratch/pipeline_b13/`.
+
+**What changed: the CPU, and the store path below it.** Everything outside
+`rtl/ap68040/`, `rtl/wombat_cpu.sv` and `rtl/wombat_store_buffer.sv` is the
+RTL of 20260916_2 (SCSI offload, CD audio engine, the Main binary contract:
+`releases/MiSTer_20260916` or later). The increments, each gated by the AP
+suite (25 legs), the directed benches and the corpus-100 silicon comparison
+with 0 real diffs, are described one by one in
+`docs/cpu-pipeline-increments-20260917.md`:
+
+1. Alan Steremberg's one-clock data-cache hit on a dedicated hint bus (his
+   AP68040 `6e65192`, which never closed a seed at 92-93 %; it fits here).
+2. The go_pc and DBcc-refill carrier hoists (about -1,100 ALMs).
+3. The redirect states hint their target; 4. stack pops and MOVEM transfers
+   issue in place and hint themselves; 5. forward taken Bcc.B from the
+   lookahead arm; 6. MOVEM loads retire on the acknowledge; 7. pushes issue
+   in place; 8. MOVEM stores from the loop, LINK/PEA on the acknowledge.
+9. BRA/BSR .W/.L and JSR/JMP abs/d16(PC) redirect from the retire that pops
+   them, the target computed from the queue words (no prediction); the early
+   fetch shares the one redirect target wire (the rule that gave the CPU
+   clock its margin back). 10. DBcc dispatched from the pop.
+13. The one-clock posted store: store hints from the core, a write-side MMU
+    verdict (no write protection, modified bit already set), the cache's
+    store fast lane on registered terms only.
+14. A read may pass one queued store to another 16-byte line in
+    `wombat_store_buffer` -- **with the line-crossing fix `cf06fe6`**: the
+    first fit of this increment did not boot (a fill passed a queued store
+    that straddled two lines; `docs/PERFORMANCE_MEASUREMENTS.md` section 21).
+15. BRA.B resolved by the lookahead arm from any retire.
+
+Increments 11 and 12 (a loop-top decode record cache) are NOT in: the build
+that carried them returned impossible Speedometer times in 2 of 5 runs, this
+one none in eight; they were reverted (`4abb118`).
+
+**Performance** (the .143 box, Mac OS 8.1 from `QuadSquad8.hda`, 32 MB,
+Speedometer 4.02, Quadra 605 = 1.0; section 22 of
+`docs/PERFORMANCE_MEASUREMENTS.md`, `scratch/pipeline_b13/report.md`):
+
+| test | this release | 20260916_2 |
+|---|---|---|
+| Benchmark Mix, mean of EIGHT valid runs (0.926 / 0.928 / 0.929 x6) | **0.9285** | 0.855 (**+8.6 %**) |
+| Color QuickDraw, four depths | **0.670** | 0.643 on the branch's first step (+4.2 %) |
+| FPU | 0.466 / 0.468 | 0.464 |
+
+Per test against the branch's previous best (build 8, Mix 0.907): Sieve
++6.0 %, Permutations +3.7 %, Queens +2.9 %, Towers +2.6 %, Bubble Sort
++2.2 %, Dhrystones +1.9 %; Puzzle -0.2 % (inside its spread).
+
+**Hardware gate on this bitstream (2026-09-18):**
+
+- **Mac OS 8.1**: Starting Up splash at +57 s, the Finder at <= 100 s;
+  menu-bar clock in step with the box, mouse and Apple menu respond; 59
+  minutes of Speedometer (eight Mix runs, CQD, two FPU runs) with **zero
+  anomalous values in 11 series**, no artefact, dialog, dropout or system
+  error in any captured frame; Special -> Shut Down to "It is now safe to
+  switch off your Macintosh" in 47 s.
+- **A/UX 3.1** (pristine image restored from the zip, OSD RAM option 32 MB):
+  multiuser Finder desktop in under 500 s, no panic or garbled console; a
+  root CommandShell, `uname -a` = `A/UX localhos 3.1 SVR2 mc68040`,
+  `ls -l /etc | head -20` and `df` sane; `shutdown -h now` to "You may now
+  switch off your Macintosh safely." within 127 s, no port-mapper failure.
+  (A modal "This disk is unreadable" dialog held the Finder until the disc
+  in slot 4, an audio/mixed-mode CUE that A/UX's System 7 environment cannot
+  read, was ejected at the display; Mac OS 8.1 ignores the same disc. Not a
+  core matter: `scratch/pipeline_b13_aux/report.md`.)
+- **CD audio: NOT RUN on this bitstream.** The CD target, the audio engine
+  and the 53C96 are the RTL of 20260916_2, on which the user heard CD audio
+  in a game; the ToneTest procedure of `CLAUDE.md` (the AppleCD Audio Player
+  transport and the check by ear) is owed and should be run before this file
+  is relied on for CD audio.
+- The full-machine simulation of this tree also boots Mac OS 8.1 to the
+  desktop (3.02 G clocks, `scratch/pipeline_b13/sim_prof_f7200.png`).
+
+Known margins to watch: the 33 -> 99 MHz request handoff has +0.727 ns in
+this placement (+1.4 to +2.5 ns in the branch's other fits); it is a
+same-PLL half-cycle path that TimeQuest times, and it is re-reported for
+every fitted tree.
 
 ## `MacQuadra800_20260916_2.rbf`
 
