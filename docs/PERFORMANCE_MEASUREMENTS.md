@@ -1154,3 +1154,68 @@ the first suspect but is not shown to be this hang. The full-machine
 simulation (early boot is seconds of machine time, about 34x slower in
 the sim) is the tool: trees for build 12, build 12 + the fix, and build 8
 as the control.
+
+## 22. CPU pipeline increments 13-15, build 13 (2026-09-18, hardware)
+
+Build 13 = build 12's tree plus cf06fe6 (increment 14's line-crossing hole
+closed) and nothing else: build 8 + increment 13 (the one-clock posted
+store) + 14 (a read may pass one queued store to another line) + 15 (BRA.B
+from any retire), WITHOUT increments 11 and 12.  Build tree 4d09389, seed
+21 with the routability optimization, timing MET on every clock (CPU
++0.772 ns, RAM +0.668, HDMI +0.527, hold +0.204; the 33 -> 99 MHz request
+handoff +0.727), 36,089 ALMs (86 %), rbf fde49a3c.  Same box, disk, slots
+and procedure as sections 18-21; the Opus operator
+(`scratch/pipeline_b13/report.md`, 71 screenshots), loaded over build 12's
+verified hung grey screen.
+
+**It boots**: the Starting Up splash at +57 s, the Finder at <= 100 s
+(build 8 <= 101 s).  The two bitstreams differ by cf06fe6 alone, so the
+store-buffer fix is what cured build 12's hang, on hardware as in the
+simulation.
+
+**Anomaly tally: 0 anomalous values in 11 series** (eight Benchmark Mix
+runs, one Color QuickDraw run of four depths, two FPU runs).  On the same
+workload build 9 (with the record cache) gave three impossible values in
+2 of 5 Mix runs; at that rate eight clean runs by luck are under 2 %.
+Increments 11 and 12 were reverted on the branch on this evidence
+(4abb118, which says what the evidence is and is not).
+
+### Benchmark Mix (Quadra 605 = 1.0), eight valid runs
+
+| test | run 1 | run 2 | run 3 | run 4 | run 5 | mean of 8 | build 8 run 3 | change |
+|---|---|---|---|---|---|---|---|---|
+| KWhetstones/sec | 683.790 | 689.018 | 688.744 | 689.007 | 688.984 | 688.314 | 678.375 | +1.5 % |
+| Dhrystones/sec | 11840.793 | 11842.557 | 11842.717 | 11842.027 | 11841.012 | 11841.841 | 11620.577 | +1.9 % |
+| Towers (sec) | 1.072 | 1.072 | 1.072 | 1.072 | 1.072 | 1.072 | 1.100 | +2.6 % |
+| Quick Sort (sec) | 0.789 | 0.788 | 0.788 | 0.788 | 0.788 | 0.788 | 0.792 | +0.5 % |
+| Bubble Sort (sec) | 0.869 | 0.868 | 0.868 | 0.869 | 0.869 | 0.869 | 0.888 | +2.2 % |
+| Queens (sec) | 0.615 | 0.615 | 0.614 | 0.615 | 0.615 | 0.615 | 0.633 | +2.9 % |
+| Puzzle (sec) | 1.564 | 1.556 | 1.561 | 1.554 | 1.561 | 1.559 | 1.556 | -0.2 % (inside its 0.35 % spread) |
+| Permutations (sec) | 1.664 | 1.664 | 1.664 | 1.664 | 1.664 | 1.664 | 1.728 | +3.7 % |
+| Int. Matrix (sec) | 0.949 | 0.946 | 0.944 | 0.945 | 0.943 | 0.944 | 0.959 | +1.6 % |
+| Sieve (sec) | 1.161 | 1.158 | 1.157 | 1.158 | 1.156 | 1.157 | 1.231 | **+6.0 %** |
+| **Average** | **0.926** | **0.928** | **0.929** | **0.929** | **0.929** | **0.9285** (runs 6-8: 0.929 each) | 0.908 | **+2.4 %** over build 8's 0.907; **+8.6 %** over 0.855 |
+
+Sieve's 1.161 s in run 1 tripped the brief's mechanical ">5 % fast" flag;
+it repeated in all eight runs to 0.4 % and is the store path's gain (its
+inner loop is `clr.b 0(a0,d0.w)`: a store per iteration).  The largest
+deviation of any row across the eight runs is 0.75 %.
+
+### Color QuickDraw and FPU
+
+| test | this build | build 8 |
+|---|---|---|
+| CQD average (Monochrome 9.926 s, Two bit 11.359, Four bit 12.991, Eight bit 16.499) | **0.670** | 0.666 (+0.6 %) |
+| FPU average (KWhetstones 2508.4/s, FFT 0.680 s, Matrix Mult. 1.425/1.411 s) | 0.466 / 0.468 | 0.468 / 0.465 (unchanged) |
+
+Clean Special -> Shut Down in 47 s, no artefact, dialog, dropout or system
+error in 59 minutes; the box was left at the 8.1 halt screen on build 13's
+rbf.  (The screenshots are taken upstream of the `sys_top` HDMI register;
+they do not judge the HDMI pins.)
+
+Where the branch stands: the shipped core 0.855, build 6 (increments 1-8)
+0.902, builds 7b/8 (+ 9, 10) 0.907, **build 13 (+ 13, 14, 15) 0.9285**:
++8.6 % on the Mix and +4.2 % on CQD over the shipped core, on a core 1,055
+ALMs smaller (36,089 against 37,144), every clock met.  The store path was
+worth what the profile said: stores were 12 % of the bracket and reads
+behind stores 5 %; the Mix moved 2.4 %.
