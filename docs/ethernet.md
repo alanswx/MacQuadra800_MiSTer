@@ -76,6 +76,43 @@ bit 0 (slot $9), IPL 2. A QEMU trace of this ROM (2026-09-18): the ROM probes
 (`CR=$4`, read, `CR=$80`, `IMR=0`, `CE=0`), twice per boot; the front-end takes
 word accesses on either half and longwords.
 
+## Bring-up instruments
+
+Everything the guest does to the chip that Main can see, plus what only the
+FPGA can see, lands in `/tmp` on the MiSTer while the core runs:
+
+| file | what |
+|---|---|
+| `/tmp/mac_eth_stats` | counters; `q8 fpga` = the FPGA's live ISR/IMR/irq; `q8 reads` = how many register reads the guest has made and which register last (reads never reach the ARM); `q8 pc` = a histogram of the CPU's program counter over the last second (the front-end republishes PC+SR every poll round); `q8 regs` = all 64 model registers |
+| `/tmp/mac_eth_regtrace` | the last 512 register writes, microsecond stamps, raw and applied value |
+| `/tmp/mac_eth.pcap` | every frame sent and every frame the model delivered (first 8 MB); `scratch/eth/pcapsum.py` summarises it |
+| `/tmp/mac_eth_dumpreq` | write `hexaddr hexlen` into it: the guest RAM appears in `/tmp/mac_eth_dump.bin`, read through the DMA engine. Works on a hung guest: low memory (`Ticks` $16A, `CurApName` $910), the driver's rings (`UTDA:CTDA`, `URDA:CRDA`, `URRA:RSA` from `q8 regs`) |
+
+What they found on the first day (2026-09-18):
+
+1. **VIA2 any-slot flag** (`iosb.sv`): followed edges of the OR of VBL and
+   SONIC, so with two sources the flag was cleared while the other was
+   asserted and no slot interrupt was ever delivered again — the whole guest
+   froze with PKTRX pending. Now a level.
+2. **Receive buffer alignment** (`mac_sonic.cpp`): the MAME-derived model
+   packed frames back to back at odd addresses. In 32-bit mode the chip keeps
+   the buffer pointer longword-aligned (QEMU pads with $FF and charges the
+   padding to RBWC), and Apple's "Sonic 32" driver depends on it: the capture
+   showed DISCOVER -> OFFER delivered -> silence. With the padding DHCP
+   completes in 6 ms (DISCOVER, OFFER, REQUEST, ACK).
+3. The applied index was published before the register write was applied
+   (a DMA wait inside the apply republished the pointers), so the FPGA could
+   drop its CR overlay early. Fixed in `mac_eth.cpp`.
+
+What the driver does, from the trace: DCR=$8023 (32-bit, EXBUS), three
+loopback self-tests (RCR $0200/$0400/$0600, 97-byte frames), soft reset,
+DCR=$8024, RXEN|ST. It owns one block at $530000: a single transmit bounce
+buffer at +0, eight 13-longword TDAs at +$2FE8, the CAM descriptor at +$3320,
+ONE receive-resource entry at +$3334 with RWP=0 (the same 25 KB buffer is
+reused circularly), eight RDAs at +$3344, the buffer at +$3424. It re-arms
+WT1:WT0=$02FAF080 (5 s) on every receive and acknowledges TC when it fires.
+It never acknowledges LCD (not in its IMR) — it must poll for LCAM completion.
+
 ## Tests
 
 - `make tb_sonic_mbx` (in `verilator/`): ring, shadows, PROM, ISR ownership,
