@@ -301,3 +301,26 @@ master tip; diff against the last good binary's commit first.
   `releases/` or `scratch/pipeline_b*/`, the Main binaries in `releases/`
   and `scratch/`).  Older operator briefs that name
   `/media/fat/_Unstable/MacQuadra800_b*.rbf` must scp the file again.
+
+## FINAL STATE of this session (2026-09-18 about 11:45): the user reports everything working
+
+The user: "everything is working 100% in the correct configuration now",
+i.e. the rebased Main **bb1a08d3** (started by init after the
+rename-and-reboot swap) with the release core
+**`MacQuadra800_20260918.rbf`** (fde49a3c).  Consequences:
+
+- **The black screen was NOT the binary and NOT upstream #1316**: the same
+  bb1a08d3 that was black after my ssh hand-relaunch (`killall MiSTer;
+  nohup stdbuf -oL /media/fat/MiSTer /media/fat/menu.rbf ...`) is fine
+  when init starts it.  The suspicion recorded above is withdrawn; the
+  `no1316` test binary is moot.  Swap Main by rename + reboot.  CLAUDE.md's
+  CD-audio recipe (the hand relaunch for the stdout log) now carries a
+  caveat.
+- Whether the user ran the ToneTest / CD-audio-by-ear item was not said in
+  so many words.  ASK before promoting: if yes, copy
+  `scratch/MiSTer_bb1a08d3` to `releases/MiSTer_20260918`, add it to
+  `releases/README.md`, and strike the "CD audio NOT RUN" caveat from the
+  20260918 release section.
+- The two archive folders on the box were left for the user to delete.
+- Branch `CPU-pipeline`: everything committed, NOTHING pushed (the user
+  pushes).  Next engineering step: the store drain's write rate (above).

@@ -201,7 +201,11 @@ candidate bitstream, and the CD audio path must still play:
   proof the transport reached the ARM, so relaunch Main with its stdout in a
   file before the run (`killall MiSTer`, then `nohup stdbuf -oL
   /media/fat/MiSTer /media/fat/menu.rbf >> /media/fat/nohup_video.log 2>&1
-  </dev/null &` from `/media/fat`). **Whether it actually makes a sound has
+  </dev/null &` from `/media/fat`; on 2026-09-18 a hand relaunch like this
+  left the user's HDMI output BLACK while the same binary was fine once init
+  started it, and screenshots cannot see that, so warn the user first and
+  reboot afterwards; to CHANGE the Main binary, rename the old one, rename
+  the new one to `MiSTer`, `sync` and `reboot`). **Whether it actually makes a sound has
   to be judged by ear at the display** — an operator driving the box over the
   network cannot hear it, so that half of the check belongs to the user and
   the gate is not complete without them.
