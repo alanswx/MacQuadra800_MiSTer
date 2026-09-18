@@ -42,8 +42,11 @@
 //    $816       PTRS      ARM->FPGA [31:0] ring read index | [63:32] applied index
 //    $817       DMA_CMD   ARM->FPGA [7:0] seq | [11:8] op count
 //    $818       DMA_STAT  FPGA->ARM [7:0] seq echo
-//    $819       DEBUG     FPGA->ARM [14:0] ISR | [29:15] IMR | [30] present | [31] irq,
-//                         rewritten whenever it changes (Main prints it in its stats)
+//    $819       DEBUG     FPGA->ARM [14:0] ISR | [29:15] IMR | [30] present | [31] irq |
+//                         [37:32] last register the guest read | [38] it was the PROM |
+//                         [55:40] guest read count; rewritten whenever it changes (Main
+//                         prints it: register READS never reach the ARM otherwise, so a
+//                         guest spin-polling a register is invisible without this)
 //    $820-$827  OPS       ARM->FPGA [0] dir (1 = to guest) | [31:16] bytes | [63:32] address
 //    $900-$9FF  RING      [0] valid | [3:1] tag (0 write, 1 reset) | [9:4] reg |
 //                         [31:16] data | [47:32] ISR_SET seq seen
@@ -174,13 +177,16 @@ localparam W_ENTRY = 3'd0, W_WPTR = 3'd1, W_ISRACK = 3'd2, W_ACC = 3'd3, W_STAT 
            W_DEBUG = 3'd5;
 // what the guest sees, for the ARM's stats: a frozen guest with irq high and no ISR write is an
 // interrupt that is not being delivered; with irq low it is the model that stopped raising
-reg  [31:0] dbg_sent;
-wire [31:0] dbg_now = {irq, present, imr, isr};
+reg  [15:0] rd_cnt;
+reg   [5:0] rd_last;
+reg         rd_prom;
+reg  [55:0] dbg_sent;
+wire [55:0] dbg_now = {rd_cnt, 1'b0, rd_prom, rd_last, irq, present, imr, isr};
 assign mem_wdata = (wsel == W_ENTRY)  ? {16'd0, cmd_seq, cmd_data, 6'd0, cmd_reg, 2'b00, cmd_tag, 1'b1} :
                    (wsel == W_WPTR)   ? {32'd0, wptr} :
                    (wsel == W_ISRACK) ? {48'd0, isr_seq} :
                    (wsel == W_ACC)    ? acc :
-                   (wsel == W_DEBUG)  ? {32'd0, dbg_sent} :
+                   (wsel == W_DEBUG)  ? {8'd0, dbg_sent} :
                                         {56'd0, dma_seq};
 
 reg  [15:0] poll_div;
@@ -234,7 +240,7 @@ always @(posedge clk) begin
 		st <= S_IDLE;       wsel <= W_ENTRY;
 		mem_addr <= 0;      mem_rd <= 0;       mem_we <= 0;
 		poll_div <= 0;      poll_pend <= 1;    poll_step <= 0;    poll_q <= 0;
-		dbg_sent <= 0;
+		dbg_sent <= 0;      rd_cnt <= 0;       rd_last <= 0;      rd_prom <= 0;
 	end
 	else begin
 		ack <= 0;
@@ -268,6 +274,7 @@ always @(posedge clk) begin
 			h_prom <= prom; h_reg <= addr[7:2]; h_a2 <= addr[2];
 			h_hi   <= (be[1:0] == 2'b00);
 			h_read_ddr <= 0; h_wait_cmd <= 0; h_abort <= 0;
+			if (!write) begin rd_cnt <= rd_cnt + 16'd1; rd_last <= addr[7:2]; rd_prom <= prom; end
 			hstate <= H_RUN;
 		end
 		H_RUN: begin
@@ -348,16 +355,18 @@ always @(posedge clk) begin
 				start_wr({1'b0, dma_xp[11:1]}, W_ACC, S_XWR);
 			else if (dma_active && hstate != H_RUN && dma_ph == P_STAT)
 				start_wr(AV_DMASTAT, W_STAT, S_STAT);
-			else if (magic_ok && dbg_now != dbg_sent) begin
-				dbg_sent <= dbg_now;
-				start_wr(AV_DEBUG, W_DEBUG, S_DEBUG);
-			end
 			else if (poll_pend) begin
 				poll_pend <= 0;
 				poll_q <= poll_step;
 				start_rd((poll_step == 2'd0) ? AV_MAGIC  :
 				         (poll_step == 2'd1) ? AV_ISRSET :
 				         (poll_step == 2'd2) ? AV_PTRS   : AV_DMACMD, S_POLL);
+			end
+			// last: a guest spin-reading a register dirties this every cycle, and the
+			// polls above are what the machine lives on
+			else if (magic_ok && dbg_now != dbg_sent) begin
+				dbg_sent <= dbg_now;
+				start_wr(AV_DEBUG, W_DEBUG, S_DEBUG);
 			end
 		end
 
