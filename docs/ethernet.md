@@ -6,9 +6,9 @@ install in Mac OS beyond Apple's "Apple Built-In Ethernet" (already on the Quad
 Squad disk), no declaration ROM, no NuBus card.
 
 **Status 2026-09-18 (late): works on hardware — DHCP, ARP, 1000/1000 pings,
-FTP — but only with two CPU memory fast paths switched off through the
-bring-up OSD bits (CFG bytes `40 06`); with them on, Open Transport's CAS/CAS2
-list code goes wrong under receive traffic. State, experiments and next steps:
+FTP — but only with the retained-SDRAM-line fast paths switched off through
+the bring-up OSD bits (CFG bytes `40 06`, and by a first run `40 04`); with
+them on, Open Transport's CAS/CAS2 list code goes wrong under receive traffic. State, experiments and next steps:
 `RESUME-ethernet-20260918c.md`.** A/UX networking is a later milestone (see
 "Open").
 
