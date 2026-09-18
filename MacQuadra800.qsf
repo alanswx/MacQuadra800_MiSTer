@@ -264,6 +264,9 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # 2026-09-19 04:10 build 9 (4931e19 = the head: increments 11 (S_FETCH pop to the chain) + 12 (the loop-top record cache)
 # on build 8), seed 21 + the switch: MEETS TIMING on every clock -- 36,400 ALMs (87 %), clk_sys +1.007, HDMI +0.477,
 # clk_ram +0.697, TNS 0; synthesis 56,024 ALUTs. rbf f061d1fc = scratch/pipeline_b9/, the hardware candidate.
+# 2026-09-19 04:40 build 10 (7f69882: + increment 13, the one-clock posted store), seed 21 + the switch: MEETS TIMING on
+# every clock -- 36,428 ALMs (87 %), clk_sys +1.145 (the best of the branch), HDMI +0.251, clk_ram +0.445, TNS 0;
+# synthesis 55,999 ALUTs. rbf 28a7e6dc = scratch/pipeline_b10/, runs after build 9.
 set_global_assignment -name SEED 21
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #

@@ -89,14 +89,17 @@ found a desktop alias and used it).
     wrapper's `AP040_POST_STORES`, the magic page excluded, the FC check
     attributing drains, the double-fault bench unposted).  The bench
     cannot show the gain (16-bit bus, 7-cycle writes); hardware will.
-    Committed 7f69882; build 10 launched 04:40.
+    Committed 7f69882; build 10 (seed 21 + the switch) MEETS every clock:
+    CPU +1.145 (the branch's best), HDMI +0.251, RAM +0.445, 36,428 ALMs,
+    rbf 28a7e6dc in `scratch/pipeline_b10/` with its brief; runs after 9.
 14. (2026-09-19, 6c62890) The plan's item 3: a read may pass one queued
     store to another 16-byte line in `wombat_store_buffer` (`pass_ok`;
     the full queue drains first, same-line reads wait); unit bench T4
     passes.  Build 11 after build 10's flow.
 15. (2026-09-19) BRA.B resolved by the lookahead arm from any retire
     (`rd_is_bra`, `hint_bra`); cycle-identical on the benches, 0 diffs.
-    Build 11 = 14 + 15 on build 10.
+    Build 11 = 14 + 15 on build 10 (83ab536), launched 05:11 behind the
+    wait-gate (another session's sgiindy synthesis was running).
 
 Synthesis: 55,210 ALUTs at 77aa72a against the release's 56,965; 55,598
 at 8a9b392 (build 7, increment 9); 55,143 at build 7b; 55,424 at build 8.
