@@ -1219,3 +1219,25 @@ Where the branch stands: the shipped core 0.855, build 6 (increments 1-8)
 ALMs smaller (36,089 against 37,144), every clock met.  The store path was
 worth what the profile said: stores were 12 % of the bracket and reads
 behind stores 5 %; the Mix moved 2.4 %.
+
+### A/UX 3.1 on build 13 (the second half of the release gate)
+
+Same rbf, the OSD RAM option at 32 MB (`MacQuadra800.CFG` all zeros, as
+for every measurement on this branch), the A/UX image restored pristine
+from `backup/HD60_512-AUX3.1-Installed.zip` first
+(`scratch/pipeline_b13_aux/report.md`, two operator sessions).  Boot to
+the multiuser Finder desktop between +342 s and +497 s, no panic, no
+garbled console, no streaks.  A modal "This disk is unreadable: Do you
+want to initialize it?" then held the Finder until the user ejected the
+disc at the display: slot 4 held their audio/mixed-mode CUE, which A/UX's
+System 7 environment cannot read (Mac OS 8.1 ignores the same disc
+silently, on build 9 as on build 13; not a build matter).  After that:
+CommandShell from the Apple menu, a root shell, `uname -a` = `A/UX
+localhos 3.1 SVR2 mc68040`, `ls -l /etc | head -20` and `df` sane and
+aligned, every command back to its prompt; `shutdown -h now` reached "You
+may now switch off your Macintosh safely." within 127 s (the shipped
+core's figure), no `callrpc RPC: Port mapper failure`, no wedge.  **PASS**,
+with increment 13's write-side MMU verdict and the posted-store lane in
+play under a paging Unix.  Operator notes: A/UX does not register a button
+press without pointer motion (press with a 1-pixel jiggle); `menu.sh item`
+misreads the first row under the panel's top border on A/UX.

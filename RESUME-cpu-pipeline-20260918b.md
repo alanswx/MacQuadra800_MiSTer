@@ -190,3 +190,25 @@ Operator finding worth folding into the guest scripts: A/UX never sees a
 button press with no pointer motion (the held-down frame is byte-identical);
 a press with a 1-pixel jiggle inverts the button.  That is why `menu.sh`
 works on A/UX and `click.sh`'s static click does not.
+
+## Update 2026-09-18 about 09:05: the A/UX gate PASSES on build 13; the box is at the A/UX halt text
+
+The user ejected the unreadable disc at the display (their Eject also
+emptied `/media/fat/config/MacQuadra800.s4`: Main wrote a NUL at byte 0 at
+08:53; that was THEIR action, the file was never touched by us; they may
+want to remount their CD).  The operator then finished the gate on the
+running guest, loading nothing: root CommandShell, `uname -a` = `A/UX
+localhos 3.1 SVR2 mc68040`, `ls -l /etc | head -20` and `df` sane,
+`shutdown -h now` to "You may now switch off your Macintosh safely."
+within 127 s.  Section 22 has it.  They answered "touch neither" about
+parking `.s1`/`.s4`: those stay theirs.
+
+**Build 13 (rbf fde49a3c = the branch head's RTL) has now passed: Mac OS
+8.1 boot, 59 minutes of Speedometer with zero anomalies, clean 8.1
+shutdown, A/UX 3.1 boot, shell and shutdown at 32 MB.**  Owed for a
+release: the CD audio check (ToneTest.cue in slot 4, Main with its stdout
+in a file, and the user's EARS, see CLAUDE.md), then
+`releases/MacQuadra800_YYYYMMDD.rbf` + the README row.  Their call.
+State of the box: build 13 loaded, A/UX halt text, `.s0` =
+QuadSquad8.hda (effective at the next load), so the next `load_core` is
+allowed after a look.
