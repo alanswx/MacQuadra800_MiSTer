@@ -825,6 +825,7 @@ if (SONIC != 0) begin : g_sonic
 		.ack(sonic_ack),
 		.rdata(sonic_rdata),
 		.irq(sonic_irq),
+		.cpu_sample(debug_status[47:0]),
 
 		.dma_req(dma_req),
 		.dma_we(dma_we),
