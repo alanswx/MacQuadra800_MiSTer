@@ -677,6 +677,22 @@ reg [31:0] brf_data [0:7];
 reg [26:0] brf_tag;
 reg        brf_super;
 reg [15:0] brf_valid;
+// The sector's valid-run lengths: from each word to the sector's end,
+// capped at the queue's eight, from the registered valid bits alone.
+// Every redirect site's refill test (four words from the target) and
+// seed count (up to eight) are then one 16-way mux on the target's
+// sector word, where each site used to select and count the valid bits
+// in an eight-step chain from the target -- the tail of the
+// flags -> carrier -> refill seed -> epf_ftail path.  (2026-09-18)
+reg  [3:0] brf_run [0:15];
+integer    brf_ri;
+always @* begin
+	brf_run[15] = brf_valid[15] ? 4'd1 : 4'd0;
+	for (brf_ri = 14; brf_ri >= 0; brf_ri = brf_ri - 1)
+		brf_run[brf_ri] = !brf_valid[brf_ri]        ? 4'd0 :
+		                  (brf_run[brf_ri + 1] == 4'd8) ? 4'd8 :
+		                                                 brf_run[brf_ri + 1] + 4'd1;
+end
 
 // Combinational within the state machine's always block: the port claim and
 // the flush both have to be visible to the fill engine, which runs after the
@@ -1526,11 +1542,7 @@ task issue_ifetch;
 	reg line_hit, refill_hit;
 	begin
 		line_hit = brf_tag == a[31:5] && brf_super == s;
-		refill_hit = line_hit && a[4:1] <= 4'd12 &&
-		             brf_valid[a[4:1]] &&
-		             brf_valid[a[4:1] + 4'd1] &&
-		             brf_valid[a[4:1] + 4'd2] &&
-		             brf_valid[a[4:1] + 4'd3];
+		refill_hit = line_hit && (brf_run[a[4:1]] >= 4'd4);
 		if (epf_armed && epf_next == a && epf_super == s) begin
 			// the stream already runs here: nothing to do
 			// A drained branch-refill stream reached its fall-through path;
@@ -1556,17 +1568,10 @@ task issue_ifetch;
 				// Only the word count is computed here; the data muxes live
 				// in one shared block at the end of the always block, since
 				// this task is expanded at eight call sites (eight copies of
-				// eight 16-way word muxes doubled the core's logic).
-				reg [4:0] w;
-				reg       ok;
-				integer   i;
+				// eight 16-way word muxes doubled the core's logic).  The
+				// count is the sector's valid run from the target (brf_run).
 				epf_brf <= 1;
-				ok = 1; w = 5'd0;
-				for (i = 0; i < 8; i = i + 1) begin
-					w = {1'b0, a[4:1]} + i[4:0];
-					ok = ok && !w[4] && brf_valid[w[3:0]];
-					if (ok) brf_seed_n = brf_seed_n + 4'd1;
-				end
+				brf_seed_n = brf_run[a[4:1]];
 				brf_seed_req = 1;
 				brf_seed_a   = a[4:1];
 				epf_count <= brf_seed_n;
@@ -2219,7 +2224,13 @@ wire [31:0] go_pc_t_early =
 	(state == S_FBCC)  ? pc_i + 32'd2 + (ir[6] ? imm : sxw(imm[15:0])) :
 	(state == S_FDBCC) ? pc_i + 32'd4 + sxw(imm[15:0]) :
 	(state == S_DECODE)                      ? rgo_decode_t :
-	                                           rd_bcc_t;   // the lookahead arm
+	// the retire cycle: the queue head's own target -- the lookahead arm's
+	// short Bcc, or dispatch_branch's unconditional transfer.  The early
+	// fetch (sgo) takes this same wire, so the seed cone behind epf_ftail
+	// has ONE target and the carriers only enable it (build 7: a second
+	// issue_ifetch target let the lookahead's flags select the target,
+	// -1.575 ns).  The select is the registered head opcode.
+	                                           (rd_is_bcc ? rd_bcc_t : bd_t);
 // decode_dbcc_brf's callers: S_DBCC1 and S_BCC_EXT (their own target when
 // the branch is taken, the lookahead's when it retires instead), the
 // decode-time Bcc.B, and the lookahead arm in any other state.
@@ -2490,8 +2501,17 @@ wire        bd_ok     = (bd_bra || bd_jsrjmp) &&
 // resident target itself), T1 clear (a traced redirect takes the
 // exception path and the fetch would be wasted)
 wire [31:0] bd_fall   = pc + 32'd2 + {29'd0, bd_n, 1'b0};
+// The fetch's target rides go_pc_t_early (see there), so the retiring
+// state must be one whose arm of that wire is the head's target: the
+// states with a redirect target of their own that can also retire into
+// a pop (a not-taken Bcc.W/FBcc, a DBcc/FDBcc exit) keep the branch
+// state's later fetch.  mem_req covers the acknowledge cycle (the
+// request is held until it), so the acknowledge itself stays out.
 wire        bd_go     = bd_ok && !bd_t[0] && (bd_t != bd_fall) &&
-                        !epf_pend && !mem_req && !mem_ack && !sr[15];
+                        !epf_pend && !mem_req && !sr[15] &&
+                        (state != S_BCC_EXT) && (state != S_DBCC1) &&
+                        (state != S_FBCC) && (state != S_FDBCC) &&
+                        (state != S_MWR);
 
 task dispatch_branch;
 	begin
@@ -2513,7 +2533,13 @@ task dispatch_branch;
 			ea_pcmode <= rd_ir[1];
 			state     <= bd_jmp ? S_JMP1 : S_JSR1;
 		end
-		if (bd_go) sgo = 1;
+		if (bd_go) begin
+			sgo = 1;
+			// synthesis translate_off
+			if (bd_t !== go_pc_t_early)
+				$display("AP040 dispatch_branch: early target %h differs from go_pc_t_early %h in state %0d", bd_t, go_pc_t_early, state);
+			// synthesis translate_on
+		end
 	end
 endtask
 
@@ -2931,9 +2957,7 @@ function brf_refill_hit;
 	input [31:0] a;
 	begin
 		brf_refill_hit = (brf_tag == a[31:5]) && (brf_super == sr_s) &&
-		                 (a[4:1] <= 4'd12) &&
-		                 brf_valid[a[4:1]] && brf_valid[a[4:1] + 4'd1] &&
-		                 brf_valid[a[4:1] + 4'd2] && brf_valid[a[4:1] + 4'd3];
+		                 (brf_run[a[4:1]] >= 4'd4);
 	end
 endfunction
 
@@ -5869,10 +5893,7 @@ always @(posedge clk) begin
 				reg refill_hit;
 				tgt = br_base + sxw(imm[15:0]);
 				refill_hit = brf_tag == tgt[31:5] && brf_super == sr_s &&
-				             tgt[4:1] <= 4'd12 && brf_valid[tgt[4:1]] &&
-				             brf_valid[tgt[4:1] + 4'd1] &&
-				             brf_valid[tgt[4:1] + 4'd2] &&
-				             brf_valid[tgt[4:1] + 4'd3];
+				             (brf_run[tgt[4:1]] >= 4'd4);
 				if (tgt[0]) go_pc(tgt);
 				else if (cond_true(ir[11:8])) fetch_next;
 				else begin
@@ -8916,8 +8937,10 @@ always @(posedge clk) begin
 		if (dgo) decode_dbcc_brf_now(dbrf_a_early);
 		// dispatch_branch's early target fetch: the stream is re-armed at
 		// the target and the fetch issued (the port was checked free), so
-		// this runs before the fill engine like the redirects above.
-		if (sgo) issue_ifetch(bd_t, sr_s);
+		// this runs before the fill engine like the redirects above.  The
+		// target is the shared early-target wire (equal to bd_t whenever
+		// sgo is raised; dispatch_branch checks it in simulation).
+		if (sgo) issue_ifetch(go_pc_t_early, sr_s);
 
 		//-------------------------------------------------- fetch queue engine
 		// The queue fills itself: whenever the memory port is idle, the

@@ -484,6 +484,69 @@ h_fail:
 	failt	78
 h_ok:
 
+;----------------------------------------------- I: RTS/RTD/RTR from the pop
+	; RTS after an A7 write in the callee (the read waits for S_RET1 and
+	; must use the forwarded A7) and after UNLK (an acknowledge cycle)
+	lea	i2(pc),a5
+	bsr.w	sub_a7
+i2:	cmpa.l	sp,a4
+	bne	sp_fail
+	chkl	d3,$C0FFEE,80
+	lea	i3(pc),a5
+	bsr.w	sub_unlk
+i3:	cmpa.l	sp,a4
+	bne	sp_fail
+	; RTD #8 after a register producer, and after an A7 write
+	move.l	#1,-(sp)
+	move.l	#2,-(sp)
+	lea	i4(pc),a5
+	moveq	#0,d3
+	bsr.w	sub_rtd
+i4:	cmpa.l	sp,a4
+	bne	sp_fail
+	chkl	d3,$C0FFEE,81
+	move.l	#1,-(sp)
+	move.l	#2,-(sp)
+	lea	i5(pc),a5
+	bsr.w	sub_rtd2
+i5:	cmpa.l	sp,a4
+	bne	sp_fail
+	cmpa.l	a3,a5
+	bne	i_fail
+	; RTR: the CCR word, then the return address
+	lea	i6(pc),a5
+	bsr.w	sub_rtr
+i6:	move.w	ccr,d6
+	andi.w	#$1F,d6
+	cmp.w	#$1F,d6
+	bne	i_fail
+	cmpa.l	sp,a4
+	bne	sp_fail
+	; an odd return address: A7 is backed out before the address error,
+	; whose frame names the RTS
+	move.l	#i_odd+1,-(sp)
+	move.l	sp,d5
+	move.l	#i7,(resume).l
+	moveq	#0,d3
+i_rts:	rts
+i7:	chkcnt	cnt_addr,6,82
+	move.l	(addr_pc).l,d0
+	lea	i_rts(pc),a0
+	cmpa.l	d0,a0
+	bne	i_fail
+	move.l	(addr_sp).l,d0
+	add.l	#12,d0
+	cmp.l	d5,d0
+	bne	i_fail
+	addq.l	#4,sp
+	cmpa.l	sp,a4
+	bne	sp_fail
+	bra.s	i_ok
+i_fail:
+	failt	83
+i_odd:	nop
+i_ok:
+
 ;----------------------------------------------- done
 	move.w	#$600D,(DONEREG).l
 	stop	#$2700
@@ -514,6 +577,46 @@ sub_ret2:
 	rts
 ret_fail2:
 	failt	64
+
+; the RTS pops at the retire of an instruction writing A7
+sub_a7:
+	cmpa.l	(sp),a5
+	bne	ret_fail2
+	move.l	#$C0FFEE,d3
+	subq.l	#4,sp
+	addq.l	#4,sp
+	rts
+
+; the RTS pops in UNLK's acknowledge cycle
+sub_unlk:
+	cmpa.l	(sp),a5
+	bne	ret_fail2
+	link	a6,#-8
+	unlk	a6
+	rts
+
+; RTD #8 pops the two longwords the caller pushed
+sub_rtd:
+	cmpa.l	(sp),a5
+	bne	ret_fail2
+	move.l	#$C0FFEE,d3
+	rtd	#8
+
+; RTD popped at the retire of an instruction writing A7 (the return
+; address is popped into a3 and its slot left in place)
+sub_rtd2:
+	cmpa.l	(sp),a5
+	bne	ret_fail2
+	move.l	(sp)+,a3
+	subq.l	#4,sp
+	rtd	#8
+
+; RTR pops the CCR word pushed here, then the return address
+sub_rtr:
+	cmpa.l	(sp),a5
+	bne	ret_fail2
+	move.w	#$1F,-(sp)
+	rtr
 
 ld1m	equ	d_bsr-2	; the MOVEQ before the traced BSR
 

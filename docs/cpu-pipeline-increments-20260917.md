@@ -302,6 +302,59 @@ expectations.
 | branch_bench phase 0 | 118,784 | 117,286 |
 | corpus-100 | 32,980,201 | 32,979,913, 0 diffs |
 
+### 9b. Build 7 and the early fetch's target (2026-09-18)
+
+Build 7 (increment 9 alone, 8a9b392) routed at 36,388 ALMs but missed
+the CPU clock by 1.575 ns: rr_a -> register file -> the ALU's shifter
+and zero compare -> flags -> the lookahead carrier -> a mux between
+`go_pc_t_early` and the early fetch's `bd_t` -> the refill-seed count ->
+`epf_ftail`, 31.2 ns (`scratch/pipeline_b7/worst_detail.txt`).  The
+early fetch had given `issue_ifetch` a second target next to the shared
+early-target wire, and the synthesizer selected between the two on the
+carriers -- one of which, the lookahead arm's, comes from the flags.
+Rule 3 of the branch, once more.
+
+The fix makes the retire cycle's arm of `go_pc_t_early` the queue head's
+own target (`rd_is_bcc ? rd_bcc_t : bd_t`, a registered opcode select)
+and points the early fetch at that wire, so the seed cone has one
+target and the carriers only enable it; a simulation check in
+`dispatch_branch` reports any cycle where `bd_t` and the wire differ.
+Since a state with its own arm of the wire can also retire into a pop
+(a not-taken Bcc.W or FBcc, a DBcc or FDBcc exit), the early fetch is
+skipped in those four states (the branch state issues the fetch itself,
+as in build 6); the dispatch into the branch state still happens.
+`!mem_ack` leaves the enable as well: the request is held until its
+acknowledge, so `!mem_req` already covers that cycle.
+
+The same commit shortens the cone itself.  Every redirect site computed
+its refill test (four valid words from the target) and its seed count
+(up to eight) by selecting and counting the sector's valid bits in an
+eight-step chain from the target's sector word; now `brf_run[k]`, the
+valid run from word k to the sector's end capped at eight, is computed
+once from the registered `brf_valid` alone, and the four sites (the
+`issue_ifetch` expansions, `brf_refill_hit`, S_DBCC1's inline test)
+read one 16-way mux on the target word: `refill_hit = run >= 4`,
+`brf_seed_n = run`.  Exactly the old values by construction (the old
+loop counted consecutive valid words within the sector up to eight, and
+`k <= 12` with four valid words is `run >= 4`).
+
+Gates: identical cycle counts to increment 10 on every bench (no bench
+pops a call in the four excluded states), corpus 32,979,913 with 0
+diffs.  Build 7b is this commit cherry-picked onto increment 9 alone.
+
+### Withdrawn: RTS/RTD/RTR from the pop (2026-09-18)
+
+A `dispatch_ret` that popped RTS/RTD/RTR into S_RET1 (or issued the pop
+read in the popping cycle when the port was free and no A7 write was
+landing) passed every gate and was cycle-neutral on every bench: the
+common epilogue pops the RTS in UNLK's acknowledge cycle, where the port
+is busy, so S_RET1's issue a cycle later is exactly S_DECODE's; only an
+RTS behind a register producer with the port idle gains its cycle.  It
+adds a second data-issue site for a gain the benches cannot show, so
+the RTL was withdrawn; its test section (RTS after an A7 write and
+after UNLK, RTD with and without a landing A7 write, RTR, the odd
+return address with A7 backed out) stays in `t_branch_early`.
+
 ## Builds
 
 | build | content | seed | ALMs | timing | rbf | hardware |
@@ -312,6 +365,7 @@ expectations.
 | build 4 | 31445e5 (+ cache fast-hit from the registered hint) | 21 + the switch | 36,326 (87 %) | routed; CPU clock -2.362: A7 bank -> port A -> shift count -> the ALU's ROXx modulo divider -> flags -> lookahead -> the carriers' target mux -> seed -> epf_ftail | not deployable | |
 | build 5 | 24579aa (+ constant-modulus ROXx count, one shared redirect target) | 21 + the switch | 35,926 (86 %) | routed; CPU clock -1.042 (HDMI +0.341, RAM +0.408): ATC RAM -> walk decision -> cache inv_wren -> fast_hit -> c_rdata -> ALU -> lookahead -> seed -> epf_ftail | 595297fb (`scratch/pipeline_b5/`) | PROBE on hardware: 8.1 boot <= 84 s, liveness OK, **Mix 0.900/0.902/0.902** (+2.8 % over step 1, +5.3 % over 0.855) |
 | build 6 | c84a5e7 (+ fast_hit qualified from registers only) | 21 + the switch | 35,797 (85 %) | CPU +0.139, RAM +0.445, HDMI -0.001 (one `sys_top` video register) | cda6ba11 (`scratch/pipeline_b6/`) | **Mix 0.900/0.902/0.903**, CQD 0.660, FPU 0.464/0.467, 8.1 boot <= 85 s, clean 46 s shutdown, no artefact in any captured frame |
+| build 7 | 8a9b392 (+ increment 9) | 21 + the switch | 36,388 (87 %) | routed; CPU clock -1.575 (HDMI +0.333, RAM +0.538): rr_a -> regfile -> ALU shifter and zero compare -> flags -> the lookahead carrier selecting between go_pc_t_early and the early fetch's bd_t -> seed count -> epf_ftail (`scratch/pipeline_b7/worst_detail.txt`); rule 3 again, from a second issue_ifetch target | not deployable | |
 
 (filled in as each build completes; the seed ledger is also in the `.qsf`.)
 

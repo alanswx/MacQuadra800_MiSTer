@@ -61,9 +61,22 @@ found a desktop alias and used it).
     `rfw_now`): bench_loop 81,202 -> 68,354 (-15.8 %), pipe_bench
     118,696, branch_bench 117,286, corpus 32,979,913 with 0 diffs.
     Not in build 7 (which is increment 9 alone).
+9b. (2026-09-18) Build 7 (8a9b392, seed 21 + the switch) routed at
+    36,388 ALMs (87 %) but MISSED the CPU clock by 1.575 ns: the early
+    fetch's second issue_ifetch target let the lookahead's flags select
+    the seed cone's target (rule 3; `scratch/pipeline_b7/`).  Fix: the
+    early fetch takes go_pc_t_early (default arm `rd_is_bcc ? rd_bcc_t :
+    bd_t`) and is skipped in S_BCC_EXT/S_DBCC1/S_FBCC/S_FDBCC; cycle-
+    identical on the benches.  Build 7b = the fix on increment 9 alone.
+    An RTS/RTD/RTR-from-the-pop increment was tried and withdrawn
+    (cycle-neutral: UNLK/RTS is bound by the acknowledge cycle); its
+    tests stay.
 
 Synthesis: 55,210 ALUTs at 77aa72a against the release's 56,965; 55,598
 at 8a9b392 (build 7, increment 9).
+
+User instruction 2026-09-18 22:05: ONE synthesis at a time, and finish
+analysing a build before starting the next increment.
 
 ## Rules learned today
 
@@ -101,11 +114,15 @@ at 8a9b392 (build 7, increment 9).
    (`scripts/cpu/timequest_worst_paths.tcl`) and the increment it names.
 2. A release needs the full gate (A/UX 3.1 at 32 MB, CD audio by ear): the
    user's call; nothing in `releases/` was touched.
-3. Increment 9 (above) is gated and needs its build (b7, seed 21 + the
-   switch, in `../MacQuadra800_wt3`) and the Speedometer run by the Opus
-   operator (brief modelled on `scratch/pipeline_b6/BRIEF.md`; the box
-   was left at the 8.1 halt screen on build 6).  Expect the call-heavy
-   tests to move (JSR abs.L 9 -> 6 cycles, BSR.W 8 -> 6, JMP/BRA.W -2/-3).
+3. Build 7b (increment 9 + the 9b timing fix, cherry-picked onto 8a9b392
+   in `../MacQuadra800_wt3`, seed 21 + the switch) is the next synthesis;
+   if it meets the CPU clock, the Speedometer run by the Opus operator
+   (brief drafted: `scratch/pipeline_b7/BRIEF.md`, md5/timing/ALMs to
+   fill; the box was left at the 8.1 halt screen on build 6).  Expect the
+   call-heavy tests to move (JSR abs.L 9 -> 6 cycles, BSR.W 8 -> 6,
+   JMP/BRA.W -2/-3).  Then build 8 = increment 10 on top, its own run.
+   Area: build 7 was +591 ALMs over build 6 (36,388, still 756 below the
+   shipped core); the branch's pairing rule owes a removal.
 4. The rest of the plan's item 2, in order of expected value: RTS's pop
    read issued from the retire that pops it (exact, one cycle per
    return, no prediction); BRA.B/BSR.B after a non-producer retire

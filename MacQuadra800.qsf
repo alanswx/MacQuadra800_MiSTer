@@ -248,6 +248,12 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # 0.900/0.902/0.903 (mean 0.902: +2.8 % over step 1, +5.5 % over the shipped 0.855), CQD 0.660, FPU 0.464/0.467, clean
 # 46 s shutdown, no artefact in any captured frame (the ARM framebuffer does not pass through the HDMI register, so the
 # 0.001 ns HDMI miss is judged at the display). The box was left at the 8.1 halt screen on this rbf (cda6ba11).
+# 2026-09-18 21:40 build 7 (8a9b392: + increment 9, the unconditional transfers redirecting at the pop), seed 21
+# + the switch: routed, 36,388 ALMs (87 %, +591 over build 6), but the CPU clock MISSES by 1.575 ns (TNS -131;
+# HDMI +0.333, clk_ram +0.538). Worst path (scratch/pipeline_b7/): rr_a -> regfile -> ALU shifter/zero -> flags ->
+# the lookahead carrier -> a mux between go_pc_t_early and the early fetch target bd_t -> seed count -> epf_ftail,
+# 31.2 ns: a second issue_ifetch target next to the shared early-target wire (rule 3). Not deployed. Fix: the early
+# fetch takes go_pc_t_early (default arm rd_is_bcc ? rd_bcc_t : bd_t) and skips the states with their own arm.
 set_global_assignment -name SEED 21
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
