@@ -972,3 +972,47 @@ A cycle-occupancy probe of P7compare is running session43438 in
 ACTIVE_IRcounts attribute non-pipeline cycles to the current IR, including
 handoff/fetch overhead; they are diagnostic occupancy, not exact retired-op
 latency or independent savings. Pipeline cycles are counted separately.
+
+
+### P6 hardware regression confirmed; targeted admission next
+
+P6 operator finished:5valid Mix0.959/0.963/0.962/0.964/0.963,median0.963,
+mean0.9622, no invalid timers. This regresses4.27% vsP5median1.006. Boot/clean
+halt passed; final_halt.png present; original disk untouched. Final benchmark
+screenshot independently inspected. Full report in hardware_p6_20260919;
+permanent measurements section28. CD transport was deferred by operator due
+to configured problematic Marathon disc; audio needs user-at-display check.
+No CD/audio claim, A/UX deferred. Operator idle, guest halted, remote running.
+
+New admission probes (all scratch-only, no further fit):
+- `p6_memory_entry_20260919`: enter only at two-word memory/PEA, excluding LEA.
+  Towers27,509,911cycles and ZERO pipeline issues; Permute1,519,907. This
+  revealed legacy lookahead consumes indexed MOVE before S_DECODE admission.
+- `p6_hot_entry_20260919`: same restricted policy, suppress rd_queue_pop's
+  fast dispatch only for resident brief indexed MOVE so it reaches S_DECODE.
+  Towers26,698,929cycles,1,327,424pipeline issues; Permute1,519,913.
+- `p6_hot_overlap_20260919`: additionally admit ID while the preceding rf_we
+  commits (retain aux_we exclusion; EX reads later through RF pending bypass).
+  Towers26,600,632 (-3.31% vsP5); Permute1,519,907 (matchesP5). Both kernel
+  results/guards pass. Current preferred next candidate for qualification;
+  no hardware gain claimed and no tracked RTL modification yet.
+- Exact-policy full gate running session13426, followed by separate forced
+  14,720snapshot reference. Inspect full_gate.log and forced_reference.log.
+  Register-only normal reference intentionally has0pipeline entries but its
+  architectural trace is checked; original IRQ overlap forced for coverage.
+- New entry_faults.py checks preceding ADDQ.L#4,A0 feeding indexed MOVEA.W,
+  MOVE.W-toDn and indexed store, then precise access error. Exact normal policy,
+  no FORCE_DECODE; each3latency phases, monitor requires3admissions with rf_we
+  high and3faulting launches. All pass, correctPC602/FAf140/format7, unchanged
+  other registers. Initial fixture accidentally labeled predecessor as faulting;
+  moved label after ADDQ before accepting results. entry_faults.log is finalPASS.
+- Still need exact-policy silicon100, remaining precise boundaries, clean
+  opt-in switches and reproducible runner preservation before next fit.
+
+Cycle profile `p7_cycle_profile_20260919` is terminal, same26,004,071Towers
+cycles. Pipeline ownership6,925,925cycles; remaining current-IR occupancy top:
+MOVEMstore48e7=2,243,501;MOVEMload4cdf=1,979,003;RTS=1,769,878;LINK=1,491,956;
+JSRpc=1,364,683;UNLK=1,352,232. These include handoff/fetch overhead and are not
+exact retirement latencies. All instruction/memory counts and true kernel
+results unchanged. Calls alone showed less than0.4% gain in P8, so exit count
+alone is a poor basis for selecting the next optimization.

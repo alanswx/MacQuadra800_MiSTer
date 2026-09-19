@@ -1350,3 +1350,26 @@ HDMI setup **-.091ns**: this remains an experimental, non-release bitstream.
 New RF banks inferred as512bitMLABs; cache M10Ks preserved.
 A/UX testing is explicitly deferred to Dani per user instruction; no A/UX
 validation is claimed. CD audio is still unchecked. The1.8goal remains unmet.
+
+
+## 28. P6 broader unrestricted pipeline (2026-09-19, mister.local)
+
+Candidate `d83e238`: five valid Mix scores **0.959 / 0.963 / 0.962 / 0.964 / 0.963**.
+Median **0.963**, mean **0.9622**, range0.959–0.964. No invalid timer result.
+This is a consistent **4.27% median regression** from P5's1.006 despite improved
+Towers time (0.885–0.887s vs0.914–0.915s). Quick Sort, Bubble, Queens, Puzzle,
+Sieve and Dhrystones regress. Broader supported instruction coverage with
+unrestricted entry is not an accepted performance improvement.
+
+Authentic33MHz,32MB, Ethernet-on CFG40000000, unchanged Main, disposable disk;
+all ten tests at iteration1. Boot and final clean halt passed; MiSTer and remote
+services remain running. Original disk remained untouched/unmounted. Final run
+screenshot independently inspected: completed ten-test run, Mix0.963,32768K.
+Full per-test table, screenshots and final halt:
+`scratch/hardware_p6_20260919/p6_results.md`.
+
+RBF SHA256 `67a88e021a00722fed025cb261eb766ef3cb3f22c9c6200d77cb529fba935af0`.
+All timing passed:39,631ALMs95%,491RAM,43DSP; CPU+.252ns,HDMI+.089,SDRAM+.741,
+hold+.241; crossings+.741/+.914. Source identities and artifact were verified.
+No A/UX validation (explicitly deferred to Dani); CD/audio remains unchecked.
+P6 is not released, and the1.8goal remains unmet.
