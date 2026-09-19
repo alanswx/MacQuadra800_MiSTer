@@ -549,3 +549,43 @@ Final consolidated CPU gate completed successfully before launch:
 MiSTer operator remains idle; no P4 bitstream has been deployed or measured.
 Latest hardware Mix median remains1.005. The1.8 goal and hardware regressions
 remain open; A/UX disk-location question is still unanswered.
+
+
+## P4 fit completed; P5 overlap validation — 2026-09-19 15:50 EDT
+
+P4 unit is terminal (MainPID0, ExecMainStatus1): Quartus compilation itself
+succeeded, but build_only returned1 for CPU setup -0.357ns. This is a timing
+failure, not a placement failure. 38,185 ALMs91%,26,307registers,491RAM,43DSP;
+HDMI+.180, hold+.223, SDRAM+.478, sys->ram+.478, ram->sys+.843ns.
+Source-check and cross-report exits both0. Cache data/tag M10Ks preserved.
+Artifact `scratch/p4_fit_20260919/MacQuadra800_p4_6e852a6.rbf` SHA256
+`25c41c76545eb38b767df72145080d19b37577862816fcbb7250f864950ec2be`.
+Operator was instructed to run five valid Mix trials on the disposable disk,
+labelled timing-marginal under the existing user try-builds policy. Results
+pending; this is not release qualified. The original image remains unmounted.
+The detailed timing report `scratch/p4_fit_20260919/cpu_setup_paths.txt`
+shows state -> pipe_rf_owner -> regfile mux -> legacy ALU -> branch refill
+seed -> epf_data. Dedicated pipeline RF read ports are the next timing experiment.
+All Quartus processes are terminal; the source freeze has ended.
+
+P5 isolated experiment `scratch/p5_overlap_20260919/` tested waiting for a late
+brief-index PEA extension and admitting younger instructions while ordered
+pipeline memory owns the sequencer. Retirement ownership stays unchanged;
+admission is blocked on a same-edge store invalidating queued code. Page-boundary
+and faulted extensions retain the demand sequencer. All variants passed Permute:
+baseline1536353, wait-extension1524946, overlap1533168, combined1519907 cycles
+at controlled RAM latency3. Combined saves1.07% versus P4; not a hardware score.
+Towers remained27509911 cycles, all moves/nodes/list/guard checks passed.
+The initial Towers wrapper expected the Permute PASS marker; corrected parser
+verified the actual TOWERS32 PASS and simulator exit0 (not an RTL failure).
+A scratch generator initially inserted a PEA wire into the disabled-pipeline
+branch as well; fixed, and disabled-pipeline compilation now passes.
+
+Combined prototype full gate exited0 in `scratch/p5_overlap_20260919/full_gate.log`:
+14720 shared-state snapshots, all earlier real-core suites, forced load/store/PEA
+programs, faults, extension fault, trace, four IRQ/replay suites. Production
+PEA-only policy earlier targeted tests also passed. The module itself is unchanged.
+Profiling the combined variant gives40312 issues,10078 exits, all at opcode4eba
+(JSR d16,PC); no empty exits. Artifact `scratch/p5_overlap_20260919/profile.log`.
+Next expansion should address call/return or broader memory operands; these small
+wins alone are insufficient for1.8. Latest accepted hardware Mix still1.005.

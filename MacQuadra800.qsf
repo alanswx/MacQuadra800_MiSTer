@@ -296,6 +296,10 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # 2026-09-19 XSTORE+LEA 94d922f, seed21: 36,997 ALMs88%,491RAM,43DSP.
 # Setup +0.311 ns, hold +0.238 ns; CPU +1.025 ns, SDRAM +0.555 ns.
 # Crossings sys->ram +0.555 ns / ram->sys +1.025 ns; hardware trial pending.
+# 2026-09-19 P4 pipeline PEA 6e852a6, seed21: 38,185 ALMs91%,491RAM,43DSP.
+# CPU setup -0.357 ns (timing-marginal trial only), HDMI +0.180, hold +0.223.
+# SDRAM +0.478 ns; crossings sys->ram +0.478 / ram->sys +0.843 ns.
+# Cache data/tag RAM inference preserved. RBF SHA256 25c41c76545eb38b767df72145080d19b37577862816fcbb7250f864950ec2be.
 set_global_assignment -name SEED 21
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
