@@ -1408,13 +1408,13 @@ A/UX explicitly deferred to Dani. No new Main was installed.
 
 ## 30. P7 indexed compare and early retirement handoff (2026-09-19)
 
-Date: 2026-09-19  
-Core: `/media/fat/_Unstable/MacQuadra800_p7compare_1c04a43.rbf`  
-RBF SHA256: `702e23482a2203befc88b190446b68bfe182ef37a4c848057a866875305d9700`  
-Quartus: 39,559 ALMs (94%); CPU setup **-0.012 ns**, HDMI +0.308 ns, SDRAM +0.424 ns, hold +0.220 ns, crossings +0.462/+0.790 ns. CPU timing is marginal, so this trial is experimental and not release-qualified.  
-Main SHA256: `0ac8b44069a9201723dcdbc3bf3a84e1963d2bec347e5065c2625e71bd3986cd`  
-CFG: `40 00 00 00` (33 MHz, 32 MB, Ethernet on)  
-Disk: disposable `QuadSquad8-pipeline-test-20260919.hda`, pre-boot SHA256 `224c5be7d031c4c5448745d29ce9717c22bcc310361888bb0e20f2c521c83e2a`; original remained untouched and unmounted.  
+Date: 2026-09-19
+Core: `/media/fat/_Unstable/MacQuadra800_p7compare_1c04a43.rbf`
+RBF SHA256: `702e23482a2203befc88b190446b68bfe182ef37a4c848057a866875305d9700`
+Quartus: 39,559 ALMs (94%); CPU setup **-0.012 ns**, HDMI +0.308 ns, SDRAM +0.424 ns, hold +0.220 ns, crossings +0.462/+0.790 ns. CPU timing is marginal, so this trial is experimental and not release-qualified.
+Main SHA256: `0ac8b44069a9201723dcdbc3bf3a84e1963d2bec347e5065c2625e71bd3986cd`
+CFG: `40 00 00 00` (33 MHz, 32 MB, Ethernet on)
+Disk: disposable `QuadSquad8-pipeline-test-20260919.hda`, pre-boot SHA256 `224c5be7d031c4c5448745d29ce9717c22bcc310361888bb0e20f2c521c83e2a`; original remained untouched and unmounted.
 All runs used Speedometer 4.02 Benchmark Mix, all ten tests, Iteration 1.
 
 | Run | Wall interval | Whetstones/sec | Dhrystones/sec | Towers | Quick Sort | Bubble | Queens | Puzzle | Permutations | Int. Matrix | Sieve | Mix | Status |

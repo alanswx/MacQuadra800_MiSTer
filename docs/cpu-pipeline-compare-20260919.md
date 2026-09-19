@@ -180,3 +180,10 @@ restores Permute exactly to1,519,901cycles, with result/guards PASS. Towers
 and Bubble runs are pending. This remains a scratch experiment requiring
 precise read/write/extension-fault and interrupt qualification before any
 promotion. None of these source changes affect the running fit.
+
+Restricted MOVE probe measurement completed: Bubble4,077,142cycles,
+Towers26,010,464cycles and Permute1,519,901cycles, all results/guards
+PASS. Relative to f2b2770 these are3.0%fewer Bubble cycles,0.75%fewer
+Towers cycles and unchanged Permute. This retains less of the broad
+variant's Towers gain but avoids its Permute regression. Qualification
+is still incomplete; no memory-MOVE RTL has been promoted.

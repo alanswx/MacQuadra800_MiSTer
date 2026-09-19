@@ -1243,3 +1243,8 @@ Fullgate session24501/loggate.log still running; don't promote broadversion.
 Restricted p8_memmove_indexed_20260919 adds dst_mode_r==6; Permute1,519,901
 PASS matchesbaseline; Towers/Bubble sequentialrun session35374 stillrunning.
 Need finish measurements and faultqualification. None promoted.
+
+Restricted P8 measurements now terminalPASS: Bubble4,077,142;
+Towers26,010,464; Permute1,519,901. Need exactvariant correctness/fault
+qualification next. Broadvariant gate still live at FPUprogram at lastcheck
+(session24501); no failure seen. Hardware results committed/pushed b219128.
