@@ -287,3 +287,31 @@ shortcut, to isolate the result. Permute1,504,787cycles (0.99%fewer) and
 Towers26,133,410cycles (0.28%fewer), all kernel results/guards PASS. This
 is not correctness-qualified or promoted. Redirect changes still need
 odd-target, access-fault, IRQ/trace and broader integration tests.
+
+## RTS correctness checkpoint and combined candidate
+
+The standalone P9 RTS prototype passes the full real-core integration gate
+and immutable silicon100 sample:1,900field groups match with zero differences
+(`/tmp/cpu-corpus100-gate.D3fWR0`). New reusable
+`pipeline_rts_boundaries.py --core ... --out ...` passes on both candidate
+and committed baseline. Nine cases×three timing schedules check normal and
+word-aligned targets, odd target address error, source-read and persistent
+target-fetch access errors, T1/T0 trace, IRQ during return, and a page-split
+stack read under transparent translation. Tests assert stack pointer,
+frame SR/PC/format/fault address and absence of younger target execution.
+The split case requires actual S_MRD_B occupancy. Eligible-ack counts
+identify shortcut opportunities; baseline intentionally meets the same count.
+
+A mutation changes the shortcut's A7 increment from4 to8. Normal-return
+program assertions reject it in all timing schedules. Thus test failure
+comes from architectural state, not merely missing coverage. Evidence:
+`scratch/p9_combined_20260919/bad_stack/normal.log`.
+
+Scratch `p9_combined_20260919/ap040_core.v` combines the indexed-only P8
+memory-MOVE shortcut with P9 RTS. All four reusable MOVE/RTS runners pass
+on this exact combined core, including432MOVE value cases and all fault/
+boundary cases. Full integration and silicon100 are running on the combined
+sources; their earlier standalone passes do not substitute for these checks.
+Combined Permute measures1,504,787cycles, preserving the standalone RTS gain.
+Combined Towers/Bubble measurements are pending. No combined RTL has been
+promoted while the f2b2770fit source freeze remains active.

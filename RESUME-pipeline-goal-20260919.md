@@ -1317,3 +1317,20 @@ Agentidle atsafehalt; original5stats median1.013 unchanged. Can deploynext
 verifiedartifact whenfitterminal. Both profilerinterfaces now preserved:
 originalprofile_permute.py resource-based; newprofile_permute_occupancy.py
 --program fixture --out --coreoptional. Restoration committedcdbc5e7.
+
+### P9 RTS qualified; combined follow-up in progress
+
+Standalone p9_rts_ack fullgate terminalPASS, silicon1001900groups0diff
+(/tmp/cpu-corpus100-gate.D3fWR0). New tracked pipeline_rts_boundaries.py:
+9cases×3phases oncandidate AND baseline PASS inclsplitnormal/word/oddtargets,
+source/targetfaults,T1/T0,IRQ. Mutation A7+=8 instead4 is rejected by actual
+program checks. Newcombined scratch/p9_combined_20260919/ap040_core.v includes
+P8indexed-only MOVE + P9RTS. All4reusableMOVE/RTS runners PASS oncombined.
+Combinedfullgate session6915 (gate.log), silicon100session24850(corpus100.log),
+three-kernel session79119. Permute1,504,787PASS; Towers/Bubble pending.
+Need terminalcombinedsuite/kernel/corpus beforepromoting afterfreeze.
+
+Existingfit f2b2770 USERservice activeMainPID1358014; fitter1367442 verified
+30minelapsed withCPUusage. No restart/secondflow. Sourcefreeze continues.
+Hardwareagentidle atvisuallyverifiedsafehalt afterextra1.009run; readyfornext
+checkedartifact. Original5run median1.013, not1.8.
