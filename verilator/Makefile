@@ -227,6 +227,14 @@ tb_memory_path_registered_bus_line:
 # Aligned RAM first misses enter the memory service directly, but completion is
 # captured into dedicated registers before reaching the CPU. Retained tail
 # words use the hardware-validated registered pre-adapter line path.
+# The retained-line read shortcut against a second bus master (the SONIC's DMA
+# arm): a line ack registered in the clock the FSM leaves S_IDLE must not let
+# bus_req_adapter rise under it.  -GFIX=0 shows the 2026-09-18 hardware failure.
+#   make tb_line_dma
+tb_line_dma:
+	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME +define+SIMULATION=1 --top-module tb_line_dma --Mdir ./obj_dir_tb_line_dma -o tb_line_dma tb_line_dma.sv tb_sdram.sv $(RTL)/wombat_bus32.sv $(RTL)/sdram_beat32.sv $(RTL)/sdram.sv altddio_out_stub.v
+	./obj_dir_tb_line_dma/tb_line_dma
+
 tb_memory_path_registered_first_miss:
 	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME +define+SIMULATION=1 --top-module tb_memory_path -GFAST_BYPASS=1 -GDIRECT_FIRST_MISS=1 -GREGISTERED_FIRST_MISS=1 -GADAPTER_LINE_HIT=1 -GDIRECT_MEM_ACK=0 -GREGISTERED_LINE_HIT=1 --Mdir ./obj_dir_tb_mempath_registered_first_miss -o tb_memory_path_registered_first_miss tb_memory_path.sv tb_sdram.sv $(RTL)/wombat_bus32.sv $(RTL)/sdram_beat32.sv $(RTL)/sdram.sv altddio_out_stub.v
 	./obj_dir_tb_mempath_registered_first_miss/tb_memory_path_registered_first_miss
