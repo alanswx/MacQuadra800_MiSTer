@@ -1100,3 +1100,27 @@ findings before deployment and can proceed if timing clean. A/UX remains
 deferred to Dani; Main/original disk preserved. Do not duplicate its hardware
 work or start a second Quartus flow. User's commit-and-push authorization
 continues; all promoted code remains at90b37e4 during source freeze.
+
+### Fit terminal, hardware operator active; additional Bubble diagnostic
+
+Quartus and extraction terminal; no flow active. Source freeze ended.
+90b37e4 unique p6entry RBF exists, SHA d35e6b42edb653aab94cb95f6a5a92eefea8d8cf9b640d679a5b7055ca95df68,4,542,356bytes.
+Only HDMI misses(-.187);CPU+.904,SDRAM+.608,hold+.208. cross/source exit0;
+build.exit1 is timing policy. Agent's earlier missing-artifact report was
+intermediate; root verified terminal archive and instructed authorized
+HDMI-marginal trial. Existing mister_operator active with five-run task.
+Do not duplicate hardware actions. QSF comments now record terminal fit.
+
+Early-drain corrected scratch fully qualified normal/forced reference,
+silicon100(/tmp/cpu-corpus100-gate.MPe9nl),six boundaries,threefaultcases.
+New handoff_edges.py proves12final-WB transitions into TST,DBcc,CMPI,JSR
+with dependency/result/CCR/stack checks across3latency/CEphases. Remains
+scratch-only; add default-off switch and preserved runner if promoting.
+
+New tracked scripts/cpu/profile_bubble.py supports RESOURCE --out OUTPUT
+[--compare-module PATH]. Exact sorting loop only,500fixed shuffled signed
+words, independent final permutation/guards. Current recipe4,577,936cycles;
+P7compare module+current core/entry4,492,550cycles(-1.87%),bothPASS. Scratch
+source identities/results at scratch/bubble_probe_20260919. No claim of
+hardware score or combinedP7fullqualification. Continued bottleneck work
+should cover nonrecursive kernels as well as Towers/Permute.

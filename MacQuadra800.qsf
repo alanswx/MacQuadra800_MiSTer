@@ -309,6 +309,10 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # All timing met: CPU +0.252 ns, HDMI +0.089, SDRAM +0.741, hold +0.241.
 # Crossings sys->ram +0.741 / ram->sys +0.914 ns. RF bankE512bitMLAB; cache RAM preserved.
 # RBF SHA256 67a88e021a00722fed025cb261eb766ef3cb3f22c9c6200d77cb529fba935af0.
+# 2026-09-19 P6 memory-entry 90b37e4, seed21:39,603ALMs94%,491RAM,43DSP.
+# CPU +0.904 ns, SDRAM +0.608, hold +0.208; HDMI -0.187 ns (trial only).
+# Crossings sys->ram +0.608 / ram->sys +0.904 ns. Source and extraction checks pass.
+# RBF SHA256 d35e6b42edb653aab94cb95f6a5a92eefea8d8cf9b640d679a5b7055ca95df68.
 set_global_assignment -name SEED 21
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #

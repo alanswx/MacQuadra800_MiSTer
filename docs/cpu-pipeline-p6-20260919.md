@@ -184,3 +184,47 @@ entries under the restricted policy, and integer suite has9commits. Neither
 that reference nor kernel checks alone prove the new handoff safe. Remaining
 qualification includes full gate completion, forced-reference coverage,
 explicit final-WB handoff coverage and silicon first100 before promotion.
+
+### Targeted-entry fit terminal and handoff qualification complete
+
+The90b37e4 fit ended17:42:49EDT; crossing extraction ended17:42:54.
+Fitter succeeded:39,603ALMs(94%),26,364registers,491RAMblocks,43DSP.
+SetupCPU +0.904ns, SDRAM +0.608ns, HDMI -0.187ns(TNS -0.568),
+worst hold +0.208ns; crossing minima sys→ram +0.608 / ram→sys +0.904.
+RFbankE remains512bitMLAB and cache tags M10K. Source hashes and crossing
+extraction pass. build.exit1 denotes the HDMI timing miss; trial authorized
+under the existing marginal-fit instruction, release timing bar not met.
+Archived RBF4,542,356bytes SHA256
+`d35e6b42edb653aab94cb95f6a5a92eefea8d8cf9b640d679a5b7055ca95df68`.
+Operator initially observed before extraction completed; terminal recheck
+found cross.exit0 and the uniquely archived RBF. Five-run hardware trial
+is delegated to the existing operator; results remain pending.
+
+The separate corrected early-drain scratch candidate now passes full normal
+integration (all legacy/memory/PEA suites and4IRQ/replay cases), forced
+reference14,720retirements, and silicon first100:1,900groups,zero differences
+(`/tmp/cpu-corpus100-gate.MPe9nl`). Its six boundaries and three RF-write
+fault cases also pass. `handoff_edges.py` proves12actual final-WB handoffs:
+three each into dependent TST(An), DBcc, CMPI.L and JSR with updatedA7.
+All3latency/CE phases check flags, registers, stack values and no residual
+pipeline work after handoff. Early drain remains scratch-only pending a
+clean opt-in implementation and exact promoted-recipe checks.
+
+### Additional workload: original Bubble sorting loop
+
+`scripts/cpu/profile_bubble.py` extracts unchanged CODE3bytes0x9586..0x95d1
+from the hash-verified Speedometer4.02 resource. It runs the original sorting
+loop on500distinct signed words shuffled with seed20260919, then independently
+checks all sorted values and adjacent guards. Initialization, allocation and
+the original five-iteration wrapper are excluded; the exit RTS is outside
+the preserved loop bytes. The resource is supplied locally, not redistributed.
+
+Reproduce with `python3 scripts/cpu/profile_bubble.py RESOURCE --out OUTPUT`
+and optionally `--compare-module PATH` to hold core/entry flags constant while
+changing only the experimental module. RAM latency3; real MMU/cache/storebuffer
+wrapper, no full-platform SDRAM/retained-line model. Results in
+`scratch/bubble_probe_20260919`: current90b37e4 **4,577,936cycles**, prior
+P7compare module with current memory-entry policy **4,492,550cycles**(-1.87%).
+Both sorted-permutation/guard checks pass; data read/write counts identical.
+This expands diagnostic workload coverage, not hardware Mix validation or
+full qualification of the combined P7/current-policy configuration.
