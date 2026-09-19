@@ -432,3 +432,21 @@ Permute1,457,331 vsP12 1,466,887; Towers25,469,823 vsP12 25,583,649;
 Bubble4,077,142 unchanged. Independent kernel output/guard checks pass.
 Full reference/pipeline integration remains running. P13 is not promoted
 or built. P12fit1fb24fc and P9hardware trial run independently.
+
+P13 full reference/pipeline integration subsequently completed PASS,
+including all precise load/store/PEA interrupt and replay checks.
+
+### Displacement-load pipeline exploration (not promoted)
+
+P14 scratch adds MOVE/MOVEA d16(An) loads to the existing pipeline module,
+including a signed extension EA and two-word admission. On trackedP12
+cache/core, Permute passes but regresses1,466,887->1,487,041cycles; pipeline
+loads rise0->15,117 and total issues40,326->55,443. Towers passes unchanged
+at25,583,649. Supporting more opcodes does not by itself improve throughput.
+
+A continuation-only variant excludes displacement loads from initial
+pipeline admission but allows them after an existing owner. Permute returns
+to1,466,887 withzero pipeline loads, so this fixture offers no suitable
+continuation sequence. Both experiments remain scratch-only; neither has
+complete correctness qualification or measured performance benefit.
+Artifacts: scratch/p14_dispload_20260919 and its continuation subdirectory.

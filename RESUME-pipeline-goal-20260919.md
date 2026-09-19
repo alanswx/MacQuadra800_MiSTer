@@ -1463,3 +1463,14 @@ Bothcandidate/P12baselinePASS; doublehit cross3cycles vs4baseline.
 Fullgate session47453 stillpending (lastcache/FPU/branchPASS).
 P12fit user-serviceMainPID1480157 active; noRTL/QSFchanges untilterminal.
 P9hardwareagenthas firstcompletion screenshot, stillownsallhardware.
+
+### P13 integration complete; P14 displacement-load experiment rejected
+
+P13 fullgate session47453 terminalPASS inclallpreciseIRQ/replay; readyfor
+fit consideration onceP12fit ends (P13still scratchonly). CurrentP12fit
+MainPID1480157 remains active. Hardwareagent ownsP9trial; fourcompleted
+screenshots present but aggregate/report pending.
+P14scratch pipeline d16(An) MOVE/MOVEA loads: Permute1487041vs1466887
+regression;15117newloadissues. Towers25583649unchangedPASS. Continuation-only
+entrypolicy returnsPermute1466887 with0loadissues. Neitherpromoted orfully
+qualified; do not claim performance improvement frommoreopcodecoverage.
