@@ -1334,3 +1334,22 @@ Existingfit f2b2770 USERservice activeMainPID1358014; fitter1367442 verified
 30minelapsed withCPUusage. No restart/secondflow. Sourcefreeze continues.
 Hardwareagentidle atvisuallyverifiedsafehalt afterextra1.009run; readyfornext
 checkedartifact. Original5run median1.013, not1.8.
+
+### P7handoff terminal; MOVE/RTS plus CAS timing correction promoted
+
+P7handoff f2b2770 fitterminal/sourcecross0, buildexit1 timing.39591ALMs94%,
+CPU-.862ns (TNS-4.710),HDMI-.069,SDRAM+.727,hold+.201,cross+.771/+.611.
+ArchivedRBF4529544bytes SHAe12627b49d97fd2efd41433c058e1c28906c7959317a63c52544cd655b26759e.
+Worstpaths extracted:regfilepend_we->generalALUshift/result/flags->pc22,
+27levels. Existingagent owns authorized experimental5runtrial in
+scratch/hardware_p7handoff_20260919; no timing/releaseclaim regardlessscore.
+
+CombinedP8indexedMOVE+P9RTS fullgate terminalPASS; silicon1001900groups0diff
+/tmp/cpu-corpus100-gate.FSVPEg. KernelsBubble4077142/Towers25936736/
+Permute1504787PASS. Promoted core adds CAS/CAS2 decision fastflagZ instead
+ofgenericALUflagZ; CMPselectedinall3states, architecturalflagwritesunchanged.
+Exactscratchp9_fastcas_20260919; arithmeticoracle nowassertsfastflags ADD/SUB/
+CMP andall1,479,840ALUcomparisonsPASS. Fullintegration session17599, gate.log
+passedinteger/exception/MMU/bitfieldMMU; remainingprogramsstillrunning.
+Nextfit archive scratch/p9combined_fit_20260919, user-service
+q800-p9combined-fit-20260919.service; commitbeforelaunchthenfreezeinputs.

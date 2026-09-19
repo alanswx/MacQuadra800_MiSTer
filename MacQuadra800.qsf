@@ -318,6 +318,12 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # Crossings sys->ram +0.462 / ram->sys +0.790 ns. Source/extraction checks pass.
 # RF bankE512bitMLAB and cache tags M10K preserved; 26,405 registers.
 # RBF SHA256 702e23482a2203befc88b190446b68bfe182ef37a4c848057a866875305d9700.
+# 2026-09-19 P7 admission/branch f2b2770, seed21:39,591ALMs94%,491RAM,43DSP.
+# CPU -0.862 ns (TNS -4.710), HDMI -0.069 (TNS -0.394), SDRAM +0.727, hold +0.201.
+# Crossings sys->ram +0.771 / ram->sys +0.611; RF bankE MLAB, cache tags M10K.
+# Worst CPU path regfile pend_we -> general ALU -> pc[22], 27 logic levels.
+# Experimental trial only. Source/archive/cross checks pass; 26,347 registers.
+# RBF SHA256 e12627b49d97fd2efd41433c058e1c28906c7959317a63c52544cd655b26759e.
 set_global_assignment -name SEED 21
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #

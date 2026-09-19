@@ -7,8 +7,7 @@ reg [1:0] size = 0;
 reg [31:0] a = 0, b = 0;
 reg [4:0] flags_in = 0;
 wire [31:0] result;
-// this tree's ALU also exports Alan Steremberg's decode-time fast flags;
-// the .* instance needs the names, the bench does not check them
+// Fast compare flags also drive same-cycle branch and CAS decisions.
 wire [4:0] fast_flags;
 wire fast_ok;
 wire [4:0] flags_out;
@@ -72,6 +71,13 @@ task check_arithmetic;
         expected_flags = {(op == `AP040_ALU_CMP) ? flags_in[4] : carry,
                           negative, zero, overflow, carry};
         #1;
+        if ((op == `AP040_ALU_ADD || op == `AP040_ALU_SUB ||
+             op == `AP040_ALU_CMP) &&
+            (!fast_ok || fast_flags !== expected_flags)) begin
+            $display("op=%0d size=%0d a=%h b=%h fast=%h expected=%h",
+                     op, size, a, b, fast_flags, expected_flags);
+            $fatal(1, "TEST FAILED: independent fast arithmetic flags oracle");
+        end
         if ({result, flags_out} !== {expected, expected_flags}) begin
             $display("op=%0d size=%0d a=%h b=%h flags=%h got=%h/%h expected=%h/%h",
                      op, size, a, b, flags_in, result, flags_out,

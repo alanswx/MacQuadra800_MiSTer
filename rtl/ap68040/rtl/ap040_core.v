@@ -2400,6 +2400,7 @@ wire [31:0] rgo_dbcc_t    = br_base + sxw(imm[15:0]);
 wire [31:0] rgo_decode_t  = pc + sxb(ir[7:0]);
 wire        rgo_cond      = cond_true(ir[11:8]);
 wire [31:0] go_pc_t_early =
+    (state == S_MRD && r_m_ret == S_RET2) ? mem_rdata :
 	(state == S_RET2 || state == S_RET3)     ? m_val :
 	(state == S_BCC_EXT)                     ? rgo_bcc_ext_t :
 	(state == S_BSR_PUSH || state == S_JSR2) ? br_tgt :
@@ -5175,6 +5176,14 @@ always @(posedge clk) begin
 					    p_dst == DK_REG && exec_kind == EK_ALU) begin
 						retire_operand_alu;
 					end
+                    // Begin the destination EA once the source read succeeds.
+                    // Faulting or page-split reads retain their original path.
+                    else if (r_m_ret == S_PIPE_SDONE && p_src == SK_MEM &&
+                             p_dst == DK_MEM && exec_kind == EK_ALU &&
+                             alu_op == `AP040_ALU_MOVE && !p_rmw && dst_mode_r == 3'b110) begin
+                        src_val <= mem_rdata;
+                        ea_start(dst_mode_r, dst_rn_r, p_dsize, S_PIPE_DEA);
+                    end
 					else if (r_m_ret == S_PIPE_SDONE && p_dst == DK_REG) begin
 						src_val <= mem_rdata;
 						dst_val <= rf_rdata_b;
@@ -5183,6 +5192,13 @@ always @(posedge clk) begin
 					// UNLK: A7 was written with the read issue; the
 					// popped frame pointer lands here and the
 					// instruction retires.
+                    // Normal RTS commits A7 and redirects at read acknowledgement.
+                    // Fault, odd-target, trace/IRQ and split reads keep RET2.
+                    else if (r_m_ret == S_RET2 && ret_kind == RK_RTS &&
+                             !mem_rdata[0] && !tr_t1 && !tr_t0 && !irq_pend) begin
+                        rfw(4'd15, dbg_a7 + 32'd4);
+                        go_pc(mem_rdata);
+                    end
 					else if (r_m_ret == S_UNLK3) begin
 						rfw({1'b1, d_rn}, mem_rdata);
 						fetch_next;
@@ -6702,7 +6718,8 @@ always @(posedge clk) begin
 
 			S_CAS2_5: begin
 				sr[4:0] <= alu_fl;
-				if (alu_fl[2]) begin
+				// CMP-only decisions avoid the general shift/result flag mux.
+				if (alu_fast_fl[2]) begin
 					src_val <= bf_du;            // ALU: mem2 - Dc2
 					dst_val <= bf_field;
 					state <= S_CAS2_6;
@@ -6712,7 +6729,8 @@ always @(posedge clk) begin
 
 			S_CAS2_6: begin
 				sr[4:0] <= alu_fl;
-				if (alu_fl[2]) begin
+				// CMP-only decisions avoid the general shift/result flag mux.
+				if (alu_fast_fl[2]) begin
 					rr_a <= {1'b0, x_ext[24:22]};   // Du1
 					rr_b <= {1'b0, x_ext[8:6]};     // Du2
 					state <= S_CAS2_W2;
@@ -8022,7 +8040,8 @@ always @(posedge clk) begin
 
 			S_CAS4: begin
 				sr[4:0] <= alu_fl;
-				if (alu_fl[2])
+				// CMP-only decisions avoid the general shift/result flag mux.
+				if (alu_fast_fl[2])
 					mwr(dst_addr, op_size, bf_du, S_NEXT);   // equal: update
 				else begin
 					rfw({1'b0, x_ext[2:0]}, merge_sz(cas_dc, dst_val, op_size));

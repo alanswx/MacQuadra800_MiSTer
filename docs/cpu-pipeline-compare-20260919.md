@@ -315,3 +315,38 @@ sources; their earlier standalone passes do not substitute for these checks.
 Combined Permute measures1,504,787cycles, preserving the standalone RTS gain.
 Combined Towers/Bubble measurements are pending. No combined RTL has been
 promoted while the f2b2770fit source freeze remains active.
+
+## P7handoff fit terminal; next candidate promoted
+
+f2b2770 seed21 completed with39,591ALMs94%,26,347registers,491RAMblocks,
+43DSPs. CPU setup-0.862ns/TNS-4.710; HDMI-0.069/TNS-0.394;
+SDRAM+0.727; worst hold+0.201; crossings sys→ram+0.771/ram→sys+0.611.
+RF bankE remains512-bitMLAB; cache tags remainM10K. Source/archive/cross
+checks pass. Archived4,529,544-byte artifact SHA256
+`e12627b49d97fd2efd41433c058e1c28906c7959317a63c52544cd655b26759e`
+in `scratch/p7handoff_fit_20260919`. The existing operator is performing
+an authorized experimental five-run hardware trial; this timing miss
+prevents release qualification regardless of benchmark outcome.
+
+Worst CPU path is regfile pend_we through forwarded operands and the
+general ALU shift/result/flag mux into pc[22],27logic levels. Reports
+`worst_paths.txt` and `worst_detail.txt` are archived before db replacement.
+Three CAS/CAS2 decisions used general alu_fl[2] even though decode fixes
+the operation to CMP. The next candidate selects the existing alu_fast_fl[2]
+for these decisions, preserving architectural flag writes. This is a
+structural timing hypothesis; only the next fit can establish improvement.
+
+The combined MOVE/RTS implementation completed full integration and
+silicon100 (1,900groups match, zero differences;
+`/tmp/cpu-corpus100-gate.FSVPEg`). Its kernels pass with Bubble4,077,142,
+Towers25,936,736 and Permute1,504,787cycles. These improvements are not
+hardware Mix claims. The combined RTL plus the fast-CAS decision correction
+is now promoted for the next fit. Scratch exact source is
+`p9_fastcas_20260919/ap040_core.v`; promoted RTL adds comments only.
+
+The existing independent arithmetic testbench now checks fast_flags and
+fast_ok against its independent oracle for ADD/SUB/CMP. Its1,479,840total
+ALU comparisons pass. The corrected core already passes integer (including
+CAS/CAS2), exceptions, MMU and bitfield-MMU integration programs; the rest
+of the full integration suite continues during build preparation. No
+instruction clock or timer configuration changed.
