@@ -58,14 +58,47 @@ already dropped) — it needs pauses, which is what real op lists have.
   3.7-7.1 ms** at five a second (`scratch/ethernet-handover/hw11/soak_1..4.txt`),
   on a LAN that puts ~100 frames a second on the wire. The longer two-stream
   soak is `soak_long_a/b.txt` in the same folder.
-- One thing seen and not chased: `q8 rpc ... us_max 250071 slept 1 fail 1` —
-  a single DMA round trip hit Main's 250 ms timeout, almost certainly across
-  the guest's restart (the engine is reset under a request). Check that Main
-  recovers by design rather than by luck.
+- **FTP works and is byte-exact, still at `40 00`:** Fetch 3.0.3 in the guest
+  pulled `test_1m.bin` from the FTP server on the Linux box (section 3) in
+  Binary mode, 1,048,576 bytes at 36 KB/s; the guest then shut down cleanly to
+  "safe to switch off", and the file read back out of the disk image
+  (`mac_hfs.py ... cat`, run on the MiSTer with the menu core loaded) has md5
+  `81d28c72...`, the server's.
 
-1. FTP both ways with an md5 (the user logs in themselves), and the
-   throughput figure with the fast paths on (section 4 of the 09-18 resume
-   measured 44 KB/s with one off).
+### The second bug: the DMA engine starved behind a parked disk beat
+
+`q8 rpc ... us_max 250071 ... fail N` in `/tmp/mac_eth_stats` was not the
+restart: it counts up whenever the guest does disk I/O under network load (10
+during a ping soak with applications launching, 6 in that 1 MB download), and
+each one costs pings. A pseudo-DMA beat waits in `S_IOSB` **without a time
+limit** while the HPS fetches or accepts a sector (`iosb.sv` `A_SDMA` stops
+its watchdog then, deliberately). That HPS is also the SONIC model, and Main
+is single-threaded: while it spins on a DMA op list it serves no disk request.
+With the FSM parked the list cannot move, so each side waits for the other
+until Main's 250 ms timeout — after which Main **posted the next list over the
+one still in the engine**, which reads its ops and the XFER window on demand.
+Once, under 10 pings a second, Fetch bombed at launch with error 10; it
+launched fine at `40 04` and again at `40 00` with no ping load, so that bomb
+belongs here, not to the retained line. It is also the likeliest reading of the
+44 KB/s of 2026-09-18.
+
+Two fixes, neither on hardware yet:
+- core `quadra800.sv` (commit after `0533256`, **build 10**): DMA beats run on
+  the idle RAM port *beside* a parked I/O beat (`dma_side`); the snoop address
+  has its own register. `tb_line_dma` covers it (6304 beats beside 968 parked
+  ones, every DMA write read back).
+- Main `support/mac/mac_eth_q8.cpp` (uncommitted in `../Mac_Main_MiSTer`, built
+  here with the ARM toolchain): after a timeout, `run()` waits for the engine
+  to finish the old list before posting, and fails the call if it never does.
+  `mac_q8_test`: 56 checks pass.
+
+Also seen once, unexplained: at `40 04`, after that Fetch session, the Finder
+hung inside Special > Shut Down (clock frozen, pointer alive, driver still
+servicing receives). The same sequence at `40 00` shut down cleanly.
+
+1. Build 10 + the new Main on hardware: `q8 rpc ... fail` must stay 0 through
+   an FTP download and application launches under ping load; then the FTP
+   rate again (36 KB/s before), a 10 MB download and an upload with md5s.
 2. Remove the `Dbg ...` OSD lines and `dbg_sw` (commit `5a271f0`), decide on
    the SAMPLE/DEBUG words (~100 ALMs), then the full regression gate from
    `CLAUDE.md` with Ethernet Off and On, and Speedometer On-idle vs Off.
@@ -96,6 +129,14 @@ cache is busy), and the new guard covers it regardless.
   the core. There is no `config/MacQuadra800.CFG` until the core has run once,
   so the CFG byte patching of the experiment recipe needs one load first.
   There is no A/UX image and no `backup/` directory on this box.
+- **An FTP server for the guest runs on the Linux box**: pyftpdlib as the user
+  unit `ftp-pub` (`systemctl --user status ftp-pub`), `10.3.141.107` port
+  **2121** (no sudo here, so not 21), read-only `guest`/`guest` and anonymous,
+  root `/home/alans/ftp_pub` with `test_100k.bin`, `test_1m.bin`,
+  `test_10m.bin` and `MD5SUMS`. In Fetch the host is `10.3.141.107 2121`
+  (a space), and the mode must be **Binary**. The MiSTer cannot serve as the
+  guest's FTP peer: Main injects the guest's frames on `eth0`, so the box's own
+  stack never sees them. `ftp.funet.fi` `/pub/mac/` is a live public site.
 - That image came with TCP/IP on "Alternate Ethernet" and "load only when
   needed", so the driver never opened. It is now set to **Ethernet built-in,
   DHCP, load at startup** (done in the guest on 2026-09-19; the pristine copy
