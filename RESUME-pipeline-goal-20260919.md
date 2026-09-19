@@ -1080,3 +1080,23 @@ Continue waiting on the same live build; terminal artifacts then five valid
 hardware Mix runs using the authorized existing mister_operator. Do not
 claim simulator cycles prove hardware gain. Broader pipeline coverage and
 legacy handoff overhead remain the next implementation investigation.
+
+### Early-drain scratch candidate and live hardware follow-up
+
+Progress this turn: three paired scratch probes identify/fix early-drain
+lookahead suppression; corrected p6_drain_lookahead_20260919 Towers26,403,899
+and Permute1,519,901, all kernel checks pass. See p6 design doc for controls
+and rejected variants. No tracked RTL changes. Six boundaries and three
+predecessor-write fault cases all pass. Full gate active session50031, log
+scratch/p6_drain_lookahead_20260919/full_gate.log (last through integer).
+Boundary/fault session95216 logs terminalPASS. Further qualifications pending
+as listed in design doc; do not promote based solely on the kernels.
+
+Current Quartus service still live MainPID1242940; fitterPID1251798 verified
+active. Existing mister_operator received explicit follow-up to wait for
+terminal fit/source checks/crossing extraction and then run five hardware
+Mix trials for uniquely named p6entry90b37e4 artifact. Agent will notify fit
+findings before deployment and can proceed if timing clean. A/UX remains
+deferred to Dani; Main/original disk preserved. Do not duplicate its hardware
+work or start a second Quartus flow. User's commit-and-push authorization
+continues; all promoted code remains at90b37e4 during source freeze.

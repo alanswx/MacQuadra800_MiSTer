@@ -151,3 +151,36 @@ already assembles spanning reads; they are not all external-memory bypasses.
 The background fit remains active under q800-p6entry-fit-20260919.service;
 wait for terminal build, source-hash verification and crossing extraction
 before editing any build inputs or deploying its uniquely named RBF.
+
+### Scratch follow-up: retire directly into legacy lookahead
+
+`scratch/p6_drain_lookahead_20260919` tests returning to the legacy decoder
+on the final WB commit when ID/EX and the pending-memory slot are empty.
+The prototype exports `empty_after_retire` separately from the strict `idle`
+signal. Both the exit condition and the legacy lookahead ownership guard
+must use the new boundary. Pipeline interrupt cancellation retains priority.
+No tracked RTL or frozen Quartus inputs have changed.
+
+| Exact kernel, latency 3 | 90b37e4 control | Corrected scratch handoff |
+| --- | ---: | ---: |
+| Towers | 26,600,632 | 26,403,899 |
+| Permute | 1,519,907 | 1,519,901 |
+
+Both pass their result and guard checks. Towers improves 0.74%; this is a
+small simulation gain, not evidence of hardware Mix improvement. The control
+Permute was rebuilt from current tracked sources with the same bench/flags.
+
+Initial `p6_early_drain_20260919` changed the exit but accidentally retained
+the idle-only lookahead suppression: Towers26,551,441, Permute1,569,674.
+A memory-port guard (`p6_guarded_drain_20260919`) did not change those numbers.
+The lost call shortcut was caused by that separate lookahead suppression,
+not the hypothesized busy port. Correcting the ownership guard removes the
+regression. Keep both unsuccessful probes as evidence; do not promote them.
+
+Corrected prototype passes all six indexed extension-fault/trace/IRQ cases
+and all three predecessor-write fault cases. The full integration gate is
+still running; its reference has14,720matching snapshots with zero pipeline
+entries under the restricted policy, and integer suite has9commits. Neither
+that reference nor kernel checks alone prove the new handoff safe. Remaining
+qualification includes full gate completion, forced-reference coverage,
+explicit final-WB handoff coverage and silicon first100 before promotion.
