@@ -18,9 +18,15 @@
 // nobody asked for, and its completion acknowledges whatever request is on the
 // bus by then -- a fill beat takes its neighbour's word, a store is dropped.
 // FIX=1 holds bus_req_adapter (and eligibility) off in the line-ack clock.
+//
+// The S_IOSB arm is here too: the requester's accesses with addr[31] set park
+// the FSM on a slow device (5..600 clocks, the pseudo-DMA beat waiting for the
+// HPS), and DMA beats must keep running beside it.  Every DMA write is checked
+// at the end, and SIDE=0 shows the engine starving behind the parked beat.
 
 module tb_line_dma #(
 	parameter integer FIX = 1,
+	parameter integer SIDE = 1,
 	parameter integer ROUNDS = 4000
 );
 
@@ -86,7 +92,11 @@ wire [31:0] b_wdata;
 reg         b_ack;
 reg  [31:0] b_rdata;
 
-localparam S_IDLE = 3'd0, S_MEM = 3'd1;
+localparam S_IDLE = 3'd0, S_MEM = 3'd1, S_IOSB = 3'd2;
+reg        dma_side;
+reg        iosb_sel;
+wire       iosb_ack;
+wire [31:0] iosb_rdata;
 reg  [2:0] svc;
 reg        svc_dma;
 reg        svc_bus_direct;
@@ -99,9 +109,9 @@ reg [31:2] mem_addr;
 reg  [3:0] mem_be;
 reg [31:0] mem_wdata;
 
-wire line_cpu_match = b_req && !b_write &&
+wire line_cpu_match = b_req && !b_write && !b_addr[31] &&
 	                  line_valid_sw && (b_addr[26:4] == mem_line_tag);
-wire line_cpu_wait  = b_req && !b_write &&
+wire line_cpu_wait  = b_req && !b_write && !b_addr[31] &&
 	                  line_pending_sw &&
 	                  (b_addr[26:4] == mem_line_pending_tag);
 wire [31:0] line_cpu_data = (b_addr[3:2] == 2'd0) ? mem_line_data[127:96] :
@@ -113,7 +123,8 @@ wire bus_ram_eligible = (svc == S_IDLE) && !walker_pend && !cpu_berr &&
 	                    !bus_miss_ack && (FIX == 0 || !bus_line_ack) &&
 	                    !bus_adapter_active && !bus_ack_adapter &&
 	                    bus_req && !bus_write &&
-	                    (bus_size == 2'd2) && (bus_addr[1:0] == 2'b00);
+	                    (bus_size == 2'd2) && (bus_addr[1:0] == 2'b00) &&
+	                    !bus_addr[31];
 wire bus_line_match = bus_ram_eligible && line_valid_sw &&
 	                  (bus_addr[26:4] == mem_line_tag);
 wire bus_line_wait  = bus_ram_eligible && line_pending_sw &&
@@ -152,6 +163,7 @@ always @(posedge clk) begin
 		svc <= S_IDLE; svc_bus_direct <= 0; svc_dma <= 0;
 		dma_ack <= 0; dma_rdata <= 0; dma_turn <= 0;
 		b_ack <= 0; b_rdata <= 0; bus_miss_ack <= 0; bus_miss_rdata <= 0;
+		dma_side <= 0; iosb_sel <= 0;
 		cpu_berr <= 0; mem_req <= 0; mem_write <= 0; mem_addr <= 0;
 		mem_be <= 0; mem_wdata <= 0;
 	end
@@ -187,6 +199,11 @@ always @(posedge clk) begin
 					b_ack   <= 1;
 					b_rdata <= line_cpu_data;
 				end
+				else if (b_addr[31]) begin
+					svc_bus_direct <= 0;
+					iosb_sel   <= 1;
+					svc        <= S_IOSB;
+				end
 				else begin
 					svc_bus_direct <= 0;
 					mem_req    <= 1;
@@ -216,11 +233,65 @@ always @(posedge clk) begin
 			svc_bus_direct <= 0;
 			svc <= S_IDLE;
 		end
+		S_IOSB: begin
+			if (dma_side) begin
+				if (mem_ack) begin
+					mem_req   <= 0;
+					dma_ack   <= 1;
+					dma_rdata <= mem_rdata;
+					dma_side  <= 0;
+				end
+			end
+			else if ((SIDE != 0) && dma_req && !dma_ack && !iosb_ack) begin
+				dma_side   <= 1;
+				mem_req    <= 1;
+				mem_write  <= dma_we;
+				mem_addr   <= {5'd0, dma_addr};
+				mem_be     <= dma_be;
+				mem_wdata  <= dma_wdata;
+			end
+			if (iosb_ack) begin
+				iosb_sel <= 0;
+				b_ack    <= 1;
+				b_rdata  <= iosb_rdata;
+				if (dma_side && !mem_ack) begin
+					dma_side       <= 0;
+					svc_dma        <= 1;
+					svc_bus_direct <= 0;
+					svc            <= S_MEM;
+				end
+				else svc <= S_IDLE;
+			end
+		end
 		default: svc <= S_IDLE;
 		endcase
 	end
 end
 //============================ end of the subset =============================
+
+// the slow device: one ack after a pseudo-random wait, like a PDMA beat that
+// needs the HPS to fetch a sector
+reg [31:0] lfsr_io = 32'hBADC0DE5;
+reg  [9:0] io_wait;
+reg        io_busy, io_ack_r;
+integer    io_beats = 0, side_beats = 0, io_clocks = 0;
+assign iosb_ack   = io_ack_r;
+assign iosb_rdata = 32'h10DE_F00D;
+always @(posedge clk) begin
+	io_ack_r <= 0;
+	if (!nreset) io_busy <= 0;
+	else if (iosb_sel && !io_busy && !io_ack_r) begin
+		io_busy <= 1;
+		io_wait <= lfsr_io[12] ? {1'b0, lfsr_io[8:0]} + 10'd5 : {6'd0, lfsr_io[3:0]} + 10'd5;
+		lfsr_io <= {lfsr_io[30:0], lfsr_io[31] ^ lfsr_io[21] ^ lfsr_io[1] ^ lfsr_io[0]};
+	end
+	else if (io_busy) begin
+		if (io_wait == 0) begin io_busy <= 0; io_ack_r <= 1; io_beats <= io_beats + 1; end
+		else io_wait <= io_wait - 1'b1;
+	end
+	if (svc == S_IOSB) io_clocks <= io_clocks + 1;
+	if (svc == S_IOSB && dma_side && mem_ack) side_beats <= side_beats + 1;
+end
 
 wombat_bus32 bus32 (
 	.clk(clk), .nreset(nreset), .ce(ce),
@@ -260,6 +331,10 @@ sdram_model chip (
 
 // ---- the DMA master: write beats into $100000.., at random intervals ------
 reg dma_on = 0;
+reg [31:0] dshadow [0:1023];
+reg        dwritten [0:1023];
+integer    di;
+initial for (di = 0; di < 1024; di = di + 1) dwritten[di] = 0;
 integer dma_gap = 0;
 integer dma_beats = 0;
 reg [31:0] lfsr_d = 32'hC0FFEE11;
@@ -271,6 +346,8 @@ always @(posedge clk) begin
 		if (dma_ack) begin
 			dma_req   <= 0;
 			dma_beats <= dma_beats + 1;
+			dshadow[dma_addr[11:2]]  <= dma_wdata;
+			dwritten[dma_addr[11:2]] <= 1;
 			lfsr_d    <= {lfsr_d[30:0], lfsr_d[31] ^ lfsr_d[21] ^ lfsr_d[1] ^ lfsr_d[0]};
 			dma_gap   <= lfsr_d[8] ? lfsr_d[5:0] : lfsr_d[1:0];   // op lists: bursts and pauses
 		end
@@ -367,6 +444,14 @@ initial begin
 			xact(1, a + (lfsr[19:18] << 2), ~lfsr, q);
 			writes = writes + 1;
 		end
+		// a device access now and then: the FSM parks in S_IOSB
+		if (lfsr[29:28] == 0) begin
+			xact(lfsr[27], 32'h8000_0100, lfsr, q);
+			if (!lfsr[27] && q !== 32'h10DE_F00D) begin
+				errors = errors + 1;
+				if (errors <= 8) $display("  DEVICE read = %08x (round %0d)", q, r);
+			end
+		end
 		if (lfsr[23:22] == 0) idle(lfsr[26:24]);
 	end
 	idle(4);
@@ -383,6 +468,17 @@ initial begin
 		end
 	end
 
+	// ... and every DMA write, including the ones made beside a parked beat
+	for (i = 0; i < 1024; i = i + 1) if (dwritten[i]) begin
+		xact(0, 32'h0010_0000 + (i << 2), 0, q);
+		if (q !== dshadow[i]) begin
+			errors = errors + 1;
+			if (errors <= 24)
+				$display("  DMA   %08x = %08x, expected %08x", 32'h0010_0000 + (i << 2), q, dshadow[i]);
+		end
+	end
+	$display("tb_line_dma: %0d device beats parked the FSM for %0d clocks; %0d DMA beats ran beside them",
+	         io_beats, io_clocks, side_beats);
 	$display("tb_line_dma: line ack with FSM busy %0d, adapter request under a line ack %0d", ack_in_mem, under_ack);
 	$display("tb_line_dma: %0d reads, %0d stores, %0d line acks, %0d DMA beats, %0d errors",
 	         reads, writes, line_acks, dma_beats, errors);

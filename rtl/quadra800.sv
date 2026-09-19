@@ -284,7 +284,7 @@ wombat_cpu cpu (
 	.walker_berr(walker_berr),
 
 	.snoop_stb(snoop_stb),
-	.snoop_addr({svc_addr, 2'b00}),
+	.snoop_addr({5'd0, dma_beat_addr, 2'b00}),
 
 	.nresetout(),
 	.nmi_ack_toggle(),
@@ -514,6 +514,10 @@ wire        sonic_ack;
 wire [31:0] sonic_rdata;
 reg        svc_bus_direct;                    // aligned RAM miss bypassed bus32
 reg [31:2] svc_addr;
+// A DMA beat can also run BESIDE a parked I/O beat (S_IOSB, below), where
+// svc_addr belongs to the CPU's access: the snoop address is the beat's own.
+reg        dma_side;                          // a DMA beat is on the RAM port under S_IOSB
+reg [26:2] dma_beat_addr;
 
 wire        walker_pend = walker_req && walker_armed;
 reg         walker_armed;
@@ -597,6 +601,8 @@ always @(posedge clk) begin
 		svc_walker   <= 0;
 		svc_bus_direct <= 0;
 		svc_dma      <= 0;
+		dma_side     <= 0;
+		dma_beat_addr <= 0;
 		dma_ack      <= 0;
 		dma_rdata    <= 0;
 		dma_turn     <= 0;
@@ -654,6 +660,7 @@ always @(posedge clk) begin
 				svc_bus_direct <= 0;
 				dma_turn       <= 0;
 				svc_addr       <= {5'd0, dma_addr};
+				dma_beat_addr  <= dma_addr;
 				if ({3'd0, dma_addr} < ram_limit) begin
 					svc_dma    <= 1;
 					mem_req    <= 1;
@@ -745,7 +752,7 @@ always @(posedge clk) begin
 				dma_ack   <= 1;
 				dma_rdata <= mem_rdata;
 				// the 68040's bus snoop: a write by the other master drops the
-				// D-cache's copy of that line (svc_addr is still the beat's)
+				// D-cache's copy of that line (dma_beat_addr is the beat's)
 				snoop_stb <= mem_write && (SONIC_SNOOP != 0) && !dbg_sw[2];
 				svc_dma   <= 0;
 			end
@@ -764,26 +771,73 @@ always @(posedge clk) begin
 			svc_bus_direct <= 0;
 			svc <= S_IDLE;
 		end
-		S_IOSB: if (iosb_ack) begin
-			iosb_sel <= 0;
-			// iosb_fault rides with the ack that releases a pseudo-DMA beat the
-			// IOSB gave up on. Report it as a bus error rather than acking junk:
-			// the ROM's blind PDMA path does unrolled move.l with no polling and
-			// RELIES on a bus error (handler at $408D2606) to notice a failed
-			// transfer. Acking zeros would silently corrupt the buffer instead.
-			if (iosb_fault) begin
-				if (svc_walker) walker_berr <= 1;
-				else            cpu_berr    <= 1;
+		// A pseudo-DMA beat waits here, without a time limit, while the HPS
+		// fetches or accepts a disk sector (iosb.sv A_SDMA).  The HPS is also
+		// the SONIC model, and it is single-threaded: while it waits for a DMA
+		// op list it serves no disk request.  With the FSM parked, the list
+		// could not move either -- each side waited for the other until Main's
+		// 250 ms DMA timeout, which then let it post the next list over the one
+		// still in the engine (hardware 2026-09-19: six timeouts in a 1 MB FTP
+		// download at 36 KB/s, lost pings during every application launch).
+		// The RAM port is idle while an I/O beat is parked, so DMA beats run
+		// beside it; the CPU is stalled in its I/O access throughout, so no
+		// CPU-side shortcut can see the port busy.
+		S_IOSB: begin
+			if (dma_side) begin
+				if (mem_ack) begin
+					mem_req   <= 0;
+					dma_ack   <= 1;
+					dma_rdata <= mem_rdata;
+					snoop_stb <= mem_write && (SONIC_SNOOP != 0) && !dbg_sw[2];
+					dma_side  <= 0;
+				end
 			end
-			else if (svc_walker) begin
-				walker_ack  <= 1;
-				walker_data <= iosb_rdata;
+			else if ((SONIC != 0) && dma_req && !dma_ack && !iosb_ack) begin
+				dma_beat_addr <= dma_addr;
+				if ({3'd0, dma_addr} < ram_limit) begin
+					dma_side   <= 1;
+					mem_req    <= 1;
+					mem_write  <= dma_we;
+					mem_addr   <= {5'd0, dma_addr};
+					mem_be     <= dma_be;
+					mem_wdata  <= dma_wdata;
+					mem_memsel <= MSEL_RAM;
+				end
+				else begin
+					dma_ack   <= 1;          // above the installed RAM: nothing there
+					dma_rdata <= 32'd0;
+				end
 			end
-			else begin
-				b_ack   <= 1;
-				b_rdata <= iosb_rdata;
+			if (iosb_ack) begin
+				iosb_sel <= 0;
+				// iosb_fault rides with the ack that releases a pseudo-DMA beat the
+				// IOSB gave up on. Report it as a bus error rather than acking junk:
+				// the ROM's blind PDMA path does unrolled move.l with no polling and
+				// RELIES on a bus error (handler at $408D2606) to notice a failed
+				// transfer. Acking zeros would silently corrupt the buffer instead.
+				if (iosb_fault) begin
+					if (svc_walker) walker_berr <= 1;
+					else            cpu_berr    <= 1;
+				end
+				else if (svc_walker) begin
+					walker_ack  <= 1;
+					walker_data <= iosb_rdata;
+				end
+				else begin
+					b_ack   <= 1;
+					b_rdata <= iosb_rdata;
+				end
+				// a side beat still on the RAM port finishes as an ordinary DMA
+				// beat: S_MEM's svc_dma arm acknowledges it and pulses the snoop
+				if (dma_side && !mem_ack) begin
+					dma_side       <= 0;
+					svc_dma        <= 1;
+					svc_walker     <= 0;
+					svc_bus_direct <= 0;
+					svc            <= S_MEM;
+				end
+				else svc <= S_IDLE;
 			end
-			svc <= S_IDLE;
 		end
 		S_SONIC: if (sonic_ack) begin
 			sonic_sel <= 0;
