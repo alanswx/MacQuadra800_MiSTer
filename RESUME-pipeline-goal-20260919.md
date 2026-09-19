@@ -1288,7 +1288,7 @@ explicitly Don't Save, without reload. Do not duplicate hardware actions.
 
 ### Permute profiler and RTS scratch probe
 
-New scripts/cpu/profile_permute.py reproducible current1,519,901cycles,
+New scripts/cpu/profile_permute_occupancy.py reproducible current1,519,901cycles,
 array/guardsPASS; records source/programhashes. --program existing
 scratch/p4/pea_entry/program.hex --out scratch/permute_profile_20260919/reusable.
 MOVEMload/RTS/MOVEMstore/LINK/UNLK currentIRoccupancy675,350cycles44.4%;

@@ -255,7 +255,7 @@ variant remains rejected because it regressed Permute.
 
 ## Permute call/stack occupancy and RTS probe
 
-New `profile_permute.py --program PROGRAM_HEX --out DIR [--core CORE]`
+New `profile_permute_occupancy.py --program PROGRAM_HEX --out DIR [--core CORE]`
 profiles the existing checked kernel fixture, records program/source SHA256s,
 and reuses the tracked real CPU/cache/store-buffer bench. The exact reusable
 runner reproduces1,519,901cycles and all result/array/guard checks. Artifact
