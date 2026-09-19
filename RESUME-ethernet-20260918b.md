@@ -38,7 +38,7 @@ paths OFF**, bit 3 (`0x08`, status[11]) = DMA snoop OFF.
 | experiment | CFG bytes 0,1 | result |
 |---|---|---|
 | all fast paths on (builds 2-7) | `40 00` | hang/bomb within seconds of RX |
-| A: store buffer off + line off | `40 06` | **works**: 108/108 pings, alive, clean shutdown; a 1000-ping soak (4 x 250 x 1400 B) was started at 19:20, results in `scratch/eth/hw9/A2_soak_*.txt` |
+| A: store buffer off + line off | `40 06` | **works**: 108/108 pings, alive, clean shutdown; a 1000-ping soak (4 x 250 x 1400 B) was started at 19:20, results in `scratch/ethernet-handover/hw9/A2_soak_*.txt` |
 | B: store buffer off only | `40 02` | DHCP/ARP/6 pings fine, then **crashed** ~31 pings into a 1400-byte soak (PC wedged at `$517CAC`, the exception dispatcher) |
 | C: line off only | `40 04` | **not run yet** |
 
@@ -91,17 +91,17 @@ retained line and no second bus master.
   works, but restore `backup/QuadSquad8_20260918_clean_after_b9.hda` before
   any release gate (then redo the TCP/IP setting).
 - Core branch `add-ethernet`, head = the commit that adds this file. Builds:
-  `scratch/eth/build1..8/` (rbf + summaries); hardware evidence
-  `scratch/eth/hw1..hw9/`. Second Quartus host `dani@192.168.99.153`
+  `scratch/ethernet-handover/build1..8/` (rbf + summaries); hardware evidence
+  `scratch/ethernet-handover/hw1..hw9/`. Second Quartus host `dani@192.168.99.153`
   (`~/MacQuadra800_eth`, recipe in `RESUME-ethernet-20260918.md`); this PC's
   Quartus is free again and builds in ~20 min.
 - QEMU reference in WSL `~/qemu-work`: `qs8_eth.hda` (the box's image),
   `qemu_net.py` (scripted DHCP/ARP/ping LAN on the UDP socket NIC),
   `qemu_replay.py` (replays a hardware capture), traces `sonic_eth.log`.
-  Copies of the scripts are in `scratch/eth/`.
+  Copies of the scripts are in `scratch/ethernet-handover/`.
 - Instruments (all in build 8 + Main `b6b5cc17`): `/tmp/mac_eth_stats`
   (`q8 fpga`, `q8 reads`, `q8 pc` histogram, `q8 regs`), `/tmp/mac_eth_regtrace`,
-  `/tmp/mac_eth.pcap` (`python3 scratch/eth/pcapsum.py`), `/tmp/mac_eth_dumpreq`
+  `/tmp/mac_eth.pcap` (`python3 scratch/ethernet-handover/pcapsum.py`), `/tmp/mac_eth_dumpreq`
   -> `/tmp/mac_eth_dump.bin` (guest RAM through the DMA engine; works on a
   hung guest), `/tmp/mac_eth_dbg` (1 = drop DMA writes, 2 = refuse all RX),
   and on the MiSTer `devmem 0x1FF040D0 32` samples the CPU's PC.

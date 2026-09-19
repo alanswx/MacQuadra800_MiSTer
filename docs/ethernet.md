@@ -89,7 +89,7 @@ FPGA can see, lands in `/tmp` on the MiSTer while the core runs:
 |---|---|
 | `/tmp/mac_eth_stats` | counters; `q8 fpga` = the FPGA's live ISR/IMR/irq; `q8 reads` = how many register reads the guest has made and which register last (reads never reach the ARM); `q8 pc` = a histogram of the CPU's program counter over the last second (the front-end republishes PC+SR every poll round); `q8 regs` = all 64 model registers |
 | `/tmp/mac_eth_regtrace` | the last 512 register writes, microsecond stamps, raw and applied value |
-| `/tmp/mac_eth.pcap` | every frame sent and every frame the model delivered (first 8 MB); `scratch/eth/pcapsum.py` summarises it |
+| `/tmp/mac_eth.pcap` | every frame sent and every frame the model delivered (first 8 MB); `scratch/ethernet-handover/pcapsum.py` summarises it |
 | `/tmp/mac_eth_dumpreq` | write `hexaddr hexlen` into it: the guest RAM appears in `/tmp/mac_eth_dump.bin`, read through the DMA engine. Works on a hung guest: low memory (`Ticks` $16A, `CurApName` $910), the driver's rings (`UTDA:CTDA`, `URDA:CRDA`, `URRA:RSA` from `q8 regs`) |
 
 What they found on the first day (2026-09-18):

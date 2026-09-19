@@ -47,10 +47,10 @@ out of the repo. `origin/CPU-pipeline` still has it; removing it is the user's
   Cause: `iosb.sv`'s VIA2 any-slot flag followed edges of the OR of VBL and
   SONIC; with two sources the flag is cleared while the other is asserted and
   no slot interrupt (VBL included) is ever delivered again. Fixed `665a450`
-  (the flag is a level). Evidence in `scratch/eth/hw1/` (`hang_stats.txt`).
+  (the flag is a level). Evidence in `scratch/ethernet-handover/hw1/` (`hang_stats.txt`).
 - **Ethernet build 2** (`665a450`, seed 21, `.153`): meets timing everywhere
   (36,502 ALMs, clk_sys +0.323, HDMI +0.314, clk_ram +0.716, hold +0.220);
-  rbf `2ea4d529` in `scratch/eth/build2/`; hardware run in `scratch/eth/hw2/`.
+  rbf `2ea4d529` in `scratch/ethernet-handover/build2/`; hardware run in `scratch/ethernet-handover/hw2/`.
 - `sonic_mbx` by itself: 401.6 ALMs / 665 ALUTs / 0 RAM (build 1 fit report).
 - The MiSTer's eth0 is `ba:02:54:2d:d0:a3`, so the guest is
   `08:00:07:2d:d0:a3` (confirmed: Main held unicast frames for that address,
@@ -65,8 +65,8 @@ out of the repo. `origin/CPU-pipeline` still has it; removing it is the user's
 
 ## The first hardware day, in order (2026-09-18)
 
-Evidence for each step is under `scratch/eth/hw1` .. `hw7` (stats, register
-traces, captures, guest RAM dumps, screenshots) and `scratch/eth/build1` ..
+Evidence for each step is under `scratch/ethernet-handover/hw1` .. `hw7` (stats, register
+traces, captures, guest RAM dumps, screenshots) and `scratch/ethernet-handover/build1` ..
 
 1. **Build 1** froze the guest: `iosb.sv`'s VIA2 any-slot flag was an edge
    latch on the OR of VBL and SONIC. Fixed `665a450` (a level). Not seen since.

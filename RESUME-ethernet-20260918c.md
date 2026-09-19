@@ -15,9 +15,10 @@ commit the plan; it is in `.git/info/exclude`).
 
 ## 1. Where things stand
 
-**The Ethernet works on hardware, with two of the machine's CPU memory fast
-paths switched off.** DHCP in 6 ms, gratuitous ARP, ARP replies, **1000/1000
-pings of 1400 bytes, 0 lost, 3-10 ms** (`scratch/eth/hw9/A2_soak_1..4.txt`),
+**The Ethernet works on hardware, with the machine's retained-SDRAM-line fast
+paths switched off (proven with both fast paths off; one good run with only
+the line off).** DHCP in 6 ms, gratuitous ARP, ARP replies, **1000/1000
+pings of 1400 bytes, 0 lost, 3-10 ms** (`scratch/ethernet-handover/hw9/A2_soak_1..4.txt`),
 live desktop, clean shutdown. The user has since **transferred files over FTP**
 (server `192.168.99.5`) — it works but is slow, **about 44 KB/s** (section 4).
 Guest MAC `08:00:07:2d:d0:a3` (Apple OUI + the MiSTer's last three octets),
@@ -63,7 +64,7 @@ core halted and re-check after launch):
 | all fast paths on (builds 2-7) | `40 00` | hang/bomb within seconds of RX |
 | A: store buffer off + line off | `40 06` | **works**: 108/108, then 1000/1000 1400-byte pings, clean shutdown, FTP works |
 | B: store buffer off only | `40 02` | DHCP/ARP/6 pings fine, then **crashed** ~31 pings into a 1400-byte soak (PC wedged at `$517CAC`); run once |
-| C: line off only | `40 04` | **survives so far**: CFG `4004` verified at launch (19:29), 6/6 + 250/250 + 250/250 + 69/69 1400-byte pings, 0 lost (`scratch/eth/hw10/`), then the operator run was cancelled mid-round-3 at 19:40; the guest was still answering ping at 19:56 with the user's FTP traffic on top. Not a finished soak, and B was only run once |
+| C: line off only | `40 04` | **survives so far**: CFG `4004` verified at launch (19:29), 6/6 + 250/250 + 250/250 + 69/69 1400-byte pings, 0 lost (`scratch/ethernet-handover/hw10/`), then the operator run was cancelled mid-round-3 at 19:40; the guest was still answering ping at 19:56 with the user's FTP traffic on top. Not a finished soak, and B was only run once |
 
 Reading of the table: **C points at the retained-line fast paths and away from
 the store buffer.** Line ON fails (all-on in seconds, B in ~31 pings); line OFF
@@ -155,7 +156,7 @@ second bus master, which is exactly what is implicated.
 All from Git bash in the repo, `export MSYS_NO_PATHCONV=1; . scripts/local.env`
 first; ssh is `ssh -n -i "$MISTER_SSH_KEY" root@$MISTER_HOST '...'`.
 
-1. `bash scripts/grab.sh scratch/eth/hwNN/00.png` and **read the picture**. A
+1. `bash scripts/grab.sh scratch/ethernet-handover/hwNN/00.png` and **read the picture**. A
    live desktop: `bash scripts/mac_shutdown.sh` (exit 0 = "safe to switch off"
    seen; give the tool call 5 minutes, never let it be killed with the button
    down; `--release` frees a held button). A provably hung guest (bomb, frozen
@@ -163,9 +164,9 @@ first; ssh is `ssh -n -i "$MISTER_SSH_KEY" root@$MISTER_HOST '...'`.
 2. Patch the CFG, e.g. C: `printf '\x04' | dd of=/media/fat/config/MacQuadra800.CFG bs=1 seek=1 conv=notrunc; sync; xxd -l 8 ...`.
 3. `echo "load_core /media/fat/_Unstable/MacQuadra800.rbf" > /dev/MiSTer_cmd`
    (the rbf there must be md5 `edf32a3bd2ce6c71b39270d5c3f72f46` = build 8 =
-   `output_files/MacQuadra800.rbf` = `scratch/eth/build8/`). Re-check the CFG.
+   `output_files/MacQuadra800.rbf` = `scratch/ethernet-handover/build8/`). Re-check the CFG.
 4. The guest answers ping 60-100 s later. Soak from Windows:
-   `ping -n 250 -l 1400 192.168.99.109 > scratch/eth/hwNN/C_soak_1.txt`, four
+   `ping -n 250 -l 1400 192.168.99.109 > scratch/ethernet-handover/hwNN/C_soak_1.txt`, four
    rounds. B died ~31 pings in; all-on dies within seconds.
 5. On a death: grab; `for i in 1 2 3 4 5; do devmem 0x1FF040D0 32; sleep 0.2; done`
    (the CPU's PC); `cat /tmp/mac_eth_stats`; optionally dump guest RAM
@@ -177,10 +178,12 @@ first; ssh is `ssh -n -i "$MISTER_SSH_KEY" root@$MISTER_HOST '...'`.
 Instruments (all in build 8 + Main `b6b5cc17`): `/tmp/mac_eth_stats`
 (`q8 fpga` live ISR/IMR/irq, `q8 reads`, `q8 pc` PC histogram, `q8 regs`),
 `/tmp/mac_eth_regtrace` (last 512 register writes), `/tmp/mac_eth.pcap`
-(`python3 scratch/eth/pcapsum.py`), the dump request above, and
+(`python3 scratch/ethernet-handover/pcapsum.py`), the dump request above, and
 `/tmp/mac_eth_dbg` (1 = drop DMA writes, 2 = refuse all RX; re-read every
-second). Note `scratch/` is gitignored: builds `scratch/eth/build1..8/`,
-hardware evidence `scratch/eth/hw1..hw9/`, and copies of the QEMU scripts live
+second). **Everything Ethernet that is not in git is in one folder,
+`scratch/ethernet-handover/` (its `README.md` is the index; it was `scratch/eth/`
+until the hand-over), with nothing else in it.** Note `scratch/` is gitignored: builds `scratch/ethernet-handover/build1..8/`,
+hardware evidence `scratch/ethernet-handover/hw1..hw10/`, and copies of the QEMU scripts live
 only on this PC.
 
 ## 4. The 44 KB/s FTP observation (user, 2026-09-18 late; not investigated)
@@ -225,6 +228,8 @@ the same stall.
   Quartus 17.0.2 Lite in `~/intelFPGA_lite/17.0`, tree `~/MacQuadra800_eth`,
   recipe in `RESUME-ethernet-20260918.md`). This PC's Quartus builds in
   ~20 min when free.
+- Main binaries of the day, by md5, in `scratch/ethernet-handover/main/`
+  (`MiSTer_b6b5cc17` installed; `e2255642`, `bb1a08d3` the fallbacks).
 - QEMU reference in WSL `~/qemu-work`: `qs8_eth.hda` (the box's image),
   `qemu_net.py` (scripted DHCP/ARP/ping LAN on the UDP-socket NIC),
   `qemu_replay.py` (replays a hardware capture), trace `sonic_eth.log`.
