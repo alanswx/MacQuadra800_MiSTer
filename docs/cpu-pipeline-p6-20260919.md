@@ -80,3 +80,42 @@ Positive evidence in `scratch/p6_promoted_20260919/`:
 
 A/UX validation is explicitly deferred to Dani at the user's request. Mac boot,
 shutdown, CD/audio and hardware performance checks still apply to the candidate.
+
+## Targeted-entry follow-up
+
+The unrestricted P6 hardware trial regressed: five valid Mix runs have median
+0.963 versus P5's1.006, with no timer outliers. Towers improved but several other
+integer tests slowed down. See measurements section28; no release was made.
+
+`AP040_PIPELINE_MEMORY_ENTRY` now selects a narrower entry rule while retaining
+P6's instruction support inside an active stream. Start at brief indexed MOVE
+or PEA, leaving isolated cheap register instructions and LEA on legacy fast
+paths. A resident brief indexed MOVE must also bypass the legacy lookahead
+consumer to reach this admission point. Merely restricting S_DECODE entry left
+Towers with zero pipeline issues because lookahead had already consumed them.
+The extension must be resident and brief-format; existing queue flush and
+exception checks still qualify the original lookahead pop.
+
+ID admission may overlap the preceding registered RF write. Operands are read
+later in EX, using the existing architectural RF and pending-write bypass.
+The auxiliary-write exclusion remains. Both changes default off with the new
+switch, and no P7compare or P8call additions are included.
+
+Exact-kernel scratch measurements: Towers26,600,632cycles versus P5's27,509,911
+(-3.31%); Permute1,519,907, exactly matching P5. These do not prove hardware Mix.
+
+Reproduce the selected recipe with `--p6 --memory-entry` on pipeline_handoff.py
+and `CPU_GATE_PIPELINE_P6=1 CPU_GATE_PIPELINE_MEMORY_ENTRY=1` on the silicon gate,
+alongside the existing pipeline/load/store/PEA/XSTORE/LEA switches. The normal
+register-only reference intentionally has zero pipeline admissions, so also run
+the handoff's `--only-reference --force-decode` case to verify pipeline coverage.
+Run the exact-policy boundary and predecessor-write checks with:
+
+```bash
+python scripts/cpu/pipeline_p6_boundaries.py --memory-entry --out scratch/pipeline_entry
+python scripts/cpu/pipeline_entry_faults.py --out scratch/pipeline_entry
+```
+
+The latter executes ADDQ.L#4,A0 immediately before indexed MOVEA.W, MOVE.W to Dn
+or indexed store, then checks precise access-error state. Its monitor requires
+admission with rf_we high in every latency phase, not just matching final output.

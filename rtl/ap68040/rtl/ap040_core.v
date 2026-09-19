@@ -331,6 +331,11 @@ localparam PIPE_P6 = 1;
 `else
 localparam PIPE_P6 = 0;
 `endif
+`ifdef AP040_PIPELINE_MEMORY_ENTRY
+localparam PIPE_MEMORY_ENTRY = 1;
+`else
+localparam PIPE_MEMORY_ENTRY = 0;
+`endif
 wire pipe_load_req, pipe_load_write;
 wire [31:0] pipe_load_wdata;
 wire [4:0] pipe_load_ccr;
@@ -365,6 +370,8 @@ wire pipe_entry_ok = 1'b1;
 wire pipe_entry_ok = pipe_words == 2 && (ir & 16'hfff8) == 16'h4870;
 `elsif AP040_PIPELINE_SELECTIVE
 wire pipe_entry_ok = pipe_words == 2 || pipe_next_supported;
+`elsif AP040_PIPELINE_MEMORY_ENTRY
+wire pipe_entry_ok = pipe_words == 2 && (ir & 16'hf1f8) != 16'h41e8;
 `else
 wire pipe_entry_ok = 1'b1;
 `endif
@@ -382,7 +389,9 @@ wire pipe_rf_owner = pipe_owner || pipe_load_active || pipe_load_return;
 wire pipe_drain = pipe_owner && pipe_idle;
 // Memory completion still retires through S_EXPERIMENT_PIPE, but ID can fill
 // while it waits. Do not consume a queued word being invalidated by a store.
-wire pipe_input = (pipe_claim && !rf_we && !aux_we) ||
+// ID does not read operands on admission. With independent RF ports it can
+// overlap the preceding registered write; EX sees the committed/pending value.
+wire pipe_input = (pipe_claim && (!rf_we || PIPE_MEMORY_ENTRY) && !aux_we) ||
     (pipe_rf_owner && epf_ready_pc && pipe_supported &&
      !(pipe_load_active && d_ack && mem_write &&
        (mem_addr_q + 32'd3 >= epf_next) && (mem_addr_q < epf_ftail)) &&
@@ -9178,6 +9187,19 @@ always @(posedge clk) begin
         // Diagnostic mode exercises every supported opcode in the pipeline.
         rd_queue_pop = 0;
 `endif
+`endif
+`ifdef AP040_EXPERIMENTAL_PIPELINE
+        // Let a resident brief indexed MOVE reach the pipeline admission
+        // point instead of being consumed by the legacy lookahead decoder.
+        if (PIPE_MEMORY_ENTRY && PIPE_P6 && rd_queue_pop && epf_count >= 2 &&
+            !epf_data[epf_head + 3'd1][8] &&
+            epf_data[epf_head][15:14] == 0 && epf_data[epf_head][13:12] != 0 &&
+            ((epf_data[epf_head][5:3] == 6 &&
+              (epf_data[epf_head][8:6] == 0 || epf_data[epf_head][8:6] == 1) &&
+              !(epf_data[epf_head][13:12] == 1 && epf_data[epf_head][8:6] == 1)) ||
+             (epf_data[epf_head][8:6] == 6 && epf_data[epf_head][5:4] == 0 &&
+              !(epf_data[epf_head][13:12] == 1 && epf_data[epf_head][3]))))
+            rd_queue_pop = 0;
 `endif
 		// go_pc_now and exc_now run after the lookahead arm (below): the
 		// arm's forward taken Bcc raises pgo, and go_pc's own address-error

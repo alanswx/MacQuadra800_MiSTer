@@ -1049,3 +1049,19 @@ and P8calls remain separate scratch candidates; do not mix them into the next
 fit merely because their kernel checks passed. P6hardware is a reproducible
 regression and must not be accepted as the improvement. No Quartus flow is
 currently active; no next bitstream has been built. Guest is cleanly halted.
+
+### Promoted targeted-entry recipe qualified; push authorization updated
+
+User explicitly authorized committing AND pushing progress to the current
+branch on 2026-09-19, superseding the earlier no-push instruction.
+
+AP040_PIPELINE_MEMORY_ENTRY now gates targeted entry and predecessor RF-write
+overlap; QSF enables it with P6. P7/P8 remain scratch-only. Exact promoted
+recipe passes the full integration gate, all six precise-boundary cases,
+three predecessor-write fault cases, forced reference, default-off reference,
+and silicon first-100 comparison (1,900 field groups, zero differences).
+Logs: scratch/p6_entry_promoted*.log; corpus artifacts:
+/tmp/cpu-corpus100-gate.CbO23a. This is simulation qualification only.
+Next fit archive: scratch/p6entry_fit_20260919, unit
+q800-p6entry-fit-20260919.service. Freeze RTL/project files during that flow.
+Hardware must establish whether the entry change recovers P6's Mix regression.

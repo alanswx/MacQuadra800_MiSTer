@@ -14,6 +14,7 @@ def main():
     parser.add_argument("--only-irq", action="store_true")
     parser.add_argument("--force-decode", action="store_true", help="disable sequencer lookahead for full pipeline coverage")
     parser.add_argument("--extended", action="store_true")
+    parser.add_argument("--memory-entry", action="store_true", help="enter at indexed memory/PEA, including resident lookahead")
     parser.add_argument("--p6", action="store_true", help="enable shifts, d16 LEA and brief indexed MOVE")
     parser.add_argument("--loads", action="store_true", help="enable head-ordered pipeline loads")
     parser.add_argument("--pea-entry-only", action="store_true", help="enter pipeline only at resident PEA")
@@ -26,6 +27,8 @@ def main():
     args = parser.parse_args()
     if args.pea_entry_only and not args.pea:
         parser.error("--pea-entry-only requires --pea")
+    if args.memory_entry and (not args.p6 or args.pea_entry_only or args.selective):
+        parser.error("--memory-entry requires --p6 and excludes other entry policies")
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
     reference = out / ("prototype_extended" if args.extended else "prototype")
@@ -39,6 +42,8 @@ def main():
               EXP / "handoff_monitor.sv", *(RTL / (u + ".v") for u in units)]
     common = ["iverilog", "-g2012", "-DAP040_EXPERIMENTAL_PIPELINE", "-I", RTL,
               "-s", "tb_ap040_program", "-s", "handoff_monitor"]
+    if args.memory_entry:
+        common.append("-DAP040_PIPELINE_MEMORY_ENTRY")
     if args.p6:
         common.append("-DAP040_EXPERIMENTAL_PIPELINE_P6")
     if args.xstore:
@@ -65,7 +70,7 @@ def main():
                    f"+trace={out / 'handoff.trace'}", f"+count={len(oracle)}", f"+registers={16 if args.extended else 8}"], out / "trace.log")
         compare(out / "handoff.trace", oracle)
         match = re.search(r"HANDOFF entries=(\d+) commits=(\d+) paused=(\d+) cancelled=(\d+)", log)
-        assert "ALL TESTS PASSED" in log and match and (args.pea_entry_only or int(match[1]) > 0) and int(match[1]) == int(match[2]), log[-2000:]
+        assert "ALL TESTS PASSED" in log and match and (args.pea_entry_only or args.memory_entry or int(match[1]) > 0) and int(match[1]) == int(match[2]), log[-2000:]
         if args.force_decode:
             assert int(match[1]) == len(oracle), log[-2000:]
         print(f"PASS {len(oracle)} shared-state snapshots; {match[0]}", flush=True)
@@ -94,9 +99,9 @@ def main():
             log = run(["vvp", program, f"+prog={out / (name + '.hex')}"], out / f"{name}.log")
             assert "ALL TESTS PASSED" in log and "FAIL:" not in log, f"{name}: {log[-2000:]}"
             match = re.search(r"HANDOFF entries=(\d+) commits=(\d+) paused=(\d+) cancelled=(\d+)", log)
-            assert match and (args.pea_entry_only or int(match[1]) > 0) and int(match[1]) == int(match[2]) + int(match[4]), log[-1000:]
+            assert match and (args.pea_entry_only or args.memory_entry or int(match[1]) > 0) and int(match[1]) == int(match[2]) + int(match[4]), log[-1000:]
             print(f"PASS {name}: {match[0]}", flush=True)
-    run([*common, *(["-DAP040_PIPELINE_FORCE_DECODE"] if args.pea_entry_only else []), "-s", "irq_overlap_monitor", "-o", out / "irq_overlap.vvp",
+    run([*common, *(["-DAP040_PIPELINE_FORCE_DECODE"] if (args.pea_entry_only or args.memory_entry) else []), "-s", "irq_overlap_monitor", "-o", out / "irq_overlap.vvp",
          EXP / "irq_overlap_monitor.sv", *source], out / "compile_irq_overlap.log")
     run([args.vasm, "-Fbin", "-m68040", "-no-opt", "-o", out / "irq_overlap.bin",
          EXP / "irq_overlap.s"], out / "irq_overlap.asm.log")
