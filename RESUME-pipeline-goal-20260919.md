@@ -156,3 +156,15 @@ MMU/cache/store-buffer wiring with controlled RAM latency (not real SDRAM).
 Results and the rejected ~1% data-line-buffer experiment are recorded in the
 pipeline design document. Next hypothesis: cross-line stack-store cache
 invalidations. The retained-data-line prototype is archived in scratch only.
+
+
+Next hardware candidate: `AP040_EXPERIMENTAL_XSTORE`, selected in the QSF with
+register pipeline still disabled. It merges already-qualified posted stores
+across both cache lines instead of invalidating both sets. The 26 existing CPU
+checks, new 100-case cache coherence/error bench and silicon first-100 corpus
+pass. New bench is wired into run_tests.sh (now 27 checks). Exact Permute at
+controlled RAM latency 3 improves 2,157,673 -> 1,588,970 cycles; with register
+pipeline also enabled it is slower (1,680,485), so leave the pipeline off.
+Details and source-identity logs are in docs/CPU_PIPELINE_REWRITE_20260919.md.
+Full-machine Quartus build is the next gate; once running, freeze all RTL/QSF/
+QIP/SDC until it finishes and archive both cross-domain timing reports.

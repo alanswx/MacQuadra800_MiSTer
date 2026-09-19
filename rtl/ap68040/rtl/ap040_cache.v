@@ -264,7 +264,21 @@ localparam C_TAGW  = 3'd5;
 localparam C_PASS  = 3'd6;
 localparam C_SWEEP = 3'd7;   // reset / CINV: walk the rows clearing them
 
-reg   [2:0] cst;
+`ifdef AP040_EXPERIMENTAL_XSTORE
+localparam C_XSTORE_LOOK = 4'd8, C_XSTORE_WRITE = 4'd9;
+reg [3:0] cst;
+reg cross_store, cross_fault, cross_second_lost;
+wire cross_lookup = cst == C_XSTORE_LOOK;
+wire cross_second = cst == C_XSTORE_WRITE;
+// Only host-qualified non-faulting posted memory uses delayed hit merges.
+// Uncacheable and potentially faulting writes retain both-set invalidation.
+wire cross_accept = c_write && !c_instr && de && !c_nocache &&
+                    write_cross_line && c_post_ok;
+`else
+reg [2:0] cst;
+wire cross_store = 1'b0, cross_fault = 1'b0, cross_second_lost = 1'b0;
+wire cross_lookup = 1'b0, cross_second = 1'b0, cross_accept = 1'b0;
+`endif
 reg   [ROWIW-1:0] sweep_cnt;
 reg         sweep_all;   // reset sweep clears both banks
 reg         winv_pend;   // a store still owes its second-line invalidate
@@ -486,7 +500,7 @@ wire store_update_ok = c_write && !c_instr && de && !c_nocache && store_lane;
 // a matching line (MC68040UM 4.3.1.1: write-through stores update matching
 // lines) instead of invalidating its whole set.
 wire store_update2   = c_write && !c_instr && de && !c_nocache && span2;
-wire store_any_update = store_update_ok || store_update2;
+wire store_any_update = store_update_ok || store_update2 || cross_accept;
 
 // Set when a transfer this cache issued took a bus error; cleared when
 // the core withdraws the faulted request.  Without it the level-held
@@ -545,7 +559,7 @@ assign c_ack   = (pass_active && !post_active) ? m_ack : (ack_r | fast_hit | fas
 // cycle, and a pulse lost to that refusal cost explicit fetches for the
 // rest of the line (Sieve, 2026-09-14).  The core's accept is idempotent.
 assign c_line_stb  = iline_valid && !iline_pending;
-assign c_busy      = fill_active || (cst == C_TAGW) || post_active;
+assign c_busy      = fill_active || (cst == C_TAGW) || post_active || cross_lookup || cross_second;
 assign c_posting   = post_active;
 // A spanning store merges from its line read, which completes one cycle
 // after admission; a capture-cycle acknowledge would arrive first and
@@ -568,7 +582,7 @@ assign rd_accept = (cst == C_IDLE) && !(cinv_req && !cinv_done) &&
 // alike) while the first lookup's hit is being decided
 wire xlook_read = (cst == C_LOOK) && r_xline && !xlook && look_hit &&
                   !look_snooped && !snoop_look_row && !inv_wren;
-assign tag_ridx  = (fill_active || (cst == C_TAGW) || post_active) ? r_row :
+assign tag_ridx  = (fill_active || (cst == C_TAGW) || post_active || cross_lookup || cross_second) ? r_row :
                    xlook_read ? {1'b0, r_setB} : x_row;
 wire [4*TAGW-1:0] tags_next = (r_way == 2'd0) ? {tag_q[4*TAGW-1:TAGW], r_tag} :
                         (r_way == 2'd1) ? {tag_q[4*TAGW-1:2*TAGW], r_tag, tag_q[TAGW-1:0]} :
@@ -773,11 +787,12 @@ wire [ROWIW-1:0] line_read_row = iline_idle_read ? {1'b1, c_addr[SETW+3:4]} : r_
 wire [1:0] line_read_way = iline_tagw_read ? r_way : hit_way;
 
 assign cd_rd_en  = (cst == C_IDLE) || rd_accept || store_lookup_accept || iline_read ||
-                   xlook_read;
+                   xlook_read || cross_lookup;
 // word-wise: array k at way (k - w); line-wise: every array at the hit way;
 // the crossing read's second lookup: word 0 of the next row
-wire  [1:0] rd_w = xlook_read ? 2'd0 : x_w;
-wire  [SETW:0] rd_row = xlook_read ? {1'b0, r_setB} : x_row;
+wire  [1:0] rd_w = (xlook_read || cross_lookup || cross_second) ? 2'd0 : x_w;
+wire  [SETW:0] rd_row = (cross_lookup || cross_second) ? r_row :
+                        xlook_read ? {1'b0, r_setB} : x_row;
 assign cd_ridx0  = iline_read ? {line_read_row, line_read_way}
                               : {rd_row, 2'd0 - rd_w};
 assign cd_ridx1  = iline_read ? {line_read_row, line_read_way}
@@ -794,8 +809,10 @@ wire [31:0] sp_w0 = (sp_a0 == 2'd0) ? data_q0 : (sp_a0 == 2'd1) ? data_q1 :
                     (sp_a0 == 2'd2) ? data_q2 : data_q3;
 wire [31:0] sp_w1 = (sp_a1 == 2'd0) ? data_q0 : (sp_a1 == 2'd1) ? data_q1 :
                     (sp_a1 == 2'd2) ? data_q2 : data_q3;
-wire store_hit_write = (cst == C_PASS) && pass_store_chk && m_ack && look_hit &&
-                       (!r_span2 || sline_ready);
+wire store_hit_write = look_hit &&
+                       (((cst == C_PASS) && pass_store_chk && m_ack && (!cross_store || !m_err) &&
+                         (!r_span2 || sline_ready)) ||
+                        (cross_second && !cross_second_lost));
 wire store_pair_write = store_hit_write && r_span2;
 wire fill_beat_write = ((cst == C_FILL) && r_issued && m_ack) || fill_line_write;
 wire  [1:0] wr_way = store_hit_write ? hit_way : r_way;
@@ -809,10 +826,28 @@ assign cd_wdat1  = store_pair_write ? (wr_arr1 == 2'd1 ? pair_new[31:0] : pair_n
 assign cd_wdat2  = store_pair_write ? (wr_arr1 == 2'd2 ? pair_new[31:0] : pair_new[63:32]) : cd_wdat;
 assign cd_wdat3  = store_pair_write ? (wr_arr1 == 2'd3 ? pair_new[31:0] : pair_new[63:32]) : cd_wdat;
 assign cd_widx   = {r_bank, r_row[SETW-1:0], wr_way};
-assign cd_wdat   = store_hit_write ? lw_merge(data_hit, r_wdata, r_size, r_off) :
+wire [63:0] cross_first_merge = span_merge({data_hit,32'd0}, r_wdata, r_size, r_off);
+wire [63:0] cross_last_merge = span_merge({32'd0,data_hit}, r_wdata, r_size, r_off);
+assign cd_wdat   = store_hit_write ? (cross_store ?
+                      (cross_second ? cross_last_merge[31:0] : cross_first_merge[63:32]) :
+                      lw_merge(data_hit, r_wdata, r_size, r_off)) :
 	                  (fill_line_write ? fill_line_word : m_rdata);
 
 
+`ifdef AP040_EXPERIMENTAL_XSTORE
+// Port-B invalidations are free-running even when CE is low. Remember a
+// second-row invalidation through the lookup so undefined read-during-write
+// tag data cannot select a live cache way for the delayed merge.
+wire [SETW-1:0] cross_row_b = (cst == C_IDLE) ? a_set + 1'b1 : r_setB;
+always @(posedge clk) begin
+    if (!nreset) cross_second_lost <= 0;
+    else begin
+        if (ce && cst == C_IDLE && cross_accept) cross_second_lost <= 0;
+        if ((cross_store || (cst == C_IDLE && cross_accept)) &&
+            inv_wren && inv_idx == {1'b0,cross_row_b}) cross_second_lost <= 1;
+    end
+end
+`endif
 
 always @(posedge clk) begin
 	if (!nreset) begin
@@ -840,6 +875,9 @@ always @(posedge clk) begin
 		iline_pending <= 0; iline_valid <= 0; iline_way <= 0;
 		iline_tag <= 0; iline_data <= 0; iline_stb <= 0; iline_stb_pend <= 0;
 		ack_r <= 0; rdata_r <= 0;
+`ifdef AP040_EXPERIMENTAL_XSTORE
+        cross_store <= 0; cross_fault <= 0;
+`endif
 	end
 	else if (ce) begin
 		ack_r <= 0;
@@ -972,6 +1010,11 @@ always @(posedge clk) begin
 							// when memory acknowledges it in C_PASS.  A fault can
 							// therefore never leave uncommitted data in the cache.
 							pass_store_chk <= store_any_update;
+`ifdef AP040_EXPERIMENTAL_XSTORE
+                            cross_store <= cross_accept;
+                            r_setB <= a_set + 1'b1;
+                            r_tagB <= (&a_set) ? a_tag + 1'b1 : a_tag;
+`endif
 							r_span2 <= store_update2;
 							sline_ready <= 0;
 							// A posted store is acknowledged now and drained
@@ -1068,15 +1111,36 @@ always @(posedge clk) begin
 					post_active <= 0;
 					cst <= (winv_pend && (s_stb || store_inv_lost))
 					       ? C_WINV : C_IDLE;
+`ifdef AP040_EXPERIMENTAL_XSTORE
+                    if (cross_store) begin
+                        cross_store <= 0; cross_fault <= 1;
+                        winv_pend <= 1; winv_set2 <= r_setB;
+                        cst <= C_FERR;
+                    end
+`endif
 				end
 				else if (m_ack) begin
 					pass_store_chk <= 0;
 					post_active <= 0;
 					cst <= (winv_pend && (s_stb || store_inv_lost))
 					       ? C_WINV : C_IDLE;
-				end
+`ifdef AP040_EXPERIMENTAL_XSTORE
+                    if (cross_store) begin
+                        r_row <= {1'b0,r_setB}; r_tag <= r_tagB;
+                        r_addr <= {r_addr[31:4]+28'd1,4'd0}; r_beat <= 0;
+                        cst <= C_XSTORE_LOOK;
+                    end
+`endif
+                end
 			end
 
+`ifdef AP040_EXPERIMENTAL_XSTORE
+            C_XSTORE_LOOK: cst <= C_XSTORE_WRITE;
+            C_XSTORE_WRITE: begin
+                cross_store <= 0;
+                cst <= C_IDLE;
+            end
+`endif
 			C_FERR: begin
 				// The core withdraws the faulting request while this
 				// state runs, and only C_IDLE used to watch for that.
@@ -1085,7 +1149,12 @@ always @(posedge clk) begin
 				if (!c_req) err_hold <= 0;
 				// a free-running snoop owns port B when it fires; retry
 				// until this row's invalidate is the one that lands
-				if (!snoop_wr) cst <= C_IDLE;
+				if (!snoop_wr) begin
+                    cst <= cross_fault ? C_WINV : C_IDLE;
+`ifdef AP040_EXPERIMENTAL_XSTORE
+                    cross_fault <= 0;
+`endif
+                end
 			end
 
 			C_WINV: begin

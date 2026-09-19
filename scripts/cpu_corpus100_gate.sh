@@ -31,6 +31,9 @@ for unit in ap040_tg68k_compat ap040_core ap040_bus16_adapter ap040_bus_timeout 
     sources+=("$rtl/$unit.v")
 done
 extra_flags=()
+if [[ ${CPU_GATE_XSTORE:-0} == 1 ]]; then
+    extra_flags+=(-DAP040_EXPERIMENTAL_XSTORE)
+fi
 if [[ ${CPU_GATE_PIPELINE:-0} == 1 ]]; then
     pipeline="$rtl/../experimental/ap040_pipeline_integer.sv"
     [[ -r "$pipeline" ]] || { echo "Missing experimental pipeline: $pipeline" >&2; exit 2; }

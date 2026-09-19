@@ -493,3 +493,40 @@ not retained in RTL or selected for fitting. Patch and source are preserved in
 regression gate. The stronger next hypothesis is cross-line stack stores:
 those currently invalidate both data-cache sets, potentially forcing later
 recursive stack loads to refill. Investigate before implementing more logic.
+
+
+## Posted cross-line store candidate
+
+`AP040_EXPERIMENTAL_XSTORE` enables a bounded cache change: a cacheable store
+that crosses a 16-byte line and is already qualified for non-faulting posting
+updates each resident half after downstream acknowledgement. The first merge
+uses the existing store lookup; two additional states read and merge the second
+row. Different hit ways and set/tag wrap are handled independently. Other
+writes retain the original invalidation path. The cache remains busy to the
+MMU walker until the delayed merge finishes. No speculative memory access or
+additional architectural write is introduced, and the register pipeline stays
+disabled in the selected hardware configuration.
+
+Free-running invalidations of the second row are remembered across CE pauses;
+no invalidated row is revalidated. A defensive unexpected posted-write error
+invalidates both affected rows, including the partial physical-write case. This
+does not claim architectural rollback for a store already promised non-faulting.
+
+All 26 existing CPU checks pass with the feature compiled, including the cache
+snoop/fill/error suite. The new byte-addressed cache bench passes **100 cases**:
+all crossing sizes/offsets, posted and ordinary writes, both/one/neither line
+resident, different hit ways, preservation of unrelated ways, set/tag wrap,
+snoop timing sweeps, CE-frozen snoops, and partial physical-write error recovery.
+Disabling the second merge is detected by the independent byte comparisons.
+The bench is added to the standard suite (now 27 checks). First-100 silicon
+corpus: 1,900 matching field groups, zero real differences; artifacts in
+`scratch/xstore_gate_20260919/`, corpus `/tmp/cpu-corpus100-gate.1r6wG2`.
+
+Exact Permute cycles at 0 / 3 / 8 extra RAM wait cycles become **1,538,989 /
+1,588,970 / 1,927,971**, versus **1,799,168 / 2,157,673 / 3,092,466**. At latency
+3 this is a 26.36% cycle reduction. Recursion count, array and guards pass in
+every run. Artifacts: `scratch/permute_xstore_20260919/`; final-source reproduction
+at latency 3 is `scratch/permute_xstore_final_20260919/`.
+Combining it with the experimental register pipeline takes **1,680,485** cycles,
+so the hardware candidate enables only XSTORE. These are controlled-memory
+kernel results, not a predicted Speedometer Mix. Quartus/hardware gates follow.

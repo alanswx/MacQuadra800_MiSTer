@@ -20,6 +20,7 @@ def main():
     parser.add_argument("resource", type=Path)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--pipeline", action="store_true")
+    parser.add_argument("--xstore", action="store_true")
     parser.add_argument("--latencies", default="0,3,8")
     parser.add_argument("--verilator", default="/home/alans/verilator5/bin/verilator")
     parser.add_argument("--vasm", default="/home/alans/mister/MacQuadra800_fixtures/wombat-vasm/vasmm68k_mot")
@@ -54,13 +55,15 @@ def main():
     sources = [ROOT / "verilator/tb_cpu_permute.sv", ROOT / "rtl/wombat_cpu.sv",
                ROOT / "rtl/wombat_store_buffer.sv", *(rtl / (u + ".v") for u in units)]
     flags = []
+    if args.xstore:
+        flags.append("-DAP040_EXPERIMENTAL_XSTORE")
     if args.pipeline:
         flags.append("-DAP040_EXPERIMENTAL_PIPELINE")
         sources.append(ROOT / "rtl/ap68040/experimental/ap040_pipeline_integer.sv")
     identity = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sources}
     identity.update(resource_sha256=RESOURCE_SHA, kernel_sha256=KERNEL_SHA,
                     program_sha256=hashlib.sha256(program).hexdigest(),
-                    experimental_pipeline=args.pipeline,
+                    experimental_pipeline=args.pipeline, experimental_xstore=args.xstore,
                     memory_model="controlled latency, no SDRAM or retained platform line")
     (out / "identity.json").write_text(json.dumps(identity, indent=2) + "\n")
     run([args.verilator, "--binary", "--timing", "-Wno-fatal", "-Wno-BLKLOOPINIT",

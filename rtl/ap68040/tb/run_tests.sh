@@ -41,6 +41,9 @@ iverilog -g2012 -I "$RTL" -o "$WORK/tb_timeout.vvp"   tb_ap040_bus_timeout.v $RT
 iverilog -g2012 -I "$RTL" -s tb_ap040_cache_snoop -o "$WORK/tb_snoop.vvp" \
 	tb_ap040_cache_snoop.v $RTL/ap040_cache.v $RTL/primitives/dpram.v
 
+iverilog -g2012 -DAP040_EXPERIMENTAL_XSTORE -I "$RTL" -s tb_ap040_cache_xstore -o "$WORK/tb_xstore.vvp" \
+	tb_ap040_cache_xstore.sv $RTL/ap040_cache.v $RTL/primitives/dpram.v
+
 echo "== running =="
 fail=0
 run() {
@@ -75,6 +78,7 @@ run walker_cdc   "$WORK/tb_walker.vvp"
 run bus16_gap    "$WORK/tb_bus16.vvp"
 run bus_timeout  "$WORK/tb_timeout.vvp"
 run cache_snoop  "$WORK/tb_snoop.vvp"
+run cache_xstore "$WORK/tb_xstore.vvp"
 for t in integer exceptions mmu bitfield_mmu bitfield_cache moves_fc movem_restart atcprobe fpu_frames fpu_resume cache fpu branch_early loops_irq refill_load; do
 	run "$t" "$WORK/tb_prog.vvp" "+prog=$WORK/t_$t.hex"
 done
