@@ -1367,3 +1367,14 @@ Hardware operator continues P7handoff five-run trial; root does not control
 hardware concurrently. Current completed five-run best remains 1.013.
 Scratch P10 final MOVEM-store retirement prototype is under investigation;
 initial Permute result unchanged at 1,504,787 cycles, so not promoted.
+
+### MOVEM profiling follow-up
+
+P10 full integration terminal PASS (gate.log); no speedup, not promoted.
+Its 8,660 removed MOVEM-loop cycles become 8,660 extra S_MRD cycles exactly.
+Current-core operand profile: scratch/p10_memory_profile_20260919, session
+19347; result PASS 1,504,787. P11 corrected predecrement MOVEM hint also
+PASS same cycles; not promoted. Detailed categories in CPU compare doc.
+Next investigate spanning stack-read cache lookup costs; cache ALREADY
+supports within-line and cross-line spans, so do not add duplicate logic.
+Fit user-service still active MainPID1445135; input freeze remains in force.

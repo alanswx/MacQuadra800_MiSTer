@@ -350,3 +350,28 @@ ALU comparisons pass. The corrected core already passes integer (including
 CAS/CAS2), exceptions, MMU and bitfield-MMU integration programs; the rest
 of the full integration suite continues during build preparation. No
 instruction clock or timer configuration changed.
+
+### MOVEM follow-up profiling: no gain from final-store retirement
+
+On the current combined core, the Permute kernel passes at 1,504,787 cycles.
+Scratch `p10_movem_20260919` retires an ordinary final MOVEM store at its
+acknowledgement. It exercises 8,660 eligible acknowledgements, but saves no
+cycles: S_MOVEM_LOOP falls from 69,280 to 60,620 while S_MRD grows from
+406,083 to 414,743. The full integration regression passes. Do not promote
+this change on correctness alone; the measured performance is unchanged.
+
+The independent current-core operand profile in
+`scratch/p10_memory_profile_20260919/permute/both/run.log` separates read
+cycles into waiting for a prefetch (17,843), request setup (52,514), issued
+request awaiting acknowledgement (205,957), and acknowledgement (129,769).
+Store categories respectively count 83,770 / 84,948 / 23,220 / 129,762.
+These are state occupancy, not a hardware score. Leading issued-read waits
+include MOVEM load (53,457), opcode 362e (45,431), UNLK (32,905), and RTS
+(32,903). The cache already handles both within-line and cross-line spanning
+reads; only the aligned/single-longword case supports the fast hint response.
+Investigate spanning-read lookup costs before proposing redundant storage.
+
+Scratch `p11_movemhint_20260919` corrects the predecrement MOVEM hint from
+mm_addr to the actual decremented store address. Permute still passes at
+1,504,787 cycles. This is also not promoted; a matching hint by itself does
+not establish a performance benefit.
