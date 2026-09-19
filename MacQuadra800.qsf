@@ -305,6 +305,10 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # HDMI -0.091 ns (shadowmask->OSD), second path -0.008 (scaler); experimental trial.
 # Crossings sys->ram +1.016 / ram->sys +0.532 ns. Both added RF banks remain MLAB.
 # RBF SHA256 4449b3c51a3e991515afe0440ce2da5aeab2d6175fbcda210f344d8841f037b1.
+# 2026-09-19 P6 indexed MOVE/shifts/LEA d83e238, seed21:39,631ALMs95%,491RAM,43DSP.
+# All timing met: CPU +0.252 ns, HDMI +0.089, SDRAM +0.741, hold +0.241.
+# Crossings sys->ram +0.741 / ram->sys +0.914 ns. RF bankE512bitMLAB; cache RAM preserved.
+# RBF SHA256 67a88e021a00722fed025cb261eb766ef3cb3f22c9c6200d77cb529fba935af0.
 set_global_assignment -name SEED 21
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #

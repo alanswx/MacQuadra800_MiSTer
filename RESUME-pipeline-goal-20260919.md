@@ -928,3 +928,47 @@ Update: broad P7 full_gate session67367 is now terminal exit0. All remaining
 PEA/fault/trace and four IRQ/replay checks passed, ending with real-core pipeline
 ownership PASS. Exact compare-only integration and new-operation-specific
 boundary tests remain pending as described above.
+
+
+### P6 fit TERMINAL; hardware trial assigned
+
+P6 d83e238 full fit and post-fit extraction all completed successfully:
+- Unit q800-p6-fit-20260919.service is inactive/MainPID0, build.exit0,
+  source_check.exit0, cross.exit0. Full compile ended17:00:33EDT.
+- RBF `scratch/p6_fit_20260919/MacQuadra800_p6_d83e238.rbf`,4,510,612bytes,
+  SHA256 `67a88e021a00722fed025cb261eb766ef3cb3f22c9c6200d77cb529fba935af0`,
+  independently rehashed.39,631ALMs95%,26,399regs,491RAM,43DSP.
+- All clocks meet: CPU+.252ns,HDMI+.089,SDRAM+.741,hold+.241;
+  crossingssys→ram+.741,ram→sys+.914. All RFbanks512bitMLAB, data-cache banks
+  remain block RAM (7blocks each),tag M10K.
+- Extra CPU/HDMI full paths extracted in same directory; TimeQuest finished
+  17:02:14EDT; no Quartus process remained. Source freeze has ended.
+- mister_operator is running the P6 trial: unique unstable RBF, same33MHz/32MB
+  CFG40000000, Main and disposable disk, at least5valid Mix trials plus boot
+  and clean halt. Evidence will be `scratch/hardware_p6_20260919/`. CD transport
+  requested if practical without restarting Main/remote; ear check user-only.
+  A/UX remains explicitly deferred. No new hardware score yet at this update.
+
+Exact P7 compare-only qualification is now terminal/pass:
+- Independent memory oracle13,166retirements/5,120requests across8schedules;
+  ALU/TST63,576retirements×6schedules;2compare mutation controls caught.
+- IndexedCMP/TSTextension-fault,trace,IRQ cases all6pass. Expected CCR2710/
+  2718equivalents checked;D3 and memory unchanged,3launches/3IRQkills.
+- Full gate14legacy suites and shared14720snapshots plusmemory/PEA/4IRQ pass.
+- Silicon first100:1900matching groups,0diffs,`corpus100.log`, artifacts
+  `/tmp/cpu-corpus100-gate.lcZ9hs`.
+- Still scratch-only. New functions currently unconditionally enabled in
+  scratch; add clean opt-in switch and reproducible runners before promotion.
+
+New P8 scratch ordered JSRd16(PC)+early-target-prefetch experiment:
+`scratch/p8_call_20260919/`, generate.py uses assertions for every insertion.
+Builds on P7compare; Towers25,905,779 (vs26,004,071), Permute1,523,475
+(vs1,527,183). Kernel results/guards pass, but gains only0.378%/0.243%.
+Not independently qualified: precise call faults/odd-target/T0/T1/IRQ, stack
+write ordering and first100/full integration remain due. Do not promote it.
+
+A cycle-occupancy probe of P7compare is running session43438 in
+`scratch/p7_cycle_profile_20260919/`; read results.log and normal_run.log.
+ACTIVE_IRcounts attribute non-pipeline cycles to the current IR, including
+handoff/fetch overhead; they are diagnostic occupancy, not exact retired-op
+latency or independent savings. Pipeline cycles are counted separately.
