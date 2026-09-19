@@ -767,3 +767,34 @@ selective_results.log; Permute session81905,permute_selective.log. Both use the
 existing AP040_PIPELINE_SELECTIVE rule. Read results before choosing policy.
 Do not promote the prototype or claim hardware gain until correctness, fit,
 RAM inference/timing and hardware runs are validated.
+
+
+### P6 full gate / indexed fault checks completed
+
+All P6 jobs listed above are now terminal and passed:
+- full_gate.py session75172: full extended real-core suite, load/store/PEA,
+  fault/trace programs and all four original IRQ/replay checks; full_gate.log.
+- Expanded indexed load and store oracles each pass13,166retirements and
+  5,120requests across8delay/stall schedules. The store oracle checks actual
+  request PC/address/full source value/size, stable offers and all RF/CCR state.
+- Selective policy: Towers26,550,438cycles; Permute1,526,387. Unrestricted:
+  Towers26,445,814; Permute1,527,183. Existing production/P5:
+  Towers27,509,911; Permute1,519,907. Selective trades104624Towers cycles for
+  only796Permute cycles; no final hardware recipe selected from this alone.
+- New real-core indexed faults (`p6_indexfull_20260919/faults/run.py`):
+  MOVEA.W indexed, MOVE.W indexed-toDn, indexed MOVE.W store all pass three
+  latency phases. Each has exactly3pipeline faulting launches,6younger cancels;
+  exact PC600,FAf140,format7,CCR271f for reads/2718 for store, unchanged A0/A3,
+  D1/D2/D3 verified. TRAP architectural prefetch guarantees pipeline admission.
+
+Remaining P6 qualification before promotion: independent shift/LEA tests,
+new indexed extension-fault/trace/IRQ cases, fifth-read-port collision isolation,
+negative controls for new partial-merge/base-index-store logic, and the silicon
+comparison with exact proposed entry policy. New feature fits/hardware tests
+have not happened. Do not confuse standalone-memory oracle coverage with these
+remaining integration cases. Track-only RTL is still P5; all P6 RTL is scratch.
+
+P5 hardware trial is still in progress with mister_operator; four completion
+screenshots were present at the last read-only filesystem check. Original disk
+is untouched; A/UX remains explicitly deferred to Dani. No Quartus process was
+left active after the completed TimeQuest extraction.
