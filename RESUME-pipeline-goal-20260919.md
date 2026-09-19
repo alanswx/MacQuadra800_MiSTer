@@ -1526,3 +1526,13 @@ Bubble4077142unchangedPASS; Towersrunning session2740, fullgate6776.
 Artifacts scratch/p18_stack_fetch_20260919; SCRATCHONLY untilqualification.
 P13fitactiveuser-serviceMainPID1515481; inputsfrozen. P12hardwareagentactive,
 boot/launch screenshots present. Bestcompleted medianP9=1.029,cleanhaltverified.
+
+### P18 remaining validation progresses
+
+Towers terminalPASS25297658 vsP13 25469823; Permute1439538vs1457331;
+Bubble4077142unchangedPASS. Silicon100 terminalPASS1900groups0diff,
+/tmp/cpu-corpus100-gate.MQbKNs (session51565). RTS9×3 andbranch5×3PASS,
+logs rts.log/branch.log. Fullgate6776 stillrunning, lastFPU/cachePASS.
+P18 stillscratchonly; awaitterminalfullgate beforepromotion consideration.
+P13fit activeMainPID1515481; sourcehashrecheckPASS. HardwareP12agent
+firstcompletedrun screenshot, aggregatepending. Goalbeststill1.029.

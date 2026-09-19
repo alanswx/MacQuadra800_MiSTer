@@ -496,3 +496,11 @@ an instruction-family policy, independent of benchmark addresses/data.
 Scratch `p18_stack_fetch_20260919`: Permute1,439,538PASS (1.22% fewer cycles
 than P13), Bubble4,077,142PASS unchanged. Towers and full integration are
 still running. No RTL promotion or hardware performance claim yet.
+
+P18 qualification update: Towers25,297,658PASS versusP13 25,469,823
+(0.68% fewer cycles); Permute1,439,538 versus1,457,331 (1.22% fewer),
+Bubble4,077,142 unchanged. Silicon first100:1900fieldgroups0differences,
+`/tmp/cpu-corpus100-gate.MQbKNs`. Reusable RTS boundaries9cases×3phases
+and branch boundaries5cases×3phases pass. These exercise source/target
+faults, odd targets, splits, T1/T0, and IRQ boundaries. Full integration
+is still running; no promotion yet. Active P13fit sourcehashcheck passes.
