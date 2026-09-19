@@ -1443,3 +1443,22 @@ boot's shutdown. Post-benchmark clean shutdown therefore remains unproven.
 Future trials must attempt application quit and Finder shutdown before
 using recovery. Original disk and Main preserved. A/UX deferred to Dani;
 CD transport/audio remains unchecked.
+
+### Additional P7 shutdown verification
+
+A separate sixth valid run scored1.009. It is not substituted into the
+original five-run series. The operator then quit Speedometer using the
+correct Command-Q sequence, explicitly saved Machine Record
+`P7compare-extra-20260919`, verified Finder foreground, and selected normal
+Finder shutdown without a recovery reload. The first capture,
+`extra_final_halt.png`, was black and was rejected as insufficient evidence.
+The fresh `current_after_halt.png` visibly reads “It is now safe to switch
+off your Macintosh”; the primary agent independently viewed that image.
+This proves clean post-benchmark shutdown for this additional P7 session.
+Direct mouse navigation was used; no mac_shutdown.sh success is claimed.
+The original five sessions retain their documented shutdown limitation.
+
+Artifacts remain in `scratch/hardware_p7compare_20260919/`. Guest is now at
+the visible safe-halt screen, Main and remote service remain running, and
+the disposable disk remains selected. CD/audio and deferred A/UX status
+are unchanged. Score1.8 and positive CPU timing remain unmet.

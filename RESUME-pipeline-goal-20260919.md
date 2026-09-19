@@ -1304,3 +1304,16 @@ and it is entirelyBLACK. Root requested fresh evidence/scriptoutput/guest
 haltdebug withoutreload; pending. Do not claimcleanhalt fromblackframealone.
 Agentactive owns hardware. Extra1.009validrun remains separateoriginal5stats.
 Quartusfitf2b2770 stillactive/user-service MainPID1358014; freezecontinues.
+
+### P7 post-benchmark clean shutdown now verified
+
+Operator obtained fresh current_after_halt.png; ROOT independently VIEWED
+visible "It is now safe to switch off your Macintosh". This is the extra
+1.009run session after savingrecord P7compare-extra-20260919 and quitting
+Speedometer, then normal Finder shutdown, withoutrecoveryreload. Earlier
+extra_final_halt.png was prematureblackframe and is notproof. Directmouse
+navigation, no mac_shutdown.sh claimed. Record inPERFORMANCE section30.
+Agentidle atsafehalt; original5stats median1.013 unchanged. Can deploynext
+verifiedartifact whenfitterminal. Both profilerinterfaces now preserved:
+originalprofile_permute.py resource-based; newprofile_permute_occupancy.py
+--program fixture --out --coreoptional. Restoration committedcdbc5e7.
