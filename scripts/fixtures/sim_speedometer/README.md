@@ -61,3 +61,14 @@ opcode share is instruction coverage, not an estimate of saved cycles.
 Check `timer.log` for a final summary, recognized identities and a capture
 cap before interpreting it. Missing anomalies cannot establish timer
 correctness. A crash/interrupted run can leave buffered records unwritten.
+
+
+The `c` run's initial 20-second wait proved too short: frame1572 still showed
+busy startup, and frame2231 remained in MacAtrium after the first navigation.
+The original monitor was stopped before profiling. `recovery_control.txt`
+replays the navigation after the first prefix drains and discards its first
+bracket; `navigation_recovery.json` records why and hashes the amended stream.
+The replacement monitor is `q800-pipeline-baseline-monitor-c2-20260919`, using
+`--profile-start-count 2`. A final screenshot review is still required before
+any number is accepted. Future automated launches should wait for a confirmed
+MacAtrium screen instead of assuming a 20-second boot.

@@ -2896,6 +2896,31 @@ task decode_dbcc_brf_now;
 		exec_kind <= EK_ALU;
 		fc_ovr_v <= 0;
 		state <= S_DECODE;
+`ifndef AP040_DISABLE_REFILL_LOAD_DECODE
+        // The target word is already resident and validated by the refill
+        // buffer. Decode ordinary MOVE from a simple An-based source while
+        // installing it, so S_PIPE_START receives settled RF read addresses
+        // without an intervening S_DECODE cycle. No access issues here:
+        // S_PIPE_START retains memory arbitration, An undo and fault handling.
+        // MOVEA and extension/indexed modes outside d16(An) stay on decode.
+        if (fw[15:14] == 2'b00 && fw[13:12] != 2'b00 &&
+            fw[8:6] == 3'b000 &&
+            (fw[5:3] == 3'b010 || fw[5:3] == 3'b011 ||
+             fw[5:3] == 3'b100 || fw[5:3] == 3'b101)) begin
+            alu_op <= `AP040_ALU_MOVE;
+            op_size <= fw[13:12] == 2'b01 ? `AP040_SZ_B :
+                       fw[13:12] == 2'b10 ? `AP040_SZ_L : `AP040_SZ_W;
+            p_ssize <= fw[13:12] == 2'b01 ? `AP040_SZ_B :
+                       fw[13:12] == 2'b10 ? `AP040_SZ_L : `AP040_SZ_W;
+            p_dsize <= fw[13:12] == 2'b01 ? `AP040_SZ_B :
+                       fw[13:12] == 2'b10 ? `AP040_SZ_L : `AP040_SZ_W;
+            p_src <= SK_MEM; p_dst <= DK_REG;
+            p_dreg <= {1'b0, fw[11:9]};
+            src_mode_r <= fw[5:3]; src_rn_r <= fw[2:0];
+            rr_a <= {1'b1, fw[2:0]}; rr_b <= {1'b0, fw[11:9]};
+            state <= S_PIPE_START;
+        end
+`endif
 	end
 endtask
 

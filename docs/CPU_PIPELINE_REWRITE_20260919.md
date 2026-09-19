@@ -336,3 +336,26 @@ not enable it. `CPU_GATE_PIPELINE=1` enables it in `cpu_corpus100_gate.sh`.
 The hardware target requested for continued work is now **at least 1.8 Mix**,
 with repeated valid hardware measurements, unchanged authentic clock, and
 invalid timer results reported separately.
+
+
+## First measured hardware candidate: refill-target load decode
+
+Following P1b's negative result, the default sequencer now predecodes MOVE.B/W/L
+from `(An)`, `(An)+`, `-(An)`, or `d16(An)` to Dn when the branch refill buffer
+supplies the target word. This selects the existing operand pipeline and RF
+ports during target installation, eliminating one S_DECODE cycle. It does not
+issue memory speculatively or create a decoded-instruction cache; the existing
+refill buffer's instruction bytes and invalidation rules remain authoritative.
+The ordinary memory arbitration, undo records, and fault paths are reused.
+`AP040_DISABLE_REFILL_LOAD_DECODE` is the diagnostic comparison switch.
+
+Phase-0 `bench_loop` improves **68,100 -> 55,916 cycles** (17.89% reduction,
+1.218x throughput). `pipe_bench` remains **110,696**, `branch_bench` **119,284**.
+These are directed workload results, not a measured Speedometer improvement.
+The original 25 self-tests pass. A new `t_refill_load` program also passes all
+three standard bus-delay modes: 20 size/addressing combinations, preserved
+upper Dn bits and X, signed displacement, An update, and A7 byte stride.
+The first-100 silicon corpus again has zero real differences in 1,900 field
+groups. `tb_line_dma` passes 16,000 reads, 2,029 stores, 12,766 line acknowledges
+and 11,026 DMA beats with zero errors. Logs: `scratch/pipeline_p1b/refill_load_*`.
+The full-machine build of this candidate keeps the experimental pipeline off.
