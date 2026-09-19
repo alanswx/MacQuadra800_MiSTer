@@ -1241,3 +1241,23 @@ with increment 13's write-side MMU verdict and the posted-store lane in
 play under a paging Unix.  Operator notes: A/UX does not register a button
 press without pointer motion (press with a 1-pixel jiggle); `menu.sh item`
 misreads the first row under the panel's top border on A/UX.
+
+
+## 23. Pipeline-task installed-core baseline (2026-09-19, mister.local)
+
+Five valid Speedometer 4.02 Mix runs on the installed core, unchanged Main,
+Ethernet-on CFG `40 00 00 00`, authentic 33 MHz, and 32 MB RAM:
+**0.924 / 0.928 / 0.927 / 0.927 / 0.928**. Median **0.927**, mean **0.9268**.
+No invalid timer outlier was observed in these five runs. Per-test values,
+approximate wall intervals and screenshots are recorded in
+`scratch/hardware_pipeline_baseline_20260919/baseline_results.md`.
+
+Installed RBF SHA-256:
+`5299e49bf64eb3868a88b620e61353bf8ab393d53df93075eb713eb1ca36c1d1`.
+Main SHA-256:
+`0ac8b44069a9201723dcdbc3bf3a84e1963d2bec347e5065c2625e71bd3986cd`.
+The original QuadSquad8 image was cleanly shut down and preserved; these tests
+use the verified disposable `QuadSquad8-pipeline-test-20260919.hda` copy.
+Its pre-boot SHA-256 matched the original:
+`224c5be7d031c4c5448745d29ce9717c22bcc310361888bb0e20f2c521c83e2a`.
+The fitted refill-load candidate remains a separate measurement, pending here.

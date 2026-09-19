@@ -457,3 +457,13 @@ Artifacts: `scratch/pipeline_p1d/`.
 
 P1d first-100 silicon corpus: 1,900 field groups match, zero real differences
 (`scratch/pipeline_p1d/corpus.log`, `/tmp/cpu-corpus100-gate.5OiVFE`).
+
+
+P1e removes the empty-pipeline S_NEXT bubble by using the normal fetch/IRQ/trace
+boundary directly after all stages drain. Descriptor dispatch may run at that
+drained boundary; overlapping retirement still cannot pass control to it.
+All 14,720 snapshots, 14 real-core suites, directed IRQ/replay and first-100
+silicon corpus pass (1,900 matching field groups, zero real differences).
+Artifacts: `scratch/pipeline_p1e/`, corpus `/tmp/cpu-corpus100-gate.d4d2eS`.
+Cycles: **56,716 / 120,180 / 140,264** for loop/call/branch benches. These remain
+slower than the default production candidate; pipeline stays disabled in it.

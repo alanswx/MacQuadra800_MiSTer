@@ -316,6 +316,7 @@ wire [15:0] pipe_opcode;
 wire [4:0] pipe_ccr;
 wire pipe_claim = (state == S_DECODE) && pipe_supported;
 wire pipe_owner = state == S_EXPERIMENT_PIPE;
+wire pipe_drain = pipe_owner && pipe_idle;
 wire pipe_input = (pipe_claim && !rf_we && !aux_we) ||
     (pipe_owner && epf_ready_pc && pipe_supported &&
      !irq_pend && !sr[15] && !sr[14]);
@@ -337,6 +338,7 @@ ap040_pipeline_integer #(.EXTERNAL_STATE(1)) integer_pipeline (
 );
 `else
 wire pipe_claim = 1'b0;
+wire pipe_drain = 1'b0;
 `endif
 
 ap040_regfile regfile
@@ -2519,7 +2521,7 @@ wire        n_apply_ok = !rd_valid && !n_inplace && (n_next != NX_NONE) && n_wor
 // dovi: the descriptor dispatch bounded to the ALU/shift/store producers
 // again (step C); the record handover stays at every retire.
 wire        n_desc_ok  = rd_valid && (state != S_DECODE) && !aux_we &&
-                         (regs_alu_fire || shift_fire ||
+                         (regs_alu_fire || shift_fire || pipe_drain ||
                           ((state == S_MWR) && d_ack && (r_m_ret == S_NEXT)));
 // The unconditional transfers whose target the queue already holds --
 // BRA.W/.L, BSR.W/.L, JSR and JMP abs.W, abs.L and d16(PC) -- dispatch
@@ -7900,9 +7902,10 @@ always @(posedge clk) begin
                     pc <= pipe_pc + 32'd2;
                     fetch_next;
                 end else if (pipe_idle && !pipe_input) begin
-                    // Shared MLAB/CCR writes are settled; the old sequencer
-                    // consumes the next unsupported word or demand fetch.
-                    state <= S_NEXT;
+                    // All pipeline writes have reached the architectural RF
+                    // (including its pending-write bypass). Rejoin the normal
+                    // fetch boundary now, preserving its IRQ/trace checks.
+                    fetch_next;
                 end
             end
 `endif
@@ -8994,7 +8997,7 @@ always @(posedge clk) begin
         // core. Pipeline entry still occurs only at S_DECODE after pending
         // writes settle; its drained exit passes through S_NEXT. Never let
         // lookahead claim an opcode at an overlapping pipeline retirement.
-        if (pipe_owner) rd_queue_pop = 0;
+        if (pipe_owner && !pipe_idle) rd_queue_pop = 0;
 `ifdef AP040_PIPELINE_FORCE_DECODE
         // Diagnostic mode exercises every supported opcode in the pipeline.
         rd_queue_pop = 0;
