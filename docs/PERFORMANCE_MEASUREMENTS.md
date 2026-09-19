@@ -1462,3 +1462,40 @@ Artifacts remain in `scratch/hardware_p7compare_20260919/`. Guest is now at
 the visible safe-halt screen, Main and remote service remain running, and
 the disposable disk remains selected. CD/audio and deferred A/UX status
 are unchanged. Score1.8 and positive CPU timing remain unmet.
+
+
+## P7 handoff hardware measurements, 2026-09-19
+
+
+Date: 2026-09-19  
+Core: `/media/fat/_Unstable/MacQuadra800_p7handoff_f2b2770.rbf`  
+RBF SHA256: `e12627b49d97fd2efd41433c058e1c28906c7959317a63c52544cd655b26759e`  
+Quartus: 39,591 ALMs (94%), 26,347 registers, 491 RAM, 43 DSP. CPU setup **-0.862 ns**, HDMI -0.069 ns, SDRAM +0.727 ns, hold +0.201 ns, crossings +0.771/+0.611 ns. CPU timing is substantially marginal; this is experimental and cannot establish timing correctness or release qualification.  
+Main SHA256: `0ac8b44069a9201723dcdbc3bf3a84e1963d2bec347e5065c2625e71bd3986cd`  
+CFG: `40 00 00 00` (33 MHz, 32 MB, Ethernet on)  
+Disk: disposable `QuadSquad8-pipeline-test-20260919.hda`, pre-boot SHA256 `224c5be7d031c4c5448745d29ce9717c22bcc310361888bb0e20f2c521c83e2a`; original remained untouched and unmounted.  
+All runs used Speedometer 4.02 Benchmark Mix, all ten tests, Iteration 1.
+
+| Run | Wall interval | Whetstones/sec | Dhrystones/sec | Towers | Quick Sort | Bubble | Queens | Puzzle | Permutations | Int. Matrix | Sieve | Mix | Status |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| 1 | ~54 s (23:11:24–23:12:18Z) | 805.701 | 12249.719 | 0.877 | 0.762 | 0.816 | 0.581 | 1.423 | 1.295 | 0.934 | 1.136 | 1.020 | valid |
+| 2 | ~58 s (23:12:41–23:13:39Z) | 810.135 | 12260.891 | 0.874 | 0.761 | 0.821 | 0.581 | 1.414 | 1.295 | 0.928 | 1.131 | 1.023 | valid |
+| 3 | ~59 s (23:14:00–23:14:59Z) | 812.279 | 12262.923 | 0.874 | 0.765 | 0.817 | 0.582 | 1.412 | 1.296 | 0.925 | 1.130 | 1.024 | valid |
+| 4 | ~58 s (23:15:53–23:16:51Z) | 809.730 | 12266.218 | 0.874 | 0.761 | 0.815 | 0.581 | 1.421 | 1.298 | 0.924 | 1.132 | 1.023 | valid |
+| 5 | ~58 s (23:17:12–23:18:10Z) | 809.474 | 12249.485 | 0.874 | 0.761 | 0.816 | 0.582 | 1.421 | 1.297 | 0.931 | 1.132 | 1.022 | valid |
+
+Mix mean: **1.0224**; median: **1.023**; range: **1.020–1.024**. No invalid results, timer anomalies, or observed instability.
+
+Completion screenshots: `run1_complete.png` through `run5_complete.png`; each shows “The tests are done!” and all ten tests at Iteration 1.
+
+## Normal quit and shutdown
+
+After run 5, I dismissed the completion dialog and used the correct Command-Q sequence (`down:56 raw:16 up:56`). The Machine Record save flow was completed by selecting New via Tab navigation, creating `P7handoff-extra-20260919`, and submitting it. `finder_after_quit.png` verifies Finder foreground. The documented Finder shutdown menu was then used. The first `final_halt.png` capture was an early black frame; the later `final_halt_visible.png` visibly reads “It is now safe to switch off your Macintosh.” The disk descriptor was at position 50688 afterward. MiSTer host PID 19392 and remote service PID 763 remained running. No reload recovery was used.
+
+The CPU setup slack of -0.862 ns is a major timing limitation; the successful boot, benchmark completion, and normal shutdown do not establish timing correctness.
+
+The operator quit Speedometer, saved its Machine Record, verified Finder,
+and performed normal shutdown without reloading. Root independently inspected
+run5_complete.png (Mix 1.022 and completion dialog) and final_halt_visible.png
+("It is now safe to switch off your Macintosh"). A/UX remains delegated to
+Dani by the user; CD/audio regression is outstanding. The 1.8 goal is not met.

@@ -1378,3 +1378,19 @@ PASS same cycles; not promoted. Detailed categories in CPU compare doc.
 Next investigate spanning stack-read cache lookup costs; cache ALREADY
 supports within-line and cross-line spans, so do not add duplicate logic.
 Fit user-service still active MainPID1445135; input freeze remains in force.
+
+### P7handoff five-run result and P12 cache prototype
+
+Hardware operator complete, now idle at verified visible safe halt.
+P7handoff Mix 1.020/1.023/1.024/1.023/1.022, median1.023, mean1.0224,
+no timer anomalies or observed instability. CPU-.862 timing still unqualified.
+Root viewed run5_complete.png and final_halt_visible.png; clean normal
+shutdown after record save, no reload. Full table in PERFORMANCE_MEASUREMENTS.
+
+Scratch P12 idle-span cache prototype starts existing line read at matched
+idle admission, then uses existing look2 assembly/snoop handling. No new RAM.
+Permute1,466,887 vs current1,504,787 PASS (~2.52% fewer cycles).
+Cache snoop suite ALL TESTS PASSED; XSTORE100cases PASS inclCE/snoop/fault.
+Full pipeline/reference regression running session98444, gate.log under
+scratch/p12_idlespan_20260919. Not promoted, needs remaining qualification
+and measured fit; current28b164d Quartus service still active and frozen.
