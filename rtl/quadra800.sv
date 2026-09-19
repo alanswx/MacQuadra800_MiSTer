@@ -25,7 +25,14 @@
 module quadra800
 #(
 	parameter RAM_ADDR_BITS = 27,             // address space ceiling: 128 MB
-	parameter CDROM         = 1               // 0 = no CD-ROM target (rtl/ncr53c96.sv)
+	parameter CDROM         = 1,              // 0 = no CD-ROM target (rtl/ncr53c96.sv)
+	parameter SONIC         = 1,              // 0 = no built-in Ethernet (rtl/sonic_mbx.sv)
+	// 1 = every SONIC DMA write beat pulses the CPU's D-cache snoop (the 68040's bus-snoop
+	// invalidate).  It has to be on: with it off (Ethernet builds 5 and 6) the guest bombs
+	// within ten received frames although every frame and descriptor in RAM is byte-exact --
+	// Apple's driver marks a recycled receive descriptor with $FF in the top byte of its
+	// length longword, and a stale cached copy of that longword is a 4 GB length.
+	parameter SONIC_SNOOP   = 1
 )
 (
 	input         clk,
@@ -113,12 +120,38 @@ module quadra800
 	output [255:0] debug_status,
 	output [127:0] debug_status2,
 	output        debug_fault,
-	output        debug_halted
+	output        debug_halted,
+
+	// built-in Ethernet: the OSD switch (latched under reset by the top) and the
+	// DDR3 window port of rtl/sonic_mbx.sv (rd/we level-held until the 1-cycle
+	// accept; read data with rvalid)
+	input         eth_ena,
+	// BRING-UP switches (OSD, latched under reset by the top; all 0 = the shipped machine):
+	// [0] no store buffer / posted stores, [1] no retained-SDRAM-line fast paths,
+	// [2] no D-cache snoop for SONIC DMA writes
+	input   [2:0] dbg_sw,
+	output [11:0] eth_mem_addr,
+	output        eth_mem_rd,
+	output        eth_mem_we,
+	output [63:0] eth_mem_wdata,
+	input         eth_mem_accept,
+	input         eth_mem_rvalid,
+	input  [63:0] eth_mem_rdata
 );
 
 localparam [1:0] MSEL_RAM  = 2'd0,
                  MSEL_ROM  = 2'd1,
                  MSEL_VRAM = 2'd2;
+
+// bring-up switch [1]: the retained SDRAM line as if it were never valid
+wire        line_valid_sw   = mem_line_valid   && !dbg_sw[1];
+wire        line_pending_sw = mem_line_pending && !dbg_sw[1];
+
+// built-in Ethernet (sonic_mbx, below the service FSM): its interrupt, whether the
+// chip is there this session, and the D-cache snoop strobe of its RAM writes
+wire        sonic_irq;
+wire        sonic_present;
+reg         snoop_stb;
 
 //----------------------------------------------------------------------------
 // CPU bundle and the transaction-to-beat adapter
@@ -227,10 +260,10 @@ wombat_cpu cpu (
 	.berr(cpu_berr),
 	// The retained SDRAM line is physical RAM only.  During boot overlay the
 	// same low CPU addresses select ROM, so keep the sideband disabled there.
-	.cache_line_valid(!overlay && mem_line_valid),
+	.cache_line_valid(!overlay && line_valid_sw),
 	.cache_line_tag({5'd0, mem_line_tag}),
 	.cache_line_data(mem_line_data),
-	.store_buffer_ok(!overlay),
+	.store_buffer_ok(!overlay && !dbg_sw[0]),
 
 	.bus_req(bus_req),
 	.bus_write(bus_write),
@@ -250,8 +283,8 @@ wombat_cpu cpu (
 	.walker_data(walker_data),
 	.walker_berr(walker_berr),
 
-	.snoop_stb(1'b0),
-	.snoop_addr(32'd0),
+	.snoop_stb(snoop_stb),
+	.snoop_addr({5'd0, dma_beat_addr, 2'b00}),
 
 	.nresetout(),
 	.nmi_ack_toggle(),
@@ -325,6 +358,7 @@ iosb #(.CDROM(CDROM)) iosb (
 	.stall_flt(cpu_stall_flt),
 
 	.vbl_irq(dafb_vbl),
+	.sonic_irq(sonic_irq),
 	.scsi_irq(1'b0),
 	.scsi_drq(1'b0),
 	.asc_irq(1'b0),
@@ -437,10 +471,14 @@ wire [29:2] ram_limit = (ram_cfg == 2'd0) ? 28'h0800000 :   // 32 MB
 // djMEMC acknowledges its whole DRAM window: probes beyond installed RAM
 // read open-bus zeros, never a bus error — the ROM's RAM sizing treats a
 // berr there as a fatal hardware fault (found the hard way; QEMU agrees).
-function [2:0] decode;       // 0 ram,1 rom,2 vram,3 iosb,4 berr,5 dafb,6 open
+function [2:0] decode;       // 0 ram,1 rom,2 vram,3 iosb,4 berr,5 dafb,6 open,7 sonic
 	input [31:2] a;
 	begin
-		if (a[31:28] == 4'h4)              decode = 3'd1;
+		// SONIC registers $A000-$A0FF and MAC PROM $8000-$8007, in every $40000 image of
+		// the I/O block; without the chip both stay iosb's inert read-0 space
+		if (sonic_present && a[31:24] == 8'h50 &&
+		    (a[17:8] == 10'h0A0 || a[17:3] == 15'h1000)) decode = 3'd7;
+		else if (a[31:28] == 4'h4)         decode = 3'd1;
 		else if (overlay && a[31:22] == 10'd0) decode = 3'd1;
 		else if (a[31:30] == 2'b00)
 			decode = (a[29:2] < ram_limit) ? 3'd0 : 3'd6;
@@ -452,11 +490,34 @@ function [2:0] decode;       // 0 ram,1 rom,2 vram,3 iosb,4 berr,5 dafb,6 open
 endfunction
 
 localparam S_IDLE = 3'd0, S_MEM = 3'd1, S_IOSB = 3'd2, S_BERR = 3'd3,
-           S_DAFB = 3'd4, S_OPEN = 3'd5;
+           S_DAFB = 3'd4, S_OPEN = 3'd5, S_SONIC = 3'd6;
 reg  [2:0] svc;
 reg        svc_walker;                        // owner of the beat in service
+reg        svc_dma;                           // ... or the SONIC's DMA engine
+
+// The SONIC is the machine's one bus master besides the CPU.  Its engine asks for
+// one longword beat at a time; beats alternate with the CPU's so neither starves,
+// and they go through the ordinary RAM port, so sdram_beat32 drops its retained
+// line on a DMA write exactly as it does on a CPU write.
+wire        dma_req, dma_we;
+wire [26:2] dma_addr;
+wire  [3:0] dma_be;
+wire [31:0] dma_wdata;
+reg         dma_ack;
+reg  [31:0] dma_rdata;
+reg         dma_turn;                         // the CPU had the last beat
+reg         sonic_sel, sonic_write, sonic_prom;
+reg   [7:2] sonic_addr;
+reg   [3:0] sonic_be;
+reg  [31:0] sonic_wdata;
+wire        sonic_ack;
+wire [31:0] sonic_rdata;
 reg        svc_bus_direct;                    // aligned RAM miss bypassed bus32
 reg [31:2] svc_addr;
+// A DMA beat can also run BESIDE a parked I/O beat (S_IOSB, below), where
+// svc_addr belongs to the CPU's access: the snoop address is the beat's own.
+reg        dma_side;                          // a DMA beat is on the RAM port under S_IOSB
+reg [26:2] dma_beat_addr;
 
 wire        walker_pend = walker_req && walker_armed;
 reg         walker_armed;
@@ -466,9 +527,9 @@ reg         walker_armed;
 // established platform beat. A request for the still-arriving tail waits here
 // instead of launching a redundant SDRAM transaction for the same line.
 wire line_cpu_match = b_req && !b_write && (decode(b_addr) == 3'd0) &&
-	                  mem_line_valid && (b_addr[26:4] == mem_line_tag);
+	                  line_valid_sw && (b_addr[26:4] == mem_line_tag);
 wire line_cpu_wait  = b_req && !b_write && (decode(b_addr) == 3'd0) &&
-	                  mem_line_pending &&
+	                  line_pending_sw &&
 	                  (b_addr[26:4] == mem_line_pending_tag);
 wire [31:0] line_cpu_data = (b_addr[3:2] == 2'd0) ? mem_line_data[127:96] :
 	                        (b_addr[3:2] == 2'd1) ? mem_line_data[95:64]  :
@@ -478,16 +539,27 @@ wire [31:0] line_cpu_data = (b_addr[3:2] == 2'd0) ? mem_line_data[127:96] :
 // Aligned RAM longword reads are the cache-fill shape before wombat_bus32.
 // Send a first miss directly into the memory service, which still captures its
 // completion in registers, and return later words from the retained BL8 line
-// through their own registered pulse. Adapter-active/ack and direct-miss-ack
-// guards prevent either word from being launched or acknowledged twice.
+// through their own registered pulse. Adapter-active/ack, direct-miss-ack and
+// line-ack guards prevent either word from being launched or acknowledged twice.
+//
+// The line-ack guard (2026-09-19): bus_req still carries the acknowledged
+// request in the clock bus_line_ack is high.  While the CPU was the only
+// master the FSM was always still in S_IDLE in that clock, so bus_line_match
+// stayed high and kept bus_req_adapter low by itself.  The SONIC's DMA arm can
+// leave S_IDLE in the very clock the line ack is registered: eligibility then
+// drops under the ack, bus_req_adapter rose, wombat_bus32 launched a read
+// nobody had asked for, and its completion acknowledged whatever request was
+// on the bus by then -- a fill beat took its neighbour's word, a store was
+// acknowledged without being written.  That was Open Transport's CAS/CAS2
+// lists going circular under receive traffic (verilator/tb_line_dma.sv).
 wire bus_ram_eligible = (svc == S_IDLE) && !walker_pend && !cpu_berr &&
-	                    !bus_miss_ack && !bus_adapter_active &&
+	                    !bus_miss_ack && !bus_line_ack && !bus_adapter_active &&
 	                    !bus_ack_adapter && bus_req && !bus_write &&
 	                    (bus_size == 2'd2) && (bus_addr[1:0] == 2'b00) &&
 	                    (decode(bus_addr[31:2]) == 3'd0);
-wire bus_line_match = bus_ram_eligible && mem_line_valid &&
+wire bus_line_match = bus_ram_eligible && line_valid_sw &&
 	                  (bus_addr[26:4] == mem_line_tag);
-wire bus_line_wait  = bus_ram_eligible && mem_line_pending &&
+wire bus_line_wait  = bus_ram_eligible && line_pending_sw &&
 	                  (bus_addr[26:4] == mem_line_pending_tag);
 wire bus_first_miss = bus_ram_eligible && !bus_line_match && !bus_line_wait;
 wire [31:0] bus_line_data = (bus_addr[3:2] == 2'd0) ? mem_line_data[127:96] :
@@ -496,7 +568,8 @@ wire [31:0] bus_line_data = (bus_addr[3:2] == 2'd0) ? mem_line_data[127:96] :
 	                                                          mem_line_data[31:0];
 
 assign bus_req_adapter = bus_req && !bus_line_match && !bus_line_wait &&
-	                     !bus_first_miss && !svc_bus_direct && !bus_miss_ack;
+	                     !bus_first_miss && !svc_bus_direct && !bus_miss_ack &&
+	                     !bus_line_ack;
 
 always @(posedge clk) begin
 	if (!nreset) begin
@@ -512,6 +585,11 @@ always @(posedge clk) begin
 	end
 end
 
+wire cpu_want = walker_pend || bus_first_miss ||
+                (b_req && !b_ack && !cpu_berr && !line_cpu_wait);
+wire dma_take = (SONIC != 0) && dma_req && !dma_ack && !walker_pend &&
+                (dma_turn || !cpu_want);
+
 assign dbg_berr      = (svc == S_BERR);
 assign dbg_berr_addr = {svc_addr, 2'b00};
 assign dbg_overlay   = overlay;
@@ -522,6 +600,19 @@ always @(posedge clk) begin
 		svc          <= S_IDLE;
 		svc_walker   <= 0;
 		svc_bus_direct <= 0;
+		svc_dma      <= 0;
+		dma_side     <= 0;
+		dma_beat_addr <= 0;
+		dma_ack      <= 0;
+		dma_rdata    <= 0;
+		dma_turn     <= 0;
+		snoop_stb    <= 0;
+		sonic_sel    <= 0;
+		sonic_write  <= 0;
+		sonic_prom   <= 0;
+		sonic_addr   <= 0;
+		sonic_be     <= 0;
+		sonic_wdata  <= 0;
 		svc_addr     <= 0;
 		walker_armed <= 1;
 		walker_ack   <= 0;
@@ -554,6 +645,8 @@ always @(posedge clk) begin
 		b_ack       <= 0;
 		bus_miss_ack <= 0;
 		cpu_berr    <= 0;
+		dma_ack     <= 0;
+		snoop_stb   <= 0;
 		if (!walker_req) walker_armed <= 1;
 
 		case (svc)
@@ -561,10 +654,32 @@ always @(posedge clk) begin
 			// walker first: it only runs mid-translation, never starves the
 			// CPU.  !b_ack/!cpu_berr: the adapter needs a cycle to retire a
 			// just-completed or just-faulted beat before b_req means "next".
-			if (walker_pend || bus_first_miss ||
-			    (b_req && !b_ack && !cpu_berr && !line_cpu_wait)) begin
+			// A SONIC DMA beat takes the turn after each CPU beat, or an idle bus.
+			if (dma_take) begin
+				svc_walker     <= 0;
+				svc_bus_direct <= 0;
+				dma_turn       <= 0;
+				svc_addr       <= {5'd0, dma_addr};
+				dma_beat_addr  <= dma_addr;
+				if ({3'd0, dma_addr} < ram_limit) begin
+					svc_dma    <= 1;
+					mem_req    <= 1;
+					mem_write  <= dma_we;
+					mem_addr   <= {5'd0, dma_addr};
+					mem_be     <= dma_be;
+					mem_wdata  <= dma_wdata;
+					mem_memsel <= MSEL_RAM;
+					svc        <= S_MEM;
+				end
+				else begin
+					dma_ack   <= 1;          // above the installed RAM: nothing there
+					dma_rdata <= 32'd0;
+				end
+			end
+			else if (cpu_want) begin
 				reg [31:2] a;
 				reg        wr;
+				dma_turn <= 1;
 				if (bus_first_miss) begin
 					svc_walker     <= 0;
 					svc_bus_direct <= 1;
@@ -617,6 +732,15 @@ always @(posedge clk) begin
 					svc        <= S_DAFB;
 				end
 				3'd6: svc <= S_OPEN;
+				3'd7: begin
+					sonic_sel   <= 1;
+					sonic_write <= wr;
+					sonic_prom  <= (a[15:12] == 4'h8);
+					sonic_addr  <= a[7:2];
+					sonic_be    <= walker_pend ? 4'b1111 : b_be;
+					sonic_wdata <= walker_pend ? walker_wdat : b_wdata;
+					svc         <= S_SONIC;
+				end
 				default: svc <= S_BERR;
 				endcase
 				end
@@ -624,7 +748,15 @@ always @(posedge clk) begin
 		end
 		S_MEM: if (mem_ack) begin
 			mem_req <= 0;
-			if (svc_walker) begin
+			if (svc_dma) begin
+				dma_ack   <= 1;
+				dma_rdata <= mem_rdata;
+				// the 68040's bus snoop: a write by the other master drops the
+				// D-cache's copy of that line (dma_beat_addr is the beat's)
+				snoop_stb <= mem_write && (SONIC_SNOOP != 0) && !dbg_sw[2];
+				svc_dma   <= 0;
+			end
+			else if (svc_walker) begin
 				walker_ack  <= 1;
 				walker_data <= mem_rdata;
 			end
@@ -639,24 +771,83 @@ always @(posedge clk) begin
 			svc_bus_direct <= 0;
 			svc <= S_IDLE;
 		end
-		S_IOSB: if (iosb_ack) begin
-			iosb_sel <= 0;
-			// iosb_fault rides with the ack that releases a pseudo-DMA beat the
-			// IOSB gave up on. Report it as a bus error rather than acking junk:
-			// the ROM's blind PDMA path does unrolled move.l with no polling and
-			// RELIES on a bus error (handler at $408D2606) to notice a failed
-			// transfer. Acking zeros would silently corrupt the buffer instead.
-			if (iosb_fault) begin
-				if (svc_walker) walker_berr <= 1;
-				else            cpu_berr    <= 1;
+		// A pseudo-DMA beat waits here, without a time limit, while the HPS
+		// fetches or accepts a disk sector (iosb.sv A_SDMA).  The HPS is also
+		// the SONIC model, and it is single-threaded: while it waits for a DMA
+		// op list it serves no disk request.  With the FSM parked, the list
+		// could not move either -- each side waited for the other until Main's
+		// 250 ms DMA timeout, which then let it post the next list over the one
+		// still in the engine (hardware 2026-09-19: six timeouts in a 1 MB FTP
+		// download at 36 KB/s, lost pings during every application launch).
+		// The RAM port is idle while an I/O beat is parked, so DMA beats run
+		// beside it; the CPU is stalled in its I/O access throughout, so no
+		// CPU-side shortcut can see the port busy.
+		S_IOSB: begin
+			if (dma_side) begin
+				if (mem_ack) begin
+					mem_req   <= 0;
+					dma_ack   <= 1;
+					dma_rdata <= mem_rdata;
+					snoop_stb <= mem_write && (SONIC_SNOOP != 0) && !dbg_sw[2];
+					dma_side  <= 0;
+				end
 			end
-			else if (svc_walker) begin
+			else if ((SONIC != 0) && dma_req && !dma_ack && !iosb_ack) begin
+				dma_beat_addr <= dma_addr;
+				if ({3'd0, dma_addr} < ram_limit) begin
+					dma_side   <= 1;
+					mem_req    <= 1;
+					mem_write  <= dma_we;
+					mem_addr   <= {5'd0, dma_addr};
+					mem_be     <= dma_be;
+					mem_wdata  <= dma_wdata;
+					mem_memsel <= MSEL_RAM;
+				end
+				else begin
+					dma_ack   <= 1;          // above the installed RAM: nothing there
+					dma_rdata <= 32'd0;
+				end
+			end
+			if (iosb_ack) begin
+				iosb_sel <= 0;
+				// iosb_fault rides with the ack that releases a pseudo-DMA beat the
+				// IOSB gave up on. Report it as a bus error rather than acking junk:
+				// the ROM's blind PDMA path does unrolled move.l with no polling and
+				// RELIES on a bus error (handler at $408D2606) to notice a failed
+				// transfer. Acking zeros would silently corrupt the buffer instead.
+				if (iosb_fault) begin
+					if (svc_walker) walker_berr <= 1;
+					else            cpu_berr    <= 1;
+				end
+				else if (svc_walker) begin
+					walker_ack  <= 1;
+					walker_data <= iosb_rdata;
+				end
+				else begin
+					b_ack   <= 1;
+					b_rdata <= iosb_rdata;
+				end
+				// a side beat still on the RAM port finishes as an ordinary DMA
+				// beat: S_MEM's svc_dma arm acknowledges it and pulses the snoop
+				if (dma_side && !mem_ack) begin
+					dma_side       <= 0;
+					svc_dma        <= 1;
+					svc_walker     <= 0;
+					svc_bus_direct <= 0;
+					svc            <= S_MEM;
+				end
+				else svc <= S_IDLE;
+			end
+		end
+		S_SONIC: if (sonic_ack) begin
+			sonic_sel <= 0;
+			if (svc_walker) begin
 				walker_ack  <= 1;
-				walker_data <= iosb_rdata;
+				walker_data <= sonic_rdata;
 			end
 			else begin
 				b_ack   <= 1;
-				b_rdata <= iosb_rdata;
+				b_rdata <= sonic_rdata;
 			end
 			svc <= S_IDLE;
 		end
@@ -691,5 +882,63 @@ always @(posedge clk) begin
 		endcase
 	end
 end
+
+//----------------------------------------------------------------------------
+// Built-in Ethernet — DP83932 SONIC front-end; the chip model is on the ARM
+// (docs in rtl/sonic_mbx.sv).  SONIC=0 (qsf: ETHERNET_OFF=1) builds a machine
+// without it; eth_ena=0 (OSD) holds it in reset, off the bus and off DDR3.
+//----------------------------------------------------------------------------
+generate
+if (SONIC != 0) begin : g_sonic
+	sonic_mbx sonic (
+		.clk(clk),
+		.nreset(nreset),
+		.ena(eth_ena),
+		.present(sonic_present),
+
+		.sel(sonic_sel),
+		.write(sonic_write),
+		.prom(sonic_prom),
+		.addr(sonic_addr),
+		.be(sonic_be),
+		.wdata(sonic_wdata),
+		.ack(sonic_ack),
+		.rdata(sonic_rdata),
+		.irq(sonic_irq),
+		.cpu_sample(debug_status[47:0]),
+
+		.dma_req(dma_req),
+		.dma_we(dma_we),
+		.dma_addr(dma_addr),
+		.dma_be(dma_be),
+		.dma_wdata(dma_wdata),
+		.dma_ack(dma_ack),
+		.dma_rdata(dma_rdata),
+
+		.mem_addr(eth_mem_addr),
+		.mem_rd(eth_mem_rd),
+		.mem_we(eth_mem_we),
+		.mem_wdata(eth_mem_wdata),
+		.mem_accept(eth_mem_accept),
+		.mem_rvalid(eth_mem_rvalid),
+		.mem_rdata(eth_mem_rdata)
+	);
+end
+else begin : g_no_sonic
+	assign sonic_present = 1'b0;
+	assign sonic_irq     = 1'b0;
+	assign sonic_ack     = 1'b0;
+	assign sonic_rdata   = 32'd0;
+	assign dma_req       = 1'b0;
+	assign dma_we        = 1'b0;
+	assign dma_addr      = 25'd0;
+	assign dma_be        = 4'd0;
+	assign dma_wdata     = 32'd0;
+	assign eth_mem_addr  = 12'd0;
+	assign eth_mem_rd    = 1'b0;
+	assign eth_mem_we    = 1'b0;
+	assign eth_mem_wdata = 64'd0;
+end
+endgenerate
 
 endmodule

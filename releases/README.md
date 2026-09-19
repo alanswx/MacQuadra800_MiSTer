@@ -12,6 +12,7 @@ must never be flashed (`scripts/deploy_screenshot.sh` refuses one).
 
 | build | md5 | timing | notes |
 |---|---|---|---|
+| `MacQuadra800_20260919.rbf` | `933b421a0880177be1b5fb2861dcea15` | met, **+0.107 ns setup / +0.190 ns hold worst** (HDMI +0.107, `clk_ram` +0.415, `clk_sys` +0.622) | **Built-in Ethernet.** The Quadra 800's onboard DP83932 SONIC at its real addresses, so Apple's own driver binds to it: DHCP, ping, FTP both ways byte-exact, on Mac OS 8.1 with Open Transport. OSD **Ethernet (on reset)**, default Off; needs the Main binary `releases/MiSTer`. With it Off the machine is the 20260918 one. Carries three `Dbg ...` bring-up lines in the OSD: leave them at On. |
 | `MacQuadra800_20260918.rbf` | `fde49a3cf474d5c07aff26c592200125` | met, **+0.204 ns hold / +0.527 ns setup worst** (HDMI +0.527, `clk_ram` +0.668, `clk_sys` +0.772) | **The CPU pipeline increments: Speedometer 4.02 Benchmark Mix 0.9285 (0.855 on 20260916_2, +8.6 %), Color QuickDraw 0.670, on a core 1,055 ALMs smaller.** A one-clock data-cache hit on a dedicated hint bus, redirects that hint and issue their target from the retire that pops them (BRA/BSR/JSR/JMP, DBcc, short Bcc), pops/pushes/MOVEM issued in place, a one-clock posted store with a write-side MMU verdict, and a read that may pass one queued store to another line. Mac OS 8.1 and A/UX 3.1 (32 MB) pass the gate; eight Mix runs + CQD + FPU with zero anomalous values. **The CD-audio item of the gate was NOT run on this bitstream** (the CD/SCSI RTL is unchanged from 20260916_2). Seed 21; 86 % ALMs. |
 | `MacQuadra800_20260916_2.rbf` | `8552a4094e151bf7b853916a9099e2c2` | met, **+0.244 ns setup** (HDMI +0.255, `clk_sys` +0.442, `clk_ram` +0.851) | **The AP68040 vendored into the repo with Adam Polkosnik's September fixes** (replaces the 2026-09-17 00:42 file `ab1da889`, same SCSI/CD RTL, whose CPU clock missed by 0.231 ns): memory bitfield reads sized by span, FPSP BUSY-frame FRESTORE resume (the Quadra ROM uses it), MOVEM saved-EA/SSW.CM continuation, nonresident ATC entries, our memind reserved-encoding fix, shared ALU adders and FPU normalizer, the integer register file in MLABs. Cycle-identical to the 20260915 CPU on the sim gates; Speedometer 4.02 Benchmark Mix **0.855** (0.858 on 20260915), Color QuickDraw 0.641 over four depths (8-bit 0.629 vs 0.605), Performance Rating 0.810. Mac OS 8.1 boots with a second disk and a CD mounted; A/UX and CD audio not re-run on this file (unchanged RTL outside the CPU, gated on `ab1da889`). Ships with `releases/MiSTer_20260916` (`431da61a`). Seed 21; 37,144 ALMs (89 %). |
 | `MacQuadra800_20260916.rbf` | `1eae0fb7ed8de620751af3efb94047fb` | met, **+0.247 ns setup** (HDMI +0.442, `clk_sys` +0.729, `clk_ram` +0.732) | **The CD-ROM target's responses come from the ARM (SCSI offload phase 1): -510 ALMs, timing met.** INQUIRY, MODE SENSE, READ TOC and the Apple status commands are served by the Main fork through window reads of the CD slot; MODE SELECT, eject and the resets are forwarded through a command block with STATUS held until the ARM acks. **Requires the Main fork `ae708d3` or later for any CD image.** Mac OS 8.1: Finder in 126 s with the retail ISO, idle clock in step over 4 min, keyboard, the CD's window, both guest volumes of the retail disc put away from the Finder, the OT ISO hot-mounted from the OSD and put away, the retail disc re-mounted, `mac_shutdown.sh` to the halt screen in 61 s; Speedometer not re-measured (the restored Quad Squad image lacks it; the CPU/SDRAM path is unchanged from 20260915). A/UX 3.1 at **32 MB**: desktop in 120 s, `uname -a` = `A/UX localhos 3.1 SVR2 mc68040`, `shutdown -h now` to the halt screen in 131 s. **Known: A/UX 3.1 hangs its shutdown when the RAM option is 128 MB, on this build and on 20260915 / 20260908_3 alike (six runs); run A/UX at 32 MB.** Seed 21; 38,128 ALMs (91 %). |
@@ -27,6 +28,100 @@ must never be flashed (`scripts/deploy_screenshot.sh` refuses one).
 | `wombat33_20260831_1.rbf` | `3901ef5705f58dba3279c0417412f5f8` | met, +0.243 ns | **Sound works.** Fixes the watch-cursor wedge (ASC FIFOSTAT reported an empty FIFO as full) and hooks up the $806 volume slider. |
 | `wombat33_20260830.rbf` | `64c79dfb93ceefb549200c78671cdc31` | met, +0.248 ns | **ADB actually works** — the mouse button reaches the guest and motion stops inventing input. |
 | `wombat33_20260829.rbf` | `4c46a65c3a48b44ddb6f4fd6808d0422` | met, +0.245 ns | First build that boots Mac OS unattended. |
+
+
+## `MiSTer` — the Main binary that goes with the Ethernet core
+
+md5 `fbb540c8a51134cfdc960a8b5115807b`. The Main fork
+(`danifunker/Main_MiSTer`, branch
+`mac-ethernet-pr-with-SCSI-Optimizations-with-q800-eth`, commit `6919c21`),
+built from a clean object tree on 2026-09-19 with
+`scripts/build_main_wsl.sh` (no object older than the day in the link). On top
+of what `MiSTer_20260916` carries (the Mac SCSI family support, CUE/CHD discs,
+the BlueSCSI Toolbox, CD audio) it has the Quadra 800 onboard SONIC Ethernet
+service (`support/mac/mac_eth*`, `mac_sonic*`, `docs/ethernet.md`) including
+Alan's guard that never posts a DMA op list over one the engine has not
+finished. It is named plain `MiSTer` so it can be copied to `/media/fat/` as it
+is: keep the old binary (`mv MiSTer MiSTer.prev_<md5>`), copy this one in,
+`sync` and reboot — never `cp` over the running binary, and never judge it
+after a hand relaunch over ssh.
+
+Installed on the `.143` box that way on 2026-09-19; the user confirmed the
+menu and the display working. It is meant for the Ethernet core built from
+`add-ethernet` (`b2e5377` and later), released as `MacQuadra800_20260919.rbf`
+(below); the older released cores run under it with Ethernet simply absent.
+
+## `MacQuadra800_20260919.rbf`
+
+md5 `933b421a0880177be1b5fb2861dcea15`, seed 21, the qsf-default recipe,
+**timing met on every clock**: `clk_sys` (the 33 MHz CPU clock) +0.622 ns,
+`clk_ram` +0.415 ns, HDMI +0.107 ns, worst hold +0.190 ns; the SDRAM bridge's
+33 -> 99 MHz request handoff (`sdram_beat32 req_tgl -> req_handoff`) has
++1.545 ns and the return path (`line_done_handoff -> line_tag`) +0.622 ns;
+`open_row` stays in logic (no altsyncram in the map report). **36,914 ALMs
+(88 %)**, 25,896 registers: +825 ALMs over 20260918, of which the SONIC
+front-end is about 400. Built 2026-09-19 11:19 on branch `add-ethernet` from
+`b2e5377` (the merge of Alan Steremberg's fixes, `alanswx/MacQuadra800_MiSTer`
+pull request #3).
+
+**What is new: the built-in Ethernet** (`docs/ethernet.md`). The guest sees the
+DP83932 SONIC at `$5000A000` with its MAC PROM at `$50008000` and its interrupt
+on VIA2 slot $9, so the ROM and Apple's "Apple Built-In Ethernet" driver bind
+to it with nothing to install. The FPGA holds the register doorbell, ISR/IMR,
+the CR overlay and an op-list DMA engine that is a third bus master in the
+machine (`rtl/sonic_mbx.sv`); the chip model and the bridge to Linux run in
+Main. OSD: **Ethernet (on reset)** Off/On, default **Off**, and **Net
+interface**; both are latched under reset. The guest's MAC is `08:00:07` + the
+last three octets of the MiSTer's own. With the option Off the block is held
+in reset and the machine is the 20260918 one.
+
+**Needs the Main binary `releases/MiSTer`** (md5
+`fbb540c8a51134cfdc960a8b5115807b`, section above). On a stock Main the option
+does nothing.
+
+Two machine bugs that only a second bus master could expose were found and
+fixed on the way (both by Alan, both in `rtl/quadra800.sv`): a retained-line
+ack registered in the clock the service FSM leaves idle for a DMA beat
+launched a phantom adapter read, which corrupted Open Transport's CAS/CAS2
+list code seconds after receive traffic started (`0533256`); and the DMA
+engine starved behind a parked pseudo-DMA beat while the HPS fetched a disk
+sector, a deadlock under FTP (`49b8648`). Earlier in the bring-up: the VIA2
+any-slot flag is a level (`665a450`), and in Main the SONIC's 32-bit mode keeps
+the receive buffer pointer longword-aligned (DHCP failed without it).
+
+**Still in this build on purpose:** three bring-up switches in the OSD,
+`Dbg store buffer`, `Dbg SDRAM line`, `Dbg DMA snoop` (status bits 9-11,
+latched under reset). They default to On = the normal machine; leave them
+there. They come out, with the SAMPLE/DEBUG words, once the Ethernet speed
+work is closed.
+
+**Hardware gate, 2026-09-19, on the `.143` DE10-Nano with Main `fbb540c8`**
+(operator report `docs/ethernet-regression-20260919.md`), all at the 32 MB
+RAM setting:
+
+- Mac OS 8.1, Ethernet On with every fast path on (CFG `40 00`): DHCP lease,
+  **506/506 pings, 500 of them 1400 bytes, 0 lost, 3 ms average**, no DMA
+  timeout in the statistics, pointer and menus responsive, menu-bar clock
+  ticking at idle, Special -> Shut Down to the halt screen.
+- CD audio transport (`AudioTest.cue` in slot 4): the disc mounts, the AppleCD
+  Audio Player shows the TOC, the counter runs under Play, freezes under
+  Pause, resumes from the frozen value, Stop returns to Track 01 00:00, no
+  "not responding" dialog. **Whether it is audible was not judged in this run**
+  (it needs ears at the display).
+- A/UX 3.1 with the SONIC present: multiuser Finder desktop within 186 s, root
+  CommandShell `uname -a` = `A/UX localhos 3.1 SVR2 mc68040`, `ls`, `df` sane,
+  `shutdown -h now` to "You may now switch off your Macintosh safely" within
+  126 s. A/UX has no driver bound to the chip here and never touches it; A/UX
+  networking is a later goal.
+- Both guests again with Ethernet Off (CFG `00 00`): the guest is unreachable
+  by ping, no error dialog, clean shutdowns.
+
+Measured by Alan on his box on the same RTL (build 10, `RESUME-handoff-20260919.md`):
+FTP 10 MB both ways with matching md5s (download 62.6 KB/s, upload 227 KB/s —
+the speed is the open work), no DMA timeout in 35,920 round trips, Speedometer
+4.02 Mix 0.923-0.926 with Ethernet On and idle against 0.922-0.925 Off. Not
+re-measured on this rbf: Speedometer, FTP. Known and unchanged: A/UX at the
+128 MB setting hangs in `shutdown -h now`.
 
 ## `MacQuadra800_20260918.rbf`
 

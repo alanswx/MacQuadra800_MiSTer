@@ -87,6 +87,20 @@ localparam CONF_STR = {
 	"O[5],Monitor (on reset),13in 640x480,12in 512x384;",
 `endif
 	"O[122:121],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
+	// Built-in Ethernet (rtl/sonic_mbx.sv + the Main fork's support/mac).  Off by
+	// default: the machine is then bit for bit the one without it.  The core reads
+	// only [6]; the interface choice is the Main's.  The guest's MAC is 08:00:07 +
+	// the last three octets of the MiSTer's own, so there is nothing else to set.
+`ifndef ETHERNET_OFF
+	"-;",
+	"O[6],Ethernet (on reset),Off,On;",
+	"O[8:7],Net interface,eth0,eth1,wlan0,tap0;",
+	// BRING-UP ONLY (2026-09-18, remove before a release): machine fast paths off, to find what
+	// Open Transport's CAS/CAS2 list code trips over.  All latched under reset.
+	"O[9],Dbg store buffer,On,Off;",
+	"O[10],Dbg SDRAM line,On,Off;",
+	"O[11],Dbg DMA snoop,On,Off;",
+`endif
 	"-;",
 	"T[0],Reset;",
 	"R[0],Reset and close OSD;",
@@ -479,7 +493,30 @@ localparam CDROM_EN = 0;
 `else
 localparam CDROM_EN = 1;
 `endif
-quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS), .CDROM(CDROM_EN)) machine (
+
+// Built-in Ethernet.  The build switch is
+//   set_global_assignment -name VERILOG_MACRO "ETHERNET_OFF=1"
+// (no SONIC front-end, no DMA master, no DDR3 window port, no OSD lines); the
+// runtime switch is OSD [6], latched under reset like the RAM size because the
+// guest must never see the chip appear or vanish under it.
+`ifdef ETHERNET_OFF
+localparam SONIC_EN = 0;
+`else
+localparam SONIC_EN = 1;
+`endif
+reg         eth_ena = 1'b0;
+reg   [2:0] dbg_sw  = 3'd0;
+always @(posedge clk_sys) if (reset) begin
+	eth_ena <= (SONIC_EN != 0) && status[6];
+	dbg_sw  <= status[11:9];
+end
+wire [11:0] eth_mem_addr;
+wire        eth_mem_rd, eth_mem_we;
+wire [63:0] eth_mem_wdata;
+reg         eth_mem_accept = 1'b0;
+wire        eth_mem_rvalid;
+
+quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS), .CDROM(CDROM_EN), .SONIC(SONIC_EN)) machine (
 	.clk(clk_sys),
 	.nreset(~reset),
 	.ce(1'b1),
@@ -548,7 +585,17 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS), .CDROM(CDROM_EN)) machine (
 	.debug_status(m_debug_status),
 	.debug_status2(m_debug_status2),
 	.debug_fault(),
-	.debug_halted()
+	.debug_halted(),
+
+	.eth_ena(eth_ena),
+	.dbg_sw(dbg_sw),
+	.eth_mem_addr(eth_mem_addr),
+	.eth_mem_rd(eth_mem_rd),
+	.eth_mem_we(eth_mem_we),
+	.eth_mem_wdata(eth_mem_wdata),
+	.eth_mem_accept(eth_mem_accept),
+	.eth_mem_rvalid(eth_mem_rvalid),
+	.eth_mem_rdata(DDRAM_DOUT)
 );
 
 wire m_hblank, m_vblank;
@@ -856,6 +903,9 @@ assign DDRAM_CLK = clk_sys;
 
 localparam [28:0] DDR_RAM_BASE = 29'h0600_0000;   // byte 0x3000_0000 >> 3
 localparam [28:0] DDR_ROM_BASE = 29'h0700_0000;   // byte 0x3800_0000 >> 3
+// The Ethernet mailbox window the Main fork maps (support/mac/mac_eth.h): ARM
+// physical 0x1FF00000, the area the Minimig A2065 and the MacLC card use too.
+localparam [28:0] DDR_ETH_BASE = 29'h03FE_0000;   // byte 0x1FF0_0000 >> 3
 
 reg  [7:0] ddram_burstcnt;
 reg [28:0] ddram_addr;
@@ -874,9 +924,12 @@ reg [26:0] ioctl_a;
 reg [15:0] ioctl_d;
 reg        ddr_wait_data;                  // read issued, awaiting DOUT_READY
 reg        ddr_rd_hi;
+reg        ddr_wait_eth = 1'b0;            // ... for the Ethernet window instead
+assign     eth_mem_rvalid = ddr_wait_eth && DDRAM_DOUT_READY;
 
 always @(posedge clk_sys) begin
 	mem_ack_r <= 0;
+	eth_mem_accept <= 0;
 
 	// boot.rom halfwords: capture, then stall hps_io until written
 	if (ioctl_download && rom_index && ioctl_wr) begin
@@ -908,6 +961,9 @@ always @(posedge clk_sys) begin
 			ddr_wait_data <= 0;
 		end
 	end
+	else if (ddr_wait_eth) begin
+		if (DDRAM_DOUT_READY) ddr_wait_eth <= 0;
+	end
 	else if (!DDRAM_BUSY && !ddram_we && !ddram_rd) begin
 		if (ioctl_pend) begin
 			// file bytes are big-endian in the 32-bit lane: swap the
@@ -934,6 +990,20 @@ always @(posedge clk_sys) begin
 				ddr_wait_data  <= 1;
 			end
 		end
+		// The Ethernet mailbox comes last: single 64-bit beats, a few hundred a
+		// second when the link is idle.  A ROM beat that arrives behind one waits
+		// for it, which is one DDR3 round trip.  !eth_mem_accept: the requester
+		// needs a clock to drop the request this block has just taken.
+		else if ((eth_mem_rd || eth_mem_we) && !eth_mem_accept) begin
+			ddram_addr     <= DDR_ETH_BASE | {17'd0, eth_mem_addr};
+			ddram_din      <= eth_mem_wdata;
+			ddram_be       <= 8'hFF;
+			ddram_burstcnt <= 8'd1;
+			ddram_we       <= eth_mem_we;
+			ddram_rd       <= !eth_mem_we;
+			ddr_wait_eth   <= !eth_mem_we;
+			eth_mem_accept <= 1;
+		end
 		// RAM beats are sdram_beat32's; nothing here gates them, so a RAM
 		// access never waits on the DDR3 side of this block.
 	end
@@ -941,6 +1011,8 @@ always @(posedge clk_sys) begin
 	if (reset && !ioctl_download) begin
 		vram_ph <= 0;
 		ddr_wait_data <= 0;
+		// ddr_wait_eth is NOT cleared: the bridge will still answer that read, and the
+		// answer must not be taken for the ROM's.
 	end
 	if (RESET) begin
 		ioctl_pend <= 0;

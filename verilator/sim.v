@@ -116,7 +116,9 @@ wire [127:0] m_debug_status2;
 // clock only matters to the HDMI scaler on real hardware, and using it here
 // would change every frame count in the existing sim regressions for no
 // benefit. Frame rate in sim is therefore 78.6 Hz, not the hardware's 59.94.
-quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS)) machine (
+// SONIC=0: the Ethernet front-end talks to the ARM through a DDR3 window this top
+// does not model; its own bench is tb_sonic_mbx.
+quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS), .SONIC(0)) machine (
 	.clk(clk_sys),
 	.clk_vid(clk_sys),
 	.nreset_vid(~reset),
@@ -180,7 +182,16 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS)) machine (
 	.debug_status(m_debug_status),
 	.debug_status2(m_debug_status2),
 	.debug_fault(debug_cpu_fault),
-	.debug_halted(debug_cpu_halted)
+	.debug_halted(debug_cpu_halted),
+	.eth_ena(1'b0),
+	.dbg_sw(3'd0),
+	.eth_mem_addr(),
+	.eth_mem_rd(),
+	.eth_mem_we(),
+	.eth_mem_wdata(),
+	.eth_mem_accept(1'b0),
+	.eth_mem_rvalid(1'b0),
+	.eth_mem_rdata(64'd0)
 );
 
 assign debug_pc          = m_debug_status[31:0];

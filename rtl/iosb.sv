@@ -49,6 +49,7 @@ module iosb
 
 	// device interrupt lines (stage 3+ sources; quiet today)
 	input         vbl_irq,
+	input         sonic_irq,       // built-in Ethernet (rtl/sonic_mbx.sv): slot $9, VIA2 port A bit 0
 	input         scsi_irq,
 	input         scsi_drq,
 	input         asc_irq,
@@ -440,7 +441,7 @@ end
 //----------------------------------------------------------------------------
 reg  [7:0] via2_ifr;      // bit 7 = summary, computed below
 reg  [7:0] via2_ier;
-wire [7:0] nubus_irqs = {1'b1, ~vbl_irq, 6'b111111};  // bit 6 = internal video (QEMU VIA2_NUBUS_IRQ_INTVIDEO); 5:0 = slots E..9 idle
+wire [7:0] nubus_irqs = {1'b1, ~vbl_irq, 5'b11111, ~sonic_irq};  // bit 6 = internal video (QEMU VIA2_NUBUS_IRQ_INTVIDEO); 5:1 = slots E..A idle; 0 = slot $9, the SONIC (MAME via2_irq_w<0x01>)
 wire       slot_any   = (nubus_irqs & 8'h79) != 8'h79;
 
 reg vbl_d, scsi_d, drq_d, asc_d, slot_d;
@@ -1083,7 +1084,17 @@ always @(posedge clk) begin
 		asc_d <= asc_irq_i; slot_d <= slot_any;
 		if (scsi_irq_i != scsi_d) via2_ifr[3] <= scsi_irq_i;
 		if (scsi_drq_i != drq_d)  via2_ifr[0] <= scsi_drq_i;
-		if (slot_any != slot_d) via2_ifr[1] <= slot_any;
+		// The any-slot flag is a LEVEL, not an edge latch.  It used to follow changes of
+		// slot_any, which is the OR of the sources: fine while DAFB's VBL was the only
+		// one, fatal with the SONIC beside it.  The guest clears the flag after serving
+		// one source; if the other is asserted by then the OR never changes again, the
+		// flag stays 0 and NO slot interrupt is ever delivered again, the 60 Hz VBL
+		// included (first Ethernet hardware run, 2026-09-18: a frozen machine with
+		// PKTRX pending and unacknowledged).  MAME's pseudo-VIA re-evaluates the bit on
+		// every source event and QEMU latches each slot's own edge; a level is the
+		// superset of both, and both sources here are cleared at the source (DAFB's
+		// interrupt status, the SONIC's ISR), so the flag cannot stick.
+		via2_ifr[1] <= slot_any;
 		if (asc_irq_i && !asc_d) via2_ifr[4] <= 1'b1;
 
 		case (astate)
@@ -1100,7 +1111,9 @@ always @(posedge clk) begin
 				if (sel_via2) begin
 					if (write) begin
 						case (rsel)
-						4'd13:   via2_ifr[6:0] <= via2_ifr[6:0] & ~(wbyte[6:0] & 7'h1b);
+						// bit 1 (any slot) is a live level: see above
+						4'd13:   via2_ifr[6:0] <= (via2_ifr[6:0] & ~(wbyte[6:0] & 7'h19) & 7'h7D)
+						                          | {5'd0, slot_any, 1'b0};
 						4'd14:   via2_ier[6:0] <= wbyte[7]
 						             ? (via2_ier[6:0] |  (wbyte[6:0] & 7'h1b))
 						             : (via2_ier[6:0] & ~(wbyte[6:0] & 7'h1b));

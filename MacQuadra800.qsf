@@ -280,6 +280,24 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # clock -- 36,089 ALMs (86 %), clk_sys +0.772, HDMI +0.527, clk_ram +0.668, hold +0.204, TNS 0; req_tgl -> req_handoff
 # +0.727 (b12 +1.384). rbf fde49a3c = scratch/pipeline_b13/. ON HARDWARE: boots, Mix 0.9285 (mean of 8; b8 0.907, shipped
 # 0.855), CQD 0.670, 0 anomalous values in 11 series, clean shutdown. The branch head (11/12 reverted, 4abb118) = this RTL.
+# 2026-09-18 14:31 ethernet build 1 (69d9585 on add-ethernet = build 13's machine + rtl/sonic_mbx.sv and its wiring; built
+# on the second Quartus host, dani@192.168.99.153, same 17.0.2 Lite), seed 21 + the switch: 36,560 ALMs (87 %, +471;
+# sonic_mbx itself 401.6 ALMs / 665 ALUTs / 0 RAM), clk_sys +0.547, clk_ram +0.770, hold +0.214, HDMI VIOLATED -0.306
+# (TNS -0.504, the framework's video register again). rbf 815ee8b4 = scratch/eth/build1/, tried on hardware as a marginal
+# build (the miss is not on the CPU clock). ON HARDWARE: Mac OS 8.1 boots with Ethernet Off and On, the driver opens, 12
+# packets out, DMA round trips 36 us average -- then the whole guest FREEZES: iosb's VIA2 any-slot flag followed edges of
+# the OR of VBL and SONIC and lost the interrupt for good (fixed 665a450). The seed 22 fit of this tree was abandoned.
+# 2026-09-18 15:33 ethernet build 2 (665a450: + the any-slot flag as a level, + the front-end's DEBUG word), seed 21 + the
+# switch, on .153: MEETS TIMING on every clock -- 36,502 ALMs (87 %), clk_sys +0.323, HDMI +0.314, clk_ram +0.716, hold
+# +0.220, TNS 0. rbf 2ea4d529 = scratch/eth/build2/.
+# 2026-09-19 11:19 ethernet build 11 (b2e5377 = the merge of Alan's pull request #3: the phantom adapter read after a
+# line ack in the clock the FSM leaves idle for a DMA beat, 0533256, and the DMA engine no longer starved by a parked
+# pseudo-DMA beat, 49b8648; his builds 9 and 10 were fitted on his own host), seed 21 + the switch, on this PC: MEETS
+# TIMING on every clock -- 36,914 ALMs (88 %), 25,896 registers, clk_sys +0.622, clk_ram +0.415, HDMI +0.107, hold
+# +0.190; req_tgl -> req_handoff +1.545, line_done_handoff -> line_tag +0.622; open_row stays in logic. rbf 933b421a =
+# scratch/ethernet-handover/build11_b2e5377/ = releases/MacQuadra800_20260919.rbf. ON HARDWARE with Main fbb540c8: 8.1 at
+# CFG 40 00 506/506 pings, CD audio transport, A/UX 3.1 boot/shell/shutdown with the SONIC present, both guests again
+# with Ethernet off -- all pass (docs/ethernet-regression-20260919.md).
 set_global_assignment -name SEED 21
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
@@ -323,6 +341,7 @@ set_global_assignment -name VERILOG_MACRO "MISTER_DISABLE_ADAPTIVE=1"
 # ============================================================================
 #set_global_assignment -name VERILOG_MACRO "SCSI_TRACE=1"
 #set_global_assignment -name VERILOG_MACRO "CDROM_OFF=1"
+#set_global_assignment -name VERILOG_MACRO "ETHERNET_OFF=1"
 set_global_assignment -name VERILOG_MACRO "CACHE_CD_OFF=1"
 #set_global_assignment -name VERILOG_MACRO "VIDEO_512_OFF=1"
 set_global_assignment -name VERILOG_MACRO "CACHE_SMALL=1"
@@ -508,6 +527,7 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/rtc3430042.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/easc.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/ncr53c96.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/cd_audio.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/sonic_mbx.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/scsi_cache.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/adb.sv
 set_global_assignment -name VERILOG_FILE rtl/dpram.v
