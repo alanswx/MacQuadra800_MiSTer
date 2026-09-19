@@ -359,3 +359,43 @@ The first-100 silicon corpus again has zero real differences in 1,900 field
 groups. `tb_line_dma` passes 16,000 reads, 2,029 stores, 12,766 line acknowledges
 and 11,026 DMA beats with zero errors. Logs: `scratch/pipeline_p1b/refill_load_*`.
 The full-machine build of this candidate keeps the experimental pipeline off.
+
+
+## Next operand-engine design constraints
+
+The prepared `pipeline_address_oracle.py` fixture independently checks 6,048
+snapshots of all 16 integer registers against the real core. Its proposed
+MOVE Dn/An, ADDQ/SUBQ and ADDA/SUBA/CMPA coverage, combined with P0, accounts for
+38.01% of observed opcode loads in the old September 15 profile (versus P0's
+12.64%). This is a coverage measurement, not a predicted speedup. The private
+prototype must model A7 correctly, and integrated execution must retain the
+core's live S/M bank selection. MOVEA.W and address arithmetic word operands
+sign-extend before full-width execution; address quick operations preserve CCR.
+
+After those register semantics, the first memory instruction should be a
+non-updating `(An)` load to Dn. Start with one outstanding operand transaction:
+EX holds its metadata under a variable-latency request, older WB may retire,
+and younger ID cannot pass it. The core retains sole ownership of the external
+memory port and arbitrates against instruction refill. Only issue after older
+work is committed; reject an issue on the same edge that an older retirement
+recognizes IRQ/trace. Do not assume a logical RAM-looking address cannot map to
+I/O. Serial issue at the architectural head avoids consuming speculative device
+state regardless of the eventual translation/cache attributes.
+
+A load fault needs the load's PC/opcode/size/address and existing access-error
+context, not the advanced fetch PC or last committed instruction. No partial
+Dn merge or CCR write may occur on fault. A valid acknowledge can complete the
+load, then a pending IRQ cancels younger work at its retirement. First cover
+hits, misses, CE pauses, translation errors, physical errors and interrupt
+arrival during a wait. Unsupported or unaligned cases must return to the
+sequencer without losing/replaying older commits. Postincrement/predecrement
+and multi-write retirement come later, with explicit rollback tests.
+
+Variable-length immediate and d16 instructions require an input word count
+and acknowledged resident extension words. If an entire instruction is not
+resident (especially across a page), leave it to the existing demand-fetch
+path rather than stalling forever on a same-page-only speculative refill.
+Branches require a retirement redirect that cancels only younger work and
+uses the actual taken/fallthrough PC for an interrupt frame. These are required
+contracts before broadening issue; a fast register-only throughput number is
+not a substitute for them.
