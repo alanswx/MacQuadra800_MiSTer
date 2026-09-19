@@ -399,3 +399,11 @@ Branches require a retirement redirect that cancels only younger work and
 uses the actual taken/fallthrough PC for an interrupt frame. These are required
 contracts before broadening issue; a fast register-only throughput number is
 not a substitute for them.
+
+
+Full-machine candidate fit, seed 21, build commit `f7b8e1f`: **36,657 ALMs
+(87%)**, worst setup **+0.343 ns**, worst hold **+0.214 ns**. CPU setup
++0.671 ns; SDRAM setup +0.524 ns. Separate crossing reports pass:
+`req_tgl -> req_handoff` **+1.290 ns**, RAM-to-system worst **+0.671 ns**.
+Build and cross-domain STA both exited zero. Archived RBF/reports/identity:
+`scratch/refill_load_fit_20260919/`. Hardware measurement remains outstanding.
