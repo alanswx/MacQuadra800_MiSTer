@@ -1474,3 +1474,15 @@ P14scratch pipeline d16(An) MOVE/MOVEA loads: Permute1487041vs1466887
 regression;15117newloadissues. Towers25583649unchangedPASS. Continuation-only
 entrypolicy returnsPermute1466887 with0loadissues. Neitherpromoted orfully
 qualified; do not claim performance improvement frommoreopcodecoverage.
+
+### Pipeline occupancy investigation
+
+scratch/p15_pipe_profile_20260919 current/dispload runs terminalPASS.
+Current owns109604/1466887cycles7.47%, EXmemorywait49108,
+nextopcodeunsupported51791,queueempty0; displacementvariant owns160019,
+EXwait74328,unsupported76994,queueempty20,total1487041. Categoriesoverlap.
+Docscontainfulltable. More supportedloads increased totalruntime; avoid
+repeating P14 as presumed improvement. Pipeline sequence boundaries and
+legacy execution dominate; deeperqueue alone not supported byownedprofile.
+P12fit activeMainPID1480157. P9hardwarefourcompleted screenshots, agent
+requested finalreport+safehalt. No hardwarefinalaggregateyet.

@@ -450,3 +450,33 @@ to1,466,887 withzero pipeline loads, so this fixture offers no suitable
 continuation sequence. Both experiments remain scratch-only; neither has
 complete correctness qualification or measured performance benefit.
 Artifacts: scratch/p14_dispload_20260919 and its continuation subdirectory.
+
+### Pipeline occupancy explains displacement-load regression
+
+`scratch/p15_pipe_profile_20260919` repeats the exact Permute fixture on
+trackedP12 and the P14 displacement-load module. Both pass independent
+array/guard checks. Counters apply only while pipe_rf_owner is true and
+are overlapping categories, not additive attribution:
+
+| Counter | P12 current | P14 displacement loads |
+|---|---:|---:|
+| Total kernel cycles | 1,466,887 | 1,487,041 |
+| Pipeline ownership cycles | 109,604 | 160,019 |
+| EX memory waiting for completion | 49,108 | 74,328 |
+| WB valid while sequencer owns memory | 0 | 0 |
+| Queue lacks next opcode during ownership | 0 | 20 |
+| Resident next opcode unsupported | 51,791 | 76,994 |
+| Input offered while ID not ready | 27,572 | 42,686 |
+| Retirements | 40,326 | 55,443 |
+| ID valid while EX cannot advance | 27,593 | 47,746 |
+
+Current ownership is7.47% of kernel runtime. This bounds the benefit of
+optimizing only existing owned cycles: most execution remains elsewhere.
+Expanded load support adds15,117retirements but50,415ownershipcycles and
+20,154totalcycles. It does not fix isolated admission/drain overhead or
+unsupported control/stack boundaries. Within owned sequences instruction
+queue starvation is negligible; a deeper queue alone is not supported by
+this evidence. The counters do not measure legacy frontend starvation or
+predict whole Speedometer Mix. Next larger architectural work should target
+longer useful sequences across observed boundaries, with precise exception
+and branch handling, rather than assuming opcode count equals throughput.
