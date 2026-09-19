@@ -229,3 +229,26 @@ promotion. The fit of f2b2770 remains active. Hardware operator is performing
 an additional P7compare run followed by application quit and clean Finder
 shutdown to resolve the earlier shutdown-evidence gap; retain the original
 five-run statistics separately.
+
+## Memory-MOVE value oracle complete
+
+`pipeline_memmove_values.py --core ... --out ...` independently generates
+144 cases spanning B/W/L, zero/one/signed edges/all-ones/alternating bits,
+(An)/(An)+/-(An)/d16(An) sources, shared and distinct source/destination
+base registers, signed long indices and all four index scales. It checks
+CCR including preserved X and cleared V/C, both address registers, the
+index register, moved data and byte guards on both sides of each write.
+Three timing schedules produce432 eligible source acknowledgements.
+
+The exact reusable runner passes for both committed f2b2770 and the
+indexed-only scratch candidate. A deliberate candidate mutation XORs the
+source result with1 at the new acknowledgement shortcut: all schedules
+fail architectural program checks, so the oracle detects corrupted data
+rather than merely a coverage mismatch. Logs/artifacts are
+`scratch/p8_memmove_indexed_20260919/{rvalues,basevalues,badvalues}`.
+
+Together with full integration, silicon100 and the10fault/boundary cases,
+this completes the planned simulation qualification for the indexed-only
+shortcut. It is ready for promotion after the current fit's source freeze
+ends; no hardware gain or fit result exists for this shortcut yet. The broad
+variant remains rejected because it regressed Permute.

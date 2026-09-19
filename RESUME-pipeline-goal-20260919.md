@@ -1267,3 +1267,21 @@ q800-p7handoff-fit-20260919 USERservice stillactive MainPID1358014 atlastcheck;
 projectsourcefreeze remains. Hardwareagent active on an additional P7compare
 run then quitSpeedometer/Finder shutdown; instructed not to reload merely
 for navigation. Await its evidence, preserve original5runstats.
+
+### Indexed MOVE value qualification complete
+
+New scripts/cpu/pipeline_memmove_values.py:144B/W/L cases×3timing phases,
+432eligible sourceacks; verifies independent flags/registers/data/byteguards.
+Candidate and baseline PASS; XOR1 source-data mutation triggers actual
+program failures in all3phases. Artifacts p8_memmove_indexed_20260919/
+{rvalues,basevalues,badvalues}. Along with fullgate/silicon100 and10fault/
+boundarycases, planned simqualification complete. Ready to promote scratch
+p8_memmove_indexed_20260919/ap040_core.v after existing fit freeze ends.
+Do not copy broad p8_memmove_ack variant (Permute regression).
+
+Currentfit user service MainPID1358014; quartus_fit1367442 verified actively
+usingCPU (~14minelapsed) and sourcehash unchanged. No terminal artifacts yet.
+Hardwareoperator still in responsive Speedometer save/quit flow; latest
+saved after_no_quit.png is a modal file picker with New/Open/Cancel. Root
+sent guidance to save a unique disposable benchmark record or cancel then
+explicitly Don't Save, without reload. Do not duplicate hardware actions.
