@@ -1176,3 +1176,28 @@ benchmarksession was reset to recover navigation, NOT cleanlyshut down.
 Operator corrected results.md; permanentmeasurementsection29 records this
 limit. Originaldisk/Main untouched, disposable selected. P6entryhardware
 median1.003,mean1.0024,HDMI-.187. CD/audio remainsunchecked,A/UXdeferredDani.
+
+### Live P7 fit and follow-up admission/branch probes
+
+q800-p7compare-fit-20260919.service ACTIVE MainPID1309794, fitter running.
+Source hash check passes; RTL/QSF/QIP/SDC remain frozen. Currentcandidate
+commit1c04a43. No restart or secondQuartusflow. Hardwareoperator idle;
+guest previously halted after recovery boot.
+
+profile_bubble.py nowselfcontained(no ignoredTowersbenchdependency), has
+--profile for pipelineexits/occupancy. Samecandidatecycles reproduced.
+New scratch wait+route probe(p7_index_wait_route_20260919) achieves
+Bubble4,327,996 vs4,429,205; Towers26,256,328,Permute1,519,901. Waiting
+alone haszeroeffect becauselegacylookahead consumes late-indexedopcode.
+Routingmissingextensionopcode first doubles Bubblepipelinecoverage toall
+124,750comparisons. Fullgate terminalPASS;12boundaries and5operandfault
+casesallPASS. Stillneedsexplicit late/fullformatfallback +silicon100.
+
+Further p7_branch_handoff_20260919 scratch addsfinalWBflags toexisting
+Bcc.Blookahead andtargethint, guardspreserved. Bubble4,203,308,Towers26,207,138,
+Permute1,519,901 allkernelchecksPASS. branch_conditions.py proves360finalWB
+branchboundaries(15conditions×8patterns×3phases),720commits; allresultsPASS.
+StaleCCRmutationfailsactualprograminall3phases. FullgateACTIVEsession4768,
+log scratch/p7_branch_handoff_20260919/full_gate.log. Remaining targetodd
+branch/trace/IRQ tests andsilicon100 beforepromotion. Neverclaimqualified
+merelyfromkernel/conditiontests. Noneofthesescratchchangesaffectsactivefit.

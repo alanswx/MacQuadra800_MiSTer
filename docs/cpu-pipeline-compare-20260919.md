@@ -48,3 +48,46 @@ Next fit archive scratch/p7compare_fit_20260919; service
 q800-p7compare-fit-20260919.service. Commit before launch and freeze RTL/QSF/
 QIP/SDC until terminal flow and cross-domain extraction. No new hardware score
 or fit claim exists yet. Latest measured hardware median1.003 remains below1.8.
+
+## Admission and branch-handoff probes during the fit
+
+`profile_bubble.py --profile` now records pipeline issues/occupancy, legacy
+current-IR occupancy and exits. Its complete responder/checking bench is
+embedded in the script; it no longer depends on ignored scratch/Towers files.
+The self-contained run reproduces4,429,205cycles exactly. Current candidate
+issues380,436instructions and exits63,406times at BLE.B0x6f18; pipeline
+ownership occupies634,548cycles. Current-IR occupancy includes fetch/handoff
+and must not be read as retired-instruction latency.
+
+Scratch experiments preserve the frozen fit sources:
+
+| Variant | Bubble | Towers | Permute |
+| --- | ---: | ---: | ---: |
+| Building1c04a43 | 4,429,205 | 26,256,329 | 1,519,901 |
+| Indexed extension wait only | 4,429,205 | 26,256,329 | 1,519,901 |
+| Wait plus lookahead routing | 4,327,996 | 26,256,328 | 1,519,901 |
+| Above plus branch handoff | 4,203,308 | 26,207,138 | 1,519,901 |
+
+All preserve kernel results/guards. The wait-only probe shows that S_DECODE
+waiting alone is ineffective: legacy lookahead already consumed late-extension
+indexed MOVE. Routing these opcodes to admission before the extension arrives
+raises Bubble pipeline issues to748,500 and conditional exits to124,750 (every
+sort comparison). Same-page waits retain the speculative-error/page-boundary
+fallback. Full-format extensions remain unsupported and return to legacy.
+
+Directories: scratch/p7_index_wait_20260919, p7_index_wait_route_20260919,
+p7_branch_handoff_20260919. Routing variant full integration terminalPASS,
+plus all12MOVE/compare boundary cases and5operand-fault cases×3phases.
+It still needs explicit late/full-format fallback coverage and silicon100
+before promotion.
+
+The branch probe lets existing Bcc.B lookahead run at final pipelineWB,
+forwards pipe_ccr, and adds the existing instruction-target hint. It retains
+trace/IRQ, odd-target and memory-port guards. `branch_conditions.py` tests
+all15supported short conditions across8CMPpatterns and3latency/CEphases:
+360actual final-WB boundaries,192taken/168untaken,720pipeline commits,
+all architectural checks pass. Removing the CCR forward causes actual
+program failures in all3phases (before the coverage assertion), proving
+the test detects stale flags. This is not complete branch qualification:
+full integration is running, and targeted odd-target/trace/IRQ boundaries
+and silicon100 still need checking. No prototype is part of the active fit.
