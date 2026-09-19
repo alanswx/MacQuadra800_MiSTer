@@ -672,3 +672,32 @@ using counts. Aim for broader compiler instruction coverage rather than another
 narrow gain. Older Towers current-IR attribution lists MOVEM push/pop~13.6%,
 but inspecting current RTL shows load retirement already occurs on acknowledge
 and stores issue in-place; do not reimplement those existing optimizations.
+
+
+### P6 Towers coverage measurements completed
+
+`scratch/p6_towers_admission_20260919/results.log`: P5 forced admission passes
+at33,224,878cycles,1,719,589issues,1empty exit. Top exits e588 LSL.L#2,D0=343446,
+3270 indexed MOVEA.W=147447,41ed LEA d16(A5),A0=98382,4eba JSRpc=98340.
+This forced policy is diagnostic only and regresses production27,509,911cycles.
+Normal unrestricted admission baseline also passes:29,000,193cycles,
+1,252,397issues,2empty exits; top3270=147447,4eba=98298,e588=97617.
+See normal_results.log/normal_summary.txt for full histogram.
+
+Scratch shift/rotate prototype `scratch/p6_shifts_20260919/generate.py` reuses
+ap040_alu's barrel shifter and adds immediate/register count decode with explicit
+zero-count flags. All eight shifts/rotates and B/W/L encoded. NOT correctness-
+qualified beyond kernel results; no exhaustive independent shift oracle yet.
+Forced Towers passes32,537,882cycles (2.07% reduction vs matched forced P5),
+2,063,089issues. Normal unrestricted Towers passes29,000,193cycles EXACTLY
+unchanged vs its matched baseline despite1,350,068issues. Thus the apparent
+forced-mode benefit does not translate to normal admission; do not promote
+this feature on that evidence. Production PEA-only remains27,509,911cycles.
+All kernel runs preserve moves/nodes/lists/guards. Artifacts include source
+identity hashes, build logs and all exit counts. Simulator jobs have finished.
+
+Next coverage target from normal-admission evidence: indexed MOVEA.W opcode3270
+(147447exits), then indexed/memory-to-memory moves. Simply adding register shifts
+or calls does not produce the broad gain required for1.8. The pipeline's drain
+and memory-handshake costs need amortization across useful instruction streams.
+P5 FPGA fit is still verified active/MainPID1078706; continue source freeze.
