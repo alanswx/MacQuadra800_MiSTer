@@ -638,3 +638,37 @@ Operator `/root/mister_operator` is running the five P4 hardware trials; preserv
 that session and wait for its report. Never switch to P5 mid-benchmark.
 Latest accepted hardware median remains1.005; goal1.8 and release regressions
 are unmet. A/UX-image-location question remains pending.
+
+
+## P4 hardware finished; isolated P6 call exploration
+
+Operator completed five valid P4 Mix runs1.002/1.006/1.005/1.005/1.004:
+median1.005, mean1.0044, no invalid timer result, boot/clean halt passed.
+Evidence `scratch/hardware_p4_20260919/p4_results.md` and screenshots. Final
+screenshot independently checked. Original disk untouched; disposable selected.
+Operator is now idle. P4 remains installed at clean halt and is timing-marginal.
+No overall Mix gain versus LEA; Permute alone improved~2%.
+
+P5 fit remains active (q800-p5-fit-20260919.service,MainPID1078706). Preserve
+source freeze. No P5 hardware artifact/result yet.
+
+Scratch-only P6 call experiment: `scratch/p6_calls_20260919/generate.py` adds
+resident/even-target JSR d16(PC), an ordered return-address push and branch
+retirement through go_pc with younger cancellation. Preserve PEA-only entry;
+calls may continue an existing stream. Initial Permute result1524943cycles
+regresses P5's1519907. A second variant `prefetch.py` issues the target fetch
+before the stack push, mirroring the existing sequencer's overlap; it passes
+Permute at1516199cycles, only0.244% fewer than P5. All kernel array/call/guard
+checks passed. These are NOT correctness-qualified implementations: no new
+call fault/trace/IRQ oracle, no fit, no hardware. Do not promote yet. The bench's
+old pipe_stores counter counts call offers during prefetch and again at launch;
+it is not an exact memory transaction count for that variant.
+
+Current next measurement: forced-admission Towers exit profile in
+`scratch/p6_towers_admission_20260919/`, runner run.py, process session66183.
+It uses frozen P5 sources, not the call prototype. This is a diagnostic policy,
+not the production PEA-entry policy. Check terminal result/summary.txt before
+using counts. Aim for broader compiler instruction coverage rather than another
+narrow gain. Older Towers current-IR attribution lists MOVEM push/pop~13.6%,
+but inspecting current RTL shows load retirement already occurs on acknowledge
+and stores issue in-place; do not reimplement those existing optimizations.

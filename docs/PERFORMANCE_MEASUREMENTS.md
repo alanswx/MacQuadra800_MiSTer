@@ -1305,3 +1305,27 @@ untouched/unmounted. RBF SHA-256:
 `d3bd1b96b48f95b9b3b665d1c74a8e973eb7cf54e9efac18943f5cbafbf4d04c`.
 A/UX and CD audio are not yet tested on this candidate; this is not a release.
 The1.8goal remains unmet.
+
+
+## 26. P4 resident-PEA pipeline trial (2026-09-19, mister.local)
+
+Candidate `6e852a6`: five valid Mix runs **1.002 / 1.006 / 1.005 / 1.005 / 1.004**.
+Median **1.005**, mean **1.0044**, range1.002–1.006; no invalid timer result.
+The prior LEA candidate had median1.005 and mean1.0042: **no overall Mix gain**
+is established. Permutations improved from1.326–1.329 to1.301–1.303seconds;
+Towers stayed0.915seconds in all five runs. This matches a narrow kernel gain,
+not broad enough pipeline coverage to approach the1.8goal.
+
+Authentic33MHz,32MB, Ethernet-on CFG `40 00 00 00`, unchanged Main, disposable
+Mac OS8.1 image; all ten tests at iteration1. Boot and clean shutdown passed;
+Linux MiSTer and remote stayed running, original disk untouched/unmounted.
+The final run screenshot was independently inspected: Mix1.004, all ten tests,
+“The tests are done!” and32768K. Full report/screenshots:
+`scratch/hardware_p4_20260919/p4_results.md`, `run1_complete.png` through
+`run5_complete.png`, `final_halt.png`.
+
+RBF SHA-256 `25c41c76545eb38b767df72145080d19b37577862816fcbb7250f864950ec2be`.
+This is explicitly a **timing-marginal experiment**: CPU setup -0.357ns;
+38,185ALMs91%,491RAM,43DSP. Hold+.223ns, SDRAM+.478ns, clock crossings
++.478/+.843ns. Cache RAM inference preserved. A/UX and CD audio remain unchecked;
+this trial is not release-qualified and does not satisfy the1.8goal.
