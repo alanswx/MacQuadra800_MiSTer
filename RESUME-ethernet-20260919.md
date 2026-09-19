@@ -82,13 +82,24 @@ launched fine at `40 04` and again at `40 00` with no ping load, so that bomb
 belongs here, not to the retained line. It is also the likeliest reading of the
 44 KB/s of 2026-09-18.
 
-Two fixes, neither on hardware yet:
-- core `quadra800.sv` (commit after `0533256`, **build 10**): DMA beats run on
+**Build 10 on hardware (2026-09-19, CFG `40 00`, the OLD Main `b6b5cc17`, so
+the core fix is judged alone):** seed 21, timing met (CPU clock +0.786 ns, HDMI
++0.174 ns), 88 % ALMs, rbf md5 `cedd0221...`, `scratch/ethernet-handover/build10/`.
+Fetch launched under five 1400-byte pings a second (the launch that bombed on
+build 9), then pulled `test_10m.bin` with the pings still running:
+**10,485,760 bytes in 167 s = 62.6 KB/s** (36 KB/s before, without ping load),
+**`q8 rpc 35920 ... us_max 456 ... fail 0`** (ten 250 ms timeouts before),
+1722 of 1731 pings answered, clean shutdown, and the file read out of the
+disk image has the server's md5 `183580bf...`. Evidence: `hw12/`.
+
+Two fixes:
+- core `quadra800.sv` (`49b8648`, **build 10**, on hardware as above): DMA beats run on
   the idle RAM port *beside* a parked I/O beat (`dma_side`); the snoop address
   has its own register. `tb_line_dma` covers it (6304 beats beside 968 parked
   ones, every DMA write read back).
-- Main `support/mac/mac_eth_q8.cpp` (uncommitted in `../Mac_Main_MiSTer`, built
-  here with the ARM toolchain): after a timeout, `run()` waits for the engine
+- Main `support/mac/mac_eth_q8.cpp` (commit `0cb45be` in `../Mac_Main_MiSTer`,
+  local only; binary `scratch/ethernet-handover/main/MiSTer_1d512b7a`, **not
+  installed yet** -- with build 10 the timeout it guards no longer happens): after a timeout, `run()` waits for the engine
   to finish the old list before posting, and fails the call if it never does.
   `mac_q8_test`: 56 checks pass.
 
@@ -96,9 +107,9 @@ Also seen once, unexplained: at `40 04`, after that Fetch session, the Finder
 hung inside Special > Shut Down (clock frozen, pointer alive, driver still
 servicing receives). The same sequence at `40 00` shut down cleanly.
 
-1. Build 10 + the new Main on hardware: `q8 rpc ... fail` must stay 0 through
-   an FTP download and application launches under ping load; then the FTP
-   rate again (36 KB/s before), a 10 MB download and an upload with md5s.
+1. Install Main `1d512b7a` (rename + reboot) and re-run the same download; an
+   upload with an md5 (the server on the Linux box is read-only by design, so
+   that needs a writable target); where the remaining time goes at 62 KB/s.
 2. Remove the `Dbg ...` OSD lines and `dbg_sw` (commit `5a271f0`), decide on
    the SAMPLE/DEBUG words (~100 ALMs), then the full regression gate from
    `CLAUDE.md` with Ethernet Off and On, and Speedometer On-idle vs Off.
