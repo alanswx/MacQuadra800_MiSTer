@@ -10,7 +10,17 @@ p.add_argument('--out',type=Path,required=True)
 a=p.parse_args()
 d=a.out.resolve();d.mkdir(parents=True,exist_ok=True)
 s=(r/'rtl/ap68040/tb/tb_ap040_cache_snoop.v').read_text()
+s=s.replace('else m_rdata <= mem[m_addr[15:2]];', '''else if (cross_model) m_rdata <= cross_value(m_addr,m_size); else m_rdata <= mem[m_addr[15:2]];''')
 s=s.replace('integer errors = 0;', '''integer errors = 0;
+reg cross_model=0;
+integer cross_checks=0;
+function [31:0] cross_value(input [31:0] a,input [1:0] sz);
+reg [63:0] v;
+begin
+ v={mem[a[15:2]],mem[a[15:2]+1]};v=v<<(8*a[1:0]);
+ cross_value=(sz==0)?{24'd0,v[63:56]}:(sz==1)?{16'd0,v[63:48]}:v[63:32];
+end
+endfunction
 integer span_checks=0, span_offset, span_phase, span_base;
 reg [63:0] span_pair;
 reg [31:0] span_expected;
@@ -67,6 +77,35 @@ block=r'''
       join
       span_checks++;
     end
+
+    cross_model=1;
+    for(span_phase=0;span_phase<3;span_phase++) begin
+      @(negedge clk);
+      mem['hC80C>>2]='h11223344;mem['hC810>>2]='h55667788;
+      snoop('hC800);snoop('hC810);
+      cpu_read_count_sized('hC80C,2'b10,d,normal_cycles);
+      repeat(24) @(posedge clk);
+      cpu_read_count_sized('hC810,2'b10,d,normal_cycles);
+      repeat(24) @(posedge clk);
+      @(negedge clk);c_addr='hC80E;
+      repeat(2) @(posedge clk);
+      fork
+        begin
+          cpu_read_count_sized('hC80E,2'b10,d,normal_cycles);
+          if(d!==32'h3344ABCD) begin $display("FAIL cross snoop phase=%0d data=%h",span_phase,d);errors++;end
+        end
+        begin
+          @(negedge clk);
+          repeat(span_phase == 0 ? 0 : 1) @(negedge clk);
+          if(span_phase==2) begin ce_run=0;repeat(2) @(negedge clk);end
+          mem['hC810>>2]='hABCDEF01;s_addr='hC810;s_stb=1;
+          @(negedge clk);s_stb=0;
+          if(span_phase==2) begin repeat(2) @(negedge clk);ce_run=1;end
+        end
+      join
+      cross_checks++;
+    end
+    $display("EXPLICIT_CROSS checks=%0d",cross_checks);
     $display("EXPLICIT_SPANS checks=%0d",span_checks);
 '''
 needle='\tif (errors == 0) $display("ALL TESTS PASSED");'
@@ -79,4 +118,4 @@ for name,cache in [('candidate',a.cache.resolve()),('baseline',r/'rtl/ap68040/rt
  with (d/(name+'_spans.log')).open('w') as f:subprocess.run(['vvp',str(d/(name+'_spans.vvp'))],stdout=f,stderr=subprocess.STDOUT,check=True)
  log=(d/(name+'_spans.log')).read_text()
  print(name,'\n'.join(x for x in log.splitlines() if x.startswith(('SPAN','EXPLICIT','FAIL','ALL TESTS'))),flush=True)
- assert 'ALL TESTS PASSED' in log and 'FAIL' not in log and 'EXPLICIT_SPANS checks=15' in log
+ assert 'ALL TESTS PASSED' in log and 'FAIL' not in log and 'EXPLICIT_SPANS checks=15' in log and 'EXPLICIT_CROSS checks=3' in log

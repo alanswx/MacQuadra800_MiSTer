@@ -1436,3 +1436,19 @@ from qualified scratch). Nextfit p12span_fit_20260919; committhenlaunch.
 P13cross-line extension SCRATCHONLY in scratch/p13_idlexline_20260919:
 Permute1457331 PASS vsP12 1466887; existing+15spanchecksPASS. Notqualified,
 notpromoted. Needs explicit next-line snoop/CE/miss/wrap tests and fullgate.
+
+### P13 cross-line CE/snoop regression found and fixed in scratch
+
+P12fit1fb24fc active user-serviceq800-p12span-fit-20260919 MainPID1480157;
+inputs frozen. P9hardwareoperator active, owns mister.local exclusively.
+P13 new next-line snoop checks found stale33445566 instead3344ABCD when
+CE paused during second-line assembly. Added free-running
+xline_snoop_pending, cleared on qualified read admission and set on
+C_LOOK/xlook next-row snoop; both second-line hit and fill paths reject it.
+All18extra span/crosschecks pass candidate AND trackedP12baseline.
+Tracked scripts/cpu/cache_spanning_reads.py now models byte-correct memory
+fallback for added cross cases (existing test setup unchanged).
+Disabling stickyguard reproduces stale-data failure: bad_snoop.log.
+FixedPermute terminalPASS1457331 (stillbetterthanP12 1466887).
+Broadfullgate running session47453, scratch/p13_idlexline_20260919/gate.log.
+P13SCRATCHONLY; need corpus, remainingkernels, morecrosscoveragebeforepromotion.
