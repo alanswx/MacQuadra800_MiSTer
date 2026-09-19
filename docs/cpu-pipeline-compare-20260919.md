@@ -91,3 +91,34 @@ program failures in all3phases (before the coverage assertion), proving
 the test detects stale flags. This is not complete branch qualification:
 full integration is running, and targeted odd-target/trace/IRQ boundaries
 and silicon100 still need checking. No prototype is part of the active fit.
+
+## Completed P7 fit and continued qualification
+
+The 1c04a43 seed21 fit completed with39,559ALMs (94%),26,405registers,
+491RAMblocks and43DSPs. CPU setup is-0.012ns, HDMI+0.308ns,
+SDRAM+0.424ns; worst hold+0.220ns. Crossings sys→ram+0.462ns and
+ram→sys+0.790ns. The fifth RF bank remains a512-bit MLAB and cache
+tags remain M10K. Source verification and cross-domain extraction exit0.
+The build wrapper exits1 for timing; this is an authorized experimental
+hardware trial, not a release-qualified image.
+
+Archive: `scratch/p7compare_fit_20260919/`. Immutable artifact
+`MacQuadra800_p7compare_1c04a43.rbf` is4,532,040bytes, SHA256
+`702e23482a2203befc88b190446b68bfe182ef37a4c848057a866875305d9700`.
+Hardware operator is testing this artifact on the disposable disk; no score
+is available yet. Source freeze ended after terminal extraction.
+
+The scratch admission+branch candidate now passes the full integration gate
+and five boundary cases×three timing schedules: taken odd target, untaken
+odd target, T1, T0 and IRQ. Each case proves three indexed-CMP pipeline
+retirements; IRQ also proves three injected interrupts. The first untaken
+odd fixture incorrectly expected fallthrough. Both committed and candidate
+cores rejected it; existing `t_exceptions.s` explicitly verifies that the
+68040 validates odd Bcc targets even for a false condition. Correcting the
+fixture to check the format2 address-error frame makes both cores pass.
+No RTL was changed to resolve this fixture error.
+
+Combined-candidate silicon100 is running from an isolated copied source
+snapshot. Late/full-format admission fallback remains to be explicitly
+qualified before promotion. Scratch branch changes are not in the fitted
+P7 artifact.

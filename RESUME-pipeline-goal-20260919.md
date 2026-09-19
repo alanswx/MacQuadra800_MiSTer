@@ -1201,3 +1201,9 @@ StaleCCRmutationfailsactualprograminall3phases. FullgateACTIVEsession4768,
 log scratch/p7_branch_handoff_20260919/full_gate.log. Remaining targetodd
 branch/trace/IRQ tests andsilicon100 beforepromotion. Neverclaimqualified
 merelyfromkernel/conditiontests. Noneofthesescratchchangesaffectsactivefit.
+
+### P7 fit terminal and next qualification
+
+P7 1c04a43 fit is terminal; archived RBF SHA702e23482a2203befc88b190446b68bfe182ef37a4c848057a866875305d9700, CPU-.012ns/HDMI+.308/SDRAM+.424/hold+.220,39,559ALMs94%. Source and cross checks0. Freeze lifted. Existing mister_operator owns five-run hardware trial on disposable image, report scratch/hardware_p7compare_20260919. Not release qualified.
+
+Scratch p7_branch_handoff full integration PASS and five exception/IRQ boundary cases×three phases PASS. Odd untaken fixture corrected to pre-existing68040 exception contract after reproducing on baseline; no RTL fix. Corpus100 running session23317, log scratch/p7_branch_handoff_20260919/corpus100.log. Still need explicit late/full-format fallback qualification before promoting. User authorizes committing and pushing progress to origin/add-ethernet.
