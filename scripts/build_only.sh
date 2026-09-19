@@ -80,7 +80,9 @@ quartus_running() {
     if command -v tasklist >/dev/null 2>&1; then
         tasklist 2>/dev/null | grep -qiE "quartus_(map|fit|asm|sta|sh|pgm)\.exe"
     elif command -v pgrep >/dev/null 2>&1; then
-        pgrep -f "quartus_(map|fit|asm|sta|sh|pgm)" >/dev/null 2>&1
+        # Match executable names, not an enclosing bash command that merely
+        # schedules a later quartus_sta run (which deadlocks its own wait gate).
+        pgrep -x 'quartus_.*' >/dev/null 2>&1
     else
         return 1
     fi
