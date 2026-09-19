@@ -28,7 +28,8 @@ set_location_assignment PIN_V11 -to clk
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to clk
 EOF
 # Only top-level data/control ports are virtual; retain a real clock input.
-for port in nreset ce flush in_valid in_ready 'in_pc[*]' 'in_opcode[*]' \
+for port in 'external_a[*]' 'external_b[*]' 'external_ccr[*]' \
+    'read_src[*]' 'read_dst[*]' in_supported nreset ce flush in_valid in_ready 'in_pc[*]' 'in_opcode[*]' \
     retire_ready retire_valid 'retire_pc[*]' 'retire_opcode[*]' retire_we \
     'retire_dst[*]' 'retire_data[*]' 'retire_ccr[*]' fallback_valid \
     'fallback_pc[*]' 'fallback_opcode[*]'; do

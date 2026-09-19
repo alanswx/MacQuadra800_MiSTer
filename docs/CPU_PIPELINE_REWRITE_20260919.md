@@ -270,3 +270,31 @@ logic, and run the relevant full-machine gates. Before deployment: full
 CPU/corpus gates, simulated boot, fitted cross-domain STA, and the current
 hardware regression lifecycle. Report at least five valid hardware Mix runs
 with invalid timing runs listed separately, plus A/UX and Ethernet checks.
+
+
+## P1: sequencer ownership checkpoint
+
+The opt-in `AP040_EXPERIMENTAL_PIPELINE` compile define connects the experimental
+engine to the real core's existing register file and SR. The default/release
+configuration remains the original core. `EXTERNAL_STATE=1` removes the
+prototype's private register file; pending MLAB write forwarding stays in the
+shared register-file module. At this checkpoint the core serializes one
+admitted instruction, receives its committed result, and rejoins `S_NEXT`.
+IRQ/trace processing therefore remains after settled register/CCR state.
+Lookahead dispatch is disabled in this experiment so instructions pass through
+the explicit ownership boundary. This deliberately slower configuration proves
+handoff correctness before overlapping queue consumption is introduced; it is
+not a hardware performance candidate.
+
+`python3 scripts/cpu/pipeline_handoff.py` compares the same 8,608 instruction
+snapshots against the independent oracle, then runs the existing integer,
+exception, MMU, cache, MOVEM restart, FPU and IRQ program tests under their
+standard bus-delay modes. The monitor checks exclusive write ownership,
+retirement identity, balanced handoffs and CE pauses. The first straight-line
+run passed all 8,608 snapshots in 51,996 bench cycles, with 4,308 paused ownership
+cycles. P0's standalone admission/forwarding/flush tests still pass after adding
+the external-state interface. Its older Quartus numbers refer to the recorded
+P0 source hashes, not to the integrated machine.
+
+All 14 real-core program suites passed with balanced handoffs, including
+`loops_irq` (4,044 entries/commits). Artifacts: `scratch/pipeline_p1/`.

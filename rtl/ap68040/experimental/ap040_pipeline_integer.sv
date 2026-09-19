@@ -1,8 +1,13 @@
 // Experimental resident-instruction ID/EX/WB pipeline. Not in files.qip.
 // Only Dn instructions are admitted. No memory, interrupts, or prediction.
 `include "ap040_defs.svh"
-module ap040_pipeline_integer (
+module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0) (
     input wire clk, nreset, ce, flush,
+    // EXTERNAL_STATE uses the owner's one architectural register file and CCR.
+    input wire [31:0] external_a, external_b,
+    input wire [4:0] external_ccr,
+    output wire [2:0] read_src, read_dst,
+    output wire in_supported,
     input wire in_valid,
     output wire in_ready,
     input wire [31:0] in_pc,
@@ -19,6 +24,16 @@ module ap040_pipeline_integer (
     output wire [31:0] fallback_pc,
     output wire [15:0] fallback_opcode
 );
+    // Admission is also exposed before accepting a word. Exhaustively tested
+    // against the independent opcode map alongside the ID decoder below.
+    assign in_supported = in_opcode == 16'h4e71 ||
+        (in_opcode & 16'hf100) == 16'h7000 ||
+        ((in_opcode & 16'hc1f8) == 0 && in_opcode[13:12] != 0) ||
+        (in_opcode[5:3] == 0 && in_opcode[7:6] != 3 &&
+         ((!in_opcode[8] && (in_opcode[15:12] == 4'hd ||
+           in_opcode[15:12] == 4'h9 || in_opcode[15:12] == 4'hb ||
+           in_opcode[15:12] == 4'hc || in_opcode[15:12] == 4'h8)) ||
+          (in_opcode[8] && in_opcode[15:12] == 4'hb)));
     reg id_v, ex_v, wb_v;
     reg [31:0] id_pc, ex_pc, wb_pc;
     reg [15:0] id_opcode, ex_opcode, wb_opcode;
@@ -88,6 +103,12 @@ module ap040_pipeline_integer (
     assign fallback_opcode = id_opcode;
 
     wire [31:0] rf_a, rf_b;
+    assign read_src = ex_src;
+    assign read_dst = ex_dst;
+    generate if (EXTERNAL_STATE) begin : shared_state
+        assign rf_a = external_a;
+        assign rf_b = external_b;
+    end else begin : private_state
     ap040_regfile regfile (
         .clk(clk), .nreset(nreset), .ce(ce), .sr_s(1'b1), .sr_m(1'b0),
         .we(commit && wb_we), .waddr({1'b0, wb_dst}), .wdata(wb_data),
@@ -96,13 +117,14 @@ module ap040_pipeline_integer (
         .aux_we(1'b0), .aux_sel(2'd0), .aux_wdata(32'd0),
         .usp_q(), .isp_q(), .msp_q(), .dbg_d0(), .dbg_d1(), .dbg_d2(), .dbg_a0(), .dbg_a7()
     );
+    end endgenerate
     // EX reads late, forwarding the immediately older WB value, including
     // the upper bytes needed for partial-register writes. The existing RF
     // handles its own delayed MLAB write beneath this bypass.
     wire [31:0] src = ex_imm ? ex_immediate :
         (wb_v && wb_we && wb_dst == ex_src) ? wb_data : rf_a;
     wire [31:0] dst = (wb_v && wb_we && wb_dst == ex_dst) ? wb_data : rf_b;
-    wire [4:0] flags_in = wb_v ? wb_ccr : ccr;
+    wire [4:0] flags_in = wb_v ? wb_ccr : (EXTERNAL_STATE ? external_ccr : ccr);
     wire [31:0] alu_result;
     wire [4:0] alu_flags;
     ap040_alu alu (

@@ -10,7 +10,9 @@ module tb_pipeline_integer;
     wire [15:0] retire_opcode, fallback_opcode;
     wire [2:0] retire_dst;
     wire [4:0] retire_ccr;
-    ap040_pipeline_integer dut (.*);
+    wire in_supported;
+    ap040_pipeline_integer dut (.external_a(32'd0), .external_b(32'd0),
+        .external_ccr(5'd0), .read_src(), .read_dst(), .*);
     reg [15:0] code [0:32767];
     reg [31:0] regs [0:7];
     integer count, sent = 0, retired = 0, cycles = 0, i, fd;
@@ -31,9 +33,9 @@ module tb_pipeline_integer;
         $readmemh(supported_file, supported);
         force dut.id_opcode = decode_probe;
         for (i = 0; i < 65536; i = i + 1) begin
-            decode_probe = i[15:0];
+            decode_probe = i[15:0]; in_opcode = i[15:0];
             #1;
-            if (dut.legal !== supported[i]) $fatal(1, "decoder mismatch opcode=%04x", decode_probe);
+            if (in_supported !== supported[i] || dut.legal !== supported[i]) $fatal(1, "decoder mismatch opcode=%04x", decode_probe);
         end
         release dut.id_opcode;
         fd = $fopen(trace_file, "w");
