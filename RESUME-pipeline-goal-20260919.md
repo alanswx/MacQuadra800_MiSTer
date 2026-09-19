@@ -589,3 +589,34 @@ Profiling the combined variant gives40312 issues,10078 exits, all at opcode4eba
 (JSR d16,PC); no empty exits. Artifact `scratch/p5_overlap_20260919/profile.log`.
 Next expansion should address call/return or broader memory operands; these small
 wins alone are insufficient for1.8. Latest accepted hardware Mix still1.005.
+
+
+## P5 dedicated RF reads: validated, ready for fit
+
+P5 overlap was promoted in e8f5277. The next candidate also enables two optional
+read mirrors in ap040_regfile for the integer pipeline. Sequencer ports now read
+rr_a/rr_b directly; pipeline ports read pipe_src/pipe_dst. All four share the
+same architectural write, delayed-write bypass, written bits, and banked SPs.
+Default EXTRA_READS=0 preserves non-pipeline builds. This removes the state-driven
+ownership mux from the measured P4 legacy-ALU path; timing improvement is unproven
+until the next fit. Quartus must confirm the extra mirrors remain MLABs.
+
+Validation completed with exit0:
+- `scratch/p5_rf_ports_20260919_gate.log`: full extended handoff gate,14,720 shared
+  snapshots, all old suites, load/store/PEA fault/trace and four IRQ/replay tests.
+- `scratch/p5_rf_ports_20260919/permute.log`:1519907cycles latency3,40312issues,
+  20156stores, all call/array/guard checks; identical to the pre-RF-change P5.
+- `scratch/p5_rf_ports_20260919/corpus.log`:100rows,1900matching field groups,
+  zero differences; `/tmp/cpu-corpus100-gate.xeFext`. Initial invocation omitted
+  required fixture arguments and exited before tests; corrected invocation used
+  the immutable scripts/fixtures/corpus100 payload and baseline.
+- Extended existing tb_ap040_regfile independent architectural model to four
+  distinct simultaneous read addresses:16,485cycles,2,110,016readchecks each
+  normally and with RAM-collision poisoning (7,697pending words). Both normal
+  and extra-port bypass-disabled mutations are detected. run_tests.sh includes
+  the new negative control. Logs in scratch/p5_rf_ports_20260919/regfile*.log.
+
+Only nonfunctional unused-port tie-offs were added to the standalone pipeline
+instance after its gate compile. No further functional change since validation.
+Next: full P5 fit with same seed21 and existing feature recipe, source freeze.
+P4 hardware trial remains active with mister_operator; no result accepted yet.

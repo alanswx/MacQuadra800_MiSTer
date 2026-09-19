@@ -342,6 +342,7 @@ wire pipe_load_direct = pipe_load_active && (state == S_MRD || state == S_MWR) &
 wire pipe_load_ack = pipe_load_return || pipe_load_direct || (ce && pipe_load_abort);
 wire [31:0] pipe_load_value = pipe_load_direct ? mem_rdata : m_val;
 
+wire [31:0] pipe_rdata_a, pipe_rdata_b;
 wire pipe_supported, pipe_next_supported, pipe_ready, pipe_retire, pipe_we, pipe_idle;
 wire [3:0] pipe_src, pipe_dst, pipe_wdst;
 wire [31:0] pipe_data, pipe_pc, pipe_next_pc;
@@ -368,9 +369,8 @@ wire pipe_pea_wait = (state == S_DECODE) && PIPE_PEA &&
 wire pipe_claim = (state == S_DECODE) && pipe_supported && pipe_entry_ok;
 wire pipe_owner = state == S_EXPERIMENT_PIPE;
 wire [2:0] pipe_ext_head = epf_head + (pipe_rf_owner ? 3'd1 : 3'd0);
-// The memory sequencer does not own integer operands during a pipeline
-// load. Its response may arrive during a CE pause, so retain the pipeline
-// read ports through the return edge for the partial-Dn merge.
+// Pipeline fetch ownership spans the memory sequencer and return edge.
+// Independent RF ports also preserve partial-Dn operands during CE pauses.
 wire pipe_rf_owner = pipe_owner || pipe_load_active || pipe_load_return;
 wire pipe_drain = pipe_owner && pipe_idle;
 // Memory completion still retires through S_EXPERIMENT_PIPE, but ID can fill
@@ -387,7 +387,7 @@ wire pipe_load_launch = pipe_owner && pipe_load_req && !pipe_load_active;
 ap040_pipeline_integer #(.EXTERNAL_STATE(1), .ENABLE_LOADS(PIPE_LOADS), .ENABLE_STORES(PIPE_STORES), .ENABLE_PEA(PIPE_PEA)) integer_pipeline (
     .clk(clk), .nreset(nreset), .ce(ce), .flush(pipe_load_abort),
     .kill_younger(pipe_cancel), .idle(pipe_idle),
-    .external_a(rf_rdata_a), .external_b(rf_rdata_b), .external_sp(dbg_a7_wb), .external_ccr(sr[4:0]),
+    .external_a(pipe_rdata_a), .external_b(pipe_rdata_b), .external_sp(dbg_a7_wb), .external_ccr(sr[4:0]),
     .read_src(pipe_src), .read_dst(pipe_dst), .in_supported(pipe_supported),
     .next_opcode(epf_data[epf_head]), .next_extension(epf_data[(epf_head + 3'd1) & 3'd7]),
     .next_valid(epf_ready_pc), .next_extension_valid(epf_ready_pc2), .next_supported(pipe_next_supported),
@@ -423,7 +423,11 @@ always @(posedge clk) begin
 end
 `endif
 
-ap040_regfile regfile
+ap040_regfile
+`ifdef AP040_EXPERIMENTAL_PIPELINE
+#(.EXTRA_READS(1))
+`endif
+regfile
 (
 	.clk(clk), .ce(ce), .nreset(nreset),
 	.sr_s(sr_s), .sr_m(sr_m),
@@ -431,10 +435,13 @@ ap040_regfile regfile
     .we(pipe_write || rf_we),
     .waddr(pipe_write ? pipe_wdst : rf_waddr),
     .wdata(pipe_write ? pipe_data : rf_wdata),
-    .raddr_a(pipe_rf_owner ? pipe_src : rr_a), .rdata_a(rf_rdata_a),
-    .raddr_b(pipe_rf_owner ? pipe_dst : rr_b), .rdata_b(rf_rdata_b),
+    .raddr_a(rr_a), .rdata_a(rf_rdata_a),
+    .raddr_b(rr_b), .rdata_b(rf_rdata_b),
+    .raddr_c(pipe_src), .rdata_c(pipe_rdata_a),
+    .raddr_d(pipe_dst), .rdata_d(pipe_rdata_b),
 `else
 	.we(rf_we), .waddr(rf_waddr), .wdata(rf_wdata),
+    .raddr_c(4'd0), .rdata_c(), .raddr_d(4'd0), .rdata_d(),
 	.raddr_a(rr_a), .rdata_a(rf_rdata_a),
 	.raddr_b(rr_b), .rdata_b(rf_rdata_b),
 `endif

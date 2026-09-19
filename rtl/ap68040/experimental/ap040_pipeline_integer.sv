@@ -227,6 +227,7 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0, parameter ENABLE_L
         .we(commit && wb_we && !wb_fault), .waddr(wb_dst), .wdata(wb_data),
         .raddr_a(ex_src), .raddr_b(read_dst),
         .rdata_a(rf_a), .rdata_b(rf_b),
+        .raddr_c(4'd0), .rdata_c(), .raddr_d(4'd0), .rdata_d(),
         .aux_we(1'b0), .aux_sel(2'd0), .aux_wdata(32'd0),
         .usp_q(), .isp_q(), .msp_q(), .dbg_d0(), .dbg_d1(), .dbg_d2(), .dbg_a0(), .dbg_a7(rf_sp)
     );
