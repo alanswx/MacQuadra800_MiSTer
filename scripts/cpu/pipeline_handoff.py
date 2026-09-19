@@ -15,6 +15,7 @@ def main():
     parser.add_argument("--force-decode", action="store_true", help="disable sequencer lookahead for full pipeline coverage")
     parser.add_argument("--extended", action="store_true")
     parser.add_argument("--loads", action="store_true", help="enable head-ordered pipeline loads")
+    parser.add_argument("--stores", action="store_true", help="enable head-ordered pipeline stores")
     parser.add_argument("--xstore", action="store_true")
     parser.add_argument("--lea", action="store_true")
     parser.add_argument("--only-reference", action="store_true")
@@ -36,6 +37,8 @@ def main():
         common.append("-DAP040_EXPERIMENTAL_XSTORE")
     if args.lea:
         common.append("-DAP040_EXPERIMENTAL_LEA")
+    if args.stores:
+        common.append("-DAP040_EXPERIMENTAL_PIPELINE_STORES")
     if args.loads:
         common.append("-DAP040_EXPERIMENTAL_PIPELINE_LOADS")
     if args.force_decode:
@@ -55,7 +58,7 @@ def main():
         if args.only_reference:
             return
         run([*common, "-o", out / "program.vvp", *source], out / "compile_program.log")
-        if args.loads:
+        if args.loads or args.stores:
             run([*common, "-DAP040_PIPELINE_FORCE_DECODE", "-o", out / "loads.vvp", *source],
                 out / "compile_loads.log")
         tests = ("integer", "exceptions", "mmu", "bitfield_mmu", "bitfield_cache", "moves_fc",
@@ -63,13 +66,15 @@ def main():
                  "branch_early", "loops_irq")
         if args.loads:
             tests += ("pipeline_loads", "pipeline_load_fault")
+        if args.stores:
+            tests += ("pipeline_stores", "pipeline_store_fault")
         for name in tests:
             asm = ROOT / f"rtl/ap68040/tb/asm/t_{name}.s"
             run([args.vasm, "-Fbin", "-m68040", "-no-opt", "-o", out / f"{name}.bin", asm],
                 out / f"{name}.asm.log", cwd=asm.parent.parent)
             run(["python3", ROOT / "rtl/ap68040/tb/bin2hex.py", out / f"{name}.bin",
                  out / f"{name}.hex"], out / f"{name}.hex.log")
-            program = out / ("loads.vvp" if name.startswith("pipeline_load") else "program.vvp")
+            program = out / ("loads.vvp" if name.startswith(("pipeline_load", "pipeline_store")) else "program.vvp")
             log = run(["vvp", program, f"+prog={out / (name + '.hex')}"], out / f"{name}.log")
             assert "ALL TESTS PASSED" in log and "FAIL:" not in log, f"{name}: {log[-2000:]}"
             match = re.search(r"HANDOFF entries=(\d+) commits=(\d+) paused=(\d+) cancelled=(\d+)", log)
@@ -98,6 +103,18 @@ def main():
         match = re.search(r"LOAD IRQ injections=(\d+) killed=(\d+)", log)
         assert "ALL TESTS PASSED" in log and match and int(match[1]) == 3 and int(match[2]) >= 3, log[-2000:]
         print(f"PASS load interrupt and replay: {match[0]}", flush=True)
+    if args.stores:
+        run([*common, "-DAP040_PIPELINE_FORCE_DECODE", "-s", "irq_store_monitor",
+             "-o", out / "irq_store.vvp", EXP / "irq_store_monitor.sv", *source],
+            out / "compile_irq_store.log")
+        run([args.vasm, "-Fbin", "-m68040", "-no-opt", "-o", out / "irq_store.bin",
+             EXP / "irq_store.s"], out / "irq_store.asm.log")
+        run(["python3", ROOT / "rtl/ap68040/tb/bin2hex.py", out / "irq_store.bin",
+             out / "irq_store.hex"], out / "irq_store.hex.log")
+        log = run(["vvp", out / "irq_store.vvp", f"+prog={out / 'irq_store.hex'}"], out / "irq_store.log")
+        match = re.search(r"STORE IRQ injections=(\d+) killed=(\d+) stores=(\d+)", log)
+        assert "ALL TESTS PASSED" in log and match and int(match[1]) == 3 and int(match[2]) >= 3 and int(match[3]) == 3, log[-2000:]
+        print(f"PASS store interrupt and replay: {match[0]}", flush=True)
     print(f"PASS real-core pipeline ownership integration; artifacts: {out}")
 
 

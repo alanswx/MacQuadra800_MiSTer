@@ -16,7 +16,7 @@ module tb_cpu_permute;
  integer latency=1, waitleft=0, cycles=0, i, j, bytes, done=0;
  integer states[0:255];
 `ifdef AP040_EXPERIMENTAL_PIPELINE
- integer pipe_issues=0, pipe_loads=0;
+ integer pipe_issues=0, pipe_loads=0, pipe_stores=0;
 `endif
  integer lat_count[0:2], lat_total[0:2], lat_start=-1, lat_class;
  integer buffer_hits=0, buffer_saving=0;
@@ -59,7 +59,7 @@ module tb_cpu_permute;
 `ifdef AP040_EXPERIMENTAL_PIPELINE
   if(dut.core.pipe_input && dut.core.pipe_ready) pipe_issues=pipe_issues+1;
   if(dut.core.pipe_owner && dut.core.pipe_load_req && !dut.core.pipe_load_active)
-   pipe_loads=pipe_loads+1;
+   if(dut.core.pipe_load_write) pipe_stores=pipe_stores+1; else pipe_loads=pipe_loads+1;
 `endif
   if(walker_req || fault || halted) $fatal(1,"unexpected CPU fault/walker/halt pc=%h",dut.core.pc_i);
   if(cycles>20000000) $fatal(1,"timeout pc=%h",dut.core.pc_i);
@@ -101,7 +101,7 @@ module tb_cpu_permute;
      for(j=1;j<=7;j=j+1) if(mem[('h4000>>1)+j]!==j-1) $fatal(1,"bad permutation array");
      $display("BUFFER_UPPER_BOUND hits=%0d saved_cycles=%0d",buffer_hits,buffer_saving);
      `ifdef AP040_EXPERIMENTAL_PIPELINE
-     $display("PIPELINE issues=%0d loads=%0d",pipe_issues,pipe_loads);
+     $display("PIPELINE issues=%0d loads=%0d stores=%0d",pipe_issues,pipe_loads,pipe_stores);
 `endif
      $display("KERNEL32 PASS cycles=%0d latency=%0d calls=8660 array=PASS guards=PASS",cycles,latency);
      for(j=0;j<256;j=j+1) if(states[j]) $display("STATE %0d cycles=%0d",j,states[j]);

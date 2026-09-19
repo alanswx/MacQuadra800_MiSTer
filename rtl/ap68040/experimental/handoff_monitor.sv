@@ -2,7 +2,7 @@
 `timescale 1ns/1ps
 `define C tb_ap040_program.dut.core
 module handoff_monitor;
-    integer entries = 0, commits = 0, paused = 0, cancelled = 0, loads = 0;
+    integer entries = 0, commits = 0, paused = 0, cancelled = 0, loads = 0, stores = 0;
     reg [31:0] expected_pc;
     always @(posedge tb_ap040_program.clk) begin
         if (tb_ap040_program.nreset) begin
@@ -15,8 +15,10 @@ module handoff_monitor;
             if (`C.pipe_owner && !`C.ce) paused = paused + 1;
             if (`C.ce) begin
                 if (`C.pipe_owner && `C.pipe_load_req && !`C.pipe_load_active) begin
-                    if (`C.pipe_retire) $fatal(1, "load passed older retirement");
-                    loads = loads + 1;
+                    if (`C.integer_pipeline.wb_v && !`C.pipe_retire)
+                        $fatal(1, "memory operation passed blocked older retirement");
+                    if (`C.pipe_load_write) stores = stores + 1;
+                    else loads = loads + 1;
                 end
                 if (`C.pipe_input && `C.pipe_ready) begin
                     if (!`C.pipe_owner) expected_pc = `C.pc_i;
@@ -35,6 +37,6 @@ module handoff_monitor;
             end
         end
     end
-    final $display("HANDOFF entries=%0d commits=%0d paused=%0d cancelled=%0d loads=%0d", entries, commits, paused, cancelled, loads);
+    final $display("HANDOFF entries=%0d commits=%0d paused=%0d cancelled=%0d loads=%0d stores=%0d", entries, commits, paused, cancelled, loads, stores);
 endmodule
 `undef C

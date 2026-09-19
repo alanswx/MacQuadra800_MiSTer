@@ -22,14 +22,15 @@ def main():
     parser.add_argument("--pipeline", action="store_true")
     parser.add_argument("--loads", action="store_true")
     parser.add_argument("--force-decode", action="store_true")
+    parser.add_argument("--stores", action="store_true", help="enable head-ordered pipeline stores")
     parser.add_argument("--xstore", action="store_true")
     parser.add_argument("--lea", action="store_true")
     parser.add_argument("--latencies", default="0,3,8")
     parser.add_argument("--verilator", default="/home/alans/verilator5/bin/verilator")
     parser.add_argument("--vasm", default="/home/alans/mister/MacQuadra800_fixtures/wombat-vasm/vasmm68k_mot")
     args = parser.parse_args()
-    if (args.loads or args.force_decode) and not args.pipeline:
-        parser.error("--loads and --force-decode require --pipeline")
+    if (args.loads or args.stores or args.force_decode) and not args.pipeline:
+        parser.error("--loads, --stores and --force-decode require --pipeline")
     resource = args.resource.read_bytes()
     assert hashlib.sha256(resource).hexdigest() == RESOURCE_SHA, "resource identity changed"
     # Verified AppleDouble offset: resource entry 82 + CODE 3 body 0x6250f.
@@ -62,6 +63,8 @@ def main():
     flags = []
     if args.force_decode:
         flags.append("-DAP040_PIPELINE_FORCE_DECODE")
+    if args.stores:
+        flags.append("-DAP040_EXPERIMENTAL_PIPELINE_STORES")
     if args.loads:
         flags.append("-DAP040_EXPERIMENTAL_PIPELINE_LOADS")
     if args.lea:
@@ -75,7 +78,7 @@ def main():
     identity.update(resource_sha256=RESOURCE_SHA, kernel_sha256=KERNEL_SHA,
                     program_sha256=hashlib.sha256(program).hexdigest(),
                     experimental_pipeline=args.pipeline, experimental_xstore=args.xstore,
-                    experimental_lea=args.lea, experimental_pipeline_loads=args.loads,
+                    experimental_lea=args.lea, experimental_pipeline_loads=args.loads, experimental_pipeline_stores=args.stores,
                     force_decode=args.force_decode,
                     memory_model="controlled latency, no SDRAM or retained platform line")
     (out / "identity.json").write_text(json.dumps(identity, indent=2) + "\n")

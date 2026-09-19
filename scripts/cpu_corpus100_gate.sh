@@ -31,6 +31,10 @@ for unit in ap040_tg68k_compat ap040_core ap040_bus16_adapter ap040_bus_timeout 
     sources+=("$rtl/$unit.v")
 done
 extra_flags=()
+if [[ ${CPU_GATE_PIPELINE_STORES:-0} == 1 ]]; then
+    [[ ${CPU_GATE_PIPELINE:-0} == 1 ]] || { echo "Pipeline stores require CPU_GATE_PIPELINE=1" >&2; exit 2; }
+    extra_flags+=(-DAP040_EXPERIMENTAL_PIPELINE_STORES)
+fi
 if [[ ${CPU_GATE_PIPELINE_LOADS:-0} == 1 ]]; then
     [[ ${CPU_GATE_PIPELINE:-0} == 1 ]] || { echo "Pipeline loads require CPU_GATE_PIPELINE=1" >&2; exit 2; }
     extra_flags+=(-DAP040_EXPERIMENTAL_PIPELINE_LOADS)

@@ -705,3 +705,85 @@ Hardware operator's read-only check shows the Mac safe-shutdown screen on the
 disposable slot-0 image; screenshot `scratch/hardware_lea_20260919/status_boot_now.png`.
 No input, reload or disk changes were performed. Latest accepted Mix remains
 1.005 median; 1.8 and the missing A/UX regression remain outstanding.
+
+
+## P3: ordered register stores and direct memory offers
+
+The opt-in `AP040_EXPERIMENTAL_PIPELINE_STORES` switch adds MOVE from Dn/An to
+(An), (An)+ and -(An), with byte An sources excluded and the A7 byte step kept
+at two. The historical load_* interface now carries write/data/CCR fields too.
+An updates commit on successful WB; failed stores retain the original An.
+MOVE-store CCR is installed at the head-ordered offer, matching the existing
+sequencer's access-error frame semantics. Reads/writes reuse mrd/mwr and their
+page-split, MMU and format-7 paths; no new cache or store buffer was introduced.
+
+Memory offers now start as older WB commits (or after it), without a separate
+registered-request bubble. Pending requests retain their fields until ack.
+Interrupt cancellation blocks a younger offer; accepted stores precede the
+interrupt boundary. Same-edge older retirement must not overwrite a new memory
+operation's fault PC/opcode or store CCR. The directed fault test includes that
+WB overlap and matches the previous sequencer's frame/CCR/An/younger state.
+
+Validation on the shortened offer implementation:
+
+- Full combined gate: 14,720 architectural snapshots, six schedules and register
+  negative controls, 14 prior real-core suites, both load programs, both store
+  programs, and three IRQ/replay tests pass (`scratch/p3/direct_gate.log`).
+- Store program covers 320 register-pair/size/addressing combinations plus five
+  dependency/odd/page-cross stores in each of three bus modes. Its compact table
+  was verified byte-identical to the first passing generated program.
+- Independent store oracle: 5,799 retirements, 996 memory requests, all legal
+  register pairs/sizes/modes, at delays 0/1/3/8 with and without CE/WB stalls.
+  It checks the exhaustive admission map, request PC/address/size/data and all
+  register/CCR retirements. Wrong An updates and escaped cancelled-store offers
+  are detected by negative controls (`scratch/p3/store_oracle.log`).
+- A blocked older WB prevents a younger store; cancellation commits the older
+  register while discarding the younger store/register. Accepted-store IRQ
+  checks memory, updated An, frame PC and exact replay. Final strengthened run
+  has three injections, three kills and three store launches (`direct_irq.log`).
+- Previous load protocol cases pass at four delays, including accepted-request
+  CE pauses, cancellation drain and fault suppression; the 768-retirement,
+  192-load oracle passes (`scratch/p3/load_protocol/`). Pause/flush stimuli now
+  wait for clock-edge acceptance, since an unaccepted combinational offer is
+  different from the old registered request.
+- First-100 silicon comparison: 1,900 field groups match, zero real differences
+  (`scratch/p3/direct_corpus.log`, `/tmp/cpu-corpus100-gate.ZN3gpy`).
+- Extra store-fault WB-overlap comparison passes in the new pipeline and prior
+  sequencer binaries (`scratch/p3/fault_overlap/`). Source hashes: `identity.json`.
+
+Reproduce store oracle:
+`python3 scripts/cpu/pipeline_store_oracle.py --out scratch/p3/new_oracle`.
+Combined gate: add `--stores` to pipeline_handoff.py's extended/loads/xstore/lea
+command. profile_permute.py also accepts --stores; the silicon gate uses
+CPU_GATE_PIPELINE_STORES=1 together with CPU_GATE_PIPELINE=1.
+
+Performance remains below the production path. Exact Permute at latency 3:
+
+| Mode | Cycles | Pipeline loads / stores |
+| --- | ---: | ---: |
+| Production XSTORE+LEA | 1,577,469 | off |
+| P2 normal lookahead | 1,668,981 | 0 / 0 |
+| P3 normal lookahead | 1,668,978 | 0 / 17,319 |
+| P2 forced decode, old offer | 1,899,527 | 10,078 / 0 |
+| P3 forced decode, initial registered offer | 1,922,999 | 10,078 / 27,398 |
+| Current direct offer, stores disabled | 1,889,449 | 10,078 / 0 |
+| Current direct offer, stores enabled | 1,893,750 | 10,078 / 27,398 |
+
+All kernel checks pass. Matched controls show that the shared offer improvement
+helps, while store admission itself still costs 4,301 forced-decode cycles and
+is effectively neutral with normal lookahead. Do not claim a store speedup from
+the older unmatched P2 comparison. Neither pipeline switch nor stores is enabled
+in QSF; no synthesis/fit or hardware trial is justified by these results yet.
+Latest hardware median is still 1.005; the 1.8 target remains unmet.
+
+Next substantial step: resident extension-word admission and indexed PEA, the
+largest remaining measured exit source. Carry variable next-PC through WB/IRQ,
+consume an extension only when resident, and fall back to the sequencer for
+missing/full-format extensions. PEA needs base/index reads plus the existing
+A7 view; forward an older A7 WB before calculating the push address, preserve
+CCR, and retain the existing store fault/retirement discipline. Memory-to-memory
+MOVE and control-flow exits remain other major barriers to sustained overlap.
+
+No hardware action or Quartus flow was started during P3. Mac remains at the
+last confirmed clean halt on its disposable image. A/UX image location and its
+hardware regression are still pending; do not treat CPU tests as that gate.

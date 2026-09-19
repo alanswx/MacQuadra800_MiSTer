@@ -303,7 +303,7 @@ wire [31:0] dbg_a7_wb = (rf_we && rf_waddr == 4'd15) ? rf_wdata : dbg_a7;
 wire [31:0] usp_wb = (aux_we && aux_sel == 2'd0) ? aux_wdata : usp_q;
 
 // Experimental ownership/issue checkpoint, absent from release builds.
-// The pipeline consumes only resident Dn instructions. It drains before
+// The pipeline consumes resident two-byte integer/memory instructions. It drains before
 // returning unsupported words to the sequencer; IRQ/trace cancels younger
 // work at a retirement boundary, preserving the committing instruction.
 // Architectural state stays in this core; no bulk import/export or shadow RF.
@@ -315,17 +315,25 @@ localparam PIPE_LOADS = 1;
 `else
 localparam PIPE_LOADS = 0;
 `endif
-wire pipe_load_req;
+`ifdef AP040_EXPERIMENTAL_PIPELINE_STORES
+localparam PIPE_STORES = 1;
+`else
+localparam PIPE_STORES = 0;
+`endif
+wire pipe_load_req, pipe_load_write;
+wire [31:0] pipe_load_wdata;
+wire [4:0] pipe_load_ccr;
 wire [31:0] pipe_load_addr, pipe_load_pc;
 wire [15:0] pipe_load_opcode;
 wire [1:0] pipe_load_size;
 reg pipe_load_active;
 wire pipe_load_return = state == S_PIPE_LOAD_RETURN;
 wire pipe_load_abort = pipe_load_active &&
-    ((state == S_MRD) || (state == S_MRD_B)) && d_err;
+    ((state == S_MRD) || (state == S_MRD_B) ||
+     (state == S_MWR) || (state == S_MWR_B)) && d_err;
 // Ordinary reads forward the acknowledgement; split reads use the buffered
 // return state. Faults use aerr_start and discard younger pipeline records.
-wire pipe_load_direct = pipe_load_active && state == S_MRD && m_issued && d_ack && !d_err;
+wire pipe_load_direct = pipe_load_active && (state == S_MRD || state == S_MWR) && m_issued && d_ack && !d_err;
 wire pipe_load_ack = pipe_load_return || pipe_load_direct || (ce && pipe_load_abort);
 wire [31:0] pipe_load_value = pipe_load_direct ? mem_rdata : m_val;
 
@@ -348,7 +356,7 @@ wire pipe_cancel = pipe_owner && pipe_retire &&
     (irq_pend || tr_t1 || (tr_t0 && t0_force));
 wire pipe_write = pipe_owner && pipe_retire && pipe_we;
 wire pipe_load_launch = pipe_owner && pipe_load_req && !pipe_load_active;
-ap040_pipeline_integer #(.EXTERNAL_STATE(1), .ENABLE_LOADS(PIPE_LOADS)) integer_pipeline (
+ap040_pipeline_integer #(.EXTERNAL_STATE(1), .ENABLE_LOADS(PIPE_LOADS), .ENABLE_STORES(PIPE_STORES)) integer_pipeline (
     .clk(clk), .nreset(nreset), .ce(ce), .flush(pipe_load_abort),
     .kill_younger(pipe_cancel), .idle(pipe_idle),
     .external_a(rf_rdata_a), .external_b(rf_rdata_b), .external_ccr(sr[4:0]),
@@ -359,7 +367,8 @@ ap040_pipeline_integer #(.EXTERNAL_STATE(1), .ENABLE_LOADS(PIPE_LOADS)) integer_
     .retire_ready(pipe_owner), .retire_valid(pipe_retire), .retire_we(pipe_we),
     .retire_dst(pipe_wdst), .retire_data(pipe_data), .retire_ccr(pipe_ccr),
     .retire_pc(pipe_pc), .retire_opcode(pipe_opcode),
-    .load_req(pipe_load_req), .load_addr(pipe_load_addr), .load_size(pipe_load_size),
+    .load_req(pipe_load_req), .load_write(pipe_load_write),
+    .load_wdata(pipe_load_wdata), .load_ccr(pipe_load_ccr), .load_addr(pipe_load_addr), .load_size(pipe_load_size),
     .load_pc(pipe_load_pc), .load_opcode(pipe_load_opcode),
     .load_ack(pipe_load_ack), .load_fault(1'b0), .load_data(pipe_load_value),
     .retire_fault(), .retire_fault_addr(),
@@ -1900,7 +1909,7 @@ task mem_issue;
 		                 // selected a state earlier) at dbg_a7 - 4
 		                 state == S_DECODE || state == S_BCC_EXT ||
 		                 state == S_JSR1 || state == S_PEA1 ||
-		                 state == S_LINK2))) &&
+		                 state == S_LINK2 || pipe_load_launch))) &&
 		    mgo_a[31:28] == 4'h0 && !epf_pend && !mem_req && !mem_ack &&
 		    ((mgo_sz == `AP040_SZ_B) ||
 		     ((mgo_sz == `AP040_SZ_W) && !mgo_a[0]) ||
@@ -3245,8 +3254,8 @@ wire        hint_ftb = rd_is_bcc && (state == S_PIPE_REGS || state == S_EXEC ||
 // two-clock read); if not, a fill issued this cycle has merely lost its
 // idle-read match.  The acknowledge stays out of the select (it would
 // put the acknowledge in front of the hint's translation).
-// Pipeline load request fields are registered before the owner issues
-// mrd. Present the same data hint as the legacy operand issue sites.
+// Present the ordered pipeline memory offer as a data hint. The request
+// depends on EX/WB state, never on memory acknowledgement or the hint itself.
 `ifdef AP040_EXPERIMENTAL_PIPELINE
 wire hint_p2 = pipe_load_launch;
 wire [31:0] hint_p2_addr = pipe_load_addr;
@@ -5149,7 +5158,11 @@ always @(posedge clk) begin
 					// A completed store with nothing left to do retires
 					// straight into the next opcode, as a completed operand
 					// read does through retire_operand_alu.
-					if (r_m_ret == S_NEXT) fetch_next;
+					`ifdef AP040_EXPERIMENTAL_PIPELINE
+                    if (pipe_load_direct) state <= S_EXPERIMENT_PIPE;
+                    else
+`endif
+                    if (r_m_ret == S_NEXT) fetch_next;
 					// LINK and PEA: A7 lands with the push's acknowledge and
 					// the instruction retires, as S_LINK4/S_PEA2 would a cycle
 					// later (both stay for the byte-split path).  (2026-09-17)
@@ -7954,13 +7967,18 @@ always @(posedge clk) begin
 `ifdef AP040_EXPERIMENTAL_PIPELINE
             S_PIPE_LOAD_RETURN: state <= S_EXPERIMENT_PIPE;
             S_EXPERIMENT_PIPE: begin
-                // The pipeline issues only after older WB has committed.
-                // Reuse mrd for MMU checks, page splits and format-7 faults.
+                // The pipeline offers memory only as older WB commits or later.
+                // Reuse mrd/mwr for MMU checks, page splits and format-7 faults.
                 // Fault context belongs to this load, not the advanced IF PC.
                 if (pipe_load_req && !pipe_load_active) begin
                     pc_i <= pipe_load_pc;
                     ir <= pipe_load_opcode;
-                    mrd(pipe_load_addr, pipe_load_size, S_PIPE_LOAD_RETURN);
+                    if (pipe_load_write) begin
+                        // Match the sequencer's MOVE-store fault CCR. An
+                        // updates remain deferred until successful retirement.
+                        sr[4:0] <= pipe_load_ccr;
+                        mwr(pipe_load_addr, pipe_load_size, pipe_load_wdata, S_PIPE_LOAD_RETURN);
+                    end else mrd(pipe_load_addr, pipe_load_size, S_PIPE_LOAD_RETURN);
                 end
                 if (pipe_input && pipe_ready) begin
                     epf_pop = 2'd1;
@@ -7968,9 +7986,13 @@ always @(posedge clk) begin
                     perf_dispatch_toggle <= ~perf_dispatch_toggle;
                 end
                 if (pipe_retire) begin
-                    sr[4:0] <= pipe_ccr;
-                    pc_i <= pipe_pc;
-                    ir <= pipe_opcode;
+                    if (!(pipe_load_launch && pipe_load_write)) sr[4:0] <= pipe_ccr;
+                    // A same-edge memory launch owns the fault context and
+                    // MOVE-store flags, even while older WB commits.
+                    if (!pipe_load_launch) begin
+                        pc_i <= pipe_pc;
+                        ir <= pipe_opcode;
+                    end
                 end
                 if (pipe_cancel) begin
                     // WB commits, ID/EX die. The exception frame names the

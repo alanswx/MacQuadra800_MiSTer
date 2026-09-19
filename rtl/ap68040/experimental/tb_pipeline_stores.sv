@@ -1,5 +1,5 @@
 `timescale 1ns/1ps
-module tb_pipeline_integer;
+module tb_pipeline_stores;
     reg clk = 0;
     always #5 clk = !clk;
     reg kill_younger = 0;
@@ -13,10 +13,23 @@ module tb_pipeline_integer;
     wire [3:0] retire_dst;
     wire [4:0] retire_ccr;
     wire in_supported;
-    ap040_pipeline_integer dut (.external_a(32'd0), .external_b(32'd0),
-        .external_ccr(5'd0), .read_src(), .read_dst(), .load_req(), .load_write(), .load_wdata(), .load_ccr(), .load_addr(), .load_size(), .load_pc(), .load_opcode(),
-        .load_ack(1'b0), .load_fault(1'b0), .load_data(32'd0),
+    ap040_pipeline_integer #(.ENABLE_STORES(1)) dut (.external_a(32'd0), .external_b(32'd0),
+        .external_ccr(5'd0), .read_src(), .read_dst(), .load_req(load_req), .load_write(load_write), .load_wdata(load_wdata), .load_ccr(), .load_addr(load_addr), .load_size(load_size), .load_pc(load_pc), .load_opcode(),
+        .load_ack(load_ack), .load_fault(1'b0), .load_data(32'd0),
         .retire_fault(), .retire_fault_addr(), .*);
+    wire load_req,load_write;
+    wire [31:0] load_wdata,load_addr,load_pc;
+    wire [1:0] load_size;
+    reg load_ack=0,pending=0;
+    reg [99:0] expected_stores[0:2047], held;
+    integer req_count=0, waitleft=0, delay=0, paused_ack=0, expected_requests=0;
+    reg [1023:0] stores_file;
+    initial begin
+      if(!$value$plusargs("stores=%s",stores_file)) $fatal(1,"missing stores");
+      if($value$plusargs("delay=%d",delay)) begin end
+      if(!$value$plusargs("requests=%d",expected_requests)) $fatal(1,"missing request count");
+      $readmemh(stores_file,expected_stores);
+    end
     reg [15:0] code [0:32767];
     reg [31:0] regs [0:15];
     integer registers = 8;
@@ -72,6 +85,22 @@ module tb_pipeline_integer;
             if (!in_valid) bubble_cycles = bubble_cycles + 1;
             if (!retire_ready) stall_cycles = stall_cycles + 1;
             if (!ce) disabled_cycles = disabled_cycles + 1;
+            #1; // allow CE/ready changes to settle before accepting an offer
+            load_ack=0;
+            if(load_req) begin
+                if(!load_write) $fatal(1,"unexpected read");
+                if(!pending) begin
+                    held={load_pc,load_addr,load_wdata,2'b0,load_size};
+                    if(held !== expected_stores[req_count]) $fatal(1,"store oracle mismatch index=%0d got=%h expected=%h",req_count,held,expected_stores[req_count]);
+                    waitleft=delay; pending=1;
+                    if(dut.wb_v && !(retire_ready && ce)) $fatal(1,"store passed older WB");
+                end
+                if(held !== {load_pc,load_addr,load_wdata,2'b0,load_size}) $fatal(1,"unstable store request");
+                if(waitleft==0) begin
+                    load_ack=1; pending=0; req_count=req_count+1;
+                    if(!ce) paused_ack=paused_ack+1;
+                end else waitleft=waitleft-1;
+            end
             @(posedge clk);
             held_input = in_valid && !in_ready;
             if (in_valid && in_ready) sent = sent + 1;
@@ -86,6 +115,8 @@ module tb_pipeline_integer;
             if (fallback_valid) begin
                 if (retired != count || fallback_pc != 32'h400 + 2*count ||
                     fallback_opcode != 16'h4afc) $fatal(1, "fallback ordering");
+                if(req_count != expected_requests) $fatal(1,"missing stores");
+                $display("STORE ORACLE requests=%0d paused_ack=%0d",req_count,paused_ack);
                 $fclose(fd);
                 $display("PIPELINE PASS mode=%0d retired=%0d cycles=%0d bubbles=%0d stalls=%0d ce_off=%0d",
                          mode, retired, cycles, bubble_cycles, stall_cycles, disabled_cycles);
