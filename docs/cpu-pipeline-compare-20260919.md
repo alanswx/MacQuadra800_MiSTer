@@ -480,3 +480,19 @@ this evidence. The counters do not measure legacy frontend starvation or
 predict whole Speedometer Mix. Next larger architectural work should target
 longer useful sequences across observed boundaries, with precise exception
 and branch handling, rather than assuming opcode count equals throughput.
+
+### Prefetch arbitration follow-up on P13 baseline
+
+P17 divides the previous four-word prefetch threshold by ownership.
+With trackedP13 cache, current Permute is1,457,331cycles. Limiting prefetch
+only during pipeline ownership gives1,458,667 (regression), Bubble4,077,142
+unchanged. Limiting only legacy ownership givesPermute1,441,991 butBubble
+4,393,201 (regression). Neither is promoted. Artifacts:
+`scratch/p17_fetch_owner_20260919`, all compared kernel checksPASS.
+
+P18 applies the threshold only while the current instruction is LINK/UNLK,
+RTS, or MOVEM; other instructions keep the original refill policy. This is
+an instruction-family policy, independent of benchmark addresses/data.
+Scratch `p18_stack_fetch_20260919`: Permute1,439,538PASS (1.22% fewer cycles
+than P13), Bubble4,077,142PASS unchanged. Towers and full integration are
+still running. No RTL promotion or hardware performance claim yet.

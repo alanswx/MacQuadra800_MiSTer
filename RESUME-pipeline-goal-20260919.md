@@ -1515,3 +1515,14 @@ P16fetch-policy experiments notpromoted: PermuteMOVEMsuppression1483764
 regression; low2=1460178 butTowers25981242regression; low4Permute1452883
 andTowers25195415 improve butBubble4393201vs4077142 regresses7.75%.
 AllkernelsPASS;performance tradeoff rejects global policychange.
+
+### P17 rejected; P18 stack-prefetch candidate in qualification
+
+P17 ownership-onlythreshold policies nojointgain: pipelineonlyPermute
+1458667regression/Bubbleunchanged; legacyonlyPermute1441991 butBubble
+4393201regression. Baseline nowP13Permute1457331. Neitherpromoted.
+P18stackinstruction-onlythreshold (LINK/UNLK,RTS,MOVEM) Permute1439538PASS,
+Bubble4077142unchangedPASS; Towersrunning session2740, fullgate6776.
+Artifacts scratch/p18_stack_fetch_20260919; SCRATCHONLY untilqualification.
+P13fitactiveuser-serviceMainPID1515481; inputsfrozen. P12hardwareagentactive,
+boot/launch screenshots present. Bestcompleted medianP9=1.029,cleanhaltverified.
