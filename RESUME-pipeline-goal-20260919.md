@@ -701,3 +701,13 @@ Next coverage target from normal-admission evidence: indexed MOVEA.W opcode3270
 or calls does not produce the broad gain required for1.8. The pipeline's drain
 and memory-handshake costs need amortization across useful instruction streams.
 P5 FPGA fit is still verified active/MainPID1078706; continue source freeze.
+
+
+## User update: A/UX validation delegated to Dani
+
+User explicitly confirmed on2026-09-19 that they do not have the A/UX disk:
+“we can skip it. Dani can check it.” Skip the local A/UX regression for this
+work; it is deferred to Dani and must not be claimed as passed. The disk-location
+question is resolved, not a blocker. Continue CPU correctness, Mac boot/shutdown,
+Speedometer validation and the remaining applicable hardware checks. No message
+has been sent to Dani and no A/UX test has been performed.
