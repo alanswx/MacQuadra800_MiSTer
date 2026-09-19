@@ -310,7 +310,7 @@ wire [31:0] usp_wb = (aux_we && aux_sel == 2'd0) ? aux_wdata : usp_q;
 `ifdef AP040_EXPERIMENTAL_PIPELINE
 localparam S_EXPERIMENT_PIPE = 8'd250;
 wire pipe_supported, pipe_ready, pipe_retire, pipe_we, pipe_idle;
-wire [2:0] pipe_src, pipe_dst, pipe_wdst;
+wire [3:0] pipe_src, pipe_dst, pipe_wdst;
 wire [31:0] pipe_data, pipe_pc;
 wire [15:0] pipe_opcode;
 wire [4:0] pipe_ccr;
@@ -345,10 +345,10 @@ ap040_regfile regfile
 	.sr_s(sr_s), .sr_m(sr_m),
 `ifdef AP040_EXPERIMENTAL_PIPELINE
     .we(pipe_write || rf_we),
-    .waddr(pipe_write ? {1'b0, pipe_wdst} : rf_waddr),
+    .waddr(pipe_write ? pipe_wdst : rf_waddr),
     .wdata(pipe_write ? pipe_data : rf_wdata),
-    .raddr_a(pipe_owner ? {1'b0, pipe_src} : rr_a), .rdata_a(rf_rdata_a),
-    .raddr_b(pipe_owner ? {1'b0, pipe_dst} : rr_b), .rdata_b(rf_rdata_b),
+    .raddr_a(pipe_owner ? pipe_src : rr_a), .rdata_a(rf_rdata_a),
+    .raddr_b(pipe_owner ? pipe_dst : rr_b), .rdata_b(rf_rdata_b),
 `else
 	.we(rf_we), .waddr(rf_waddr), .wdata(rf_wdata),
 	.raddr_a(rr_a), .rdata_a(rf_rdata_a),

@@ -53,39 +53,57 @@ timer result. Obtain at least five valid hardware runs; report invalids separate
 - `f7b8e1f`: Linux build wait gate matches process names, avoiding deadlock when
   the parent shell merely contains a later `quartus_sta` command in its text.
 
-## Active full-machine fit
+## Completed full-machine fit
 
-User unit **q800-refill-load-fit2-20260919**, directory
-`scratch/refill_load_fit_20260919/`, commit recorded in `commit.txt` (f7b8e1f).
-The earlier unsuffixed unit was stopped while waiting, before any Quartus process
-started. The replacement is the only flow. Synthesis succeeded; fitter was still
-running when this note was written. **Do not change RTL/QSF/QIP/SDC during it.**
-The unit runs `build_only.sh`, then cross-domain STA tagged `refill_load_20260919`.
-Inspect build.exit/cross.exit, fit utilization, all setup/hold domains, and the
-SDRAM crossings; archive reports and RBF before another build. No candidate has
-been deployed. Hardware operator must finish preserving disk and baseline first.
+`q800-refill-load-fit2-20260919` completed with both build and cross-domain STA
+exit zero. Archived candidate: `scratch/refill_load_fit_20260919/MacQuadra800_refill_load_f7b8e1f.rbf`.
+SHA-256 `174967e7be8bfa72a90c96420909274258a49e61357a0af15b99a76c185b24b8`.
+36,657 ALMs (87%), setup +0.343 ns, hold +0.214 ns, CPU +0.671 ns,
+SDRAM +0.524 ns, crossings +1.290 / +0.671 ns. Reports and manifest archived.
+The operator is authorized to copy/deploy this unique candidate after preserving
+the disk and collecting five valid installed-core baseline runs, then measure
+five valid candidate runs. No Main/CFG/clock changes. Check operator messages
+for actual deployment/measurements; do not infer they happened from this note.
 
-## Simulation baseline
+## Disk preservation completed
 
-`scratch/pipeline_baseline_20260919c/`, simulator user unit
-`q800-pipeline-baseline-c-20260919`; monitor is now
-`q800-pipeline-baseline-monitor-c2-20260919` with `--profile-start-count 2`.
-The old monitor was stopped before profile start. Initial 20-second fastboot
-wait was too short: frame1572 was still busy startup; frame2231 remained
-MacAtrium. Appended `recovery_control.txt` replays the original navigation after
-the first prefix drains and discards its first bracket. `navigation_recovery.json`
-records the correction. Do not record any score before reviewing final screens.
-The simulator is slow and uses ideal memory/no SONIC plus documented fastboot
-ROM; hardware is the performance authority. Keep it for diagnostic profiling.
+The operator's `scratch/hardware_pipeline_baseline_20260919/disk_manifest.txt`
+records matching original/test-copy SHA-256:
+`224c5be7d031c4c5448745d29ce9717c22bcc310361888bb0e20f2c521c83e2a`.
+Both are 2,146,461,696 bytes. Original was cleanly shut down before copying and
+is preserved unmounted. Slot/config originals are saved beside the manifest.
+User was told the verified copy is complete. Resets/recovery may use the test
+copy without repeated shutdown approval, as explicitly requested by the user.
+
+## Simulation baseline stopped: no valid result
+
+All task-owned `c` simulator/monitor units have been stopped. The historical
+keyboard replay was not valid for this startup state: initial keys arrived
+before startup finished, and the recovery replay eventually launched Prince of
+Persia (screenshot f5311), not Speedometer. `capture.json` records the rejection.
+No score/profile was accepted. The HDA was a disposable copy; originals and
+hardware were unaffected. Future simulator navigation must be screenshot-driven.
+Use hardware for actual scores; do not restart hours of blind replay.
 
 ## Next work
 
-While fitting, a new independent address-register/quick-arithmetic oracle was
-prepared in `scripts/cpu/pipeline_address_oracle.py`. It passes **6,048 snapshots
-of all 16 registers** against the real core, covering sign extension, full-width
-An quick ops, preserved CCR and partial Dn writes. Artifacts:
-`scratch/pipeline_address_oracle/`. It does not claim the pipeline supports these
-operations yet. This script may still need committing; check git status.
+The address/quick extension is now implemented experimentally. It passes
+**14,720 snapshots of all 16 registers** both standalone and integrated, six
+stall/flush/cancellation schedules, exhaustive 65,536-word admission, and two
+negative controls (all forwarding off, and An-only forwarding off). All 14
+real-core suites plus directed IRQ replay pass; first-100 silicon corpus has
+zero real differences. Artifacts: `scratch/pipeline_p1c/` and its
+`prototype_extended/`. Reproduce with:
+
+```
+python3 scripts/cpu/pipeline_handoff.py --extended --out NEW_OUTPUT
+```
+
+Experimental opcode admission now includes register MOVE/MOVEA, quick arithmetic,
+ADDA/SUBA/CMPA and ordinary ADD/SUB/CMP with An sources, in addition to P0.
+The default hardware build remains pipeline-disabled. Next work is memory
+operands and preserving original fast paths for short streams; design contracts
+are in `docs/CPU_PIPELINE_REWRITE_20260919.md`.
 
 Historical profile P0 coverage was only 12.64% of observed opcode loads. MOVE
 Dn/An, quick arithmetic and address arithmetic are important missing coverage;

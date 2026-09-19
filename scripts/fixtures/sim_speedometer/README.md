@@ -1,4 +1,10 @@
-# Current CPU Speedometer baseline
+# Simulator Speedometer capture tooling
+
+**Status: the 2026-09-19 capture was rejected and stopped.** Frame5311
+showed Prince of Persia, not Speedometer. No baseline number is accepted.
+The historical keyboard replay is not reliable for this startup state; use
+screenshot-driven navigation before enabling a future profile bracket.
+The remainder documents the attempted run and tools, not a successful result.
 
 `prefix_control.txt` is the historical keyboard sequence for the immutable
 `MacQuadra800-Speedometer402-profile.hda` fixture: cold boot, open Speedometer
@@ -6,8 +12,8 @@
 are simulated rising edges, so a full run takes substantial wall time.
 It is specific to this disk's Finder layout; screenshots must confirm it.
 
-The current baseline is in `scratch/pipeline_baseline_20260919c/`, launched
-by `q800-pipeline-baseline-c-20260919.service`. The monitor is
+The rejected attempt is in `scratch/pipeline_baseline_20260919c/`, launched
+by `q800-pipeline-baseline-c-20260919.service`. Its original monitor was
 `q800-pipeline-baseline-monitor-c-20260919.service`. Both are user systemd
 units. `identities.json` records the copied simulator, selected development ROM, golden
 disk and prefix hashes; `source_sha256.json` and `sources/` preserve source
@@ -19,7 +25,7 @@ That connection is fixed and covered by `test_profile_integration.py`.
 The `b` attempt was stopped during RAM testing after confirming that the
 legacy `+warmstart` option does not skip this ROM's RAM test. See
 `docs/quadra800-ram-test.md`: the low-memory cookie is not the RAM-test gate.
-The current `c` development run uses `make -C verilator fastboot` and copies
+The `c` development attempt used `make -C verilator fastboot` and copies
 `quadra800-fastboot.rom.hex`, with the initial wait reduced to 660,000,000
 rising edges. Verification confirmed that this ROM differs only in the
 RAM-test branch and corrected checksum. **This is development profiling,
@@ -68,7 +74,7 @@ busy startup, and frame2231 remained in MacAtrium after the first navigation.
 The original monitor was stopped before profiling. `recovery_control.txt`
 replays the navigation after the first prefix drains and discards its first
 bracket; `navigation_recovery.json` records why and hashes the amended stream.
-The replacement monitor is `q800-pipeline-baseline-monitor-c2-20260919`, using
+The replacement monitor was `q800-pipeline-baseline-monitor-c2-20260919`, using
 `--profile-start-count 2`. A final screenshot review is still required before
 any number is accepted. Future automated launches should wait for a confirmed
 MacAtrium screen instead of assuming a 20-second boot.

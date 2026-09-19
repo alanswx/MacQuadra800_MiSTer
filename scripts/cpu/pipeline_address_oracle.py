@@ -17,6 +17,14 @@ def workload():
     # Create values whose high words matter for partial writes and sign extension.
     for _ in range(19):
         ops += [("add", 32, d, d, 0) for d in range(8)]
+    # Adjacent address-register RAW chains exercise pipeline forwarding,
+    # not just the register file's delayed-write bypass two clocks later.
+    for dst in range(8, 16):
+        other = 8 + ((dst - 8 + 1) % 8)
+        ops += [("moveq", 32, 0, 0, -1), ("move", 32, 0, dst, 0),
+                ("addq", 16, 0, dst, 1), ("subq", 32, 0, dst, 8),
+                ("move", 16, dst, other, 0), ("move", 16, other, 0, 0),
+                ("adda", 16, 0, dst, 0), ("cmpa", 16, dst, other, 0)]
     pool = []
     for size in (8, 16, 32):
         for src in range(16):
@@ -51,6 +59,8 @@ def encode(op):
     name, size, src, dst, imm = op
     ea = (8 if src >= 8 else 0) | (src & 7)
     sz = {8: 0, 16: 1, 32: 2}[size] << 6
+    if name == "nop": return 0x4e71
+    if name == "eor": return 0xb100 | src << 9 | sz | dst
     if name == "moveq":
         return 0x7000 | dst << 9 | (imm & 255)
     if name == "move":
@@ -59,13 +69,17 @@ def encode(op):
         return 0x5000 | (imm & 7) << 9 | (256 if name == "subq" else 0) | sz | (8 if dst >= 8 else 0) | (dst & 7)
     if name in ("adda", "suba", "cmpa"):
         return {"adda": 0xd0c0, "suba": 0x90c0, "cmpa": 0xb0c0}[name] | (dst & 7) << 9 | (256 if size == 32 else 0) | ea
-    return {"add": 0xd000, "sub": 0x9000, "cmp": 0xb000}[name] | dst << 9 | sz | ea
+    return {"add": 0xd000, "sub": 0x9000, "cmp": 0xb000, "and": 0xc000, "or": 0x8000}[name] | dst << 9 | sz | ea
 
 
 def oracle(ops):
     regs, flags, result = [0] * 16, 0, []
     for index, op in enumerate(ops):
         name, size, src, dst, imm = op
+        if name == "nop":
+            result.append(f"{0x400 + index * 2:08x} {encode(op):04x} {flags:02x}" + "".join(f" {r:08x}" for r in regs))
+            continue
+        if name == "moveq": size = 32
         a = imm if name in ("moveq", "addq", "subq") else regs[src]
         address = dst >= 8
         if address:
@@ -88,6 +102,9 @@ def oracle(ops):
             overflow = int(bool(((a ^ b) & (value ^ b)) & sign))
             if name not in ("cmp", "cmpa"):
                 x = carry
+        elif name == "and": value = b & a
+        elif name == "or": value = b | a
+        elif name == "eor": value = b ^ a
         else:
             value = a
         if not address or name == "cmpa":
@@ -118,18 +135,14 @@ def main():
     (out / "instructions.hex").write_text("".join(f"{word:04x}\n" for word in words))
     (out / "oracle.trace").write_text("\n".join(expected) + "\n")
     (out / "operations.json").write_text(json.dumps(ops) + "\n")
-    trace = (EXP / "reference_trace.sv").read_text().replace("i < 8;", "i < 16;")
-    trace = trace.replace("value = `CORE.regfile.rf_written[i] ? `CORE.regfile.bank_a[i] : 0;",
-                          "value = i == 15 ? `CORE.isp_q : (`CORE.regfile.rf_written[i] ? `CORE.regfile.bank_a[i] : 0);")
-    (out / "address_trace.sv").write_text(trace)
     units = ("ap040_tg68k_compat", "ap040_core", "ap040_bus16_adapter", "ap040_bus_timeout",
              "ap040_regfile", "ap040_alu", "ap040_muldiv", "ap040_mmu", "ap040_cache",
              "ap040_fpu", "ap040_walker_cdc", "primitives/dpram")
     run(["iverilog", "-g2012", "-I", RTL, "-s", "tb_ap040_program", "-s", "reference_trace",
          "-o", out / "reference.vvp", ROOT / "rtl/ap68040/tb/tb_ap040_program.v",
-         out / "address_trace.sv", *(RTL / (u + ".v") for u in units)], out / "compile.log")
+         EXP / "reference_trace.sv", *(RTL / (u + ".v") for u in units)], out / "compile.log")
     log = run(["vvp", out / "reference.vvp", f"+prog={out / 'program.hex'}", "+phase=0",
-               f"+trace={out / 'reference.trace'}", f"+count={len(ops)}"], out / "reference.log")
+               f"+trace={out / 'reference.trace'}", f"+count={len(ops)}", "+registers=16"], out / "reference.log")
     assert "ALL TESTS PASSED" in log, log[-2000:]
     compare(out / "reference.trace", expected)
     print(f"PASS {len(ops)} independent 16-register snapshots; next-stage fixture: {out}")

@@ -100,19 +100,23 @@ def compare(path, oracle):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, default=ROOT / "scratch/pipeline_prototype")
+    parser.add_argument("--extended", action="store_true")
     args = parser.parse_args()
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
-    ops = workload()
-    oracle = expected(ops)
-    words = [encode(op) for op in ops]
-    supported = {encode(op) for op in ops}
+    import pipeline_address_oracle as address
+    ops = workload() + (address.workload() if args.extended else [])
+    encode_op = address.encode if args.extended else encode
+    oracle = address.oracle(ops) if args.extended else expected(ops)
+    words = [encode_op(op) for op in ops]
+    registers = 16 if args.extended else 8
+    supported = {encode(op) for op in workload()} | {address.encode(op) for op in address.workload()}
     (out / "supported.hex").write_text("".join(f"{int(opcode in supported)}\n" for opcode in range(65536)))
     (out / "instructions.hex").write_text("\n".join(f"{word:04x}" for word in words) + "\n")
     (out / "oracle.trace").write_text("\n".join(oracle) + "\n")
     # Reset vectors, straight-line payload, existing bench's pass mailbox.
     image = [0] * 32768
-    image[0:4] = [0, 0x3400, 0, 0x400]
+    image[0:4] = [0, 0 if args.extended else 0x3400, 0, 0x400]
     image[0x200:0x200 + len(words)] = words
     end = 0x200 + len(words)
     image[end:end + 7] = [0x33fc, 0x600d, 0, 0xf102, 0x4e72, 0x2700, 0x60fe]
@@ -125,7 +129,7 @@ def main():
          "-o", out / "reference.vvp", ROOT / "rtl/ap68040/tb/tb_ap040_program.v",
          EXP / "reference_trace.sv", *(RTL / (unit + ".v") for unit in units)], out / "compile_reference.log")
     log = run(["vvp", out / "reference.vvp", f"+prog={out / 'reference.hex'}", "+phase=0", "+prof",
-               f"+trace={out / 'reference.trace'}", f"+count={len(words)}"], out / "reference.log")
+               f"+trace={out / 'reference.trace'}", f"+count={len(words)}", f"+registers={registers}"], out / "reference.log")
     if "ALL TESTS PASSED" not in log or "FAIL:" in log:
         raise AssertionError(f"Reference failed: {out / 'reference.log'}")
     compare(out / "reference.trace", oracle)
@@ -137,7 +141,7 @@ def main():
     for mode in range(6):
         trace = out / f"pipeline_{mode}.trace"
         log = run(["vvp", out / "pipeline.vvp", f"+program={out / 'instructions.hex'}",
-                   f"+trace={trace}", f"+count={len(words)}", f"+mode={mode}", f"+supported={out / 'supported.hex'}"], out / f"pipeline_{mode}.log")
+                   f"+trace={trace}", f"+count={len(words)}", f"+registers={registers}", f"+mode={mode}", f"+supported={out / 'supported.hex'}"], out / f"pipeline_{mode}.log")
         compare(trace, oracle)
         summary = next(line for line in log.splitlines() if line.startswith("PIPELINE PASS"))
         results.append(summary)
@@ -152,7 +156,7 @@ def main():
         out / "compile_no_forward.log")
     trace = out / "no_forward.trace"
     run(["vvp", out / "no_forward.vvp", f"+program={out / 'instructions.hex'}",
-         f"+trace={trace}", f"+count={len(words)}", "+mode=0", f"+supported={out / 'supported.hex'}"],
+         f"+trace={trace}", f"+count={len(words)}", f"+registers={registers}", "+mode=0", f"+supported={out / 'supported.hex'}"],
         out / "no_forward.log")
     try:
         compare(trace, oracle)
@@ -161,6 +165,24 @@ def main():
         print("PASS: disabled-forwarding mutation rejected", flush=True)
     else:
         raise AssertionError("Forwarding control unexpectedly passed")
+    if args.extended:
+        poisoned = out / "no_address_forward.sv"
+        poisoned.write_text((EXP / "ap040_pipeline_integer.sv").read_text().replace(
+            "wb_v && wb_we && wb_dst", "wb_v && wb_we && !wb_dst[3] && wb_dst"))
+        run(["iverilog", "-g2012", "-I", RTL, "-s", "tb_pipeline_integer", "-o", out / "no_address_forward.vvp",
+             EXP / "tb_pipeline_integer.sv", poisoned, RTL / "ap040_regfile.v", RTL / "ap040_alu.v"],
+            out / "compile_no_address_forward.log")
+        trace = out / "no_address_forward.trace"
+        run(["vvp", out / "no_address_forward.vvp", f"+program={out / 'instructions.hex'}",
+             f"+trace={trace}", f"+count={len(words)}", "+registers=16", "+mode=0",
+             f"+supported={out / 'supported.hex'}"], out / "no_address_forward.log")
+        try:
+            compare(trace, oracle)
+        except AssertionError as exc:
+            (out / "address_negative_control.txt").write_text(str(exc) + "\n")
+            print("PASS: disabled An-only forwarding rejected", flush=True)
+        else:
+            raise AssertionError("Address forwarding control unexpectedly passed")
     identities = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
                   for path in [RTL / "ap040_core.v", RTL / "ap040_regfile.v", RTL / "ap040_alu.v",
                                EXP / "ap040_pipeline_integer.sv"]}

@@ -407,3 +407,28 @@ Full-machine candidate fit, seed 21, build commit `f7b8e1f`: **36,657 ALMs
 `req_tgl -> req_handoff` **+1.290 ns**, RAM-to-system worst **+0.671 ns**.
 Build and cross-domain STA both exited zero. Archived RBF/reports/identity:
 `scratch/refill_load_fit_20260919/`. Hardware measurement remains outstanding.
+
+
+## P1c: full integer register addressing and quick arithmetic
+
+The experimental pipeline now handles Dn/An register MOVE/MOVEA, ADDQ/SUBQ,
+ADDA/SUBA/CMPA, and An sources for ordinary non-byte ADD/SUB/CMP. Source/destination
+indices are four bits, with the core's existing A7 bank selection. A shared
+53-bit decode record drives admission and ID. Word address operands sign-extend
+before full-width execution; address writes preserve CCR except CMPA.
+
+The combined independent workload has **14,720 instructions**, including
+adjacent An dependencies, and matches all 16 register values and CCR after each
+instruction in both standalone pipeline and actual core integration. All six
+scheduling/cancellation modes pass; all 65,536 opcode admissions are checked.
+Disabling only An forwarding is detected at instruction 8,770, proving those
+hazards are exercised separately from Dn hazards. The 14 real-core program
+suites, full-pipeline IRQ/replay test, and first-100 silicon corpus pass again.
+Reproduce: `python3 scripts/cpu/pipeline_handoff.py --extended --out NEW_OUTPUT`.
+Artifacts: `scratch/pipeline_p1c/` and `prototype_extended/`.
+
+The long simulator Speedometer attempt was stopped after screenshot f5311
+proved its historical navigation had launched Prince of Persia. No benchmark
+number from that attempt is accepted. Hardware is the performance authority.
+The hardware original/test-copy disk hashes now match, and the user authorized
+resets/recovery on the disposable copy after preserving the original.

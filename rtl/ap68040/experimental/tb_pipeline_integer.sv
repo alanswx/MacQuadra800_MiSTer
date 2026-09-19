@@ -10,13 +10,14 @@ module tb_pipeline_integer;
     wire in_ready, retire_valid, retire_we, fallback_valid;
     wire [31:0] retire_pc, retire_data, fallback_pc;
     wire [15:0] retire_opcode, fallback_opcode;
-    wire [2:0] retire_dst;
+    wire [3:0] retire_dst;
     wire [4:0] retire_ccr;
     wire in_supported;
     ap040_pipeline_integer dut (.external_a(32'd0), .external_b(32'd0),
         .external_ccr(5'd0), .read_src(), .read_dst(), .*);
     reg [15:0] code [0:32767];
-    reg [31:0] regs [0:7];
+    reg [31:0] regs [0:15];
+    integer registers = 8;
     integer count, sent = 0, retired = 0, cycles = 0, i, fd;
     integer mode = 0, bubble_cycles = 0, stall_cycles = 0, disabled_cycles = 0;
     reg flushed = 0;
@@ -30,6 +31,7 @@ module tb_pipeline_integer;
             !$value$plusargs("trace=%s", trace_file) ||
             !$value$plusargs("count=%d", count)) $fatal(1, "missing arguments");
         if ($value$plusargs("mode=%d", mode)) begin end
+        if ($value$plusargs("registers=%d", registers)) begin end
         $readmemh(program_file, code);
         if (!$value$plusargs("supported=%s", supported_file)) $fatal(1, "missing supported map");
         $readmemh(supported_file, supported);
@@ -42,7 +44,7 @@ module tb_pipeline_integer;
         release dut.id_opcode;
         fd = $fopen(trace_file, "w");
         if (!fd) $fatal(1, "trace open failed");
-        for (i = 0; i < 8; i = i + 1) regs[i] = 0;
+        for (i = 0; i < registers; i = i + 1) regs[i] = 0;
         repeat (4) @(negedge clk);
         nreset = 1;
         while (cycles < 100000) begin
@@ -75,7 +77,7 @@ module tb_pipeline_integer;
                 if (retired >= count) $fatal(1, "extra retirement");
                 if (retire_we) regs[retire_dst] = retire_data;
                 $fwrite(fd, "%08x %04x %02x", retire_pc, retire_opcode, retire_ccr);
-                for (i = 0; i < 8; i = i + 1) $fwrite(fd, " %08x", regs[i]);
+                for (i = 0; i < registers; i = i + 1) $fwrite(fd, " %08x", regs[i]);
                 $fwrite(fd, "\n");
                 retired = retired + 1;
             end

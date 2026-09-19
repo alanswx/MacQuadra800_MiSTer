@@ -5,7 +5,7 @@
 `timescale 1ns/1ps
 `define CORE tb_ap040_program.dut.core
 module reference_trace;
-    integer fd, count, i, seen = 0;
+    integer fd, count, i, seen = 0, registers = 8;
     reg [1023:0] path;
     reg [31:0] pc_before;
     reg [15:0] opcode_before;
@@ -15,6 +15,7 @@ module reference_trace;
     initial begin
         if (!$value$plusargs("trace=%s", path) || !$value$plusargs("count=%d", count))
             $fatal(1, "missing reference arguments");
+        if ($value$plusargs("registers=%d", registers)) begin end
         fd = $fopen(path, "w");
         if (!fd) $fatal(1, "cannot open reference trace");
     end
@@ -34,9 +35,9 @@ module reference_trace;
         if (tb_ap040_program.nreset && ce_before && retire_before &&
             pc_before >= 32'h400 && pc_before < 32'h400 + 2*count) begin
             $fwrite(fd, "%08x %04x %02x", pc_before, opcode_before, `CORE.sr[4:0]);
-            for (i = 0; i < 8; i = i + 1) begin
+            for (i = 0; i < registers; i = i + 1) begin
                 // Match the architectural pending-write order of the MLAB RF.
-                value = `CORE.regfile.rf_written[i] ? `CORE.regfile.bank_a[i] : 0;
+                value = i == 15 ? `CORE.dbg_a7 : (`CORE.regfile.rf_written[i] ? `CORE.regfile.bank_a[i] : 0);
                 if (`CORE.regfile.pend_we && `CORE.regfile.pend_waddr == i)
                     value = `CORE.regfile.pend_wdata;
                 if (`CORE.rf_we && `CORE.rf_waddr == i) value = `CORE.rf_wdata;
