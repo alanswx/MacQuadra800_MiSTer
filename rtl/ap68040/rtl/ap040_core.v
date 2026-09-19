@@ -360,16 +360,25 @@ wire pipe_entry_ok = pipe_words == 2 || pipe_next_supported;
 `else
 wire pipe_entry_ok = 1'b1;
 `endif
+// A late same-page extension can join the pipeline after background fetch.
+// Do not wait across a page or after a speculative fetch fault.
+wire pipe_pea_wait = (state == S_DECODE) && PIPE_PEA &&
+    ((ir & 16'hfff8) == 16'h4870) && !epf_ready_pc && epf_armed &&
+    epf_next == pc && pc_i[11:0] != 12'hffe && !epf_err;
 wire pipe_claim = (state == S_DECODE) && pipe_supported && pipe_entry_ok;
 wire pipe_owner = state == S_EXPERIMENT_PIPE;
-wire [2:0] pipe_ext_head = epf_head + (pipe_owner ? 3'd1 : 3'd0);
+wire [2:0] pipe_ext_head = epf_head + (pipe_rf_owner ? 3'd1 : 3'd0);
 // The memory sequencer does not own integer operands during a pipeline
 // load. Its response may arrive during a CE pause, so retain the pipeline
 // read ports through the return edge for the partial-Dn merge.
 wire pipe_rf_owner = pipe_owner || pipe_load_active || pipe_load_return;
 wire pipe_drain = pipe_owner && pipe_idle;
+// Memory completion still retires through S_EXPERIMENT_PIPE, but ID can fill
+// while it waits. Do not consume a queued word being invalidated by a store.
 wire pipe_input = (pipe_claim && !rf_we && !aux_we) ||
-    (pipe_owner && epf_ready_pc && pipe_supported &&
+    (pipe_rf_owner && epf_ready_pc && pipe_supported &&
+     !(pipe_load_active && d_ack && mem_write &&
+       (mem_addr_q + 32'd3 >= epf_next) && (mem_addr_q < epf_ftail)) &&
      !irq_pend && !sr[15] && !sr[14]);
 wire pipe_cancel = pipe_owner && pipe_retire &&
     (irq_pend || tr_t1 || (tr_t0 && t0_force));
@@ -383,10 +392,10 @@ ap040_pipeline_integer #(.EXTERNAL_STATE(1), .ENABLE_LOADS(PIPE_LOADS), .ENABLE_
     .next_opcode(epf_data[epf_head]), .next_extension(epf_data[(epf_head + 3'd1) & 3'd7]),
     .next_valid(epf_ready_pc), .next_extension_valid(epf_ready_pc2), .next_supported(pipe_next_supported),
     .in_valid(pipe_input), .in_ready(pipe_ready),
-    .in_pc(pipe_owner ? pc : pc_i),
-    .in_opcode(pipe_owner ? epf_data[epf_head] : ir),
+    .in_pc(pipe_rf_owner ? pc : pc_i),
+    .in_opcode(pipe_rf_owner ? epf_data[epf_head] : ir),
     .in_extension(epf_data[pipe_ext_head]),
-    .in_extension_valid(pipe_owner ? epf_ready_pc2 : epf_ready_pc), .in_words(pipe_words),
+    .in_extension_valid(pipe_rf_owner ? epf_ready_pc2 : epf_ready_pc), .in_words(pipe_words),
     .retire_ready(pipe_owner), .retire_valid(pipe_retire), .retire_we(pipe_we),
     .retire_dst(pipe_wdst), .retire_data(pipe_data), .retire_ccr(pipe_ccr),
     .retire_pc(pipe_pc), .retire_next_pc(pipe_next_pc), .retire_opcode(pipe_opcode),
@@ -8032,7 +8041,10 @@ always @(posedge clk) begin
 `endif
 			S_DECODE: begin
 `ifdef AP040_EXPERIMENTAL_PIPELINE
-                if (pipe_claim) begin
+                if (pipe_pea_wait) begin
+                    // Wait only within the current fetch page; faults and
+                    // cross-page extensions retain the demand sequencer.
+                end else if (pipe_claim) begin
                     if (pipe_input && pipe_ready) begin
                         // S_DECODE already consumed the opcode; consume only
                         // a resident extension alongside pipeline admission.
@@ -9118,6 +9130,13 @@ always @(posedge clk) begin
 			default: fatal_halt;
 		endcase
 
+`ifdef AP040_EXPERIMENTAL_PIPELINE
+        if (pipe_rf_owner && !pipe_owner && pipe_input && pipe_ready) begin
+            epf_pop = pipe_words;
+            pc <= pc + {29'd0, pipe_words, 1'b0};
+            perf_dispatch_toggle <= ~perf_dispatch_toggle;
+        end
+`endif
 		// The retire boundary the arm above asked for (see fetch_next).
 		if (mgo) mem_issue;
 		if (igo) immf_now(igo_n, igo_ret);
