@@ -1285,3 +1285,22 @@ Hardwareoperator still in responsive Speedometer save/quit flow; latest
 saved after_no_quit.png is a modal file picker with New/Open/Cancel. Root
 sent guidance to save a unique disposable benchmark record or cancel then
 explicitly Don't Save, without reload. Do not duplicate hardware actions.
+
+### Permute profiler and RTS scratch probe
+
+New scripts/cpu/profile_permute.py reproducible current1,519,901cycles,
+array/guardsPASS; records source/programhashes. --program existing
+scratch/p4/pea_entry/program.hex --out scratch/permute_profile_20260919/reusable.
+MOVEMload/RTS/MOVEMstore/LINK/UNLK currentIRoccupancy675,350cycles44.4%;
+pipelineownership109,604cycles7.2%. Not retiredlatency orspeedupbound.
+
+scratch/p9_rts_ack_20260919 prototype onf2b2770 (NO P8): even ordinaryRTS
+redirect atreadack, sharedtargetmem_rdata. Permute1,504,787, Towers26,133,410
+PASS. Only~1%/.28%gains; notqualified/promoted. Needredirectfault/trace/IRQ
+coverage beforeconsidering. P8 indexedMOVE is readyforpromotion afterfreeze.
+
+Hardwareoperator claimed extra_final_halt.png provedhalt; ROOT VIEWED IT
+and it is entirelyBLACK. Root requested fresh evidence/scriptoutput/guest
+haltdebug withoutreload; pending. Do not claimcleanhalt fromblackframealone.
+Agentactive owns hardware. Extra1.009validrun remains separateoriginal5stats.
+Quartusfitf2b2770 stillactive/user-service MainPID1358014; freezecontinues.

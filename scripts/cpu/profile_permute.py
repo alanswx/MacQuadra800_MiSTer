@@ -1,109 +1,48 @@
 #!/usr/bin/env python3
-"""Profile the unchanged Speedometer Permute routine through wombat_cpu.
-
-The RAM model has controlled latency; this is not a MiSTer score prediction.
-The original wrapper calls this n=7 routine 25 times; this fixture calls it once.
-"""
+"""Profile the Permute kernel fixture; controlled RAM latency is not a hardware score."""
 import argparse
 import hashlib
 import json
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-RESOURCE_SHA = "af67113bceb4eb906e973a9b747a0b1925b9d64c62f0f9a84bc6f0578839ca80"
-KERNEL_SHA = "eedd72d43cf91c5c8035c2fd81ef9ef46b7dea5454106fede285e388c9b1c73c"
-
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("resource", type=Path)
-    parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--pipeline", action="store_true")
-    parser.add_argument("--loads", action="store_true")
-    parser.add_argument("--force-decode", action="store_true")
-    parser.add_argument("--pea-entry-only", action="store_true", help="enter pipeline only at resident PEA")
-    parser.add_argument("--selective", action="store_true", help="retain sequencer for isolated non-PEA entries")
-    parser.add_argument("--pea", action="store_true", help="enable resident brief-index PEA")
-    parser.add_argument("--stores", action="store_true", help="enable head-ordered pipeline stores")
-    parser.add_argument("--xstore", action="store_true")
-    parser.add_argument("--lea", action="store_true")
-    parser.add_argument("--latencies", default="0,3,8")
-    parser.add_argument("--verilator", default="/home/alans/verilator5/bin/verilator")
-    parser.add_argument("--vasm", default="/home/alans/mister/MacQuadra800_fixtures/wombat-vasm/vasmm68k_mot")
-    args = parser.parse_args()
-    if args.pea_entry_only and not args.pea:
-        parser.error("--pea-entry-only requires --pea")
-    if (args.loads or args.stores or args.pea or args.selective or args.force_decode) and not args.pipeline:
-        parser.error("--loads, --stores and --force-decode require --pipeline")
-    resource = args.resource.read_bytes()
-    assert hashlib.sha256(resource).hexdigest() == RESOURCE_SHA, "resource identity changed"
-    # Verified AppleDouble offset: resource entry 82 + CODE 3 body 0x6250f.
-    start = 82 + 0x6250f + 0x659c
-    kernel = resource[start:start + 200]
-    assert hashlib.sha256(kernel).hexdigest() == KERNEL_SHA, "kernel identity changed"
-    out = args.out.resolve()
-    (out / "build").mkdir(parents=True, exist_ok=True)
-    (out / "build/exact_permute.bin").write_bytes(kernel)
-
-    def run(command, log):
-        with (out / log).open("w") as f:
-            result = subprocess.run([str(x) for x in command], cwd=out,
-                                    stdout=f, stderr=subprocess.STDOUT)
-        text = (out / log).read_text()
-        if result.returncode:
-            raise RuntimeError(f"{log}: {text[-3000:]}")
-        return text
-
-    run([args.vasm, "-Fbin", "-m68040", "-no-opt", "-o", "program.bin",
-         ROOT / "rtl/ap68040/tb/asm/bench_exact_permute.s"], "assemble.log")
-    program = (out / "program.bin").read_bytes()
-    assert program[0x659c:0x6664] == kernel, "original addresses/bytes changed"
-    run(["python3", ROOT / "rtl/ap68040/tb/bin2hex.py", "program.bin", "program.hex"], "hex.log")
-    rtl = ROOT / "rtl/ap68040/rtl"
-    units = ("ap040_core", "ap040_bus_timeout", "ap040_regfile", "ap040_alu",
-             "ap040_muldiv", "ap040_mmu", "ap040_cache", "ap040_fpu", "primitives/dpram")
-    sources = [ROOT / "verilator/tb_cpu_permute.sv", ROOT / "rtl/wombat_cpu.sv",
-               ROOT / "rtl/wombat_store_buffer.sv", *(rtl / (u + ".v") for u in units)]
-    flags = []
-    if args.force_decode:
-        flags.append("-DAP040_PIPELINE_FORCE_DECODE")
-    if args.pea_entry_only:
-        flags.append("-DAP040_PIPELINE_PEA_ENTRY_ONLY")
-    if args.selective:
-        flags.append("-DAP040_PIPELINE_SELECTIVE")
-    if args.pea:
-        flags.append("-DAP040_EXPERIMENTAL_PIPELINE_PEA")
-    if args.stores:
-        flags.append("-DAP040_EXPERIMENTAL_PIPELINE_STORES")
-    if args.loads:
-        flags.append("-DAP040_EXPERIMENTAL_PIPELINE_LOADS")
-    if args.lea:
-        flags.append("-DAP040_EXPERIMENTAL_LEA")
-    if args.xstore:
-        flags.append("-DAP040_EXPERIMENTAL_XSTORE")
-    if args.pipeline:
-        flags.append("-DAP040_EXPERIMENTAL_PIPELINE")
-        sources.append(ROOT / "rtl/ap68040/experimental/ap040_pipeline_integer.sv")
-    identity = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sources}
-    identity.update(resource_sha256=RESOURCE_SHA, kernel_sha256=KERNEL_SHA,
-                    program_sha256=hashlib.sha256(program).hexdigest(),
-                    experimental_pipeline=args.pipeline, experimental_xstore=args.xstore,
-                    experimental_lea=args.lea, experimental_pipeline_loads=args.loads, experimental_pipeline_stores=args.stores, experimental_pipeline_pea=args.pea, selective_entry=args.selective, pea_entry_only=args.pea_entry_only,
-                    force_decode=args.force_decode,
-                    memory_model="controlled latency, no SDRAM or retained platform line")
-    (out / "identity.json").write_text(json.dumps(identity, indent=2) + "\n")
-    run([args.verilator, "--binary", "--timing", "-Wno-fatal", "-Wno-BLKLOOPINIT",
-         "-j", "8", "--top-module", "tb_cpu_permute", "--Mdir", out / "obj",
-         "-I" + str(rtl), *flags, *sources], "compile.log")
-    for latency in map(int, args.latencies.split(",")):
-        assert latency >= 0
-        text = run([out / "obj/Vtb_cpu_permute", "+prog=" + str(out / "program.hex"),
-                    f"+latency={latency}"], f"latency{latency}.log")
-        assert "KERNEL32 PASS" in text and "Fatal" not in text, text[-3000:]
-        print("\n".join(line for line in text.splitlines()
-                        if line.startswith(("KERNEL32", "LATENCY", "BUFFER_UPPER_BOUND", "PIPELINE"))), flush=True)
-
-
-if __name__ == "__main__":
-    main()
+root = Path(__file__).resolve().parents[2]
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--program', type=Path, required=True, help='existing Permute program.hex fixture')
+parser.add_argument('--out', type=Path, required=True)
+parser.add_argument('--core', type=Path, default=root/'rtl/ap68040/rtl/ap040_core.v')
+args = parser.parse_args()
+out = args.out.resolve()
+out.mkdir(parents=True, exist_ok=True)
+rtl = root/'rtl/ap68040/rtl'
+bench = (root/'verilator/tb_cpu_permute.sv').read_text()
+replacements = [
+ ('integer states[0:255];', 'integer states[0:255]; integer opcycles[0:65535]; integer pipe_cycles=0; integer exits[0:65535];'),
+ ('for(i=0;i<256;i=i+1) states[i]=0;', 'for(i=0;i<256;i=i+1) states[i]=0; for(i=0;i<65536;i=i+1) begin opcycles[i]=0;exits[i]=0;end'),
+ ('cycles=cycles+1;', '''if(dut.core.pipe_rf_owner) pipe_cycles++; else opcycles[dut.core.ir]++;
+  if(dut.core.pipe_owner && dut.core.pipe_exit_ready && !dut.core.pipe_input && dut.core.epf_ready_pc) exits[dut.core.epf_data[dut.core.epf_head]]++;
+  cycles=cycles+1;'''),
+ ('$display("KERNEL32 PASS', 'for(j=0;j<65536;j++) begin if(opcycles[j]) $display("ACTIVE_IR opcode=%04h cycles=%0d",j[15:0],opcycles[j]); if(exits[j]) $display("PIPE_EXIT opcode=%04h count=%0d",j[15:0],exits[j]); end $display("PIPE_OWN cycles=%0d",pipe_cycles); $display("KERNEL32 PASS'),
+]
+for before, after in replacements:
+    assert bench.count(before) == 1, before
+    bench = bench.replace(before, after)
+(out/'tb.sv').write_text(bench)
+units = ('ap040_bus_timeout','ap040_regfile','ap040_alu','ap040_muldiv','ap040_mmu','ap040_cache','ap040_fpu','primitives/dpram')
+sources = [out/'tb.sv',root/'rtl/wombat_cpu.sv',root/'rtl/wombat_store_buffer.sv',args.core.resolve(),*[rtl/(unit+'.v') for unit in units],root/'rtl/ap68040/experimental/ap040_pipeline_integer.sv']
+flags = ['-DAP040_EXPERIMENTAL_'+name for name in ('XSTORE','LEA','PIPELINE','PIPELINE_LOADS','PIPELINE_STORES','PIPELINE_PEA','PIPELINE_P6')]
+flags += ['-DAP040_PIPELINE_MEMORY_ENTRY','-DAP040_PIPELINE_COMPARE','-DAP040_PIPELINE_EARLY_DRAIN']
+inputs = [*sources,args.program.resolve()]
+(out/'identity.json').write_text(json.dumps({'sha256':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs},'flags':flags,'latency':3,'scope':'instruction-state occupancy includes fetch and handoff; not retired-instruction latency or a hardware Mix score'},indent=2))
+def run(command, log):
+    with (out/log).open('w') as stream:
+        subprocess.run(list(map(str,command)),stdout=stream,stderr=subprocess.STDOUT,check=True)
+run(['/home/alans/verilator5/bin/verilator','--binary','--timing','-Wno-fatal','-Wno-BLKLOOPINIT','-j','8','--top-module','tb_cpu_permute','--Mdir',out/'obj','-I'+str(rtl),*flags,*sources],'compile.log')
+run([out/'obj/Vtb_cpu_permute','+prog='+str(args.program.resolve()),'+latency=3'],'run.log')
+log = (out/'run.log').read_text()
+assert 'KERNEL32 PASS' in log and 'FAIL:' not in log
+rows = [line for line in log.splitlines() if line.startswith('ACTIVE_IR')]
+rows.sort(key=lambda line:int(line.split('cycles=')[1]),reverse=True)
+summary = '\n'.join(line for line in log.splitlines() if line.startswith(('KERNEL32','PIPE_OWN','PIPELINE','PIPE_EXIT'))) + '\n' + '\n'.join(rows) + '\n'
+(out/'summary.txt').write_text(summary)
+print(summary)

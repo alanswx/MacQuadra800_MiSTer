@@ -252,3 +252,38 @@ this completes the planned simulation qualification for the indexed-only
 shortcut. It is ready for promotion after the current fit's source freeze
 ends; no hardware gain or fit result exists for this shortcut yet. The broad
 variant remains rejected because it regressed Permute.
+
+## Permute call/stack occupancy and RTS probe
+
+New `profile_permute.py --program PROGRAM_HEX --out DIR [--core CORE]`
+profiles the existing checked kernel fixture, records program/source SHA256s,
+and reuses the tracked real CPU/cache/store-buffer bench. The exact reusable
+runner reproduces1,519,901cycles and all result/array/guard checks. Artifact
+`scratch/permute_profile_20260919/reusable/` includes the full occupancy table.
+Pipeline ownership accounts for109,604cycles (7.2%);40,326issues include20,163
+stores and no pipeline loads. Exits include10,078JSR(d16,PC) instructions.
+
+Largest legacy current-IR occupancies:
+
+| Opcode | Instruction | Cycles |
+| --- | --- | ---: |
+| 4cdf | MOVEM load | 161,469 |
+| 4e75 | RTS | 155,335 |
+| 48e7 | MOVEM store | 131,819 |
+| 4e56 | LINK | 126,632 |
+| 4e5e | UNLK | 100,095 |
+| 3290 | memory-to-memory MOVE | 80,643 |
+
+The first five sum to675,350cycles (44.4%). Occupancy includes fetch and
+handoff; it is not retired-instruction latency or an attainable speedup
+bound. Existing cache line forwarding already fills the instruction queue
+from128-bit line offers, so adding that mechanism again is not a solution.
+
+Scratch `p9_rts_ack_20260919` tests completing ordinary even RTS returns
+on source-read acknowledgement and supplying mem_rdata to the existing
+shared redirect target. Odd targets, trace, pending IRQ, RTR/RTD and split
+reads retain the old path. It is based on f2b2770, without the P8 MOVE
+shortcut, to isolate the result. Permute1,504,787cycles (0.99%fewer) and
+Towers26,133,410cycles (0.28%fewer), all kernel results/guards PASS. This
+is not correctness-qualified or promoted. Redirect changes still need
+odd-target, access-fault, IRQ/trace and broader integration tests.
