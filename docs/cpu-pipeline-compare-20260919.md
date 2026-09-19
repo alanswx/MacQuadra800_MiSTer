@@ -122,3 +122,34 @@ Combined-candidate silicon100 is running from an isolated copied source
 snapshot. Late/full-format admission fallback remains to be explicitly
 qualified before promotion. Scratch branch changes are not in the fitted
 P7 artifact.
+
+## Promoted admission and branch handoff
+
+The next candidate now includes the late indexed-extension wait, routing
+past legacy lookahead, and final-WB Bcc flag forwarding/target hint described
+above. Existing trace, IRQ, odd-target and memory-port guards remain intact.
+No clock or timer configuration changes.
+
+Exact scratch source qualification completed: full integration;14,720
+forced-decode reference snapshots; immutable silicon100 with1,900matching
+field groups and zero real differences (`/tmp/cpu-corpus100-gate.GBqvn3`);
+all12MOVE/compare extension-fault/trace/IRQ cases; five operand-fault
+cases×three timing schedules;360branch conditions with stale-CCR mutation
+rejected; and five branch boundary cases×three schedules.
+
+New reusable runners accept explicit `--core` and `--out`:
+`pipeline_branch_conditions.py`, `pipeline_branch_boundaries.py`, and
+`pipeline_indexed_fallback.py`. Their exact tracked versions pass against
+the promoted candidate. Fallback tests cover MOVE load/store and CMP/TST
+with both brief and full-format extensions across a cache-line boundary.
+Each case observes69actual wait cycles over three schedules; each brief
+case records three claims and each full-format case zero claims. All
+check register, memory and CCR results. The original fault rerun used an
+output path longer than the bench's128-byte filename buffer and could not
+load the program; rerunning with short paths passes. That run is not CPU
+failure evidence.
+
+Simulation kernels remain Bubble4,203,308, Towers26,207,138 and
+Permute1,519,901cycles. Hardware P7compare trial remains in progress on the
+previous1c04a43bitstream. The new candidate needs its own Quartus fit and
+five-run hardware trial; these cycle reductions do not establish Mix1.8.

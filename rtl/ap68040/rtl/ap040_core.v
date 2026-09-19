@@ -380,10 +380,18 @@ wire pipe_entry_ok = pipe_words == 2 && (ir & 16'hf1f8) != 16'h41e8;
 `else
 wire pipe_entry_ok = 1'b1;
 `endif
-// A late same-page extension can join the pipeline after background fetch.
+// A late same-page PEA/indexed-memory extension can join after background fetch.
 // Do not wait across a page or after a speculative fetch fault.
-wire pipe_pea_wait = (state == S_DECODE) && PIPE_PEA &&
-    ((ir & 16'hfff8) == 16'h4870) && !epf_ready_pc && epf_armed &&
+wire pipe_wait_indexed = PIPE_MEMORY_ENTRY &&
+    ((PIPE_P6 && ir[15:14] == 0 && ir[13:12] != 0 &&
+      ((ir[5:3] == 6 && (ir[8:6] == 0 || ir[8:6] == 1) &&
+        !(ir[13:12] == 1 && ir[8:6] == 1)) ||
+       (ir[8:6] == 6 && ir[5:4] == 0 && !(ir[13:12] == 1 && ir[3])))) ||
+     (PIPE_COMPARE && (((ir & 16'hf138) == 16'hb030 ||
+                       (ir & 16'hff38) == 16'h4a30) && ir[7:6] != 3)));
+wire pipe_pea_wait = (state == S_DECODE) &&
+    ((PIPE_PEA && (ir & 16'hfff8) == 16'h4870) || pipe_wait_indexed) &&
+    !epf_ready_pc && epf_armed &&
     epf_next == pc && pc_i[11:0] != 12'hffe && !epf_err;
 wire pipe_claim = (state == S_DECODE) && pipe_supported && pipe_entry_ok;
 wire pipe_owner = state == S_EXPERIMENT_PIPE;
@@ -2425,8 +2433,14 @@ wire [31:0] go_pc_t_early =
 wire [31:0] dbrf_a_early = go_pc_t_early;
 wire  [4:0] alu_fast_fl;
 wire        alu_fast_ok;
-// the producer's flags from the ALU's fast path (compare class) or sr
-wire  [4:0] rd_bcc_fl = (regs_alu_fire && p_flags) ? alu_fast_fl : sr[4:0];
+// Forward final pipeline WB flags before SR's sequential update, just as
+// legacy ALU lookahead forwards its producer's flags before retirement.
+`ifdef AP040_EXPERIMENTAL_PIPELINE
+wire [4:0] pipe_branch_ccr = pipe_retire ? pipe_ccr : sr[4:0];
+`else
+wire [4:0] pipe_branch_ccr = sr[4:0];
+`endif
+wire  [4:0] rd_bcc_fl = pipe_drain ? pipe_branch_ccr : (regs_alu_fire && p_flags) ? alu_fast_fl : sr[4:0];
 wire        rd_bcc_fl_ok = !(regs_alu_fire && p_flags) || alu_fast_ok;
 wire        rd_bcc_taken = cond_true_fl(rd_ir[11:8], rd_bcc_fl);
 always @* begin
@@ -3318,7 +3332,7 @@ wire [31:0] hint_pop_addr = (state == S_DECODE)     ? dbg_a7_wb :
 // taken, or the arm does not fire, a fill issued this cycle has merely lost
 // its idle-read match.  The guess is deliberately flag-free so the ALU's
 // flags never enter the hint path.
-wire        hint_ftb = rd_is_bcc && (state == S_PIPE_REGS || state == S_EXEC ||
+wire        hint_ftb = rd_is_bcc && (pipe_drain || state == S_PIPE_REGS || state == S_EXEC ||
                                      state == S_PIPE_SDONE || state == S_MRD || state == S_MWR);
 // While an unconditional transfer with a resident target sits at the
 // queue head and the port is free, hint its target: if this cycle's
@@ -9201,10 +9215,11 @@ always @(posedge clk) begin
 `endif
 `endif
 `ifdef AP040_EXPERIMENTAL_PIPELINE
-        // Let a resident brief indexed MOVE reach the pipeline admission
-        // point instead of being consumed by the legacy lookahead decoder.
-        if (PIPE_MEMORY_ENTRY && PIPE_P6 && rd_queue_pop && epf_count >= 2 &&
-            !epf_data[epf_head + 3'd1][8] &&
+        // Route indexed MOVE to admission even when its extension is late.
+        // The same-page wait above admits brief format once resident; full
+        // format falls back to the sequencer after the extension arrives.
+        if (PIPE_MEMORY_ENTRY && PIPE_P6 && rd_queue_pop && epf_count >= 1 &&
+            (epf_count < 2 || !epf_data[epf_head + 3'd1][8]) &&
             epf_data[epf_head][15:14] == 0 && epf_data[epf_head][13:12] != 0 &&
             ((epf_data[epf_head][5:3] == 6 &&
               (epf_data[epf_head][8:6] == 0 || epf_data[epf_head][8:6] == 1) &&
@@ -9252,7 +9267,7 @@ always @(posedge clk) begin
 		else if (rd_is_bcc && rd_queue_pop && !aux_we && (state != S_DECODE) &&
 		         (rd_bcc_fl_ok || rd_is_bra) && !rd_bcc_t[0] &&
 		         !sr[15] && !sr[14] && !irq_pend &&
-		         (regs_alu_fire ||
+		         (regs_alu_fire || pipe_drain ||
 		          ((state == S_MWR) && d_ack && (r_m_ret == S_NEXT)) ||
 		          // BRA.B needs no flags: from any retire whose state
 		          // has no target arm of its own on go_pc_t_early

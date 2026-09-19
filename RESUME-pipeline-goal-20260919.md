@@ -1207,3 +1207,18 @@ merelyfromkernel/conditiontests. Noneofthesescratchchangesaffectsactivefit.
 P7 1c04a43 fit is terminal; archived RBF SHA702e23482a2203befc88b190446b68bfe182ef37a4c848057a866875305d9700, CPU-.012ns/HDMI+.308/SDRAM+.424/hold+.220,39,559ALMs94%. Source and cross checks0. Freeze lifted. Existing mister_operator owns five-run hardware trial on disposable image, report scratch/hardware_p7compare_20260919. Not release qualified.
 
 Scratch p7_branch_handoff full integration PASS and five exception/IRQ boundary cases×three phases PASS. Odd untaken fixture corrected to pre-existing68040 exception contract after reproducing on baseline; no RTL fix. Corpus100 running session23317, log scratch/p7_branch_handoff_20260919/corpus100.log. Still need explicit late/full-format fallback qualification before promoting. User authorizes committing and pushing progress to origin/add-ethernet.
+
+### Admission/branch candidate promoted
+
+Promoted scratch p7_branch_handoff core after full integration,14,720forced
+snapshots, silicon1001900groups0diff (/tmp/cpu-corpus100-gate.GBqvn3), all12
+memory extension/trace/IRQcases and5operandfaultcases,360branch conditions,
+5branch boundaries and8late-extension brief/fullfallback cases passed.
+Reusable scripts/cpu/pipeline_{branch_conditions,branch_boundaries,indexed_fallback}.py
+require --core and --out. Full-format fallback records zero claims; brief
+records3; each case waits69cycles total across3phases. A too-long path in
+first fault rerun truncated the filename; shortened cb/cf/mb/efoutputs pass.
+All logs under scratch/p7_branch_handoff_20260919. Only comments differ
+between qualified scratchcore and promoted RTL. Next fit archive
+scratch/p7handoff_fit_20260919, service q800-p7handoff-fit-20260919.service;
+freeze RTL/project once launched. P7compare hardware agent still owns mister.
