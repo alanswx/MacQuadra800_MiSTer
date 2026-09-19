@@ -504,3 +504,24 @@ Bubble4,077,142 unchanged. Silicon first100:1900fieldgroups0differences,
 and branch boundaries5cases×3phases pass. These exercise source/target
 faults, odd targets, splits, T1/T0, and IRQ boundaries. Full integration
 is still running; no promotion yet. Active P13fit sourcehashcheck passes.
+
+P18 full reference/pipeline integration completed PASS, including precise
+load/store/PEA interrupt and replay checks. It is ready for fit consideration
+after the active P13 compile/crossing extraction finishes.
+
+### P19 short-branch pipeline experiment started
+
+Towers exits about49,191times at BLE.B opcode6f12 and49,149times at BRA.B
+6002, in addition to MOVEM and memory-MOVE boundaries. ScratchP19 adds only
+short even-displacement BRA/Bcc (not BSR), evaluates conditions against
+forwarded CCR in EX, records the selected nextPC in WB, and redirects on
+retirement while cancelling younger pipeline work. Trace entry retains
+legacy handling. Odd/word/long branches remain unsupported. This is an
+unqualified prototype, not a completed branch implementation or a default
+change. Permute is unchanged1,457,331PASS with unchangedissuecount; Towers
+is the relevant pending measurement. Files:scratch/p19_branchpipe_20260919.
+
+P19Towers terminalPASS25,227,008 versusP13 25,469,823 (0.95%fewer),
+issues1,913,043vs1,376,616; noAP040redirectmismatch/FAILdiagnostics.
+Broadgate startedsession36346 in scratch/p19_branchpipe_20260919/gate.log.
+Stillunqualified, targetwrongpathmemory/IRQ/trace coverage required.

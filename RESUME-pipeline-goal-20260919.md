@@ -1536,3 +1536,19 @@ logs rts.log/branch.log. Fullgate6776 stillrunning, lastFPU/cachePASS.
 P18 stillscratchonly; awaitterminalfullgate beforepromotion consideration.
 P13fit activeMainPID1515481; sourcehashrecheckPASS. HardwareP12agent
 firstcompletedrun screenshot, aggregatepending. Goalbeststill1.029.
+
+### P18 fullgate complete; P19 short-branch prototype measuring
+
+P18 fullgate6776 terminalPASS inclpreciseIRQ/replay. P18readyforfitafterP13
+terminal/crossingextraction; do notalterfrozenRTL. P13MainPID1515481active.
+P19scratch module+core adds continuation shortevenBRA/Bcc excludingBSR,
+CCRforwardedEXcondition->WBnextPC; retiretakenredirect killsyounger,
+traceinitialadmissionexcluded. NochangedproductionRTL. Permuteunchanged
+1457331PASS/40326issues; Towersrunning session18383, towers.log. Notqualified;
+needsvalue/traceIRQ/fault/wrongpathstoretests ifperformancejustifieskeeping.
+P12hardwareoperatoractive, tworesultscreenshots. Besthardwaremedian1.029.
+
+P19Towers terminalPASS25,227,008 versusP13 25,469,823 (0.95%fewer),
+issues1,913,043vs1,376,616; noAP040redirectmismatch/FAILdiagnostics.
+Broadgate startedsession36346 in scratch/p19_branchpipe_20260919/gate.log.
+Stillunqualified, targetwrongpathmemory/IRQ/trace coverage required.
