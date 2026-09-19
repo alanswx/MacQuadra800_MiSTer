@@ -869,3 +869,35 @@ unique RBF/report copies. `quartus_sh` and `quartus_map` were running at last
 check. Do not touch RTL/QSF/QIP/SDC or start another Quartus flow until this
 service is terminal. Docs and scratch-only research remain allowed. No P6
 hardware deployment has occurred; operator remains available, MiSTer halted.
+
+### P6 fit live; P7 scratch stream experiment
+
+Previous turn made progress: promoted/qualified/committed P6 and launched the
+single fit. Current fit is confirmed live in the same systemd unit (no restart).
+Synthesis succeeded with0errors; fitter physical synthesis is active. RAM Summary
+confirms C/D/E512bitMLABs and cache tag M10K. Frozen-source hash recheck passed;
+final fit/timing/cross-domain evidence remains pending.
+
+Fixed a reproducibility error in `pipeline_p6_alu_oracle.py`: port-tie cleanup
+had also removed the instruction-array expansion on the same line. Restored an
+explicit32768→131072entry replacement. The original passing promoted test had
+used the expanded fixture; the now-repaired tracked runner was rerun, all six
+61,424retirement schedules PASS (`alu_oracle_recheck.log`). No RTL change.
+
+Scratch-only follow-on `scratch/p7_stream_20260919/` adds register TST,
+brief-indexed TST/CMP and d16(An) register MOVE loads/stores. Generated from P6
+by generate.py; no frozen source edits, no fit or deployment of this prototype.
+- Towers25,954,913cycles vs P6 unrestricted26,445,814 (-1.856%). All results,
+  lists, nodes and guards pass. Pipelineissues3,315,359,emptyexits4.
+- Permute1,552,349 vs P6 1,527,183 (+1.648% regression), all results/guards pass.
+- Independent mixed memory oracle passes13,166retirements/5,120requests in all
+  8delay/stall schedules, covering CMP/TST/indexedMOVE/d16MOVE semantics.
+- Independent d16store oracle: same counts/schedules, all PASS.
+- TSTregister+shift/LEA oracle:63,576retirements in6schedules, all PASS.
+- Full real-core handoff gate is running session67367; inspect full_gate.log.
+  New P7-specific fault/trace/IRQ and mutation controls still required.
+
+A/B variant `scratch/p7_compare_20260919/` disables displacement loads/stores,
+retaining only new TST/CMP support. Session56231 runs Permute then Towers;
+read permute.log and normal_results.log. This isolates the regression before
+selecting a follow-on. Do not promote either P7 variant from kernel scores alone.

@@ -115,6 +115,7 @@ for base in range(8):
 (out/'oracle.trace').write_text('\n'.join(rows)+'\n');(out/'requests.hex').write_text('0\n')
 (out/'supported.hex').write_text('\n'.join(str(int(w in supported)) for w in range(65536))+'\n')
 s=(exp/'tb_pipeline_pea.sv').read_text().replace('.ENABLE_PEA(1))','.ENABLE_PEA(1), .ENABLE_SHIFTS(1), .ENABLE_DISP_LEA(1))')
+s=s.replace('code [0:32767]', 'code [0:131071]')
 tb=out/'tb.sv';tb.write_text(s)
 with (out/'compile.log').open('w') as f:subprocess.run(['iverilog','-g2012','-I',str(rtl),'-s','tb_pipeline_pea','-o',str(out/'test.vvp'),str(tb),str(module),str(rtl/'ap040_regfile.v'),str(rtl/'ap040_alu.v')],stdout=f,stderr=subprocess.STDOUT,check=True)
 for mode in (0,1,2,3,4,5):
