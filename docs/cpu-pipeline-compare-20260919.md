@@ -153,3 +153,30 @@ Simulation kernels remain Bubble4,203,308, Towers26,207,138 and
 Permute1,519,901cycles. Hardware P7compare trial remains in progress on the
 previous1c04a43bitstream. The new candidate needs its own Quartus fit and
 five-run hardware trial; these cycle reductions do not establish Mix1.8.
+
+## P7 hardware result and next memory-MOVE probe
+
+P7compare1c04a43 completed five valid33MHz hardware Mix runs:
+1.011/1.013/1.014/1.013/1.013, median1.013 and mean1.0128, no timer
+outliers. Section30 of PERFORMANCE_MEASUREMENTS records all ten component
+scores and the limitation that the benchmark session was reloaded before
+shutdown; only the subsequent recovery boot cleanly halted.
+
+The promoted f2b2770 admission/branch candidate is now fitting under user
+service `q800-p7handoff-fit-20260919.service`. Use `systemctl --user`, not
+the system manager, to query it. Archive `scratch/p7handoff_fit_20260919`;
+source freeze remains active through terminal compile and crossing extraction.
+
+Scratch `p8_memmove_ack_20260919` begins a MOVE memory destination EA on
+the successful source-read acknowledgement. It bypasses S_PIPE_SDONE and
+S_PIPE_DST; faulting and split source reads keep their old path. Bubble
+falls from4,203,308 to4,077,142cycles and Towers26,207,138 to25,617,018,
+both results/guards pass. Permute rises from1,519,901 to1,529,979cycles
+(a0.66%regression), so this broad variant is not being promoted. Its full
+integration gate is still running.
+
+The indexed-destination-only variant in `scratch/p8_memmove_indexed_20260919`
+restores Permute exactly to1,519,901cycles, with result/guards PASS. Towers
+and Bubble runs are pending. This remains a scratch experiment requiring
+precise read/write/extension-fault and interrupt qualification before any
+promotion. None of these source changes affect the running fit.

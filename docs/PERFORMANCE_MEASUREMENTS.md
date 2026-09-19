@@ -1404,3 +1404,42 @@ and the subsequent fresh boot reached a clean halt (`final_halt.png`).
 No crash was reported, but this does not prove clean post-benchmark shutdown.
 Original disk untouched; disposable remains selected. No CD/audio validation;
 A/UX explicitly deferred to Dani. No new Main was installed.
+
+
+## 30. P7 indexed compare and early retirement handoff (2026-09-19)
+
+Date: 2026-09-19  
+Core: `/media/fat/_Unstable/MacQuadra800_p7compare_1c04a43.rbf`  
+RBF SHA256: `702e23482a2203befc88b190446b68bfe182ef37a4c848057a866875305d9700`  
+Quartus: 39,559 ALMs (94%); CPU setup **-0.012 ns**, HDMI +0.308 ns, SDRAM +0.424 ns, hold +0.220 ns, crossings +0.462/+0.790 ns. CPU timing is marginal, so this trial is experimental and not release-qualified.  
+Main SHA256: `0ac8b44069a9201723dcdbc3bf3a84e1963d2bec347e5065c2625e71bd3986cd`  
+CFG: `40 00 00 00` (33 MHz, 32 MB, Ethernet on)  
+Disk: disposable `QuadSquad8-pipeline-test-20260919.hda`, pre-boot SHA256 `224c5be7d031c4c5448745d29ce9717c22bcc310361888bb0e20f2c521c83e2a`; original remained untouched and unmounted.  
+All runs used Speedometer 4.02 Benchmark Mix, all ten tests, Iteration 1.
+
+| Run | Wall interval | Whetstones/sec | Dhrystones/sec | Towers | Quick Sort | Bubble | Queens | Puzzle | Permutations | Int. Matrix | Sieve | Mix | Status |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| 1 | ~52 s (22:23:44–22:24:36Z) | 806.420 | 12244.889 | 0.875 | 0.764 | 0.866 | 0.582 | 1.448 | 1.294 | 0.935 | 1.163 | 1.011 | valid |
+| 2 | ~56 s (22:24:58–22:25:54Z) | 809.544 | 12256.995 | 0.875 | 0.764 | 0.864 | 0.581 | 1.441 | 1.300 | 0.927 | 1.163 | 1.013 | valid |
+| 3 | ~57 s (22:26:13–22:27:10Z) | 811.391 | 12246.416 | 0.878 | 0.762 | 0.865 | 0.581 | 1.440 | 1.297 | 0.925 | 1.163 | 1.014 | valid |
+| 4 | ~58 s (22:27:29–22:28:27Z) | 811.225 | 12234.960 | 0.875 | 0.765 | 0.866 | 0.581 | 1.443 | 1.296 | 0.923 | 1.164 | 1.013 | valid |
+| 5 | ~58 s (22:28:47–22:29:45Z) | 810.149 | 12252.157 | 0.876 | 0.763 | 0.866 | 0.582 | 1.443 | 1.296 | 0.929 | 1.161 | 1.013 | valid |
+
+Mix mean: **1.0128**; median: **1.013**; range: **1.011–1.014**. No invalid results or timer outliers.
+
+Completion screenshots: `run1_complete.png` through `run5_complete.png`; each shows “The tests are done!” and all ten tests at Iteration 1. Direct `grab.sh` was used for captures.
+
+The median1.013 improves on targeted-entry1.003 by about1.0%, and on
+P5's1.006 by about0.7%. The1.8goal remains unachieved. The next admission/
+branch-handoff optimization is a separate candidate and is not represented
+by these results.
+
+Boot and five benchmark executions passed. No guest responsiveness failure
+was observed. However, the operator reloaded while Speedometer remained
+active instead of completing the Finder shutdown path from the measured
+session. The following boot displayed an unclean-shutdown warning
+(`reload2.png`); `final_halt.png` verifies only the subsequent recovery
+boot's shutdown. Post-benchmark clean shutdown therefore remains unproven.
+Future trials must attempt application quit and Finder shutdown before
+using recovery. Original disk and Main preserved. A/UX deferred to Dani;
+CD transport/audio remains unchecked.

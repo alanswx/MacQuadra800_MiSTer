@@ -1222,3 +1222,24 @@ All logs under scratch/p7_branch_handoff_20260919. Only comments differ
 between qualified scratchcore and promoted RTL. Next fit archive
 scratch/p7handoff_fit_20260919, service q800-p7handoff-fit-20260919.service;
 freeze RTL/project once launched. P7compare hardware agent still owns mister.
+
+### P7 hardware measured; P8 memory-MOVE scratch probe
+
+P7compare hardware complete median1.013, mean1.0128, runs1.011/1.013/1.014/
+1.013/1.013; no invalids. Full table in docs/PERFORMANCE_MEASUREMENTS section30.
+Operator reloaded because Speedometer remained foreground, without observed
+responsiveness failure; original measured session did not cleanly halt.
+Recovery boot displayed unclean warning then cleanlyhalted. Agent idle at
+halt and instructed to quit application/Finder shutdown before reload on
+future trials. Current trial report scratch/hardware_p7compare_20260919.
+
+ACTIVE FIT: systemctl --user show q800-p7handoff-fit-20260919.service;
+MainPID1358014, quartus_fit confirmedlive. Candidatef2b2770; immutablearchive
+scratch/p7handoff_fit_20260919; projectsourcefreeze until terminal/extraction.
+
+Scratchp8_memmove_ack_20260919: source-read ack starts MOVE destinationEA,
+saves2states; Bubble4,077,142/Towers25,617,018PASS; Permute1,529,979regresses.
+Fullgate session24501/loggate.log still running; don't promote broadversion.
+Restricted p8_memmove_indexed_20260919 adds dst_mode_r==6; Permute1,519,901
+PASS matchesbaseline; Towers/Bubble sequentialrun session35374 stillrunning.
+Need finish measurements and faultqualification. None promoted.
