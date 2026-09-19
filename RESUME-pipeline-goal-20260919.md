@@ -923,3 +923,8 @@ P6 Quartus unit still live (same MainPID1166285, quartus_fit1174605), currently
 physical synthesis/register retiming. Latest frozen-source hash check passes.
 No build restart, deployment, or additional hardware result this turn. Goal
 remains active: latest hardware median1.006, required1.8not achieved.
+
+Update: broad P7 full_gate session67367 is now terminal exit0. All remaining
+PEA/fault/trace and four IRQ/replay checks passed, ending with real-core pipeline
+ownership PASS. Exact compare-only integration and new-operation-specific
+boundary tests remain pending as described above.
