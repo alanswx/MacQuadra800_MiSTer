@@ -5,12 +5,17 @@ addresses, so the ROM's and the systems' own drivers bind to it: nothing to
 install in Mac OS beyond Apple's "Apple Built-In Ethernet" (already on the Quad
 Squad disk), no declaration ROM, no NuBus card.
 
-**Status 2026-09-18 (late): works on hardware — DHCP, ARP, 1000/1000 pings,
-FTP — but only with the retained-SDRAM-line fast paths switched off through
-the bring-up OSD bits (CFG bytes `40 06`, and by a first run `40 04`); with
-them on, Open Transport's CAS/CAS2 list code goes wrong under receive traffic. State, experiments and next steps:
-`RESUME-ethernet-20260918c.md`.** A/UX networking is a later milestone (see
-"Open").
+**Status 2026-09-19: the crash under receive traffic is found and fixed in
+RTL (commit `0533256`) and holds on hardware with every fast path on
+(build 9: DHCP, 1000/1000 pings of 1400 bytes).** It was never Ethernet or
+the cache: a retained-line read acknowledged in the clock the service FSM left
+`S_IDLE` for a DMA beat let `bus_req_adapter` rise under the ack, and
+`wombat_bus32` ran a phantom read whose completion acknowledged the *next*
+request — a wrong fill word, or a store dropped (Open Transport's CAS lists).
+`make tb_line_dma` reproduces it. Until 2026-09-18 the machine worked only with
+the retained-line paths switched off through the bring-up OSD bits (CFG bytes
+`40 06` / `40 04`). State and next steps: `RESUME-ethernet-20260919.md`.
+A/UX networking is a later milestone (see "Open").
 
 ## Using it
 
@@ -126,6 +131,8 @@ It never acknowledges LCD (not in its IMR) — it must poll for LCAM completion.
 - Main: `support/mac/test/mac_q8_test.cpp` runs the model and the DMA client
   against a C model of the engine (publish order, round-trip counts, ack
   causality).
+- `make tb_line_dma`: the retained-line read shortcut against the DMA arm of
+  the service FSM (the 2026-09-18 crash; `-GFIX=0` shows it).
 - Not bench-covered: D-cache coherence under DMA. On hardware, an md5 of a
   file transferred each way is the check.
 
