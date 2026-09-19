@@ -901,3 +901,25 @@ A/B variant `scratch/p7_compare_20260919/` disables displacement loads/stores,
 retaining only new TST/CMP support. Session56231 runs Permute then Towers;
 read permute.log and normal_results.log. This isolates the regression before
 selecting a follow-on. Do not promote either P7 variant from kernel scores alone.
+
+### P7 A/B and fault results
+
+The compare-only A/B is terminal: Towers26,004,071cycles (-1.6704% vs P6),
+Permute1,527,183 (exactly unchanged vs P6). Both kernels' result/guard checks
+pass. Removing displacement MOVE support avoids the +1.648% Permute regression
+while retaining most Towers improvement. Prefer further qualification of
+`scratch/p7_compare_20260919/` over promoting the broader stream unchanged.
+
+Broader stream's3negativecontrols all detected (`negative.py`,negative.log):
+wrong indexed-CMP destination operand, erroneous comparison register writeback,
+wrong d16store displacement sign. Exact compare-only variant's indexed CMP.W
+and TST.W real-core data-fault fixtures pass (`faults.py`,faults.log), each with
+3faulting requests and6younger cancellations, exact PC/address/frame/CCR and
+preserved Dn/An values. Full broad-stream gate session67367 still finishing:
+legacy14suites and load/store faults passed at last check. It does not replace
+new operation-specific extension/trace/IRQ tests or exact compare-only gate.
+
+P6 Quartus unit still live (same MainPID1166285, quartus_fit1174605), currently
+physical synthesis/register retiming. Latest frozen-source hash check passes.
+No build restart, deployment, or additional hardware result this turn. Goal
+remains active: latest hardware median1.006, required1.8not achieved.
