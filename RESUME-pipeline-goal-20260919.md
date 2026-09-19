@@ -237,3 +237,28 @@ read negative control fails as required. The14720register compatibility oracle
 passed all6schedules and both forwarding negative controls (register_gate.log). This prototype is NOT
 integrated or fitted, and does not establish any performance gain. All fitted
 sources remain unchanged. LEA unit `q800-lea-fit-20260919` is still active.
+
+
+## LEA fit completed; hardware trial now active
+
+Unit `q800-lea-fit-20260919` completed successfully (build.exit=0,cross.exit=0).
+**Source freeze has ended.** Full archive `scratch/lea_fit_20260919/` contains
+`MacQuadra800_lea_94d922f.rbf`, SHA-256
+`d3bd1b96b48f95b9b3b665d1c74a8e973eb7cf54e9efac18943f5cbafbf4d04c`.
+36,997 ALMs88%,25,920 registers,491RAM,43DSP; worst setup +0.311ns and hold
++0.238ns; CPU +1.025ns, SDRAM +0.555ns; sys->ram +0.555ns, ram->sys +1.025ns.
+Cache cdata0–3 remain inferred block RAM. After flow end QSF received only the
+required fit-history comment; artifact remains the committed94d922f build.
+
+Operator received follow-up to copy/hash/load LEA candidate from the XSTORE clean
+halt and obtain five valid Mix runs, all ten tests, iteration1, preserving Main,
+CFG,33MHz,32MB and disposable disk. Evidence `scratch/hardware_lea_20260919/`.
+Then cleanly halt Mac and leave Linux MiSTer/remote services running. Await its
+first/final scores. Latest accepted result is still XSTORE median0.997; 1.8 unmet.
+
+Next independent CPU work: integrate/test the scratch P2 load prototype through
+existing core memory/exception sequencing, with request PC/opcode metadata and
+page-split/MMU/error/IRQ coverage, then measure against current production path.
+Do not infer speed from the standalone correctness tests. Prototype source has
+NOT been promoted; only scratch has the load ports. Its compatibility bench
+explicitly ties off the new ports because the existing testbench uses `.*`.

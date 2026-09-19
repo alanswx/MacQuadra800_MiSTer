@@ -580,3 +580,19 @@ cycles (7.21% fewer), with all count/list/guard checks passing. Original Permute
 1,588,970 -> 1,577,469 (0.72% fewer), all count/array/guard checks passing.
 Evidence: `scratch/towers_lea_20260919/`, `scratch/permute_lea_20260919/` and
 `scratch/lea_gate_20260919/`. These remain kernel checks, not Mix predictions.
+
+
+LEA full-machine fit94d922f passed at seed21:36,997ALMs88%,491RAM,43DSP;
+setup +0.311ns,hold +0.238ns,CPU +1.025ns,SDRAM +0.555ns; both crossing reports
+positive (+0.555/+1.025ns). Cache RAM inference retained. Archived reports and
+unique RBF are in `scratch/lea_fit_20260919/`; five-run hardware trial is assigned.
+
+A scratch-only P2 load prototype now exists in `scratch/pipeline_load_p2_20260919/`.
+It admits MOVE.B/W/L (An),Dn with one head-ordered read, stable request until
+acknowledgement, response capture across CE pause, cancellation drain, and a
+fault retirement token with no register write. Four latency schedules and an
+independent768-retirement/192-load oracle pass; a premature-read mutation fails.
+Loads-disabled compatibility passes all14,720register snapshots in six schedules
+and both forwarding negative controls. This is not integrated with the real
+MMU/cache/exception owner and is not a performance claim; see its README.md for
+contracts, remaining integration and limitations.
