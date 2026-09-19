@@ -375,3 +375,36 @@ Scratch `p11_movemhint_20260919` corrects the predecrement MOVEM hint from
 mm_addr to the actual decremented store address. Permute still passes at
 1,504,787 cycles. This is also not promoted; a matching hint by itself does
 not establish a performance benefit.
+
+### P12: begin a matched spanning cache read at idle admission
+
+Prototype: `scratch/p12_idlespan_20260919/ap040_cache.v`; current tracked
+core and pipeline module, candidate cache only. A translated within-line
+spanning read whose idle RAM indices/tags match can start the existing
+whole-line read at acceptance. The next C_LOOK cycle uses the existing
+look2 assembly and snoop fallback. It adds no cache storage. Requests with
+unsettled metadata, invalidation, faults, or misses retain the prior path.
+
+Qualification so far:
+
+- Full reference/pipeline integration: PASS, including exceptions, MMU,
+  MOVEM restart, cache, and precise pipeline interrupt/replay cases.
+- Existing snoop suite and XSTORE 100-case suite: PASS.
+- `scripts/cpu/cache_spanning_reads.py`: baseline and candidate pass 15
+  additional data checks covering nine within-line longword spans, three
+  word spans, and snoops at admission, assembly, and a CE-paused assembly.
+  All nine primed longword spans take three cycles, versus four baseline.
+  A wrong-cache-way mutation fails the actual data comparisons.
+- Immutable first-100 silicon corpus: 1,900 field groups, zero differences;
+  `/tmp/cpu-corpus100-gate.sWPcLL`. This is not the full silicon corpus.
+- Permute: 1,466,887 cycles versus 1,504,787, a 2.52% reduction, with array
+  and guard checks passing. Bubble: unchanged at 4,077,142, sorted output
+  and guards passing. RAM latency is the controlled three-cycle fixture;
+  neither result predicts a hardware Mix score by itself.
+
+The active Quartus build remains commit28b164d without this cache change.
+P12 remains a scratch candidate pending remaining benchmark/fit checks.
+
+Towers completed PASS at25,583,649 cycles versus25,936,736 (1.36% fewer),
+16,383 moves,18 nodes, list and guard checks passing. All three kernel
+runs are terminal. Current Quartus source manifest recheck also passes.

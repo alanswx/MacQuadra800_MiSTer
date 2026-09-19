@@ -1408,3 +1408,16 @@ Artifacts scratch/p12_idlespan_20260919/reusable and bad_way.
 No P12 RTL promoted yet; need other kernel comparison and corpus before
 promotion after current Quartus flow/extraction completes. Current fit
 q800-p9combined-fit-20260919.service still active MainPID1445135.
+
+### P12 cache qualification complete in simulation
+
+Silicon100 session68502 terminalPASS:1900groups0diff,
+/tmp/cpu-corpus100-gate.sWPcLL; copied CURRENT core inclfastCAS plusP12cache.
+Bubble4077142 unchangedPASS; Towers25583649 vs25936736 (1.36%gain)PASS;
+Permute1466887 vs1504787 (2.52%gain)PASS. All kernel sessions terminal.
+Targeted15span checks, negativewrongwaymutation, snoop/XSTORE suites and
+fullpipeline/referencegate allPASS as above. P12 ready to consider for next
+fit after current flow terminal/crossings. Still SCRATCH ONLY, no hardware
+claim. SHA source check of running28b164d fit passed; fitterPID1455734 live,
+user-serviceMainPID1445135, no secondQuartus flow. Hardwareagent idle at
+safehalt afterP7median1.023. P9combined RBF still pending.
