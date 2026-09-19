@@ -709,6 +709,14 @@ wire idle_hit = rd_accept && !ipred_hit && !err_hold && !m_err && fits_lane &&
                 (idle_data_idx == {c_instr, c_addr[SETW+3:2]}) &&
                 (idle_tag_idx == a_row) && look_hit &&
                 !tag_we && !inv_wren && !look_snooped && !snoop_look_row;
+// A settled within-line spanning hit can read its selected way now.
+// C_LOOK then assembles the pair through the existing look2 path, whose
+// snoop checks still reject invalidation during the line read.
+wire idle_span_hit = rd_accept && !ipred_hit && !err_hold && !m_err && span2 &&
+                idle_data_valid && idle_tag_valid &&
+                (idle_data_idx == {c_instr, c_addr[SETW+3:2]}) &&
+                (idle_tag_idx == a_row) && look_hit &&
+                !tag_we && !inv_wren && !look_snooped && !snoop_look_row;
 wire hh0 = v_w0 && (t_w0 == c_hint_ptag[21:22-TAGW]);
 wire hh1 = v_w1 && (t_w1 == c_hint_ptag[21:22-TAGW]);
 wire hh2 = v_w2 && (t_w2 == c_hint_ptag[21:22-TAGW]);
@@ -782,8 +790,8 @@ wire iline_idle_read = idle_hit && c_instr;
 wire dline_read = (cst == C_LOOK) && look_hit && !r_bank && r_span2 && !look2;
 wire iline_tagw_read = (cst == C_TAGW) && r_bank && !fill_snooped && !snoop_fill_row;
 wire sline_read = (cst == C_PASS) && pass_store_chk && r_span2 && look_hit && !sline_ready;
-wire iline_read = iline_seed_read || iline_idle_read || dline_read || iline_tagw_read || sline_read;
-wire [ROWIW-1:0] line_read_row = iline_idle_read ? {1'b1, c_addr[SETW+3:4]} : r_row;
+wire iline_read = iline_seed_read || iline_idle_read || dline_read || iline_tagw_read || sline_read || idle_span_hit;
+wire [ROWIW-1:0] line_read_row = (iline_idle_read || idle_span_hit) ? {c_instr, c_addr[SETW+3:4]} : r_row;
 wire [1:0] line_read_way = iline_tagw_read ? r_way : hit_way;
 
 assign cd_rd_en  = (cst == C_IDLE) || rd_accept || store_lookup_accept || iline_read ||
@@ -1068,7 +1076,8 @@ always @(posedge clk) begin
 						r_word <= {2'd0, c_addr[3:2]};
 						r_span2 <= span2;
 						r_fc <= c_fc;
-						look2 <= 0;
+						look2 <= idle_span_hit;
+						if (idle_span_hit) r_hway <= hit_way;
 						r_xline <= xline;
 						xlook <= 0;
 						r_setB <= a_set + {{(SETW-1){1'b0}}, 1'b1};

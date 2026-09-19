@@ -1421,3 +1421,18 @@ fit after current flow terminal/crossings. Still SCRATCH ONLY, no hardware
 claim. SHA source check of running28b164d fit passed; fitterPID1455734 live,
 user-serviceMainPID1445135, no secondQuartus flow. Hardwareagent idle at
 safehalt afterP7median1.023. P9combined RBF still pending.
+
+### P9 timing met; P12 promoted for next fit
+
+P9combined28b164d fit terminalSUCCESS, build/source/cross exits0.
+39782ALMs95%,26340regs491RAM43DSP. CPU+1.084ns HDMI+.071 SDRAM+.643,
+hold+.229; crossings+.941/+1.084. RBF4557508bytes SHA256
+811ec3339671f6eb03d59fd302257e98ecfed1f64dc1bc169d4f83c4d61a292a.
+Existinghardwareoperator assigned five-run trial of unique archivedRBF,
+scratch/hardware_p9combined_20260919. Root avoidsconcurrenthardware.
+
+P12within-line cache optimization promoted (comments/whitespace differ
+from qualified scratch). Nextfit p12span_fit_20260919; committhenlaunch.
+P13cross-line extension SCRATCHONLY in scratch/p13_idlexline_20260919:
+Permute1457331 PASS vsP12 1466887; existing+15spanchecksPASS. Notqualified,
+notpromoted. Needs explicit next-line snoop/CE/miss/wrap tests and fullgate.

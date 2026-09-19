@@ -644,3 +644,7 @@ set_global_assignment -name VERILOG_FILE rtl/scc.v
 set_global_assignment -name VERILOG_FILE rtl/uart/txuart.v
 set_global_assignment -name VERILOG_FILE rtl/uart/rxuart.v
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram_beat32.sv
+
+# 2026-09-19 P9combined 28b164d seed21: MET,39782ALMs95%,26340regs491RAM43DSP.
+# CPU+1.084ns HDMI+.071 SDRAM+.643 hold+.229; crossings sys2ram+.941 ram2sys+1.084.
+# MOVE/RTS retirement and CAS fast-flag decisions. Source/hash/cross checks pass.
