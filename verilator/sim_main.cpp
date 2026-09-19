@@ -30,6 +30,9 @@
 #include "sim_blkdevice.h"
 #include "implot.h"
 #include "m68k_dasm.h"
+#include "sim_control.h"
+#include "cpu_dispatch_observer.h"
+#include <csignal>
 
 // sim.v keeps its own module class (the public arrays force it), so its
 // internals live under rootp->emu rather than flattened into root.
@@ -176,6 +179,217 @@ SimVideo video(800, 600, 0);
 float vga_scale = 1.0f;
 SimInput input(12, console);
 
+static std::string control_file;
+static SimControl sim_control;
+static bool control_shot_pending = false;
+static CpuDispatchObserver dispatch_observer;
+static bool dispatched = false;
+
+#include "../scripts/fixtures/speedometer_timing_observer/adapter.inc"
+
+// Simulation-only exact-workload profiler. SIGUSR1 resets/starts the
+// bracket; SIGUSR2 stops it and writes the report.
+// Dispatch means an actual opcode load, before decode/operand execution.
+// Faulting opcodes are included; clocks_per_dispatch is not retirement CPI.
+static std::string bracket_file;
+static volatile sig_atomic_t bracket_start_req = 0, bracket_stop_req = 0;
+static CpuProfileGate bracket_gate;
+static bool bracket_prev_valid = false;
+static uint8_t bracket_prev_state = 0;
+static uint64_t bracket_dispatches = 0;
+static uint64_t bracket_cycles, bracket_state_cycles[256], bracket_state_entries[256];
+static uint64_t bracket_transitions[256][256], bracket_opcodes[65536];
+static uint64_t bracket_cache_states[8], bracket_rd_accept, bracket_look_hit, bracket_ipred_hit;
+
+static uint64_t bracket_ic_enabled, bracket_dc_enabled, bracket_mmu_enabled;
+// Memory-path attribution: where the core's memory states wait.
+static uint64_t bracket_mrd_cst[8], bracket_mwr_cst[8], bracket_mrd_sbpend, bracket_mwr_sbpend;
+static uint64_t bracket_fill_d, bracket_fill_i, bracket_sb_full, bracket_read_behind_store;
+static uint64_t bracket_pass_write, bracket_pass_read, bracket_sb_pushes;
+static uint8_t bracket_prev_cst = 0;
+static void bracket_start_signal(int) { bracket_start_req = 1; }
+static void bracket_stop_signal(int) { bracket_stop_req = 1; }
+
+static void bracket_reset() {
+	bracket_dispatches = 0;
+	bracket_cycles = bracket_rd_accept = bracket_look_hit = bracket_ipred_hit = 0;
+	bracket_ic_enabled = bracket_dc_enabled = bracket_mmu_enabled = 0;
+	memset(bracket_state_cycles, 0, sizeof(bracket_state_cycles));
+	memset(bracket_state_entries, 0, sizeof(bracket_state_entries));
+	memset(bracket_transitions, 0, sizeof(bracket_transitions));
+	memset(bracket_opcodes, 0, sizeof(bracket_opcodes));
+	memset(bracket_cache_states, 0, sizeof(bracket_cache_states));
+	memset(bracket_mrd_cst, 0, sizeof(bracket_mrd_cst)); memset(bracket_mwr_cst, 0, sizeof(bracket_mwr_cst));
+	bracket_mrd_sbpend = bracket_mwr_sbpend = bracket_fill_d = bracket_fill_i = bracket_sb_full = 0;
+	bracket_read_behind_store = bracket_pass_write = bracket_pass_read = bracket_sb_pushes = 0;
+	bracket_prev_valid = false;
+	bracket_prev_cst = 0xff;
+}
+
+static void bracket_dump() {
+	if (bracket_file.empty()) return;
+	FILE* f = fopen(bracket_file.c_str(), "w");
+	if (!f) { fprintf(stderr, "[CPU-PROFILE] cannot write %s\n", bracket_file.c_str()); return; }
+	uint64_t dispatches = bracket_dispatches;
+	// End configuration is explicitly labelled; enabled-cycle counts describe
+	// the complete bracket even if guest software changes CACR/TC within it.
+	fprintf(f, "CONFIG_END\tpc\tcacr\ttc\n");
+	fprintf(f, "CONFIG_END\t%08X\t%08X\t%08X\n",
+	        SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__pc_i,
+	        SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__cacr,
+	        SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__tc);
+	fprintf(f, "ENABLED_CYCLES\tic\tdc\tmmu\n");
+	fprintf(f, "ENABLED_CYCLES\t%llu\t%llu\t%llu\n",
+	        (unsigned long long)bracket_ic_enabled,
+	        (unsigned long long)bracket_dc_enabled,
+	        (unsigned long long)bracket_mmu_enabled);
+	double cpd = dispatches ? (double)bracket_cycles / dispatches : 0.0;
+	fprintf(f, "SUMMARY\tcycles\tdispatches\tclocks_per_dispatch\trd_accept_samples\tlook_hit_cycles\tipred_hit_cycles\n");
+	fprintf(f, "SUMMARY\t%llu\t%llu\t%.6f\t%llu\t%llu\t%llu\n",
+	        (unsigned long long)bracket_cycles, (unsigned long long)dispatches, cpd,
+	        (unsigned long long)bracket_rd_accept, (unsigned long long)bracket_look_hit,
+	        (unsigned long long)bracket_ipred_hit);
+	fprintf(f, "STATE\tid\tcycles\tentries\tpercent\n");
+	for (int i=0; i<256; i++) if (bracket_state_cycles[i])
+		fprintf(f, "STATE\t%d\t%llu\t%llu\t%.6f\n", i,
+		        (unsigned long long)bracket_state_cycles[i],
+		        (unsigned long long)bracket_state_entries[i],
+		        bracket_cycles ? 100.0*bracket_state_cycles[i]/bracket_cycles : 0.0);
+	fprintf(f, "MEM\tname\tvalue\n");
+	for (int i=0;i<8;i++) if (bracket_mrd_cst[i]) fprintf(f, "MEM\tmrd_cycles_cst%d\t%llu\n", i, (unsigned long long)bracket_mrd_cst[i]);
+	for (int i=0;i<8;i++) if (bracket_mwr_cst[i]) fprintf(f, "MEM\tmwr_cycles_cst%d\t%llu\n", i, (unsigned long long)bracket_mwr_cst[i]);
+	fprintf(f, "MEM\tmrd_cycles_sb_pending\t%llu\n", (unsigned long long)bracket_mrd_sbpend);
+	fprintf(f, "MEM\tmwr_cycles_sb_pending\t%llu\n", (unsigned long long)bracket_mwr_sbpend);
+	fprintf(f, "MEM\tdata_tagwrite_entries\t%llu\n", (unsigned long long)bracket_fill_d);
+	fprintf(f, "MEM\tinstr_tagwrite_entries\t%llu\n", (unsigned long long)bracket_fill_i);
+	fprintf(f, "MEM\tsb_push_signal_samples\t%llu\n", (unsigned long long)bracket_sb_pushes);
+	fprintf(f, "MEM\tsb_full_request_samples\t%llu\n", (unsigned long long)bracket_sb_full);
+	fprintf(f, "MEM\tread_with_store_pending_samples\t%llu\n", (unsigned long long)bracket_read_behind_store);
+	fprintf(f, "MEM\tpass_cycles_write\t%llu\n", (unsigned long long)bracket_pass_write);
+	fprintf(f, "MEM\tpass_cycles_read\t%llu\n", (unsigned long long)bracket_pass_read);
+	fprintf(f, "CACHE_STATE\tid\tcycles\tpercent\n");
+	for (int i=0; i<8; i++) if (bracket_cache_states[i])
+		fprintf(f, "CACHE_STATE\t%d\t%llu\t%.6f\n", i,
+		        (unsigned long long)bracket_cache_states[i],
+		        bracket_cycles ? 100.0*bracket_cache_states[i]/bracket_cycles : 0.0);
+	fprintf(f, "TRANSITION\tfrom\tto\tcount\n");
+	for (int a=0; a<256; a++) for (int b=0; b<256; b++)
+		if (bracket_transitions[a][b])
+			fprintf(f, "TRANSITION\t%d\t%d\t%llu\n", a, b,
+			        (unsigned long long)bracket_transitions[a][b]);
+	std::vector<int> ops;
+	for (int i=0; i<65536; i++) if (bracket_opcodes[i]) ops.push_back(i);
+	std::sort(ops.begin(), ops.end(), [](int a,int b) { return bracket_opcodes[a] > bracket_opcodes[b]; });
+	fprintf(f, "OPCODE\topcode\tdispatches\tpercent\n");
+	for (int op: ops)
+		fprintf(f, "OPCODE\t%04X\t%llu\t%.6f\n", op,
+		        (unsigned long long)bracket_opcodes[op],
+		        dispatches ? 100.0*bracket_opcodes[op]/dispatches : 0.0);
+	fclose(f);
+	printf("[CPU-PROFILE] wrote %s: %llu cycles, %llu opcode dispatches, %.3f clocks/dispatch\n",
+	       bracket_file.c_str(), (unsigned long long)bracket_cycles,
+	       (unsigned long long)dispatches, cpd);
+	fflush(stdout);
+}
+
+static void bracket_step(bool dispatch) {
+	const bool start = bracket_start_req != 0, stop = bracket_stop_req != 0;
+	if (start) bracket_start_req = 0;
+	if (start || stop) bracket_stop_req = 0;
+	const auto action = bracket_gate.sample(start, stop);
+	if (action == CpuProfileGate::Start) {
+		bracket_reset();
+		printf("[CPU-PROFILE] started at simulator cycle %llu\n", (unsigned long long)main_time);
+		fflush(stdout);
+	}
+	if (action == CpuProfileGate::Stop) { bracket_dump(); return; }
+	if (action == CpuProfileGate::Skip) return;
+	uint8_t state=SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__state;
+	uint16_t ir=SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__ir;
+	uint8_t cst=SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__cst;
+	bracket_cycles++; bracket_state_cycles[state]++; bracket_cache_states[cst&7]++;
+	{
+		const uint8_t sbc = SIMEMU->__PVT__machine__DOT__cpu__DOT__store_buffer__DOT__count;
+		const bool sbreq = SIMEMU->__PVT__machine__DOT__cpu__DOT__store_buffer__DOT__buffer_req;
+		const bool busreq = SIMEMU->__PVT__machine__DOT__cpu__DOT__cpu_bus_req;
+		const bool buswr = SIMEMU->__PVT__machine__DOT__cpu__DOT__cpu_bus_write;
+		const bool rbank = SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__r_bank;
+		if (state == 9) { bracket_mrd_cst[cst&7]++; if (sbc) bracket_mrd_sbpend++; }
+		if (state == 10) { bracket_mwr_cst[cst&7]++; if (sbc) bracket_mwr_sbpend++; }
+		if ((cst&7) == 5 && bracket_prev_cst != 5) { if (rbank) bracket_fill_i++; else bracket_fill_d++; }
+		if (sbreq && sbc == 2) bracket_sb_full++;
+		if (busreq && !buswr && sbc) bracket_read_behind_store++;
+		if ((cst&7) == 6) { if (buswr) bracket_pass_write++; else bracket_pass_read++; }
+		if (SIMEMU->__PVT__machine__DOT__cpu__DOT__store_buffer__DOT__push) bracket_sb_pushes++;
+		bracket_prev_cst = cst&7;
+	}
+	if (SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__rd_accept) bracket_rd_accept++;
+	const uint32_t cacr = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__cacr;
+	bracket_ic_enabled += (cacr >> 15) & 1;
+	bracket_dc_enabled += (cacr >> 31) & 1;
+	bracket_mmu_enabled += (SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__tc >> 15) & 1;
+	if (SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__look_hit) bracket_look_hit++;
+	if (SIMEMU->__PVT__machine__DOT__cpu__DOT__g_cache__DOT__cache__DOT__ipred_hit) bracket_ipred_hit++;
+	// The continuously sampled opcode-load toggle handles bypassed decode,
+	// consecutive same-PC/state dispatches, and clock-enable stalls alike.
+	if (dispatch) {
+		bracket_dispatches++;
+		bracket_opcodes[ir]++;
+	}
+	if (!bracket_prev_valid || state != bracket_prev_state) {
+		bracket_state_entries[state]++;
+		if (bracket_prev_valid) bracket_transitions[bracket_prev_state][state]++;
+		bracket_prev_state=state; bracket_prev_valid=true;
+	}
+}
+
+// ---- ADB mouse from clicks on the VGA image -------------------------------
+
+// Local control never opens a stream or emits guest input unless --control
+// is supplied. Reuse SimInput's normal PS/2-to-ADB queue and timing contract.
+static void control_before_eval() {
+	if (!sim_control.enabled()) return;
+	SimControlCommand command{};
+	if (sim_control.step(VERTOPINTERN->reset || control_shot_pending,
+	                     input.keyEvents.empty() && input.keyEventTimer == 0, command)) {
+		switch (command.kind) {
+		case SimControlCommand::Down:
+		case SimControlCommand::Up:
+			input.keyEvents.emplace(static_cast<char>(command.value),
+				command.kind == SimControlCommand::Down, command.extended,
+				static_cast<unsigned>(command.value));
+			printf("[SIM-CONTROL] %s %02llX%s cycle=%llu\n",
+				command.kind == SimControlCommand::Down ? "down" : "up",
+				(unsigned long long)command.value, command.extended ? " ext" : "",
+				(unsigned long long)main_time);
+			break;
+		case SimControlCommand::Wait:
+			printf("[SIM-CONTROL] wait %llu rising edges cycle=%llu\n",
+				(unsigned long long)command.value, (unsigned long long)main_time);
+			break;
+		case SimControlCommand::Shot:
+			control_shot_pending = true; // block following commands until frame capture
+			break;
+		case SimControlCommand::ProfileStart:
+		case SimControlCommand::ProfileStop:
+			if (bracket_file.empty()) fprintf(stderr, "[SIM-CONTROL] profile requires --cpu-profile FILE\n");
+			else if (command.kind == SimControlCommand::ProfileStart) bracket_start_req = 1;
+			else bracket_stop_req = 1;
+			break;
+		}
+		fflush(stdout);
+	}
+	static size_t last_rejected = 0;
+	if (sim_control.rejected() != last_rejected) {
+		fprintf(stderr, "[SIM-CONTROL] rejected malformed/overlong commands: %zu total\n", sim_control.rejected());
+		last_rejected = sim_control.rejected();
+	}
+	static std::string last_error;
+	if (sim_control.read_error() != last_error) {
+		last_error = sim_control.read_error();
+		fprintf(stderr, "[SIM-CONTROL] read error: %s\n", last_error.c_str());
+	}
+}
 // ---- ADB mouse from clicks on the VGA image -------------------------------
 // A click (or drag) on the VGA output picks a target pixel; each GUI frame
 // one MiSTer-format ps2_mouse packet nudges the pointer toward it.  The ADB
@@ -291,13 +505,19 @@ int verilate() {
 
 		if (clk_sys.clk != clk_sys.old) {
 			if (clk_sys.clk) {
+				control_before_eval();
 				input.BeforeEval();
 				if (!scsi_disk_file.empty()) blockdevice.BeforeEval(main_time);
 			}
+			if (clk_sys.clk) speedometer_before_eval();
 			top->eval();
+			if (clk_sys.clk) dispatched = dispatch_observer.sample(VERTOPINTERN->reset,
+				SIMEMU->machine__DOT__cpu__DOT__core__DOT__perf_dispatch_toggle);
 			if (clk_sys.clk && !scsi_disk_file.empty()) blockdevice.AfterEval();
 			if (clk_sys.clk && !VERTOPINTERN->reset) {
 				machine_events();
+				speedometer_after_eval(dispatched);
+				bracket_step(dispatched);
 				if (!cpu_trace_disabled && (main_time >= trace_after ||
 				                            (trace_on_ncr && NCR_REGTRACE))) cpu_trace_step();
 				uint32_t hpc = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__pc_i;
@@ -306,8 +526,8 @@ int verilate() {
 					uint8_t st = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__state;
 					prof_state[st]++;
 					prof_total++;
-					// S_DECODE (4) entered = one instruction dispatched
-					if (st == 4 && prof_prev_state != 4) prof_dispatch++;
+					// Observe opcode loads, including consecutive/bypassed decode paths.
+					if (dispatched) prof_dispatch++;
 					// S_MRD (9) / S_MWR (10) with the request not yet issued
 					// because a queue fetch owns the port
 					if ((st == 9 || st == 10) &&
@@ -420,8 +640,13 @@ int verilate() {
 				(VERTOPINTERN->VGA_B << 16) |
 				(VERTOPINTERN->VGA_G << 8) |
 				 VERTOPINTERN->VGA_R;
+			int previous_frame = video.count_frame;
 			video.Clock(VERTOPINTERN->VGA_HB, VERTOPINTERN->VGA_VB,
 			            VERTOPINTERN->VGA_HS, VERTOPINTERN->VGA_VS, colour);
+			if (control_shot_pending && video.count_frame != previous_frame) {
+				save_screenshot(video.count_frame);
+				control_shot_pending = false;
+			}
 		}
 
 		main_time++;
@@ -533,6 +758,15 @@ int main(int argc, char** argv, char** env) {
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "--headless") || !strcmp(argv[i], "--no-gui")) {
 			headless = true;
+		} else if (!strcmp(argv[i], "--speedometer-observe") && i + 1 < argc) {
+            speedometer_path = argv[++i];
+        } else if (!strcmp(argv[i], "--speedometer-limit") && i + 1 < argc) {
+            speedometer_limit = strtoull(argv[++i], nullptr, 0);
+            if (!speedometer_limit || speedometer_limit > 4096) return 1;
+        } else if (!strcmp(argv[i], "--control") && i + 1 < argc) {
+			control_file = argv[++i];
+		} else if (!strcmp(argv[i], "--cpu-profile") && i + 1 < argc) {
+			bracket_file = argv[++i];
 		} else if (!strcmp(argv[i], "--no-cpu-trace")) {
 			cpu_trace_disabled = true;
 		} else if (!strcmp(argv[i], "--trace-on-ncr")) {
@@ -566,9 +800,31 @@ int main(int argc, char** argv, char** env) {
 			stop_at_frame = std::stoi(argv[++i]);
 		} else if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
 			printf("wombat33 sim: [--headless] [--screenshot F1,F2,..] [--stop-at-frame N]\n"
-			       "              [--no-cpu-trace] [--max-cycles N] [+rom=<hexfile>]\n");
+			       "              [--no-cpu-trace] [--max-cycles N] [+rom=<hexfile>]\n              [--control PATH] [--cpu-profile FILE]\n");
 			return 0;
 		}
+	}
+
+    if (!speedometer_path.empty()) {
+        speedometer_file.open(speedometer_path);
+        if (!speedometer_file) { fprintf(stderr, "cannot open observer output\n"); return 1; }
+        speedometer_observer.reset(new speedometer::Observer(speedometer_file, speedometer_limit));
+    }
+#ifndef _WIN32
+	if (!bracket_file.empty()) {
+		std::signal(SIGUSR1, bracket_start_signal);
+		std::signal(SIGUSR2, bracket_stop_signal);
+		printf("[CPU-PROFILE] SIGUSR1 starts; SIGUSR2 writes %s\n", bracket_file.c_str());
+	}
+#endif
+
+	if (!control_file.empty()) {
+		std::string error;
+		if (!sim_control.open(control_file, error)) {
+			fprintf(stderr, "[SIM-CONTROL] cannot open %s: %s\n", control_file.c_str(), error.c_str());
+			return 1;
+		}
+		printf("[SIM-CONTROL] reading %s (nonblocking, simulated-cycle pacing)\n", control_file.c_str());
 	}
 
 	// The interactive GUI must not fill the disk behind the user's back:
@@ -803,6 +1059,8 @@ int main(int argc, char** argv, char** env) {
 		if (headless && Verilated::gotFinish()) done = true;
 	}
 
+	if (speedometer_observer) speedometer_observer->summary();
+	if (bracket_gate.active()) { bracket_dump(); bracket_gate.stop(); }
 	if (cpu_trace_file) {
 		printf("CPU trace: %ld instructions, last pc=%08X (%s)\n",
 		       cpu_trace_count, cpu_trace_last_pc, cpu_trace_filename);
