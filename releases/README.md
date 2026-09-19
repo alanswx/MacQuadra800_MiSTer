@@ -28,6 +28,29 @@ must never be flashed (`scripts/deploy_screenshot.sh` refuses one).
 | `wombat33_20260830.rbf` | `64c79dfb93ceefb549200c78671cdc31` | met, +0.248 ns | **ADB actually works** — the mouse button reaches the guest and motion stops inventing input. |
 | `wombat33_20260829.rbf` | `4c46a65c3a48b44ddb6f4fd6808d0422` | met, +0.245 ns | First build that boots Mac OS unattended. |
 
+
+## `MiSTer` — the Main binary that goes with the Ethernet core
+
+md5 `fbb540c8a51134cfdc960a8b5115807b`. The Main fork
+(`danifunker/Main_MiSTer`, branch
+`mac-ethernet-pr-with-SCSI-Optimizations-with-q800-eth`, commit `6919c21`),
+built from a clean object tree on 2026-09-19 with
+`scripts/build_main_wsl.sh` (no object older than the day in the link). On top
+of what `MiSTer_20260916` carries (the Mac SCSI family support, CUE/CHD discs,
+the BlueSCSI Toolbox, CD audio) it has the Quadra 800 onboard SONIC Ethernet
+service (`support/mac/mac_eth*`, `mac_sonic*`, `docs/ethernet.md`) including
+Alan's guard that never posts a DMA op list over one the engine has not
+finished. It is named plain `MiSTer` so it can be copied to `/media/fat/` as it
+is: keep the old binary (`mv MiSTer MiSTer.prev_<md5>`), copy this one in,
+`sync` and reboot — never `cp` over the running binary, and never judge it
+after a hand relaunch over ssh.
+
+Installed on the `.143` box that way on 2026-09-19; the user confirmed the
+menu and the display working. It is meant for the Ethernet core built from
+`add-ethernet` (`b2e5377` and later), which has not been through the release
+gate yet, so there is no `MacQuadra800_YYYYMMDD.rbf` entry for it so far; the
+older released cores run under it with Ethernet simply absent.
+
 ## `MacQuadra800_20260918.rbf`
 
 md5 `fde49a3cf474d5c07aff26c592200125`, seed 21 with
