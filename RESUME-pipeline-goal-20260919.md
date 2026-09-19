@@ -527,3 +527,25 @@ process was present in the machine-wide process check before build preparation.
 A scratch self-modifying-code probe without cache maintenance produced the same
 old-instruction behavior in both the prior baseline and candidate; it is not
 counted as a passing correctness test or evidence of a candidate regression.
+
+
+## ACTIVE P4 full-machine Quartus flow — source freeze
+
+Unit `q800-p4-fit-20260919.service` is verified active/running (MainPID1036054,
+quartus_sh1036073, quartus_map1036162 at the initial poll). Started 2026-09-19T15:31:14-04:00.
+Committed candidate: `6e852a6ff1b7215a9722081ce3195552f3b7c81e`.
+**Do not edit RTL, QSF, QIP or SDC until this flow terminates.** No second
+Quartus flow may run anywhere on this box. Docs and isolated scratch work are OK.
+
+Launcher/archive: `scratch/p4_fit_20260919/`. The launcher records all tracked
+RTL/project checksums, checks them again at completion, saves build.exit and
+source_check.exit, archives both cross-domain reports after a new RBF appears,
+and names the artifact `MacQuadra800_p4_6e852a6.rbf` with SHA-256. Inspect actual
+build/cross/source-check exits, ALMs/registers/RAM inference and all timing reports
+before deployment. Never mistake the prior output_files RBF for this candidate.
+
+Final consolidated CPU gate completed successfully before launch:
+`scratch/p4/final_gate.log`. No CPU test process is intentionally left running.
+MiSTer operator remains idle; no P4 bitstream has been deployed or measured.
+Latest hardware Mix median remains1.005. The1.8 goal and hardware regressions
+remain open; A/UX disk-location question is still unanswered.
