@@ -1288,5 +1288,6 @@ all ten tests at iteration 1, verified disposable disk. RBF SHA-256:
 `e7d26efcb9ac22b7ef4cb2b284b405ba32fdedc3012c2d87ef4bb57af00fa4d3`.
 Screenshots, timings and per-test report:
 `scratch/hardware_xstore_20260919/xstore_results.md`. Fit evidence:
-`scratch/xstore_fit_20260919/`. Boot passed; clean shutdown confirmation is
-pending from the operator. A/UX and CD audio have not been checked on this build.
+`scratch/xstore_fit_20260919/`. Boot and clean shutdown passed (`final_halt.png` in the evidence directory).
+The Linux MiSTer and remote service remained running; only the guest halted.
+A/UX and CD audio have not been checked on this build.

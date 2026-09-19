@@ -222,3 +222,18 @@ still unmet. Operator is finishing shutdown, adding all per-test seconds and
 clarifying that its report's disk hash is the PRE-BOOT copy identity. Report:
 `scratch/hardware_xstore_20260919/xstore_results.md`. LEA fit94d922f remains active;
 all five frozen source checksums were verified OK at13:51EDT.
+
+
+XSTORE shutdown confirmed: `scratch/hardware_xstore_20260919/final_halt.png`.
+Operator clarified its mistaken wording "Main stopped": Linux MiSTer PID10520
+and remote PID763 remain running, only the Mac guest halted. Original image
+remains unmounted/untouched. Operator is now available for the LEA trial after fit.
+
+During the LEA source freeze, a scratch-only P2 `(An)` load pipeline prototype
+was built at `scratch/pipeline_load_p2_20260919/`. Read README.md there. Directed
+ordering/cancellation/fault tests pass at4latencies; independent768-retirement,
+192-load oracle passes all An/Dn/BWL combinations under CE/WB stalls. Premature
+read negative control fails as required. The14720register compatibility oracle
+passed all6schedules and both forwarding negative controls (register_gate.log). This prototype is NOT
+integrated or fitted, and does not establish any performance gain. All fitted
+sources remain unchanged. LEA unit `q800-lea-fit-20260919` is still active.
