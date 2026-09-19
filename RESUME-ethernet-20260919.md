@@ -92,6 +92,27 @@ build 9), then pulled `test_10m.bin` with the pings still running:
 1722 of 1731 pings answered, clean shutdown, and the file read out of the
 disk image has the server's md5 `183580bf...`. Evidence: `hw12/`.
 
+**Build 10 + Main `1d512b7a` (the guard), same day:** an FTP **upload** of
+`test_10m.bin` into the server's `dropbox/`: 10,485,760 bytes in 45 s =
+**227 KB/s**, md5 identical, `q8 rpc 32709 ... us_max 264 ... fail 0`.
+
+**Speedometer 4.02 Benchmark Mix, build 10, same boot disk, 32 MB** (`hw13/`;
+the reference for this CPU is 0.905-0.911, `RESUME-cpu-pipeline-20260919.md`):
+
+| | runs | Dhrystones/s | KWhetstones/s |
+|---|---|---|---|
+| Ethernet On, idle, on a LAN with ~100 frames/s | 0.923, 0.925, 0.925, 0.926 | 11,788-11,809 | 681-687 |
+| Ethernet Off | 0.922, 0.925, 0.925, 0.925 | 11,867-11,869 | 674-678 |
+
+The Ethernet costs nothing measurable: Dhrystones are 0.5 % lower with it on
+(the receive interrupts of a busy LAN), every timed integer test agrees to
+three digits. **One of five On runs reported KWhetstones 0.232 (rating 0.000,
+average 0.692)** with every other line normal: that is the "impossible
+timing" of `RESUME-cpu-pipeline-20260919.md` (open there: the loop-top record
+cache or the 33/99 MHz handoff in `sdram_beat32`), which this branch inherits
+from CPU-pipeline. It did not show in four Off runs; five runs are too few to
+say the Ethernet makes it likelier, and it should be chased on the CPU side.
+
 Two fixes:
 - core `quadra800.sv` (`49b8648`, **build 10**, on hardware as above): DMA beats run on
   the idle RAM port *beside* a parked I/O beat (`dma_side`); the snoop address
@@ -107,9 +128,9 @@ Also seen once, unexplained: at `40 04`, after that Fetch session, the Finder
 hung inside Special > Shut Down (clock frozen, pointer alive, driver still
 servicing receives). The same sequence at `40 00` shut down cleanly.
 
-1. Install Main `1d512b7a` (rename + reboot) and re-run the same download; an
-   upload with an md5 (the server on the Linux box is read-only by design, so
-   that needs a writable target); where the remaining time goes at 62 KB/s.
+1. Where the download's time goes (62 KB/s down against 227 KB/s up: the
+   receive path -- one 25 KB buffer, eight RDAs, two DMA round trips a frame,
+   delayed ACKs); the Whetstones anomaly above, on the CPU side.
 2. Remove the `Dbg ...` OSD lines and `dbg_sw` (commit `5a271f0`), decide on
    the SAMPLE/DEBUG words (~100 ALMs), then the full regression gate from
    `CLAUDE.md` with Ethernet Off and On, and Speedometer On-idle vs Off.
@@ -143,7 +164,7 @@ cache is busy), and the new guard covers it regardless.
 - **An FTP server for the guest runs on the Linux box**: pyftpdlib as the user
   unit `ftp-pub` (`systemctl --user status ftp-pub`), `10.3.141.107` port
   **2121** (no sudo here, so not 21), read-only `guest`/`guest` and anonymous,
-  root `/home/alans/ftp_pub` with `test_100k.bin`, `test_1m.bin`,
+  root `/home/alans/ftp_pub` (`guest` may also upload into `dropbox/`) with `test_100k.bin`, `test_1m.bin`,
   `test_10m.bin` and `MD5SUMS`. In Fetch the host is `10.3.141.107 2121`
   (a space), and the mode must be **Binary**. The MiSTer cannot serve as the
   guest's FTP peer: Main injects the guest's frames on `eth0`, so the box's own
@@ -155,7 +176,7 @@ cache is busy), and the new guard covers it regardless.
 - **This box's mrext remote has no mouse** (`mouseMove` answers `invalid`), so
   `menu.sh`, `click.sh` and `mac_shutdown.sh` do not work here; the keyboard
   half of `mister_ws.py` does. `scripts/guest/vmouse.py` is a uinput mouse that
-  runs on the MiSTer (`scp` it to `/tmp`, `python3 /tmp/vmouse.py home m:100,60 click`):
+  runs on the MiSTer (kept in `/media/fat/Scripts/q800tools/` with `mac_hfs.py`; `python3 .../vmouse.py home m:100,60 click`):
   about 1.4-1.6 px per count, so move, screenshot, correct. To hold a menu open
   for a screenshot, run it in the background with `down 9 up` and grab meanwhile.
 - The guest's MAC follows the MiSTer's, so its address here is not the
