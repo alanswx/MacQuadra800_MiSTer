@@ -1452,3 +1452,14 @@ Disabling stickyguard reproduces stale-data failure: bad_snoop.log.
 FixedPermute terminalPASS1457331 (stillbetterthanP12 1466887).
 Broadfullgate running session47453, scratch/p13_idlexline_20260919/gate.log.
 P13SCRATCHONLY; need corpus, remainingkernels, morecrosscoveragebeforepromotion.
+
+### P13 corpus and kernel results
+
+P13corrected silicon100 terminalPASS1900groups0diff,
+/tmp/cpu-corpus100-gate.G5bROd. Towers25469823PASS, Bubble4077142PASS,
+Permute1457331PASS. XSTORE100PASS. Trackedspan runner now42extra checks:
+15within-line+3next-line snoop+24cold/miss/hit/offset/wrap cases.
+Bothcandidate/P12baselinePASS; doublehit cross3cycles vs4baseline.
+Fullgate session47453 stillpending (lastcache/FPU/branchPASS).
+P12fit user-serviceMainPID1480157 active; noRTL/QSFchanges untilterminal.
+P9hardwareagenthas firstcompletion screenshot, stillownsallhardware.

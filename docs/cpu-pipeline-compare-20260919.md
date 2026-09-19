@@ -408,3 +408,27 @@ P12 remains a scratch candidate pending remaining benchmark/fit checks.
 Towers completed PASS at25,583,649 cycles versus25,936,736 (1.36% fewer),
 16,383 moves,18 nodes, list and guard checks passing. All three kernel
 runs are terminal. Current Quartus source manifest recheck also passes.
+
+### P13 cross-line lookup prototype: qualification in progress
+
+Scratch `p13_idlexline_20260919/ap040_cache.v` extends matched idle
+admission to the second-line lookup. The first word is captured at
+admission, and the existing cross-line assembly/miss path handles the
+second. No storage array is added. An explicit next-line snoop during a
+CE pause exposed stale data in the first prototype; a free-running sticky
+invalidation guard fixes it. Disabling that guard reproduces the failure.
+
+The reusable spanning test now adds24 cross-line cases: every supported
+longword/word offset, cold first line, missing second line, double hit,
+and set/tag wrap. Candidate and trackedP12 baseline pass. All8 primed
+cross-line cases take3cycles versus4baseline. Three next-line snoop cases
+(admission, assembly, CE-paused assembly) also pass; the earlier15
+within-line/snoop checks remain passing. The flat memory responder is
+byte-correct for these added cases, including fallback reads.
+
+Corrected-candidate results: silicon first100,1900fieldgroups,0differences
+(`/tmp/cpu-corpus100-gate.G5bROd`); XSTORE100case suitePASS.
+Permute1,457,331 vsP12 1,466,887; Towers25,469,823 vsP12 25,583,649;
+Bubble4,077,142 unchanged. Independent kernel output/guard checks pass.
+Full reference/pipeline integration remains running. P13 is not promoted
+or built. P12fit1fb24fc and P9hardware trial run independently.

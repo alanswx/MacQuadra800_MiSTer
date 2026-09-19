@@ -13,7 +13,8 @@ s=(r/'rtl/ap68040/tb/tb_ap040_cache_snoop.v').read_text()
 s=s.replace('else m_rdata <= mem[m_addr[15:2]];', '''else if (cross_model) m_rdata <= cross_value(m_addr,m_size); else m_rdata <= mem[m_addr[15:2]];''')
 s=s.replace('integer errors = 0;', '''integer errors = 0;
 reg cross_model=0;
-integer cross_checks=0;
+integer cross_checks=0, cross_matrix=0, cross_wrap, cross_warm, cross_kind;
+reg [31:0] cross_base, cross_expected;
 function [31:0] cross_value(input [31:0] a,input [1:0] sz);
 reg [63:0] v;
 begin
@@ -79,6 +80,45 @@ block=r'''
     end
 
     cross_model=1;
+
+    // Cold first line, cold second line, and double hit; repeat at set wrap.
+    for(cross_wrap=0;cross_wrap<2;cross_wrap++) begin
+      cross_base=cross_wrap ? 'h1FF0 : 'hC800;
+      for(cross_warm=0;cross_warm<3;cross_warm++) begin
+        for(cross_kind=0;cross_kind<4;cross_kind++) begin
+          @(negedge clk);
+          mem[(cross_base+12)>>2]='h11223344;
+          mem[(cross_base+16)>>2]='hAABBCCDD;
+          snoop(cross_base);snoop(cross_base+16);
+          if(cross_warm>0) begin
+            cpu_read_count_sized(cross_base+12,2'b10,d,normal_cycles);
+            repeat(24) @(posedge clk);
+          end
+          if(cross_warm>1) begin
+            cpu_read_count_sized(cross_base+16,2'b10,d,normal_cycles);
+            repeat(24) @(posedge clk);
+          end
+          span_offset=(cross_kind==3)?15:13+cross_kind;
+          case(cross_kind)
+            0:cross_expected='h223344AA;
+            1:cross_expected='h3344AABB;
+            2:cross_expected='h44AABBCC;
+            3:cross_expected='h000044AA;
+          endcase
+          @(negedge clk);c_addr=cross_base+span_offset;
+          repeat(2) @(posedge clk);span_base=mread_count;
+          cpu_read_count_sized(cross_base+span_offset,(cross_kind==3)?2'b01:2'b10,d,normal_cycles);
+          if(d!==cross_expected || (cross_warm==2 && mread_count!=span_base)) begin
+            $display("FAIL cross matrix wrap=%0d warm=%0d kind=%0d data=%h expected=%h",cross_wrap,cross_warm,cross_kind,d,cross_expected);errors++;
+          end
+          $display("CROSS_MATRIX wrap=%0d warm=%0d kind=%0d cycles=%0d",cross_wrap,cross_warm,cross_kind,normal_cycles);
+          cross_matrix++;
+          repeat(24) @(posedge clk);
+        end
+      end
+    end
+    $display("EXPLICIT_CROSS_MATRIX checks=%0d",cross_matrix);
+
     for(span_phase=0;span_phase<3;span_phase++) begin
       @(negedge clk);
       mem['hC80C>>2]='h11223344;mem['hC810>>2]='h55667788;
@@ -118,4 +158,4 @@ for name,cache in [('candidate',a.cache.resolve()),('baseline',r/'rtl/ap68040/rt
  with (d/(name+'_spans.log')).open('w') as f:subprocess.run(['vvp',str(d/(name+'_spans.vvp'))],stdout=f,stderr=subprocess.STDOUT,check=True)
  log=(d/(name+'_spans.log')).read_text()
  print(name,'\n'.join(x for x in log.splitlines() if x.startswith(('SPAN','EXPLICIT','FAIL','ALL TESTS'))),flush=True)
- assert 'ALL TESTS PASSED' in log and 'FAIL' not in log and 'EXPLICIT_SPANS checks=15' in log and 'EXPLICIT_CROSS checks=3' in log
+ assert 'ALL TESTS PASSED' in log and 'FAIL' not in log and 'EXPLICIT_SPANS checks=15' in log and 'EXPLICIT_CROSS checks=3' in log and 'EXPLICIT_CROSS_MATRIX checks=24' in log
