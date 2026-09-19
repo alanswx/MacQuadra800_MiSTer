@@ -111,3 +111,18 @@ memory-read/write states were about 40% of historical clocks. These are old
 profile observations, not current hardware speedup estimates. Expand operand
 coverage and preserve the old fast paths for short runs. Keep correctness,
 timing/area, and actual hardware gain as separate gates.
+
+P1c standalone Quartus fit completed successfully at commit `5e1b158`: **714
+ALMs**, 341 registers, no RAM/DSP blocks. At 33 MHz, worst setup is **+12.942
+ns**, worst hold **+0.139 ns**. Reports: `scratch/pipeline_p1c/standalone_fit/`.
+This is the isolated execution module, not a full-machine pipeline fit.
+
+P1d restores existing sequencer lookahead outside experimental pipeline ownership.
+All 14,720 snapshots, 14 suites and precise IRQ/replay pass. Three benchmarks
+remain slower than the default core (56,916 / 123,176 / 149,256 cycles), so keep
+the experimental pipeline off for hardware. Artifacts: `scratch/pipeline_p1d/`.
+The first installed-core screenshot shows Mix 0.924; await the operator's full
+baseline/candidate report before accepting or comparing repeated results.
+
+P1d first-100 silicon corpus: 1,900 field groups match, zero real differences
+(`scratch/pipeline_p1d/corpus.log`, `/tmp/cpu-corpus100-gate.5OiVFE`).

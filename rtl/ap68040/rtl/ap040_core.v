@@ -8990,9 +8990,15 @@ always @(posedge clk) begin
 `endif
         end
 `ifdef AP040_EXPERIMENTAL_PIPELINE
-        // P1 uses the explicit decode ownership boundary for every queue pop.
-        // Restore lookahead only with a proved multi-issue entry protocol.
+        // The sequencer may keep its existing lookahead while it owns the
+        // core. Pipeline entry still occurs only at S_DECODE after pending
+        // writes settle; its drained exit passes through S_NEXT. Never let
+        // lookahead claim an opcode at an overlapping pipeline retirement.
+        if (pipe_owner) rd_queue_pop = 0;
+`ifdef AP040_PIPELINE_FORCE_DECODE
+        // Diagnostic mode exercises every supported opcode in the pipeline.
         rd_queue_pop = 0;
+`endif
 `endif
 		// go_pc_now and exc_now run after the lookahead arm (below): the
 		// arm's forward taken Bcc raises pgo, and go_pc's own address-error

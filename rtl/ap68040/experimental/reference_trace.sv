@@ -11,6 +11,8 @@ module reference_trace;
     reg [15:0] opcode_before;
     reg ce_before;
     reg retire_before;
+    reg pipeline_before;
+    reg drain_before;
     reg [31:0] value;
     initial begin
         if (!$value$plusargs("trace=%s", path) || !$value$plusargs("count=%d", count))
@@ -24,12 +26,18 @@ module reference_trace;
         opcode_before = `CORE.ir;
         ce_before = `CORE.ce;
 `ifdef AP040_EXPERIMENTAL_PIPELINE
-        pc_before = `CORE.pipe_pc;
-        opcode_before = `CORE.pipe_opcode;
+        pipeline_before = `CORE.pipe_owner;
+        drain_before = `CORE.state == `CORE.S_NEXT;
+        if (pipeline_before) begin
+            pc_before = `CORE.pipe_pc;
+            opcode_before = `CORE.pipe_opcode;
+        end
         retire_before = `CORE.pipe_retire;
 `endif
         #1;
-`ifndef AP040_EXPERIMENTAL_PIPELINE
+`ifdef AP040_EXPERIMENTAL_PIPELINE
+        if (!pipeline_before) retire_before = `CORE.retire_req && !drain_before;
+`else
         retire_before = `CORE.retire_req;
 `endif
         if (tb_ap040_program.nreset && ce_before && retire_before &&

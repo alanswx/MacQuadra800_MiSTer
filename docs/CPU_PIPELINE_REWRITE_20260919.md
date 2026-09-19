@@ -432,3 +432,28 @@ proved its historical navigation had launched Prince of Persia. No benchmark
 number from that attempt is accepted. Hardware is the performance authority.
 The hardware original/test-copy disk hashes now match, and the user authorized
 resets/recovery on the disposable copy after preserving the original.
+
+P1c standalone Quartus fit completed successfully at commit `5e1b158`: **714
+ALMs**, 341 registers, no RAM/DSP blocks. At 33 MHz, worst setup is **+12.942
+ns**, worst hold **+0.139 ns**. Reports: `scratch/pipeline_p1c/standalone_fit/`.
+This is the isolated execution module, not a full-machine pipeline fit.
+
+
+## P1d: retain sequencer lookahead outside pipeline ownership
+
+The experimental integration again permits the existing descriptor, operand and
+branch lookahead while the sequencer owns execution. Entry remains at S_DECODE
+after pending writes settle; pipeline retirement cannot hand an opcode to the
+sequencer. `AP040_PIPELINE_FORCE_DECODE` preserves the older diagnostic mode.
+The straight-line trace now distinguishes pipeline WB, sequencer retirement,
+and the fetch-only S_NEXT boundary after a pipeline drain.
+
+All 14,720 oracle snapshots, 14 real-core suites and precise IRQ/replay pass.
+Cycle counts with the experimental pipeline enabled are 56,916 (`bench_loop`),
+123,176 (`pipe_bench`) and 149,256 (`branch_bench`). The default refill-load
+candidate remains faster at 55,916 / 110,696 / 119,284. These results recover
+much of the old regression but do not justify a hardware pipeline candidate.
+Artifacts: `scratch/pipeline_p1d/`.
+
+P1d first-100 silicon corpus: 1,900 field groups match, zero real differences
+(`scratch/pipeline_p1d/corpus.log`, `/tmp/cpu-corpus100-gate.5OiVFE`).

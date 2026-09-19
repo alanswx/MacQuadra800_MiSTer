@@ -12,6 +12,7 @@ def main():
     parser.add_argument("--out", type=Path, default=ROOT / "scratch/pipeline_p1")
     parser.add_argument("--vasm", default="/home/alans/mister/MacQuadra800_fixtures/wombat-vasm/vasmm68k_mot")
     parser.add_argument("--only-irq", action="store_true")
+    parser.add_argument("--force-decode", action="store_true", help="disable sequencer lookahead for full pipeline coverage")
     parser.add_argument("--extended", action="store_true")
     parser.add_argument("--only-reference", action="store_true")
     args = parser.parse_args()
@@ -28,6 +29,8 @@ def main():
               EXP / "handoff_monitor.sv", *(RTL / (u + ".v") for u in units)]
     common = ["iverilog", "-g2012", "-DAP040_EXPERIMENTAL_PIPELINE", "-I", RTL,
               "-s", "tb_ap040_program", "-s", "handoff_monitor"]
+    if args.force_decode:
+        common.append("-DAP040_PIPELINE_FORCE_DECODE")
     if not args.only_irq:
         run([*common, "-s", "reference_trace", "-o", out / "trace.vvp",
              EXP / "reference_trace.sv", *source], out / "compile_trace.log")
@@ -35,8 +38,11 @@ def main():
         log = run(["vvp", out / "trace.vvp", f"+prog={reference / 'reference.hex'}", "+phase=0",
                    f"+trace={out / 'handoff.trace'}", f"+count={len(oracle)}", f"+registers={16 if args.extended else 8}"], out / "trace.log")
         compare(out / "handoff.trace", oracle)
-        assert "ALL TESTS PASSED" in log and f"entries={len(oracle)} commits={len(oracle)}" in log, log[-2000:]
-        print(f"PASS {len(oracle)} shared-state snapshots and balanced pipeline handoffs", flush=True)
+        match = re.search(r"HANDOFF entries=(\d+) commits=(\d+) paused=(\d+) cancelled=(\d+)", log)
+        assert "ALL TESTS PASSED" in log and match and int(match[1]) > 0 and int(match[1]) == int(match[2]), log[-2000:]
+        if args.force_decode:
+            assert int(match[1]) == len(oracle), log[-2000:]
+        print(f"PASS {len(oracle)} shared-state snapshots; {match[0]}", flush=True)
         if args.only_reference:
             return
         run([*common, "-o", out / "program.vvp", *source], out / "compile_program.log")
