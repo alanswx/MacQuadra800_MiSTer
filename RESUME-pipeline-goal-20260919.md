@@ -1065,3 +1065,18 @@ Logs: scratch/p6_entry_promoted*.log; corpus artifacts:
 Next fit archive: scratch/p6entry_fit_20260919, unit
 q800-p6entry-fit-20260919.service. Freeze RTL/project files during that flow.
 Hardware must establish whether the entry change recovers P6's Mix regression.
+
+### Fit still active; exact-recipe bottleneck evidence
+
+Previous turn made progress: committed and pushed 90b37e4, then started
+q800-p6entry-fit-20260919.service. This turn verified the live MainPID1242940
+and completed scratch/p6entry_profile_20260919. Exact candidate Towers
+26,600,632 cycles; same binary RAM latency0 25,399,026; both fully pass
+result/list/guard checks. Extra cache counters reproduce original cycles.
+Only353,091 same-line span reads: saving one cycle each is1.33%, so avoid
+prioritizing this small cache shortcut. Full counts and caveats are recorded
+in docs/cpu-pipeline-p6-20260919.md. No RTL/project source changes this turn.
+Continue waiting on the same live build; terminal artifacts then five valid
+hardware Mix runs using the authorized existing mister_operator. Do not
+claim simulator cycles prove hardware gain. Broader pipeline coverage and
+legacy handoff overhead remain the next implementation investigation.

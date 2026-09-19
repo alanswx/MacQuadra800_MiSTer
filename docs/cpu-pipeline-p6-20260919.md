@@ -119,3 +119,35 @@ python scripts/cpu/pipeline_entry_faults.py --out scratch/pipeline_entry
 The latter executes ADDQ.L#4,A0 immediately before indexed MOVEA.W, MOVE.W to Dn
 or indexed store, then checks precise access-error state. Its monitor requires
 admission with rf_we high in every latency phase, not just matching final output.
+
+### Exact candidate profile during the targeted-entry fit
+
+The committed 90b37e4 recipe reproduces Towers at **26,600,632 cycles**
+with 1,327,424 pipeline issues, zero empty pipeline exits and all result,
+list and guard checks passing. Pipeline ownership occupies 2,704,557 cycles.
+The reproducible scratch driver and source SHA manifest are in
+`scratch/p6entry_profile_20260919/` (`run.py`, `normal_identity.json`,
+`normal_run.log`). Frozen build sources were not changed.
+
+The same binary with the controlled RAM responder's added delay changed from
+3 to 0 passes at **25,399,026 cycles**, a 4.52% reduction. This is sensitivity
+to that model parameter, not zero memory latency, a full-machine result, or
+a hardware performance ceiling. The caches are enabled (CACR 0x80008000).
+
+Current-IR/state occupancy for MOVEM store/load, RTS, LINK, JSR(pc), and UNLK
+is preserved as STACK_STATE rows. These include fetch/handoff time and are
+not individual retired-instruction latencies. Global read-wait state occupies
+5,834,210 cycles, write-wait 3,725,312, decode 2,849,915 and fetch 2,100,260.
+
+A second instrumentation run reproduces exactly 26,600,632 cycles and counts
+353,091 same-line spanning read lookups, 113,826 cross-line read lookups,
+and 1,302,317 fast data hits. Of the same-line cases, MOVEM loads account
+for 147,447, RTS for 94,518 and UNLK for 92,385. Removing one cycle from
+every same-line case would save only 1.33% in this run before any secondary
+effects; this does not justify prioritizing a split-cache shortcut over
+broader pipeline execution/handoff improvements. Existing cache support
+already assembles spanning reads; they are not all external-memory bypasses.
+
+The background fit remains active under q800-p6entry-fit-20260919.service;
+wait for terminal build, source-hash verification and crossing extraction
+before editing any build inputs or deploying its uniquely named RBF.
