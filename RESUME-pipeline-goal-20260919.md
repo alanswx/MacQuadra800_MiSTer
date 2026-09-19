@@ -1248,3 +1248,22 @@ Restricted P8 measurements now terminalPASS: Bubble4,077,142;
 Towers26,010,464; Permute1,519,901. Need exactvariant correctness/fault
 qualification next. Broadvariant gate still live at FPUprogram at lastcheck
 (session24501); no failure seen. Hardware results committed/pushed b219128.
+
+### P8 indexed MOVE fault/boundary qualification checkpoint
+
+Exact indexed-only core full integration terminalPASS; silicon100 PASS1900
+groups0diff at /tmp/cpu-corpus100-gate.64l6Ys. New tracked runners
+scripts/cpu/pipeline_memmove_{faults,boundaries}.py accept --core/--out;
+10cases×3phases pass on candidate and baseline. Logs under
+scratch/p8_memmove_indexed_20260919/{rfaults,rbounds,basefaults,basebounds}.log.
+Includes source/dest faults, postinc/predec rollback, persistent extension
+fault, IRQ/T1, sharedbase, fullformat, and actual S_MRD_B split fallback.
+Initial one-shot speculative fault was retried successfully in bothcores;
+persistent injection correctly tests demandfault. Initial split fixture
+needed TC enabled and transparent ITT0/DTT0 to exercise splitstate. No RTL
+changes. Still need broader B/W/L value/alias coverage beforepromote.
+
+q800-p7handoff-fit-20260919 USERservice stillactive MainPID1358014 atlastcheck;
+projectsourcefreeze remains. Hardwareagent active on an additional P7compare
+run then quitSpeedometer/Finder shutdown; instructed not to reload merely
+for navigation. Await its evidence, preserve original5runstats.

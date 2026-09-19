@@ -187,3 +187,45 @@ PASS. Relative to f2b2770 these are3.0%fewer Bubble cycles,0.75%fewer
 Towers cycles and unchanged Permute. This retains less of the broad
 variant's Towers gain but avoids its Permute regression. Qualification
 is still incomplete; no memory-MOVE RTL has been promoted.
+
+## Indexed memory-MOVE correctness checkpoint
+
+The exact indexed-only scratch core passes the complete real-core integration
+gate and immutable silicon100 sample (1,900 field groups, zero differences;
+`/tmp/cpu-corpus100-gate.64l6Ys`). This is sample evidence, not a full-corpus
+claim. Its source remains outside the active Quartus fit.
+
+Two reusable runners, `pipeline_memmove_faults.py` and
+`pipeline_memmove_boundaries.py`, accept `--core` and `--out`. Their exact
+tracked versions pass on both the scratch candidate and committed f2b2770
+core, each under three timing schedules:
+
+- Source-read and destination-write access errors, with precise format7
+  PC/fault address/SR, destination preservation and unchanged registers.
+- Destination faults following post-increment/pre-decrement source reads,
+  verifying rollback of the updated source address register.
+- Persistent destination-extension fetch fault across a page boundary.
+- Deferred level2 IRQ and T1 trace, checking the completed destination write
+  and exception frame before any following instruction executes.
+- Shared source/destination base register, full-format indexed destination,
+  and a page-split source with transparent MMU translation enabled.
+
+The MOVE_ACK monitor counts eligible normal source-read acknowledgements,
+not execution of the new branch itself; baseline intentionally satisfies
+the same count. Source faults and the split-source case count zero. The
+split case also asserts actual S_MRD_B occupancy, proving fallback coverage.
+
+The initial extension fixture used a one-shot fetch fault. It fired during
+speculation while the source read was active, and both cores later retried
+successfully, so it could not establish a demand-fault requirement. The
+final test keeps the fault asserted at address0x2000 across retries; both
+cores deliver the expected format7 frame. The initial split test left the
+MMU disabled and therefore used a normal transfer; enabling transparent
+translation exercises the intended byte-split path. Neither fixture
+correction changed RTL or relaxed the final architectural checks.
+
+The candidate still needs broader B/W/L value/alias coverage before
+promotion. The fit of f2b2770 remains active. Hardware operator is performing
+an additional P7compare run followed by application quit and clean Finder
+shutdown to resolve the earlier shutdown-evidence gap; retain the original
+five-run statistics separately.
