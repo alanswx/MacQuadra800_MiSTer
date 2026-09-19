@@ -1499,3 +1499,35 @@ and performed normal shutdown without reloading. Root independently inspected
 run5_complete.png (Mix 1.022 and completion dialog) and final_halt_visible.png
 ("It is now safe to switch off your Macintosh"). A/UX remains delegated to
 Dani by the user; CD/audio regression is outstanding. The 1.8 goal is not met.
+
+
+## P9 combined hardware measurements, 2026-09-19
+
+
+Date: 2026-09-19  
+Core: `/media/fat/_Unstable/MacQuadra800_p9combined_28b164d.rbf`  
+RBF SHA256: `811ec3339671f6eb03d59fd302257e98ecfed1f64dc1bc169d4f83c4d61a292a`  
+Quartus: timing met; 39,782 ALMs (95%), 26,340 registers, 491 RAM, 43 DSP; CPU +1.084 ns, HDMI +0.071 ns, SDRAM +0.643 ns, hold +0.229 ns, crossings +0.941/+1.084 ns.  
+Main SHA256: `0ac8b44069a9201723dcdbc3bf3a84e1963d2bec347e5065c2625e71bd3986cd`  
+CFG: `40 00 00 00` (33 MHz, 32 MB, Ethernet on)  
+Disk: disposable `QuadSquad8-pipeline-test-20260919.hda`, pre-boot SHA256 `224c5be7d031c4c5448745d29ce9717c22bcc310361888bb0e20f2c521c83e2a`; original remained untouched and unmounted.  
+All runs used Speedometer 4.02 Benchmark Mix, all ten tests, Iteration 1.
+
+| Run | Wall interval | Whetstones/sec | Dhrystones/sec | Towers | Quick Sort | Bubble | Queens | Puzzle | Permutations | Int. Matrix | Sieve | Mix | Status |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| 1 | ~55 s (23:33:47–23:34:42Z) | 804.588 | 12270.817 | 0.865 | 0.753 | 0.796 | 0.581 | 1.423 | 1.284 | 0.934 | 1.136 | 1.025 | valid |
+| 2 | ~58 s (23:35:03–23:36:01Z) | 813.355 | 12270.477 | 0.865 | 0.752 | 0.796 | 0.582 | 1.420 | 1.283 | 0.929 | 1.132 | 1.029 | valid |
+| 3 | ~61 s (23:36:20–23:37:21Z) | 811.523 | 12278.899 | 0.866 | 0.752 | 0.796 | 0.580 | 1.418 | 1.286 | 0.925 | 1.129 | 1.029 | valid |
+| 4 | ~58 s (23:37:42–23:38:40Z) | 812.130 | 12260.345 | 0.867 | 0.751 | 0.797 | 0.580 | 1.421 | 1.283 | 0.924 | 1.131 | 1.029 | valid |
+| 5 | ~60 s (23:39:08–23:40:08Z) | 812.089 | 12274.493 | **0.140** | 0.752 | 0.799 | 0.581 | 1.418 | 1.285 | 0.930 | 1.132 | **1.410** | **invalid timer outlier** |
+| 6 replacement | ~57 s (23:40:31–23:41:28Z) | 811.796 | 12263.275 | 0.865 | 0.754 | 0.796 | 0.580 | 1.416 | 1.283 | 0.927 | 1.132 | 1.029 | valid |
+
+Valid Mix mean: **1.0282**; median: **1.029**; range: **1.025–1.029**. Run 5 is excluded because Towers 0.140 sec is inconsistent with every other run and produced an aggregate 1.410. No other anomalies or instability observed.
+
+Completion screenshots: `run1_complete.png` through `run6_complete.png`; each shows “The tests are done!” and all ten tests at Iteration 1.
+
+Root independently inspected run6_complete.png (valid Mix1.029, Towers0.865,
+completion dialog) and run5_complete.png (Towers0.140, Mix1.410). The outlier
+is excluded rather than counted as progress. Post-benchmark clean shutdown
+is still pending at this record; operator retains exclusive hardware control.
+A/UX remains deferred to Dani and CD/audio regression is outstanding.

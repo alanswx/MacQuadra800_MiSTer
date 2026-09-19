@@ -1486,3 +1486,16 @@ repeating P14 as presumed improvement. Pipeline sequence boundaries and
 legacy execution dominate; deeperqueue alone not supported byownedprofile.
 P12fit activeMainPID1480157. P9hardwarefourcompleted screenshots, agent
 requested finalreport+safehalt. No hardwarefinalaggregateyet.
+
+### P9 timing-clean hardware median 1.029, one excluded timer anomaly
+
+P9combined28b164d completed6runs: valid1.025/1.029/1.029/1.029/1.029,
+mean1.0282,median1.029. Run5invalid: Towers.140 vsusual.865, inflatedMix1.410;
+replacementrun6Towers.865/Mix1.029. Rootviewedbothscreenshots andverified
+arithmetic. FulltableinPERFORMANCE_MEASUREMENTS. TimingmetCPU+1.084ns.
+Notgoalcompletion:1.8unmet. Hardwareoperatorcurrentlyquitting/savingrecord;
+cleanshutdownnotyetverified. Do notdeploy/reloadconcurrently.
+P12fitservice stillactiveMainPID1480157, sourcesfrozen. P13qualifiedscratch
+readyfornextfitconsideration; P14loadexpansionrejected. Existingcall
+lookaheadalreadyoverlapstargetfetchwithstackpush anddispatchesJSRfrom
+pipeline drain; futurecalloptimizationmustpreserveA7WB andfault ordering.
