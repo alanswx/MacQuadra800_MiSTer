@@ -47,6 +47,38 @@ in the files it points at:
   them out only when sections 1 and 2 are closed, in one commit, followed by
   the release regression gate (8.1 and A/UX, Ethernet Off and On).
 
+### Update 2026-09-19, Dani's PC and the `.143` box: rebuilt and gated
+
+Everything was rebuilt from the merged heads and run through the regression
+gate on the `.143` MiSTer (operator report, every claim marked SEEN or
+INFERRED: `docs/ethernet-regression-20260919.md`; screenshots and ping logs in
+`scratch/ethernet-handover/regression_20260919/`, not in git).
+
+- **Core build 11** = `add-ethernet` `b2e5377`, seed 21: rbf md5
+  `933b421a0880177be1b5fb2861dcea15`, timing met (worst setup +0.107 ns on the
+  HDMI clock, hold +0.190; `clk_sys`->`clk_ram` crossing +1.545,
+  `clk_ram`->`clk_sys` +0.622), 36,914 ALMs (88 %). Artifacts in
+  `scratch/ethernet-handover/build11_b2e5377/`. Still carries the `Dbg ...`
+  OSD lines, so it is a candidate, not a release.
+- **Main** = `Main_MiSTer` `6919c21`, clean build, md5
+  `fbb540c8a51134cfdc960a8b5115807b`, committed as `releases/MiSTer`; installed
+  by rename + reboot, the user confirmed the display.
+- **Gate, all PASS:** Mac OS 8.1 at CFG `40 00` (Ethernet on, every fast path
+  on): DHCP, 506/506 pings (500 of them 1400 bytes), 0 lost, 3 ms average, no
+  DMA timeout, clock ticking at idle, clean Shut Down; CD audio transport
+  (`AudioTest.cue`: mount, TOC, Play / Pause / Resume / Stop, no "not
+  responding" dialog); A/UX 3.1 at 32 MB **with the SONIC present** (first
+  time): multiuser desktop within 186 s, root CommandShell `uname -a` / `ls` /
+  `df` sane, `shutdown -h now` to the halt screen within 126 s (A/UX has no
+  driver for the chip and never touches it); then both guests again at
+  `00 00` (Ethernet off: the guest is unreachable, no dialog, clean shutdowns).
+- **Not covered:** whether the CD audio is audible (the user's ears); FTP with
+  an md5 on this box; Speedometer on build 11; A/UX at 128 MB (known hang).
+- Box left at the MENU core, CFG `40 00`, `.s0` QuadSquad8, the user's `.s1`
+  and `.s4` restored byte-identical, build 8 kept as
+  `_Unstable/MacQuadra800.rbf.build8_edf32a3b`, old Main as
+  `MiSTer.prev_b6b5cc17`.
+
 ## 1. Ethernet speed
 
 ### What was measured (build 10, `hw12/`, `hw13/`)
