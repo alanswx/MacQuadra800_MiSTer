@@ -15,7 +15,7 @@ def main():
     parser.add_argument("stream")
     parser.add_argument("commands", nargs="+")
     args = parser.parse_args()
-    grammar = re.compile(r"(?:shot|profile (?:start|stop)|wait [0-9]+|(?:down|up) (?:0x)?[0-9a-fA-F]{1,2}(?: ext)?)")
+    grammar = re.compile(r"(?:shot|quit|profile (?:start|stop)|wait [0-9]+|(?:down|up) (?:0x)?[0-9a-fA-F]{1,2}(?: ext)?)")
     for command in args.commands:
         if not grammar.fullmatch(command):
             parser.error(f"invalid control command: {command!r}")

@@ -26,6 +26,30 @@ an aggregate cycle ratio is only an approximation to its eventual score.
 Match per-test results, workload/OS/ROM, and configuration before making a
 claim about the real machine. Graphics and FPU need their own comparisons.
 
+The gap is not uniform. Comparing the recorded real-machine photograph
+with build 13's eight-run hardware table (same CPU lineage, before the
+Ethernet integration) gives these approximate required speedups:
+
+| Test | Additional speedup to match real Q800 |
+|---|---:|
+| KWhetstones | 2.87x |
+| Permutations | 2.69x |
+| Towers | 2.29x |
+| Dhrystones | 2.11x |
+| Queens | 2.00x |
+| Puzzle | 1.95x |
+| Integer Matrix | 1.58x |
+| Bubble Sort | 1.53x |
+| Quick Sort | 1.48x |
+| Sieve | 1.19x |
+
+Source: `PERFORMANCE_MEASUREMENTS.md`, sections 2 and 22. This favors
+investigating the call/operand-heavy workloads, rather than using a large
+Sieve gain as the main proxy for progress. Attribute Whetstone's actual
+integer, library and floating-point work before assuming that preserving
+an unchanged FPU side engine can meet its target. Reaching the Mix average
+alone would not demonstrate the same performance distribution as a Quadra.
+
 At a fixed clock, a uniform 2.05x improvement removes about 51.2% of elapsed
 cycles. If fraction f of a workload is accelerated by factor r, its ideal
 speedup is 1 / ((1-f) + f/r). For example, f=0.70 and r=4 gives 2.105x;
@@ -198,6 +222,29 @@ backwards timestamps, split reads, MMU changes, fault/CE rejection, capture
 bounds, and pending writes. A normal simulated run would not rule out the
 hardware-only VIA/clock-domain hypotheses. The proposed high-frequency
 guest `Microseconds` stress program remains separate follow-up work.
+
+A timer-path inspection does not yet justify changing the VIA. The current
+RTL returns live low/high counter bytes separately. WDC's compatible-VIA
+reference, [W65C22 tables 2-6 and 2-9](https://www.westerndesigncenter.com/wdc/documentation/w65c22.pdf),
+describes individual counter-byte reads and their interrupt-flag effects;
+it does not specify a high-byte snapshot on a low-byte read. That modern
+compatible-device document is not proof of the Quadra IOSB's exact behavior.
+An absent snapshot latch by itself is therefore not a demonstrated bug:
+observe the guest's actual read/retry/interrupt sequence before adding one.
+
+The first cold-boot attempt reached MacAtrium, then the host crashed on the
+first scripted key. Restoring `input.ps2_key = &model.ps2_key` fixed the
+missing connection. A real-simulator synthetic-ROM integration test now
+checks key press/release, the profile bracket, graceful `quit`, and the
+observer's final summary before a long run is launched. The restarted
+baseline in `scratch/pipeline_baseline_20260919c/` uses the documented
+simulation-only fastboot ROM and a 660-million-clock initial wait, with a
+fresh copy of the original disk. The ROM differs only at the RAM-test gate
+and checksum, verified against the original. This is a development profile,
+not a pristine-ROM acceptance run; later simulator comparisons must use this
+same recipe. The intermediate `b` run was stopped during RAM testing:
+`+warmstart` seeds a different ROM cookie and does not skip this test, as
+`docs/quadra800-ram-test.md` already explains.
 
 The simulation uses a disposable disk copy. No baseline number should be
 recorded until screenshots prove the intended benchmark ran to completion.

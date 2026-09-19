@@ -17,7 +17,7 @@
 // Optional local, newline-delimited control stream. No input is opened or
 // event emitted by construction. All clocks below are simulated rising edges.
 struct SimControlCommand {
-	enum Kind { Down, Up, Wait, Shot, ProfileStart, ProfileStop } kind;
+	enum Kind { Down, Up, Wait, Shot, ProfileStart, ProfileStop, Quit } kind;
 	uint64_t value = 0;
 	bool extended = false;
 };
@@ -149,6 +149,9 @@ private:
 			valid = bool(in >> arg) && number(arg, 10, command.value) && !(in >> extra);
 		} else if (op == "shot") {
 			command.kind = SimControlCommand::Shot;
+			valid = !(in >> extra);
+		} else if (op == "quit") {
+			command.kind = SimControlCommand::Quit;
 			valid = !(in >> extra);
 		} else if (op == "profile") {
 			if ((in >> arg) && (arg == "start" || arg == "stop") && !(in >> extra)) {

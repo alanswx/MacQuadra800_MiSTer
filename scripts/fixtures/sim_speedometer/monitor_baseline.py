@@ -2,15 +2,13 @@
 """Finish this task's disposable-disk baseline after its scripted prefix.
 
 Requires the run directory's identities.json, control.txt and run.log.
-Only terminates a Vemu process whose /proc cwd exactly matches this directory.
+Requests graceful simulator exit through this run's own control stream.
 This is a simulation driver, not a hardware lifecycle script.
 """
 import argparse
 import json
-import os
 from pathlib import Path
 import re
-import signal
 import subprocess
 import time
 
@@ -68,23 +66,16 @@ def main():
             with (out / "report.md").open("w") as report:
                 subprocess.run(["python3", str(ROOT / "scripts/cpu/report_pipeline_profile.py"),
                                 str(out / "profile.tsv")], check=True, stdout=report)
+            send("quit")
+            await_condition(lambda: (out / "exit.status").exists())
+            if (out / "exit.status").read_text().strip() != "0":
+                raise RuntimeError("Simulator failed during graceful completion")
             (out / "capture.json").write_text(json.dumps({
                 "status": "captured; screenshots require review", "completion": picture.name,
                 "results": final.name, "profile": "profile.tsv",
                 "boundary": "Run Set input through first completion-alert polling screenshot",
-                "timer_log": "May lack final buffered records/summary when Vemu is terminated."
+                "timer_log": "timer.log; inspect summary for missing identities or capture cap"
             }, indent=2) + "\n")
-            # Do not leave hours of idle simulation running after the capture.
-            # The image is disposable. SIGTERM does not call the observer's
-            # summary; do not report a clean timer result from missing records.
-            for entry in Path("/proc").iterdir():
-                if not entry.name.isdigit():
-                    continue
-                try:
-                    if (entry / "comm").read_text().strip() == "Vemu" and (entry / "cwd").resolve() == out:
-                        os.kill(int(entry.name), signal.SIGTERM)
-                except (FileNotFoundError, PermissionError):
-                    continue
             print(f"Captured {out}; inspect {final.name}", flush=True)
             return
     raise RuntimeError("Completion alert not found within 400 guest-time polls")

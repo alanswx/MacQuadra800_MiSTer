@@ -213,8 +213,8 @@ initial begin
 	if (!$value$plusargs("rom=%s", rom_file))
 		rom_file = "quadra800.rom.hex";
 	$readmemh(rom_file, rom);
-	// +warmstart: preload the warm-start signature so the ROM skips the
-	// destructive RAM test (iteration aid; cold boot leaves this off)
+	// +warmstart seeds the low-memory WarmStart cookie, NOT the RAM-test
+	// gate. For a sim-only RAM-test skip, see docs/quadra800-ram-test.md.
 	if ($test$plusargs("warmstart")) ram['h33F] = "WLSC";
 end
 

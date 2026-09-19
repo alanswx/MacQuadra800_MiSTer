@@ -8,6 +8,15 @@ static void feed(SimControl& control, const std::string& text) {
 }
 
 int main() {
+    {
+        SimControl quit_control;
+        SimControlCommand quit_command{};
+        feed(quit_control, "quit extra\nquit\n");
+        assert(quit_control.rejected() == 1);
+        assert(quit_control.step(false, true, quit_command));
+        assert(quit_command.kind == SimControlCommand::Quit);
+    }
+
 	SimControl c;
 	SimControlCommand command{};
 	assert(!c.enabled() && !c.step(false, true, command)); // opt-in, idle by default

@@ -370,6 +370,10 @@ static void control_before_eval() {
 		case SimControlCommand::Shot:
 			control_shot_pending = true; // block following commands until frame capture
 			break;
+		case SimControlCommand::Quit:
+			run_enable = false;
+			Verilated::gotFinish(true);
+			break;
 		case SimControlCommand::ProfileStart:
 		case SimControlCommand::ProfileStop:
 			if (bracket_file.empty()) fprintf(stderr, "[SIM-CONTROL] profile requires --cpu-profile FILE\n");
@@ -843,6 +847,7 @@ int main(int argc, char** argv, char** env) {
 	VERTOPINTERN->clk_sys = 0;
 	VERTOPINTERN->reset = 1;
 	VERTOPINTERN->ps2_key = 0;
+	input.ps2_key = &VERTOPINTERN->ps2_key;
 	VERTOPINTERN->ps2_mouse = 0;
 	VERTOPINTERN->ioctl_download = 0;
 	VERTOPINTERN->ioctl_wr = 0;

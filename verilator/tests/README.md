@@ -12,6 +12,17 @@ g++ -std=c++17 -Wall -Wextra -Werror \
 /tmp/q800-control-test
 ```
 
+The full simulator integration test catches missing model wiring that parser
+unit tests cannot see. After building `verilator/obj_dir/Vemu`, run:
+
+```sh
+python3 scripts/cpu/test_profile_integration.py
+```
+
+It boots a tiny synthetic ROM, injects real key down/up events, checks a
+20,002-clock profile bracket, requests `quit` before the cycle limit, and
+requires a flushed timing-observer summary. No guest disk is opened.
+
 The dispatch test covers reset, stalls, consecutive opcode loads with identical
 PC/state, disabled consumers, and profile start/stop boundaries. It tests
 opcode-load observation; it does not claim every folded branch generates an
