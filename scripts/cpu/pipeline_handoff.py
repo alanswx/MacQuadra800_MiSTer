@@ -14,6 +14,9 @@ def main():
     parser.add_argument("--only-irq", action="store_true")
     parser.add_argument("--force-decode", action="store_true", help="disable sequencer lookahead for full pipeline coverage")
     parser.add_argument("--extended", action="store_true")
+    parser.add_argument("--loads", action="store_true", help="enable head-ordered pipeline loads")
+    parser.add_argument("--xstore", action="store_true")
+    parser.add_argument("--lea", action="store_true")
     parser.add_argument("--only-reference", action="store_true")
     args = parser.parse_args()
     out = args.out.resolve()
@@ -29,6 +32,12 @@ def main():
               EXP / "handoff_monitor.sv", *(RTL / (u + ".v") for u in units)]
     common = ["iverilog", "-g2012", "-DAP040_EXPERIMENTAL_PIPELINE", "-I", RTL,
               "-s", "tb_ap040_program", "-s", "handoff_monitor"]
+    if args.xstore:
+        common.append("-DAP040_EXPERIMENTAL_XSTORE")
+    if args.lea:
+        common.append("-DAP040_EXPERIMENTAL_LEA")
+    if args.loads:
+        common.append("-DAP040_EXPERIMENTAL_PIPELINE_LOADS")
     if args.force_decode:
         common.append("-DAP040_PIPELINE_FORCE_DECODE")
     if not args.only_irq:
@@ -46,16 +55,22 @@ def main():
         if args.only_reference:
             return
         run([*common, "-o", out / "program.vvp", *source], out / "compile_program.log")
+        if args.loads:
+            run([*common, "-DAP040_PIPELINE_FORCE_DECODE", "-o", out / "loads.vvp", *source],
+                out / "compile_loads.log")
         tests = ("integer", "exceptions", "mmu", "bitfield_mmu", "bitfield_cache", "moves_fc",
                  "movem_restart", "atcprobe", "fpu_frames", "fpu_resume", "cache", "fpu",
                  "branch_early", "loops_irq")
+        if args.loads:
+            tests += ("pipeline_loads", "pipeline_load_fault")
         for name in tests:
             asm = ROOT / f"rtl/ap68040/tb/asm/t_{name}.s"
             run([args.vasm, "-Fbin", "-m68040", "-no-opt", "-o", out / f"{name}.bin", asm],
                 out / f"{name}.asm.log", cwd=asm.parent.parent)
             run(["python3", ROOT / "rtl/ap68040/tb/bin2hex.py", out / f"{name}.bin",
                  out / f"{name}.hex"], out / f"{name}.hex.log")
-            log = run(["vvp", out / "program.vvp", f"+prog={out / (name + '.hex')}"], out / f"{name}.log")
+            program = out / ("loads.vvp" if name.startswith("pipeline_load") else "program.vvp")
+            log = run(["vvp", program, f"+prog={out / (name + '.hex')}"], out / f"{name}.log")
             assert "ALL TESTS PASSED" in log and "FAIL:" not in log, f"{name}: {log[-2000:]}"
             match = re.search(r"HANDOFF entries=(\d+) commits=(\d+) paused=(\d+) cancelled=(\d+)", log)
             assert match and int(match[1]) > 0 and int(match[1]) == int(match[2]) + int(match[4]), log[-1000:]
@@ -71,7 +86,19 @@ def main():
     match = re.search(r"IRQ OVERLAP injections=(\d+) killed=(\d+)", log)
     assert "ALL TESTS PASSED" in log and match and int(match[1]) >= 2 and int(match[2]) >= 2, log[-2000:]
     print(f"PASS precise interrupt and replay: {match[0]}", flush=True)
-    print(f"PASS real-core P1 ownership integration; artifacts: {out}")
+    if args.loads:
+        run([*common, "-DAP040_PIPELINE_FORCE_DECODE", "-s", "irq_load_monitor",
+             "-o", out / "irq_load.vvp", EXP / "irq_load_monitor.sv", *source],
+            out / "compile_irq_load.log")
+        run([args.vasm, "-Fbin", "-m68040", "-no-opt", "-o", out / "irq_load.bin",
+             EXP / "irq_load.s"], out / "irq_load.asm.log")
+        run(["python3", ROOT / "rtl/ap68040/tb/bin2hex.py", out / "irq_load.bin",
+             out / "irq_load.hex"], out / "irq_load.hex.log")
+        log = run(["vvp", out / "irq_load.vvp", f"+prog={out / 'irq_load.hex'}"], out / "irq_load.log")
+        match = re.search(r"LOAD IRQ injections=(\d+) killed=(\d+)", log)
+        assert "ALL TESTS PASSED" in log and match and int(match[1]) == 3 and int(match[2]) >= 3, log[-2000:]
+        print(f"PASS load interrupt and replay: {match[0]}", flush=True)
+    print(f"PASS real-core pipeline ownership integration; artifacts: {out}")
 
 
 if __name__ == "__main__":

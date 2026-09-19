@@ -1,7 +1,7 @@
 // Experimental resident-instruction ID/EX/WB pipeline. Not in files.qip.
-// Register operands only. The owner supplies memory/exception sequencing.
+// Optional head-ordered (An) loads use the owner's memory/exception sequencer.
 `include "ap040_defs.svh"
-module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0) (
+module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0, parameter ENABLE_LOADS = 0) (
     input wire clk, nreset, ce, flush,
     // Cancel ID/EX while allowing an accepting WB to commit. A blocked WB
     // is retained. Used when an interrupt is recognized at retirement.
@@ -24,11 +24,41 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0) (
     output wire [3:0] retire_dst,
     output wire [31:0] retire_data,
     output wire [4:0] retire_ccr,
+    // One head-ordered read, stable until acknowledgement. Responses are
+    // accepted even while architectural CE is paused; cancellation drains
+    // an already-issued read without architectural effects.
+    output wire load_req,
+    output wire [31:0] load_addr,
+    output wire [1:0] load_size,
+    output wire [31:0] load_pc,
+    output wire [15:0] load_opcode,
+    input wire load_ack, load_fault,
+    input wire [31:0] load_data,
+    output wire retire_fault,
+    output wire [31:0] retire_fault_addr,
     output wire fallback_valid,
     output wire [31:0] fallback_pc,
     output wire [15:0] fallback_opcode
 );
     reg id_v, ex_v, wb_v;
+    reg ex_load, wb_fault;
+    reg [31:0] wb_fault_addr;
+    reg load_pending, load_done, load_discard, load_error;
+    reg [31:0] load_addr_r, load_value, load_pc_r;
+    reg [15:0] load_opcode_r;
+    reg [1:0] load_size_r;
+    wire load_issue;
+    assign load_req = load_pending;
+    assign load_addr = load_addr_r;
+    assign load_size = load_size_r;
+    assign load_pc = load_pc_r;
+    assign load_opcode = load_opcode_r;
+    assign retire_fault = wb_fault;
+    assign retire_fault_addr = wb_fault_addr;
+    function automatic is_load(input [15:0] word);
+        is_load = ENABLE_LOADS && word[15:14] == 0 && word[13:12] != 0 &&
+                  word[8:6] == 0 && word[5:3] == 3'b010;
+    endfunction
     reg [31:0] id_pc, ex_pc, wb_pc;
     reg [15:0] id_opcode, ex_opcode, wb_opcode;
     reg [5:0] ex_op;
@@ -52,7 +82,13 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0) (
             operation = `AP040_ALU_MOVE; size = `AP040_SZ_L;
             source = {1'b0, word[2:0]}; destination = {1'b0, word[11:9]};
             literal = {{24{word[7]}}, word[7:0]};
-            if (word == 16'h4e71) begin
+            if (is_load(word)) begin
+                legal = 1;
+                source = {1'b1, word[2:0]};
+                destination = {1'b0, word[11:9]};
+                size = word[13:12] == 1 ? `AP040_SZ_B :
+                       word[13:12] == 2 ? `AP040_SZ_L : `AP040_SZ_W;
+            end else if (word == 16'h4e71) begin
                 legal = 1; writeback = 0; flags = 0;
             end else if ((word & 16'hf100) == 16'h7000) begin
                 legal = 1; immediate = 1;
@@ -113,16 +149,17 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0) (
     assign {legal, dec_imm, dec_we, dec_flags, dec_word_src, dec_op,
             dec_size, dec_src, dec_dst, dec_immediate} = decode(id_opcode);
 
-    wire wb_ready = !wb_v || retire_ready;
-    wire ex_ready = !ex_v || wb_ready;
+    wire wb_ready = !wb_v || (retire_ready && !wb_fault);
+    wire ex_complete = !ex_load || load_done;
+    wire ex_ready = !ex_v || (wb_ready && ex_complete);
     wire id_advance = id_v && legal && ex_ready;
-    assign idle = !id_v && !ex_v && !wb_v;
-    assign in_ready = nreset && ce && !flush && !kill_younger && (!id_v || id_advance);
+    assign idle = !id_v && !ex_v && !wb_v && !load_pending;
+    assign in_ready = nreset && ce && !flush && !kill_younger && !load_discard && (!id_v || id_advance);
     assign retire_valid = nreset && ce && !flush && wb_v;
     wire commit = retire_valid && retire_ready;
     assign retire_pc = wb_pc;
     assign retire_opcode = wb_opcode;
-    assign retire_we = wb_we;
+    assign retire_we = wb_we && !wb_fault;
     assign retire_dst = wb_dst;
     assign retire_data = wb_data;
     assign retire_ccr = wb_ccr;
@@ -139,7 +176,7 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0) (
     end else begin : private_state
     ap040_regfile regfile (
         .clk(clk), .nreset(nreset), .ce(ce), .sr_s(1'b1), .sr_m(1'b0),
-        .we(commit && wb_we), .waddr(wb_dst), .wdata(wb_data),
+        .we(commit && wb_we && !wb_fault), .waddr(wb_dst), .wdata(wb_data),
         .raddr_a(ex_src), .raddr_b(ex_dst),
         .rdata_a(rf_a), .rdata_b(rf_b),
         .aux_we(1'b0), .aux_sel(2'd0), .aux_wdata(32'd0),
@@ -151,7 +188,7 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0) (
     // handles its own delayed MLAB write beneath this bypass.
     wire [31:0] source_full = ex_imm ? ex_immediate :
         (wb_v && wb_we && wb_dst == ex_src) ? wb_data : rf_a;
-    wire [31:0] src = ex_word_src ? {{16{source_full[15]}}, source_full[15:0]} : source_full;
+    wire [31:0] src = ex_load ? load_value : ex_word_src ? {{16{source_full[15]}}, source_full[15:0]} : source_full;
     wire [31:0] dst = (wb_v && wb_we && wb_dst == ex_dst) ? wb_data : rf_b;
     wire [4:0] flags_in = wb_v ? wb_ccr : (EXTERNAL_STATE ? external_ccr : ccr);
     wire [31:0] alu_result;
@@ -163,9 +200,40 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0) (
     );
     wire [31:0] merged = ex_size == `AP040_SZ_B ? {dst[31:8], alu_result[7:0]} :
                          ex_size == `AP040_SZ_W ? {dst[31:16], alu_result[15:0]} : alu_result;
+    assign load_issue = ENABLE_LOADS && nreset && ce && !flush && !kill_younger &&
+        ex_v && ex_load && !wb_v && !load_pending && !load_done && !load_discard;
+    always @(posedge clk) begin
+        if (!nreset) begin
+            load_pending <= 0; load_done <= 0; load_discard <= 0;
+            load_error <= 0; load_addr_r <= 0; load_size_r <= 0; load_value <= 0;
+            load_pc_r <= 0; load_opcode_r <= 0;
+        end else begin
+            if (ce && ex_v && ex_load && ex_complete && wb_ready)
+                load_done <= 0;
+            if (load_issue) begin
+                load_pending <= 1; load_addr_r <= source_full;
+                load_size_r <= ex_size; load_discard <= 0;
+                load_pc_r <= ex_pc; load_opcode_r <= ex_opcode;
+            end
+            if (ce && (flush || kill_younger)) begin
+                load_done <= 0;
+                if (load_pending) load_discard <= 1;
+            end
+            if (load_pending && load_ack) begin
+                load_pending <= 0;
+                load_discard <= 0;
+                if (load_discard || (ce && (flush || kill_younger)))
+                    load_done <= 0;
+                else begin
+                    load_done <= 1; load_value <= load_data; load_error <= load_fault;
+                end
+            end
+        end
+    end
     always @(posedge clk) begin
         if (!nreset) begin
             id_v <= 0; ex_v <= 0; wb_v <= 0; ccr <= 0;
+            ex_load <= 0; wb_fault <= 0; wb_fault_addr <= 0;
             id_pc <= 0; ex_pc <= 0; wb_pc <= 0;
             id_opcode <= 0; ex_opcode <= 0; wb_opcode <= 0;
             ex_op <= 0; ex_size <= 0; ex_src <= 0; ex_dst <= 0;
@@ -175,15 +243,17 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0) (
             if (flush) begin
                 id_v <= 0; ex_v <= 0; wb_v <= 0;
             end else begin
-                if (commit) ccr <= wb_ccr;
+                if (commit && !wb_fault) ccr <= wb_ccr;
                 if (kill_younger) begin
                     id_v <= 0; ex_v <= 0;
-                    if (wb_ready) wb_v <= 0;
+                    if (commit || wb_ready) wb_v <= 0;
                 end else begin
                 if (wb_ready) begin
-                    wb_v <= ex_v;
-                    if (ex_v) begin
+                    wb_v <= ex_v && ex_complete;
+                    if (ex_v && ex_complete) begin
                         wb_pc <= ex_pc; wb_opcode <= ex_opcode;
+                        wb_fault <= ex_load && load_error;
+                        wb_fault_addr <= load_addr_r;
                         wb_dst <= ex_dst; wb_we <= ex_we; wb_data <= merged;
                         wb_ccr <= ex_flags ? alu_flags : flags_in;
                     end
@@ -192,6 +262,7 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0) (
                     ex_v <= id_v && legal;
                     if (id_v && legal) begin
                         ex_pc <= id_pc; ex_opcode <= id_opcode;
+                        ex_load <= is_load(id_opcode);
                         ex_op <= dec_op; ex_size <= dec_size;
                         ex_src <= dec_src; ex_dst <= dec_dst;
                         ex_imm <= dec_imm; ex_immediate <= dec_immediate;

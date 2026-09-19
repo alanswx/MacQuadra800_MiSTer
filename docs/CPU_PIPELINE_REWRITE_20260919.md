@@ -596,3 +596,42 @@ Loads-disabled compatibility passes all14,720register snapshots in six schedules
 and both forwarding negative controls. This is not integrated with the real
 MMU/cache/exception owner and is not a performance claim; see its README.md for
 contracts, remaining integration and limitations.
+
+
+## P2: ordered pipeline loads through the existing memory sequencer
+
+`AP040_EXPERIMENTAL_PIPELINE_LOADS` (also requires the experimental pipeline)
+adds MOVE.B/W/L (An),Dn. The pipeline presents one head-ordered read only after
+all older WB work commits. The core routes it through existing mrd/S_MRD and
+page-split states; the ordinary access-error sequencer builds faults using
+latched load PC/opcode. There is no second RF, MMU, cache or store buffer.
+Pipeline integer read-port ownership remains active across the memory return,
+including CE pauses. A directed partial-write test caught an initial error in
+that ownership window; it was fixed before acceptance of the following results.
+
+Validation with the corrected source: 14,720 shared-state snapshots, 14 existing
+real-core suites, existing three-injection IRQ/replay check, and immutable
+first-100 silicon comparison (1,900 fields, zero differences). Artifacts:
+`scratch/p2/load/`, `scratch/p2/corpus.log`, `/tmp/cpu-corpus100-gate.7aG7mL`.
+Two forced-admission programs additionally check all192An/Dn/BWL combinations,
+partial writes/CCR, odd and page-crossing reads, and a real bus fault preserving
+Dn/younger state with precise format-7 PC/address; all three bus modes pass.
+A new interrupt-at-load test checks the frame names the following instruction,
+load data commits, younger ADDQ is cancelled/replayed exactly once, and completes
+three injections/three cancellations. Evidence `scratch/p2/direct/`.
+The runner now includes these directed programs and IRQ test when --loads is
+selected, forcing admission only for these directed tests.
+
+Reproduce the integrated gate with:
+`python3 scripts/cpu/pipeline_handoff.py --extended --loads --xstore --lea --out scratch/p2/new`.
+Use a short output path: legacy benches have a128-byte filename field.
+--loads is also available with --pipeline in profile_permute.py; optional
+--force-decode disables the old lookahead to diagnose actual coverage.
+
+At latency3, normal lookahead Permute takes **1,668,981 cycles**, with56,236
+pipeline issues but **zero pipeline loads**. Forced decode exercises10,078loads
+and83,646pipeline issues, taking **1,929,759 cycles**. Both pass the unchanged
+kernel result checks. Production XSTORE+LEA takes1,577,469cycles. The P2 path is
+therefore a correctness checkpoint, NOT a faster hardware candidate; neither
+pipeline macro is selected in QSF. Next work is reducing load handoff overhead
+and covering extension-bearing operands while retaining useful old fast paths.

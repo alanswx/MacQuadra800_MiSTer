@@ -1291,3 +1291,17 @@ Screenshots, timings and per-test report:
 `scratch/xstore_fit_20260919/`. Boot and clean shutdown passed (`final_halt.png` in the evidence directory).
 The Linux MiSTer and remote service remained running; only the guest halted.
 A/UX and CD audio have not been checked on this build.
+
+
+## 25. LEA displacement overlap (2026-09-19, mister.local)
+
+XSTORE+LEA candidate94d922f: five valid Mix runs **1.000 /1.005 /1.005 /1.006 /1.005**,
+median **1.005**, mean **1.0042**, no invalid timer result. +0.80% median vs XSTORE
+0.997. Authentic33MHz,32MB, unchanged Main/CFG and disposable disk. Full per-test
+seconds, Whetstones/Dhrystones and screenshots:
+`scratch/hardware_lea_20260919/lea_results.md`. Boot and guest clean shutdown
+passed; host MiSTer and remote services remained running. Original disk remained
+untouched/unmounted. RBF SHA-256:
+`d3bd1b96b48f95b9b3b665d1c74a8e973eb7cf54e9efac18943f5cbafbf4d04c`.
+A/UX and CD audio are not yet tested on this candidate; this is not a release.
+The1.8goal remains unmet.

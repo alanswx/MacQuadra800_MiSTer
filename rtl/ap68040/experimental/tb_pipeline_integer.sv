@@ -14,7 +14,9 @@ module tb_pipeline_integer;
     wire [4:0] retire_ccr;
     wire in_supported;
     ap040_pipeline_integer dut (.external_a(32'd0), .external_b(32'd0),
-        .external_ccr(5'd0), .read_src(), .read_dst(), .*);
+        .external_ccr(5'd0), .read_src(), .read_dst(), .load_req(), .load_addr(), .load_size(), .load_pc(), .load_opcode(),
+        .load_ack(1'b0), .load_fault(1'b0), .load_data(32'd0),
+        .retire_fault(), .retire_fault_addr(), .*);
     reg [15:0] code [0:32767];
     reg [31:0] regs [0:15];
     integer registers = 8;

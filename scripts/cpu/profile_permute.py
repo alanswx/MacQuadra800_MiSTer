@@ -20,12 +20,16 @@ def main():
     parser.add_argument("resource", type=Path)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--pipeline", action="store_true")
+    parser.add_argument("--loads", action="store_true")
+    parser.add_argument("--force-decode", action="store_true")
     parser.add_argument("--xstore", action="store_true")
     parser.add_argument("--lea", action="store_true")
     parser.add_argument("--latencies", default="0,3,8")
     parser.add_argument("--verilator", default="/home/alans/verilator5/bin/verilator")
     parser.add_argument("--vasm", default="/home/alans/mister/MacQuadra800_fixtures/wombat-vasm/vasmm68k_mot")
     args = parser.parse_args()
+    if (args.loads or args.force_decode) and not args.pipeline:
+        parser.error("--loads and --force-decode require --pipeline")
     resource = args.resource.read_bytes()
     assert hashlib.sha256(resource).hexdigest() == RESOURCE_SHA, "resource identity changed"
     # Verified AppleDouble offset: resource entry 82 + CODE 3 body 0x6250f.
@@ -56,6 +60,10 @@ def main():
     sources = [ROOT / "verilator/tb_cpu_permute.sv", ROOT / "rtl/wombat_cpu.sv",
                ROOT / "rtl/wombat_store_buffer.sv", *(rtl / (u + ".v") for u in units)]
     flags = []
+    if args.force_decode:
+        flags.append("-DAP040_PIPELINE_FORCE_DECODE")
+    if args.loads:
+        flags.append("-DAP040_EXPERIMENTAL_PIPELINE_LOADS")
     if args.lea:
         flags.append("-DAP040_EXPERIMENTAL_LEA")
     if args.xstore:
@@ -67,7 +75,8 @@ def main():
     identity.update(resource_sha256=RESOURCE_SHA, kernel_sha256=KERNEL_SHA,
                     program_sha256=hashlib.sha256(program).hexdigest(),
                     experimental_pipeline=args.pipeline, experimental_xstore=args.xstore,
-                    experimental_lea=args.lea,
+                    experimental_lea=args.lea, experimental_pipeline_loads=args.loads,
+                    force_decode=args.force_decode,
                     memory_model="controlled latency, no SDRAM or retained platform line")
     (out / "identity.json").write_text(json.dumps(identity, indent=2) + "\n")
     run([args.verilator, "--binary", "--timing", "-Wno-fatal", "-Wno-BLKLOOPINIT",
@@ -79,7 +88,7 @@ def main():
                     f"+latency={latency}"], f"latency{latency}.log")
         assert "KERNEL32 PASS" in text and "Fatal" not in text, text[-3000:]
         print("\n".join(line for line in text.splitlines()
-                        if line.startswith(("KERNEL32", "LATENCY", "BUFFER_UPPER_BOUND"))), flush=True)
+                        if line.startswith(("KERNEL32", "LATENCY", "BUFFER_UPPER_BOUND", "PIPELINE"))), flush=True)
 
 
 if __name__ == "__main__":

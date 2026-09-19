@@ -262,3 +262,34 @@ page-split/MMU/error/IRQ coverage, then measure against current production path.
 Do not infer speed from the standalone correctness tests. Prototype source has
 NOT been promoted; only scratch has the load ports. Its compatibility bench
 explicitly ties off the new ports because the existing testbench uses `.*`.
+
+
+## Latest state: LEA hardware complete; P2 load integration checked
+
+LEA94d922f hardware scores1.000/1.005/1.005/1.006/1.005, median1.005, mean1.0042,
+all valid. Operator confirmed clean guest halt, Linux Main/remote still running,
+original disk untouched/unmounted. No Quartus flow is active. Operator idle.
+
+The P2 load prototype is now integrated in source behind
+AP040_EXPERIMENTAL_PIPELINE_LOADS plus AP040_EXPERIMENTAL_PIPELINE, both off in
+QSF. Existing memory/page-split/fault sequencing is reused. A CE-paused return
+initially used the wrong RF port for partial Dn merge; fixed by pipe_rf_owner
+covering load_active and return. Corrected14suites+14720snapshots+IRQ replay and
+first100silicon pass;192load combinations, odd/pagecross reads and precise bus
+fault pass all3modes. New load IRQ test passes3injections/3kills with exact replay.
+See design doc P2 section, `scratch/p2/identity.json`, `scratch/p2/direct/` and
+`scratch/p2/load/`. Runner now includes directed programs with forced admission;
+new combined-feature IRQ-only run is at `scratch/p2/irq.log` (session10141).
+
+Performance is NOT a gain: normal lookahead Permute1,668,981cycles admits0loads;
+forced decode1,929,759cycles admits10,078loads vs production1,577,469cycles.
+Do not fit/deploy this pipeline as a speed candidate. Next measure forced
+register-only vs forced P2, then reduce load request/return handoff cycles and
+extend d16 operands so ordinary mixed streams can remain in the pipeline.
+
+
+Final combined-feature directed rerun passed with strengthened monitor:
+all_loads1161commits/585pipeline loads (195 per phase,192combinations+3edge reads),
+fault3pipeline loads with6cancelled records. Logs `scratch/p2/direct/*_combined.log`.
+New combined-feature IRQ gate also passed (scratch/p2/irq.log). No test/build
+process is intentionally left running; hardware operator finished at clean halt.

@@ -309,6 +309,24 @@ wire [31:0] usp_wb = (aux_we && aux_sel == 2'd0) ? aux_wdata : usp_q;
 // Architectural state stays in this core; no bulk import/export or shadow RF.
 `ifdef AP040_EXPERIMENTAL_PIPELINE
 localparam S_EXPERIMENT_PIPE = 8'd250;
+localparam S_PIPE_LOAD_RETURN = 8'd249;
+`ifdef AP040_EXPERIMENTAL_PIPELINE_LOADS
+localparam PIPE_LOADS = 1;
+`else
+localparam PIPE_LOADS = 0;
+`endif
+wire pipe_load_req;
+wire [31:0] pipe_load_addr, pipe_load_pc;
+wire [15:0] pipe_load_opcode;
+wire [1:0] pipe_load_size;
+reg pipe_load_active;
+wire pipe_load_return = state == S_PIPE_LOAD_RETURN;
+wire pipe_load_abort = pipe_load_active &&
+    ((state == S_MRD) || (state == S_MRD_B)) && d_err;
+// Successful split/ordinary reads converge at the same return state. A
+// fault is handled by aerr_start; discard all younger pipeline records.
+wire pipe_load_ack = pipe_load_return || (ce && pipe_load_abort);
+
 wire pipe_supported, pipe_ready, pipe_retire, pipe_we, pipe_idle;
 wire [3:0] pipe_src, pipe_dst, pipe_wdst;
 wire [31:0] pipe_data, pipe_pc;
@@ -316,6 +334,10 @@ wire [15:0] pipe_opcode;
 wire [4:0] pipe_ccr;
 wire pipe_claim = (state == S_DECODE) && pipe_supported;
 wire pipe_owner = state == S_EXPERIMENT_PIPE;
+// The memory sequencer does not own integer operands during a pipeline
+// load. Its response may arrive during a CE pause, so retain the pipeline
+// read ports through the return edge for the partial-Dn merge.
+wire pipe_rf_owner = pipe_owner || pipe_load_active || pipe_load_return;
 wire pipe_drain = pipe_owner && pipe_idle;
 wire pipe_input = (pipe_claim && !rf_we && !aux_we) ||
     (pipe_owner && epf_ready_pc && pipe_supported &&
@@ -323,8 +345,8 @@ wire pipe_input = (pipe_claim && !rf_we && !aux_we) ||
 wire pipe_cancel = pipe_owner && pipe_retire &&
     (irq_pend || tr_t1 || (tr_t0 && t0_force));
 wire pipe_write = pipe_owner && pipe_retire && pipe_we;
-ap040_pipeline_integer #(.EXTERNAL_STATE(1)) integer_pipeline (
-    .clk(clk), .nreset(nreset), .ce(ce), .flush(1'b0),
+ap040_pipeline_integer #(.EXTERNAL_STATE(1), .ENABLE_LOADS(PIPE_LOADS)) integer_pipeline (
+    .clk(clk), .nreset(nreset), .ce(ce), .flush(pipe_load_abort),
     .kill_younger(pipe_cancel), .idle(pipe_idle),
     .external_a(rf_rdata_a), .external_b(rf_rdata_b), .external_ccr(sr[4:0]),
     .read_src(pipe_src), .read_dst(pipe_dst), .in_supported(pipe_supported),
@@ -334,11 +356,26 @@ ap040_pipeline_integer #(.EXTERNAL_STATE(1)) integer_pipeline (
     .retire_ready(pipe_owner), .retire_valid(pipe_retire), .retire_we(pipe_we),
     .retire_dst(pipe_wdst), .retire_data(pipe_data), .retire_ccr(pipe_ccr),
     .retire_pc(pipe_pc), .retire_opcode(pipe_opcode),
+    .load_req(pipe_load_req), .load_addr(pipe_load_addr), .load_size(pipe_load_size),
+    .load_pc(pipe_load_pc), .load_opcode(pipe_load_opcode),
+    .load_ack(pipe_load_ack), .load_fault(1'b0), .load_data(m_val),
+    .retire_fault(), .retire_fault_addr(),
     .fallback_valid(), .fallback_pc(), .fallback_opcode()
 );
 `else
 wire pipe_claim = 1'b0;
 wire pipe_drain = 1'b0;
+`endif
+
+`ifdef AP040_EXPERIMENTAL_PIPELINE
+always @(posedge clk) begin
+    if (!nreset) pipe_load_active <= 0;
+    else if (ce) begin
+        if (pipe_owner && pipe_load_req && !pipe_load_active)
+            pipe_load_active <= 1;
+        if (pipe_load_return || pipe_load_abort) pipe_load_active <= 0;
+    end
+end
 `endif
 
 ap040_regfile regfile
@@ -349,8 +386,8 @@ ap040_regfile regfile
     .we(pipe_write || rf_we),
     .waddr(pipe_write ? pipe_wdst : rf_waddr),
     .wdata(pipe_write ? pipe_data : rf_wdata),
-    .raddr_a(pipe_owner ? pipe_src : rr_a), .rdata_a(rf_rdata_a),
-    .raddr_b(pipe_owner ? pipe_dst : rr_b), .rdata_b(rf_rdata_b),
+    .raddr_a(pipe_rf_owner ? pipe_src : rr_a), .rdata_a(rf_rdata_a),
+    .raddr_b(pipe_rf_owner ? pipe_dst : rr_b), .rdata_b(rf_rdata_b),
 `else
 	.we(rf_we), .waddr(rf_waddr), .wdata(rf_wdata),
 	.raddr_a(rr_a), .rdata_a(rf_rdata_a),
@@ -7894,7 +7931,16 @@ always @(posedge clk) begin
 
 			//---------------------------------------------------------- decode
 `ifdef AP040_EXPERIMENTAL_PIPELINE
+            S_PIPE_LOAD_RETURN: state <= S_EXPERIMENT_PIPE;
             S_EXPERIMENT_PIPE: begin
+                // The pipeline issues only after older WB has committed.
+                // Reuse mrd for MMU checks, page splits and format-7 faults.
+                // Fault context belongs to this load, not the advanced IF PC.
+                if (pipe_load_req && !pipe_load_active) begin
+                    pc_i <= pipe_load_pc;
+                    ir <= pipe_load_opcode;
+                    mrd(pipe_load_addr, pipe_load_size, S_PIPE_LOAD_RETURN);
+                end
                 if (pipe_input && pipe_ready) begin
                     epf_pop = 2'd1;
                     pc <= pc + 32'd2;
