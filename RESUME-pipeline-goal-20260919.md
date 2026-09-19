@@ -711,3 +711,59 @@ work; it is deferred to Dani and must not be claimed as passed. The disk-locatio
 question is resolved, not a blocker. Continue CPU correctness, Mac boot/shutdown,
 Speedometer validation and the remaining applicable hardware checks. No message
 has been sent to Dani and no A/UX test has been performed.
+
+
+## P5 fit terminal; hardware trial running
+
+P5 unit q800-p5-fit-20260919.service is terminal/MainPID0/ExecMainStatus1.
+Compile and placement succeeded; wrapper1 is HDMI timing miss, not CPU failure.
+38,320ALMs91%,26,325registers,491RAM43DSP. CPU+.532ns, internal CPU-to-CPU
+worst+.556ns, SDRAM+.665ns, hold+.202ns; sys->ram+1.016/ram->sys+.532ns.
+Both new RF banks are512bitMLABs; cache tags/data retain RAM inference.
+HDMI misses-.091ns shadowmask.dout[12]->hdmi_osd.nrdout1[12], -.008ns scaler.
+Detailed CPU/HDMI reports and cross-domain reports are archived with fit data.
+Source-check/cross exits0. Artifact hash independently verified:
+`scratch/p5_fit_20260919/MacQuadra800_p5_e12d882.rbf`, SHA256
+`4449b3c51a3e991515afe0440ce2da5aeab2d6175fbcda210f344d8841f037b1`.
+P5 source freeze has ended. No new full Quartus flow is running. The later
+TimeQuest CPU/HDMI extraction completed successfully at16:18:59EDT.
+
+mister_operator is now running P5 five-run Mix validation on the disposable
+disk at33MHz32MB, labelled HDMI timing-marginal. No accepted P5 result yet.
+Use scratch/hardware_p5_20260919 for evidence. Never switch during timed tests.
+Latest accepted hardware median remains1.005 (P4). Local A/UX is waived/deferred
+to Dani per user; do not re-request the disk or claim A/UX passed.
+
+## P6 broader indexed-memory experiment (scratch only)
+
+Paths in progression (all under scratch/, no P6 feature is in tracked RTL):
+- p6_indexload_20260919: brief indexed MOVEA.W/L and MOVE.L toDn. Normal
+  unrestricted Towers28,656,161cycles vs matched P5 unrestricted29,000,193.
+  Independent oracle:8,046retirements/3,072loads at delays0/1/3/8 and with/without
+  CE/WB stalls. Request addresses/data/size, all RF/CCR and next-PC pass; full
+  or missing extensions rejected. Wrong index-word and MOVEA.W sign extension
+  mutations detected (oracle.log,negative.log). This does not yet cover faults.
+- p6_indexshift_20260919 combines shifts: same28,656,161cycles; no extra gain.
+- p6_indexshiftlea_20260919 adds LEA d16(An):27,552,105cycles, nearly production
+  PEA-only27,509,911. Shifts now keep LEA in the same supported stream.
+- p6_indexfull_20260919 adds byte/word indexed Dn loads and indexed register
+  stores, with a fifth RF read bank (third for pipeline). This supplies base,
+  index and store source / old partial destination concurrently with forwarding.
+  Normal unrestricted Towers26,445,814cycles:3.87% below production,8.81% below
+  matched unrestricted P5. All moves/nodes/lists/guards pass.
+  Permute1,527,183cycles is0.48% ABOVE P5's1,519,907, so entry policy needs review.
+
+Broader prototype full_gate.py is running (session75172) using scratch core,
+module and RF; inspect full_gate.log for terminal result. Expanded load oracle
+passes13,166retirements/5,120loads in all8schedules. Store oracle is running
+(session79347), same5,120request scope and8schedules, inspect store_oracle.log.
+These oracles use default-off shift/LEA parameters, isolating indexed memory;
+shift/LEA still need independent coverage before promotion. The full real-core
+suite exercises enabled features but is not exhaustive. New precise indexed
+fault/trace/IRQ fixtures and a fifth-port collision-isolation test are still due.
+
+Selective-entry performance probes are running: Towers session26461,
+selective_results.log; Permute session81905,permute_selective.log. Both use the
+existing AP040_PIPELINE_SELECTIVE rule. Read results before choosing policy.
+Do not promote the prototype or claim hardware gain until correctness, fit,
+RAM inference/timing and hardware runs are validated.

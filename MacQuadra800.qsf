@@ -300,6 +300,11 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # CPU setup -0.357 ns (timing-marginal trial only), HDMI +0.180, hold +0.223.
 # SDRAM +0.478 ns; crossings sys->ram +0.478 / ram->sys +0.843 ns.
 # Cache data/tag RAM inference preserved. RBF SHA256 25c41c76545eb38b767df72145080d19b37577862816fcbb7250f864950ec2be.
+# 2026-09-19 P5 overlap + separate RF reads e12d882, seed21:38,320ALMs91%,491RAM,43DSP.
+# CPU +0.532 ns (internal CPU paths +0.556); SDRAM +0.665; hold +0.202.
+# HDMI -0.091 ns (shadowmask->OSD), second path -0.008 (scaler); experimental trial.
+# Crossings sys->ram +1.016 / ram->sys +0.532 ns. Both added RF banks remain MLAB.
+# RBF SHA256 4449b3c51a3e991515afe0440ce2da5aeab2d6175fbcda210f344d8841f037b1.
 set_global_assignment -name SEED 21
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
