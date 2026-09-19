@@ -662,3 +662,46 @@ Latest accepted hardware Mix remains median **1.005** across five valid LEA
 runs. The 1.8 goal remains unmet. A/UX compatibility is pending: its image and
 backup named in the notes are absent from MiSTer and the searched local fixture
 paths; the user has been asked for their location.
+
+
+## Fetch capacity and pipeline exit measurements (43c6903)
+
+An isolated scratch sweep enlarged the single branch-refill sector while keeping
+its replacement, context and invalidation rules. Production RTL was unchanged.
+Exact Towers at controlled latency 3 passed moves/list/guard checks for all sizes:
+
+| Sector bytes | Cycles | Reduction vs 32 bytes |
+| --- | ---: | ---: |
+| 32 | 27,509,911 | baseline |
+| 64 | 27,509,907 | negligible |
+| 128 | 27,473,039 | 0.13% |
+| 256 | 27,228,991 | 1.02% |
+| 1024 | 26,688,870 | 2.98% |
+| 4096 | 26,454,839 | 3.84% |
+
+Artifacts, reproducible generators, source hashes and logs:
+`scratch/brf_capacity_20260919/`. These are simulation capacity probes, not
+correctness-qualified hardware candidates or strict bounds on other buffer
+organizations. The gain does not justify prioritizing this design over pipeline
+coverage; no sector enlargement was promoted and no Quartus flow was launched.
+
+A current-source Permute admission profile counts each drained exit with a
+resident unsupported next opcode, distinguishing an empty-fetch exit. Normal
+lookahead: 56,236 issues, zero loads, 1,668,981 cycles. Dominant exits are indexed
+PEA 0x4870 (20,156), LEA d16(A7),A7 0x4fef (5,039), BRA 0x603c (3,620).
+Forced decode: 83,646 issues, 10,078 loads, 1,899,527 cycles; additionally MOVE.W
+(A0),(A1) 0x3290 causes 10,078 exits and MOVE.W D0,-(A7) 0x3f00 causes 8,659.
+Both modes have one empty-fetch exit and pass the exact kernel checks.
+Artifacts and source hashes: `scratch/p2/admission/`.
+
+This identifies memory destinations, stack pushes and control flow as major
+barriers to sustained overlap. Merely adding more register instructions or
+(An) loads will not remove them. Next substantial pipeline work should cover
+resident extension words and ordered stores, beginning with indexed PEA or
+register-to-stack MOVE; preserve precise faults and commit A7 only at successful
+store completion. The old fast paths must remain available outside ownership.
+
+Hardware operator's read-only check shows the Mac safe-shutdown screen on the
+disposable slot-0 image; screenshot `scratch/hardware_lea_20260919/status_boot_now.png`.
+No input, reload or disk changes were performed. Latest accepted Mix remains
+1.005 median; 1.8 and the missing A/UX regression remain outstanding.
