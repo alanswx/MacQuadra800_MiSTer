@@ -635,3 +635,30 @@ kernel result checks. Production XSTORE+LEA takes1,577,469cycles. The P2 path is
 therefore a correctness checkpoint, NOT a faster hardware candidate; neither
 pipeline macro is selected in QSF. Next work is reducing load handoff overhead
 and covering extension-bearing operands while retaining useful old fast paths.
+
+
+## P2 load handoff follow-up
+
+Registered load requests now supply the existing data-cache hint and can issue
+through the aligned in-place path. Ordinary read acknowledgements forward into
+pipeline WB directly; split reads retain the buffered return. The pipeline
+buffers responses when CE is paused or WB cannot advance.
+
+Final combined gate passed in `scratch/p2/direct_gate.log`: 14,720 oracle and
+shared-state snapshots, six stall schedules and negative controls, all 14 prior
+real-core suites, both directed load programs, and both precise IRQ/replay tests.
+Current-source first-100 silicon comparison passed (1,900 field groups, zero real
+differences) in `scratch/p2/direct_corpus.log`. Standalone response tests passed
+at delays 0/1/3/8, including CE pauses, WB stalls, cancellation and fault handling;
+the independent 768-retirement/192-load oracle passed (`scratch/p2/response_unit/`).
+
+Forced-load Permute at latency 3 improves from 1,929,759 to **1,899,527 cycles**
+with 10,078 loads. Matched forced register-only control takes 1,849,139 cycles;
+production XSTORE+LEA takes 1,577,469. Thus this removes about three cycles per
+load but remains slower overall. Pipeline macros remain off in QSF; no new
+hardware performance claim or full-machine pipeline fit is made.
+
+Latest accepted hardware Mix remains median **1.005** across five valid LEA
+runs. The 1.8 goal remains unmet. A/UX compatibility is pending: its image and
+backup named in the notes are absent from MiSTer and the searched local fixture
+paths; the user has been asked for their location.

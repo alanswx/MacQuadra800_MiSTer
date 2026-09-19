@@ -323,9 +323,11 @@ reg pipe_load_active;
 wire pipe_load_return = state == S_PIPE_LOAD_RETURN;
 wire pipe_load_abort = pipe_load_active &&
     ((state == S_MRD) || (state == S_MRD_B)) && d_err;
-// Successful split/ordinary reads converge at the same return state. A
-// fault is handled by aerr_start; discard all younger pipeline records.
-wire pipe_load_ack = pipe_load_return || (ce && pipe_load_abort);
+// Ordinary reads forward the acknowledgement; split reads use the buffered
+// return state. Faults use aerr_start and discard younger pipeline records.
+wire pipe_load_direct = pipe_load_active && state == S_MRD && m_issued && d_ack && !d_err;
+wire pipe_load_ack = pipe_load_return || pipe_load_direct || (ce && pipe_load_abort);
+wire [31:0] pipe_load_value = pipe_load_direct ? mem_rdata : m_val;
 
 wire pipe_supported, pipe_ready, pipe_retire, pipe_we, pipe_idle;
 wire [3:0] pipe_src, pipe_dst, pipe_wdst;
@@ -345,6 +347,7 @@ wire pipe_input = (pipe_claim && !rf_we && !aux_we) ||
 wire pipe_cancel = pipe_owner && pipe_retire &&
     (irq_pend || tr_t1 || (tr_t0 && t0_force));
 wire pipe_write = pipe_owner && pipe_retire && pipe_we;
+wire pipe_load_launch = pipe_owner && pipe_load_req && !pipe_load_active;
 ap040_pipeline_integer #(.EXTERNAL_STATE(1), .ENABLE_LOADS(PIPE_LOADS)) integer_pipeline (
     .clk(clk), .nreset(nreset), .ce(ce), .flush(pipe_load_abort),
     .kill_younger(pipe_cancel), .idle(pipe_idle),
@@ -358,13 +361,14 @@ ap040_pipeline_integer #(.EXTERNAL_STATE(1), .ENABLE_LOADS(PIPE_LOADS)) integer_
     .retire_pc(pipe_pc), .retire_opcode(pipe_opcode),
     .load_req(pipe_load_req), .load_addr(pipe_load_addr), .load_size(pipe_load_size),
     .load_pc(pipe_load_pc), .load_opcode(pipe_load_opcode),
-    .load_ack(pipe_load_ack), .load_fault(1'b0), .load_data(m_val),
+    .load_ack(pipe_load_ack), .load_fault(1'b0), .load_data(pipe_load_value),
     .retire_fault(), .retire_fault_addr(),
     .fallback_valid(), .fallback_pc(), .fallback_opcode()
 );
 `else
 wire pipe_claim = 1'b0;
 wire pipe_drain = 1'b0;
+wire pipe_load_launch = 1'b0;
 `endif
 
 `ifdef AP040_EXPERIMENTAL_PIPELINE
@@ -373,7 +377,7 @@ always @(posedge clk) begin
     else if (ce) begin
         if (pipe_owner && pipe_load_req && !pipe_load_active)
             pipe_load_active <= 1;
-        if (pipe_load_return || pipe_load_abort) pipe_load_active <= 0;
+        if (pipe_load_return || pipe_load_abort || pipe_load_direct) pipe_load_active <= 0;
     end
 end
 `endif
@@ -1889,7 +1893,7 @@ task mem_issue;
 		if (((!mgo_wr && (state == S_PIPE_START || state == S_PIPE_SRD ||
 		                  state == S_PIPE_DEA || state == S_DECODE ||
 		                  state == S_RET1 || state == S_UNLK1 ||
-		                  state == S_MOVEM_LOOP)) ||
+		                  state == S_MOVEM_LOOP || pipe_load_launch)) ||
 		     (mgo_wr && (state == S_EXEC || state == S_MOVEM_LOOP ||
 		                 // the pushes: BSR.B from decode, BSR.W, JSR, PEA,
 		                 // LINK -- registered data (pc, ea_addr, port A
@@ -3241,8 +3245,18 @@ wire        hint_ftb = rd_is_bcc && (state == S_PIPE_REGS || state == S_EXEC ||
 // two-clock read); if not, a fill issued this cycle has merely lost its
 // idle-read match.  The acknowledge stays out of the select (it would
 // put the acknowledge in front of the hint's translation).
+// Pipeline load request fields are registered before the owner issues
+// mrd. Present the same data hint as the legacy operand issue sites.
+`ifdef AP040_EXPERIMENTAL_PIPELINE
+wire hint_p2 = pipe_load_launch;
+wire [31:0] hint_p2_addr = pipe_load_addr;
+`else
+wire hint_p2 = 1'b0;
+wire [31:0] hint_p2_addr = 32'd0;
+`endif
 wire        hint_bd  = bd_ok && !epf_pend && !mem_req && !sr[15];
 wire [31:0] hint_addr = hint_data  ? m_addr_r :
+                        hint_p2    ? hint_p2_addr :
                         hint_store ? hint_store_addr :
                         hint_bcc   ? (pc + sxb(ir[7:0])) :
                         hint_pipe  ? hint_pipe_addr :
@@ -3261,7 +3275,7 @@ wire [31:0] hint_addr = hint_data  ? m_addr_r :
 assign mem_addr  = mem_addr_q;
 assign mem_instr = mem_instr_q;
 assign mem_hint_addr  = mem_req ? mem_addr_q  : hint_addr;
-assign mem_hint_instr = mem_req ? mem_instr_q : !(hint_data || hint_store || hint_pipe || hint_ea || hint_pop);
+assign mem_hint_instr = mem_req ? mem_instr_q : !(hint_data || hint_store || hint_pipe || hint_ea || hint_pop || hint_p2);
 
 //---------------------------------------------------------------------------
 // main state machine
@@ -5055,6 +5069,13 @@ always @(posedge clk) begin
 					// for all ordinary memory-to-register operations, not just
 					// MOVE. Keep the original completion/fault ordering and leave
 					// non-ALU/system consumers on their capture/execute path.
+`ifdef AP040_EXPERIMENTAL_PIPELINE
+                    // A normal pipeline read forwards the acknowledgement
+                    // directly into WB. Split reads keep the buffered return.
+                    if (pipe_load_direct) begin
+                        state <= S_EXPERIMENT_PIPE;
+                    end else
+`endif
 					if (r_m_ret == S_PIPE_SDONE && p_src == SK_MEM &&
 					    p_dst == DK_REG && exec_kind == EK_ALU) begin
 						retire_operand_alu;

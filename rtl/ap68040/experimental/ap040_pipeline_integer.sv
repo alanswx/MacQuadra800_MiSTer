@@ -150,7 +150,8 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0, parameter ENABLE_L
             dec_size, dec_src, dec_dst, dec_immediate} = decode(id_opcode);
 
     wire wb_ready = !wb_v || (retire_ready && !wb_fault);
-    wire ex_complete = !ex_load || load_done;
+    wire load_response = load_pending && load_ack && !load_discard && !flush && !kill_younger;
+    wire ex_complete = !ex_load || load_done || load_response;
     wire ex_ready = !ex_v || (wb_ready && ex_complete);
     wire id_advance = id_v && legal && ex_ready;
     assign idle = !id_v && !ex_v && !wb_v && !load_pending;
@@ -188,7 +189,7 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0, parameter ENABLE_L
     // handles its own delayed MLAB write beneath this bypass.
     wire [31:0] source_full = ex_imm ? ex_immediate :
         (wb_v && wb_we && wb_dst == ex_src) ? wb_data : rf_a;
-    wire [31:0] src = ex_load ? load_value : ex_word_src ? {{16{source_full[15]}}, source_full[15:0]} : source_full;
+    wire [31:0] src = ex_load ? (load_done ? load_value : load_data) : ex_word_src ? {{16{source_full[15]}}, source_full[15:0]} : source_full;
     wire [31:0] dst = (wb_v && wb_we && wb_dst == ex_dst) ? wb_data : rf_b;
     wire [4:0] flags_in = wb_v ? wb_ccr : (EXTERNAL_STATE ? external_ccr : ccr);
     wire [31:0] alu_result;
@@ -225,7 +226,10 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0, parameter ENABLE_L
                 if (load_discard || (ce && (flush || kill_younger)))
                     load_done <= 0;
                 else begin
-                    load_done <= 1; load_value <= load_data; load_error <= load_fault;
+                    // Forward a response directly into WB when EX can advance;
+                    // otherwise retain it, including throughout a CE pause.
+                    load_done <= !(ce && ex_v && ex_load && wb_ready);
+                    load_value <= load_data; load_error <= load_fault;
                 end
             end
         end
@@ -252,7 +256,7 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0, parameter ENABLE_L
                     wb_v <= ex_v && ex_complete;
                     if (ex_v && ex_complete) begin
                         wb_pc <= ex_pc; wb_opcode <= ex_opcode;
-                        wb_fault <= ex_load && load_error;
+                        wb_fault <= ex_load && (load_done ? load_error : load_fault);
                         wb_fault_addr <= load_addr_r;
                         wb_dst <= ex_dst; wb_we <= ex_we; wb_data <= merged;
                         wb_ccr <= ex_flags ? alu_flags : flags_in;
