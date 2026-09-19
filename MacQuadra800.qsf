@@ -339,6 +339,8 @@ set_global_assignment -name VERILOG_MACRO "MISTER_DISABLE_ADAPTIVE=1"
 #set_global_assignment -name VERILOG_MACRO "ETHERNET_OFF=1"
 # Posted cross-line cache-store candidate; register pipeline remains disabled.
 set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_XSTORE=1"
+# Overlap LEA displacement fetch with base selection; checked independently.
+set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_LEA=1"
 set_global_assignment -name VERILOG_MACRO "CACHE_CD_OFF=1"
 #set_global_assignment -name VERILOG_MACRO "VIDEO_512_OFF=1"
 set_global_assignment -name VERILOG_MACRO "CACHE_SMALL=1"

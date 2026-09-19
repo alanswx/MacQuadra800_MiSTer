@@ -549,3 +549,34 @@ blocks, 43 DSP; setup +0.068 ns, hold +0.243 ns. CPU +0.979 ns, SDRAM +0.800 ns;
 sys->ram +1.514 ns and ram->sys +0.979 ns. RAM inference preserved. Archived
 reports and SHA-verified unique RBF: `scratch/xstore_fit_20260919/`. Five-run
 hardware evaluation is now assigned to the operator; no new Mix result yet.
+
+
+## LEA displacement overlap candidate
+
+The exact Towers opcode-attribution probe (cycles charged to the live IR, not
+retirement CPI) puts LEA d16(A5),A0 at 12.43% of cycles with XSTORE enabled.
+Evidence: `scratch/towers_probe_20260919/profile_top.txt`. The new opt-in
+`AP040_EXPERIMENTAL_LEA` selects the base register while the existing immediate
+fetch task obtains d16(An), then retires LEA at completed displacement arithmetic.
+PC-relative LEA also retires at completed displacement arithmetic; its fetch
+path remains unchanged. The existing IRQ/trace retirement task and extension
+fault handling are reused. No operand bus access or CCR write is introduced.
+The QSF selects XSTORE plus LEA for the next fit; the register pipeline stays off.
+
+All 27 existing CPU checks pass with both macros compiled. New compact tests
+cover all 64 source/destination An pairs at five signed displacement values,
+CCR preservation and successive dependent LEAs, in all three bus modes. A
+separate demand extension fault at a page boundary verifies no destination
+write and the precise format-7 frame PC, also in all three modes. Compact test
+assembly is byte-identical to the executed 320-case fixture. Both tests are now
+in the normal runner (29 checks); `CPU_TEST_LEA=1 CPU_TEST_XSTORE=1` enables the
+features and `CPU_TEST_WORK` selects an isolated output directory. Existing27
+plus the two separately executed programs were checked; no claim of a second
+full29 run. First-100 silicon corpus: 1,900 field groups match, zero differences
+(`/tmp/cpu-corpus100-gate.pZcv2X`, `scratch/lea_gate_20260919/corpus.log`).
+
+Controlled latency-3 original Towers: XSTORE 29,647,247 -> XSTORE+LEA 27,509,911
+cycles (7.21% fewer), with all count/list/guard checks passing. Original Permute:
+1,588,970 -> 1,577,469 (0.72% fewer), all count/array/guard checks passing.
+Evidence: `scratch/towers_lea_20260919/`, `scratch/permute_lea_20260919/` and
+`scratch/lea_gate_20260919/`. These remain kernel checks, not Mix predictions.

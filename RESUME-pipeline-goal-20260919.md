@@ -190,3 +190,10 @@ probe of the original Towers bytes, intended to check another call-heavy kernel
 without changing any Quartus source. Both variants pass count/list/guard checks: baseline 34,118,877 cycles vs XSTORE
 29,647,247 at controlled RAM latency 3 (13.11% fewer). Source identity and logs
 are archived there. This is not a hardware score.
+
+
+Next candidate is XSTORE+LEA displacement overlap, register pipeline still off.
+Correctness/kernel results are in the design doc's LEA section. QSF selects both
+macros for its full fit. XSTORE hardware series is still on the prior c328ae7
+artifact; do not mix candidates in that five-run series. First completed XSTORE
+screenshot shows Mix0.993; await operator's validated final report.

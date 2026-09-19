@@ -31,6 +31,9 @@ for unit in ap040_tg68k_compat ap040_core ap040_bus16_adapter ap040_bus_timeout 
     sources+=("$rtl/$unit.v")
 done
 extra_flags=()
+if [[ ${CPU_GATE_LEA:-0} == 1 ]]; then
+    extra_flags+=(-DAP040_EXPERIMENTAL_LEA)
+fi
 if [[ ${CPU_GATE_XSTORE:-0} == 1 ]]; then
     extra_flags+=(-DAP040_EXPERIMENTAL_XSTORE)
 fi

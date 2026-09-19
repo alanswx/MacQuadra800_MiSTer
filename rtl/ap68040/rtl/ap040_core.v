@@ -5160,6 +5160,15 @@ always @(posedge clk) begin
 			S_EA_D16: begin
 				ea_addr <= (ea_pcmode ? ea_pcb : rf_rdata_a) + sxw(imm[15:0]);
 				state <= r_ea_ret;
+`ifdef AP040_EXPERIMENTAL_LEA
+                // LEA has no operand access or flags to finish after EA.
+                // Retire only after its extension has completed normally.
+                if (r_ea_ret == S_LEA1) begin
+                    rfw({1'b1, d_reg9},
+                        (ea_pcmode ? ea_pcb : rf_capture_a) + sxw(imm[15:0]));
+                    fetch_next;
+                end
+`endif
 			end
 
 			S_EA_EXTW: begin
@@ -8075,7 +8084,15 @@ always @(posedge clk) begin
 										if (d_mode == 3'b001 || (d_mode == 3'b011) || (d_mode == 3'b100) || ea_is_imm)
 											go_illegal;
 										else
-											ea_start(d_mode, d_rn, `AP040_SZ_L, S_LEA1);
+										begin
+                                        ea_start(d_mode, d_rn, `AP040_SZ_L, S_LEA1);
+`ifdef AP040_EXPERIMENTAL_LEA
+                                        // Select the base while fetching d16;
+                                        // the return edge sees a settled RF port.
+                                        if (d_mode == 3'b101)
+                                            immf(2'd1, S_EA_D16);
+`endif
+                                    end
 								end
 								else
 									if (d_op8_6 == 3'b110)
