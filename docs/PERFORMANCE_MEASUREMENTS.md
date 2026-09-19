@@ -1272,3 +1272,21 @@ Candidate SHA-256 is
 Main/CFG/clock/RAM were unchanged. It booted and reached clean shutdown;
 `candidate_clean_halt.png` and `candidate_results.md` are in the same evidence
 directory. This was a performance experiment, not the complete release gate.
+
+
+## 24. Posted cross-line cache stores (2026-09-19, mister.local)
+
+XSTORE candidate c328ae7 completed five valid Speedometer 4.02 Mix runs:
+**0.993 / 0.997 / 0.997 / 0.997 / 0.997**. Median **0.997**, mean **0.9962**,
+range 0.993–0.997, no observed invalid timer result. Versus the refill-load
+candidate median 0.925, this is **7.78% higher** (mean improvement 7.74%).
+The installed-core baseline median was 0.927. This is useful hardware progress,
+not achievement of the 1.8 goal or completion of the full release gate.
+
+Authentic 33 MHz, 32 MB, unchanged Main and Ethernet-on CFG `40 00 00 00`,
+all ten tests at iteration 1, verified disposable disk. RBF SHA-256:
+`e7d26efcb9ac22b7ef4cb2b284b405ba32fdedc3012c2d87ef4bb57af00fa4d3`.
+Screenshots, timings and per-test report:
+`scratch/hardware_xstore_20260919/xstore_results.md`. Fit evidence:
+`scratch/xstore_fit_20260919/`. Boot passed; clean shutdown confirmation is
+pending from the operator. A/UX and CD audio have not been checked on this build.

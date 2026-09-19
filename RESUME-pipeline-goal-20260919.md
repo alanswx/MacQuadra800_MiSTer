@@ -197,3 +197,28 @@ Correctness/kernel results are in the design doc's LEA section. QSF selects both
 macros for its full fit. XSTORE hardware series is still on the prior c328ae7
 artifact; do not mix candidates in that five-run series. First completed XSTORE
 screenshot shows Mix0.993; await operator's validated final report.
+
+
+## Active Quartus flow: LEA candidate 94d922f
+
+Unit `q800-lea-fit-20260919` is ACTIVE, launched at 13:50 EDT. **Freeze RTL/QSF/
+QIP/SDC until it finishes.** Committed source: `94d922f3c50ca4a3e19cccfd7152650c29bab5e4`.
+Launcher and automatically archived output: `scratch/lea_fit_20260919/`.
+Intended artifact `MacQuadra800_lea_94d922f.rbf`. Same new-artifact-mtime check,
+source checksums, build.exit/cross.exit, unique RBF hash and crossing reports as
+the completed XSTORE flow. Inspect area/timing/RAM/crossings before deploy.
+Only docs and isolated scratch fixtures may change during the flow.
+
+XSTORE operator remains active. Four completion screenshots were present at
+13:50; five valid runs and clean halt still pending. Do not interrupt or load
+the LEA build before the current series completes. Current hardware artifact
+is c328ae7, not the newer working-tree candidate.
+
+
+XSTORE hardware five-run result is now available: **0.993,0.997,0.997,0.997,0.997**,
+median **0.997**, mean **0.9962**, no invalid timer outliers. +7.78% median vs
+refill-load candidate0.925. This is the latest measured hardware result; 1.8 is
+still unmet. Operator is finishing shutdown, adding all per-test seconds and
+clarifying that its report's disk hash is the PRE-BOOT copy identity. Report:
+`scratch/hardware_xstore_20260919/xstore_results.md`. LEA fit94d922f remains active;
+all five frozen source checksums were verified OK at13:51EDT.
