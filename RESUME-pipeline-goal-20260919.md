@@ -620,3 +620,21 @@ Only nonfunctional unused-port tie-offs were added to the standalone pipeline
 instance after its gate compile. No further functional change since validation.
 Next: full P5 fit with same seed21 and existing feature recipe, source freeze.
 P4 hardware trial remains active with mister_operator; no result accepted yet.
+
+
+## ACTIVE P5 Quartus flow — source freeze
+
+Candidate `e12d8829ce0afd1a43c0a29a2eebac8f6d6abafa` is committed and verified
+running in `q800-p5-fit-20260919.service`, MainPID1078706. Quartus synthesis
+has started. Do not edit RTL/QSF/QIP/SDC until this flow is terminal. Only one
+Quartus flow may run anywhere on this box. Archive/launcher:
+`scratch/p5_fit_20260919/`; expected unique RBF `MacQuadra800_p5_e12d882.rbf`.
+Launcher checks source hashes, build exit and crossings and archives reports as
+for P4. At completion inspect actual report dates/exits, CPU setup, holds,
+SDRAM crossings and RAM inference (especially extra_reads.bank_c/bank_d MLABs).
+Do not infer success from service status or an older output_files artifact.
+Current root-side CPU validation jobs are all terminal and passed.
+Operator `/root/mister_operator` is running the five P4 hardware trials; preserve
+that session and wait for its report. Never switch to P5 mid-benchmark.
+Latest accepted hardware median remains1.005; goal1.8 and release regressions
+are unmet. A/UX-image-location question remains pending.
