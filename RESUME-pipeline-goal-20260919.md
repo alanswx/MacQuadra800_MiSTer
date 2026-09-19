@@ -1552,3 +1552,19 @@ P19Towers terminalPASS25,227,008 versusP13 25,469,823 (0.95%fewer),
 issues1,913,043vs1,376,616; noAP040redirectmismatch/FAILdiagnostics.
 Broadgate startedsession36346 in scratch/p19_branchpipe_20260919/gate.log.
 Stillunqualified, targetwrongpathmemory/IRQ/trace coverage required.
+
+### P19 condition and wrong-path-store qualification
+
+scratchP19 conditions.py runsall15CC×8independentCMPpairs×3busphases:
+360primarybranches retire innewpipeline,192taken168untaken, allPASS.
+Newtracked scripts/cpu/pipeline_control_stores.py --core PATH
+--pipeline-module PATH --out DIR tests sameconditions withyoungerstore.
+All360architecturalcasesPASS;357branchesretire inpipeline (192taken,
+165untaken),3untakenfallbacklegacy. Exactcoverageassertionupdatedfrom360
+onlyafterconfirmingallprogramvaluechecksPASS; donotclaim360pipelinedstores.
+Disablingbranchkill breaksarchitecturalprograminall3phases evenwithout
+handoffmonitor: scratch/p19_branchpipe_20260919/bad_effect/run.log.
+ReusabletestterminalPASS (reusable_stores.log). Branchprototype still
+needsIRQ/trace/fault/wrongpathread coverage and silicon/otherkernels.
+Broadgate36346running (throughpipeline_load_faultPASS). P13fitactive
+MainPID1515481; noinputchanges. P12hardwareagentcontinuestrial.
