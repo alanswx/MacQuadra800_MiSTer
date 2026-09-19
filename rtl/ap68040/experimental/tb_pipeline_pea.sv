@@ -1,5 +1,5 @@
 `timescale 1ns/1ps
-module tb_pipeline_stores;
+module tb_pipeline_pea;
     reg clk = 0;
     always #5 clk = !clk;
     reg kill_younger = 0;
@@ -13,15 +13,20 @@ module tb_pipeline_stores;
     wire [3:0] retire_dst;
     wire [4:0] retire_ccr;
     wire in_supported;
-    ap040_pipeline_integer #(.ENABLE_STORES(1)) dut (.external_a(32'd0), .external_b(32'd0),
-        .external_ccr(5'd0), .next_opcode(16'd0), .next_extension(16'd0), .next_valid(1'b0), .next_extension_valid(1'b0), .next_supported(), .external_sp(32'd0), .in_extension(16'd0), .in_extension_valid(1'b0), .in_words(), .retire_next_pc(), .read_src(), .read_dst(), .load_req(load_req), .load_write(load_write), .load_wdata(load_wdata), .load_ccr(), .load_addr(load_addr), .load_size(load_size), .load_pc(load_pc), .load_opcode(),
+    reg [15:0] extension=0;
+    reg extension_valid=1;
+    wire [31:0] retire_next_pc;
+    reg [31:0] end_pc;
+    integer end_pc_arg;
+    ap040_pipeline_integer #(.ENABLE_STORES(1), .ENABLE_PEA(1)) dut (.external_a(32'd0), .external_b(32'd0),
+        .external_ccr(5'd0), .next_opcode(16'd0), .next_extension(16'd0), .next_valid(1'b0), .next_extension_valid(1'b0), .next_supported(), .external_sp(32'd0), .in_extension(extension), .in_extension_valid(extension_valid), .in_words(), .retire_next_pc(retire_next_pc), .read_src(), .read_dst(), .load_req(load_req), .load_write(load_write), .load_wdata(load_wdata), .load_ccr(), .load_addr(load_addr), .load_size(load_size), .load_pc(load_pc), .load_opcode(),
         .load_ack(load_ack), .load_fault(1'b0), .load_data(32'd0),
         .retire_fault(), .retire_fault_addr(), .*);
     wire load_req,load_write;
     wire [31:0] load_wdata,load_addr,load_pc;
     wire [1:0] load_size;
     reg load_ack=0,pending=0;
-    reg [99:0] expected_stores[0:2047], held;
+    reg [99:0] expected_stores[0:8191], held;
     integer req_count=0, waitleft=0, delay=0, paused_ack=0, expected_requests=0;
     reg [1023:0] stores_file;
     initial begin
@@ -30,7 +35,7 @@ module tb_pipeline_stores;
       if(!$value$plusargs("requests=%d",expected_requests)) $fatal(1,"missing request count");
       $readmemh(stores_file,expected_stores);
     end
-    reg [15:0] code [0:32767];
+    reg [63:0] code [0:32767];
     reg [31:0] regs [0:15];
     integer registers = 8;
     integer count, sent = 0, retired = 0, cycles = 0, i, fd;
@@ -47,6 +52,7 @@ module tb_pipeline_stores;
             !$value$plusargs("count=%d", count)) $fatal(1, "missing arguments");
         if ($value$plusargs("mode=%d", mode)) begin end
         if ($value$plusargs("registers=%d", registers)) begin end
+        if(!$value$plusargs("end_pc=%h",end_pc)) $fatal(1,"missing end PC");
         $readmemh(program_file, code);
         if (!$value$plusargs("supported=%s", supported_file)) $fatal(1, "missing supported map");
         $readmemh(supported_file, supported);
@@ -57,12 +63,19 @@ module tb_pipeline_stores;
             if (in_supported !== supported[i] || dut.legal !== supported[i]) $fatal(1, "decoder mismatch opcode=%04x", decode_probe);
         end
         release dut.id_opcode;
+        for(i=0;i<8;i=i+1) begin
+            in_opcode=16'h4870+i; extension=16'h0100; extension_valid=1;
+            #1;if(in_supported) $fatal(1,"full extension admitted");
+            extension=0; extension_valid=0;
+            #1;if(in_supported) $fatal(1,"missing extension admitted");
+        end
+        extension_valid=1;
         fd = $fopen(trace_file, "w");
         if (!fd) $fatal(1, "trace open failed");
         for (i = 0; i < registers; i = i + 1) regs[i] = 0;
         repeat (4) @(negedge clk);
         nreset = 1;
-        while (cycles < 100000) begin
+        while (cycles < 1000000) begin
             // A cancelled prefix fills all three stages but commits nothing.
             // Restart the stream to prove that no cancelled state leaks out.
             ce = mode != 1 || cycles % 11 != 4;
@@ -80,8 +93,9 @@ module tb_pipeline_stores;
                 sent = retired; flushed = 1; held_input = 0;
             end
             in_valid = !flush && !kill_younger && (held_input || mode != 1 || cycles % 7 != 3);
-            in_pc = 32'h400 + 2 * sent;
-            in_opcode = sent < count ? code[sent] : 16'h4afc;
+            in_pc = sent < count ? code[sent][63:32] : end_pc;
+            in_opcode = sent < count ? code[sent][31:16] : 16'h4afc;
+            extension = sent < count ? code[sent][15:0] : 16'd0;
             if (!in_valid) bubble_cycles = bubble_cycles + 1;
             if (!retire_ready) stall_cycles = stall_cycles + 1;
             if (!ce) disabled_cycles = disabled_cycles + 1;
@@ -106,6 +120,8 @@ module tb_pipeline_stores;
             if (in_valid && in_ready) sent = sent + 1;
             if (retire_valid && retire_ready) begin
                 if (retired >= count) $fatal(1, "extra retirement");
+                if(retire_next_pc !== (retired+1<count ? code[retired+1][63:32] : end_pc))
+                    $fatal(1,"incorrect next PC at retirement %0d",retired);
                 if (retire_we) regs[retire_dst] = retire_data;
                 $fwrite(fd, "%08x %04x %02x", retire_pc, retire_opcode, retire_ccr);
                 for (i = 0; i < registers; i = i + 1) $fwrite(fd, " %08x", regs[i]);
@@ -113,7 +129,7 @@ module tb_pipeline_stores;
                 retired = retired + 1;
             end
             if (fallback_valid) begin
-                if (retired != count || fallback_pc != 32'h400 + 2*count ||
+                if (retired != count || fallback_pc != end_pc ||
                     fallback_opcode != 16'h4afc) $fatal(1, "fallback ordering");
                 if(req_count != expected_requests) $fatal(1,"missing stores");
                 $display("STORE ORACLE requests=%0d paused_ack=%0d",req_count,paused_ack);

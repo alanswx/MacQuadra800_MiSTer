@@ -31,6 +31,14 @@ for unit in ap040_tg68k_compat ap040_core ap040_bus16_adapter ap040_bus_timeout 
     sources+=("$rtl/$unit.v")
 done
 extra_flags=()
+if [[ ${CPU_GATE_PIPELINE_PEA:-0} == 1 ]]; then
+    [[ ${CPU_GATE_PIPELINE:-0} == 1 ]] || { echo "Pipeline PEA requires CPU_GATE_PIPELINE=1" >&2; exit 2; }
+    extra_flags+=(-DAP040_EXPERIMENTAL_PIPELINE_PEA)
+fi
+if [[ ${CPU_GATE_PIPELINE_PEA_ENTRY_ONLY:-0} == 1 ]]; then
+    [[ ${CPU_GATE_PIPELINE_PEA:-0} == 1 ]] || { echo "PEA entry policy requires CPU_GATE_PIPELINE_PEA=1" >&2; exit 2; }
+    extra_flags+=(-DAP040_PIPELINE_PEA_ENTRY_ONLY)
+fi
 if [[ ${CPU_GATE_PIPELINE_STORES:-0} == 1 ]]; then
     [[ ${CPU_GATE_PIPELINE:-0} == 1 ]] || { echo "Pipeline stores require CPU_GATE_PIPELINE=1" >&2; exit 2; }
     extra_flags+=(-DAP040_EXPERIMENTAL_PIPELINE_STORES)

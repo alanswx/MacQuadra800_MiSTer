@@ -303,7 +303,7 @@ wire [31:0] dbg_a7_wb = (rf_we && rf_waddr == 4'd15) ? rf_wdata : dbg_a7;
 wire [31:0] usp_wb = (aux_we && aux_sel == 2'd0) ? aux_wdata : usp_q;
 
 // Experimental ownership/issue checkpoint, absent from release builds.
-// The pipeline consumes resident two-byte integer/memory instructions. It drains before
+// The pipeline consumes resident integer/memory instructions and brief PEA. It drains before
 // returning unsupported words to the sequencer; IRQ/trace cancels younger
 // work at a retirement boundary, preserving the committing instruction.
 // Architectural state stays in this core; no bulk import/export or shadow RF.
@@ -319,6 +319,11 @@ localparam PIPE_LOADS = 0;
 localparam PIPE_STORES = 1;
 `else
 localparam PIPE_STORES = 0;
+`endif
+`ifdef AP040_EXPERIMENTAL_PIPELINE_PEA
+localparam PIPE_PEA = 1;
+`else
+localparam PIPE_PEA = 0;
 `endif
 wire pipe_load_req, pipe_load_write;
 wire [31:0] pipe_load_wdata;
@@ -337,13 +342,27 @@ wire pipe_load_direct = pipe_load_active && (state == S_MRD || state == S_MWR) &
 wire pipe_load_ack = pipe_load_return || pipe_load_direct || (ce && pipe_load_abort);
 wire [31:0] pipe_load_value = pipe_load_direct ? mem_rdata : m_val;
 
-wire pipe_supported, pipe_ready, pipe_retire, pipe_we, pipe_idle;
+wire pipe_supported, pipe_next_supported, pipe_ready, pipe_retire, pipe_we, pipe_idle;
 wire [3:0] pipe_src, pipe_dst, pipe_wdst;
-wire [31:0] pipe_data, pipe_pc;
+wire [31:0] pipe_data, pipe_pc, pipe_next_pc;
+wire [1:0] pipe_words;
 wire [15:0] pipe_opcode;
 wire [4:0] pipe_ccr;
-wire pipe_claim = (state == S_DECODE) && pipe_supported;
+// A short unsupported boundary should retain the sequencer's fast path.
+// PEA already wins in isolation; other entries need a supported successor.
+// Forced-decode tests deliberately bypass this policy for opcode coverage.
+`ifdef AP040_PIPELINE_FORCE_DECODE
+wire pipe_entry_ok = 1'b1;
+`elsif AP040_PIPELINE_PEA_ENTRY_ONLY
+wire pipe_entry_ok = pipe_words == 2;
+`elsif AP040_PIPELINE_SELECTIVE
+wire pipe_entry_ok = pipe_words == 2 || pipe_next_supported;
+`else
+wire pipe_entry_ok = 1'b1;
+`endif
+wire pipe_claim = (state == S_DECODE) && pipe_supported && pipe_entry_ok;
 wire pipe_owner = state == S_EXPERIMENT_PIPE;
+wire [2:0] pipe_ext_head = epf_head + (pipe_owner ? 3'd1 : 3'd0);
 // The memory sequencer does not own integer operands during a pipeline
 // load. Its response may arrive during a CE pause, so retain the pipeline
 // read ports through the return edge for the partial-Dn merge.
@@ -356,17 +375,21 @@ wire pipe_cancel = pipe_owner && pipe_retire &&
     (irq_pend || tr_t1 || (tr_t0 && t0_force));
 wire pipe_write = pipe_owner && pipe_retire && pipe_we;
 wire pipe_load_launch = pipe_owner && pipe_load_req && !pipe_load_active;
-ap040_pipeline_integer #(.EXTERNAL_STATE(1), .ENABLE_LOADS(PIPE_LOADS), .ENABLE_STORES(PIPE_STORES)) integer_pipeline (
+ap040_pipeline_integer #(.EXTERNAL_STATE(1), .ENABLE_LOADS(PIPE_LOADS), .ENABLE_STORES(PIPE_STORES), .ENABLE_PEA(PIPE_PEA)) integer_pipeline (
     .clk(clk), .nreset(nreset), .ce(ce), .flush(pipe_load_abort),
     .kill_younger(pipe_cancel), .idle(pipe_idle),
-    .external_a(rf_rdata_a), .external_b(rf_rdata_b), .external_ccr(sr[4:0]),
+    .external_a(rf_rdata_a), .external_b(rf_rdata_b), .external_sp(dbg_a7_wb), .external_ccr(sr[4:0]),
     .read_src(pipe_src), .read_dst(pipe_dst), .in_supported(pipe_supported),
+    .next_opcode(epf_data[epf_head]), .next_extension(epf_data[(epf_head + 3'd1) & 3'd7]),
+    .next_valid(epf_ready_pc), .next_extension_valid(epf_ready_pc2), .next_supported(pipe_next_supported),
     .in_valid(pipe_input), .in_ready(pipe_ready),
     .in_pc(pipe_owner ? pc : pc_i),
     .in_opcode(pipe_owner ? epf_data[epf_head] : ir),
+    .in_extension(epf_data[pipe_ext_head]),
+    .in_extension_valid(pipe_owner ? epf_ready_pc2 : epf_ready_pc), .in_words(pipe_words),
     .retire_ready(pipe_owner), .retire_valid(pipe_retire), .retire_we(pipe_we),
     .retire_dst(pipe_wdst), .retire_data(pipe_data), .retire_ccr(pipe_ccr),
-    .retire_pc(pipe_pc), .retire_opcode(pipe_opcode),
+    .retire_pc(pipe_pc), .retire_next_pc(pipe_next_pc), .retire_opcode(pipe_opcode),
     .load_req(pipe_load_req), .load_write(pipe_load_write),
     .load_wdata(pipe_load_wdata), .load_ccr(pipe_load_ccr), .load_addr(pipe_load_addr), .load_size(pipe_load_size),
     .load_pc(pipe_load_pc), .load_opcode(pipe_load_opcode),
@@ -7981,8 +8004,8 @@ always @(posedge clk) begin
                     end else mrd(pipe_load_addr, pipe_load_size, S_PIPE_LOAD_RETURN);
                 end
                 if (pipe_input && pipe_ready) begin
-                    epf_pop = 2'd1;
-                    pc <= pc + 32'd2;
+                    epf_pop = pipe_words;
+                    pc <= pc + {29'd0, pipe_words, 1'b0};
                     perf_dispatch_toggle <= ~perf_dispatch_toggle;
                 end
                 if (pipe_retire) begin
@@ -7997,7 +8020,7 @@ always @(posedge clk) begin
                 if (pipe_cancel) begin
                     // WB commits, ID/EX die. The exception frame names the
                     // first unexecuted instruction, not the advanced IF PC.
-                    pc <= pipe_pc + 32'd2;
+                    pc <= pipe_next_pc;
                     fetch_next;
                 end else if (pipe_idle && !pipe_input) begin
                     // All pipeline writes have reached the architectural RF
@@ -8010,7 +8033,15 @@ always @(posedge clk) begin
 			S_DECODE: begin
 `ifdef AP040_EXPERIMENTAL_PIPELINE
                 if (pipe_claim) begin
-                    if (pipe_input && pipe_ready) state <= S_EXPERIMENT_PIPE;
+                    if (pipe_input && pipe_ready) begin
+                        // S_DECODE already consumed the opcode; consume only
+                        // a resident extension alongside pipeline admission.
+                        if (pipe_words == 2) begin
+                            epf_pop = 2'd1;
+                            pc <= pc + 32'd2;
+                        end
+                        state <= S_EXPERIMENT_PIPE;
+                    end
                 end else begin
 `endif
 				// Step D: the body keeps only the paths the record marks in
@@ -9092,7 +9123,7 @@ always @(posedge clk) begin
 		if (igo) immf_now(igo_n, igo_ret);
 		if (retire_req) begin
 `ifdef AP040_EXPERIMENTAL_PIPELINE
-            fetch_next_body(pipe_owner ? pipe_pc + 32'd2 : pc,
+            fetch_next_body(pipe_owner ? pipe_next_pc : pc,
                             pipe_owner ? pipe_pc : pc_i);
 `else
             fetch_next_body(pc, pc_i);

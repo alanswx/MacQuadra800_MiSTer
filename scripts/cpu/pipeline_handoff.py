@@ -15,11 +15,16 @@ def main():
     parser.add_argument("--force-decode", action="store_true", help="disable sequencer lookahead for full pipeline coverage")
     parser.add_argument("--extended", action="store_true")
     parser.add_argument("--loads", action="store_true", help="enable head-ordered pipeline loads")
+    parser.add_argument("--pea-entry-only", action="store_true", help="enter pipeline only at resident PEA")
+    parser.add_argument("--selective", action="store_true", help="retain sequencer for isolated non-PEA entries")
+    parser.add_argument("--pea", action="store_true", help="enable resident brief-index PEA")
     parser.add_argument("--stores", action="store_true", help="enable head-ordered pipeline stores")
     parser.add_argument("--xstore", action="store_true")
     parser.add_argument("--lea", action="store_true")
     parser.add_argument("--only-reference", action="store_true")
     args = parser.parse_args()
+    if args.pea_entry_only and not args.pea:
+        parser.error("--pea-entry-only requires --pea")
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
     reference = out / ("prototype_extended" if args.extended else "prototype")
@@ -37,6 +42,12 @@ def main():
         common.append("-DAP040_EXPERIMENTAL_XSTORE")
     if args.lea:
         common.append("-DAP040_EXPERIMENTAL_LEA")
+    if args.pea_entry_only:
+        common.append("-DAP040_PIPELINE_PEA_ENTRY_ONLY")
+    if args.selective:
+        common.append("-DAP040_PIPELINE_SELECTIVE")
+    if args.pea:
+        common.append("-DAP040_EXPERIMENTAL_PIPELINE_PEA")
     if args.stores:
         common.append("-DAP040_EXPERIMENTAL_PIPELINE_STORES")
     if args.loads:
@@ -51,14 +62,14 @@ def main():
                    f"+trace={out / 'handoff.trace'}", f"+count={len(oracle)}", f"+registers={16 if args.extended else 8}"], out / "trace.log")
         compare(out / "handoff.trace", oracle)
         match = re.search(r"HANDOFF entries=(\d+) commits=(\d+) paused=(\d+) cancelled=(\d+)", log)
-        assert "ALL TESTS PASSED" in log and match and int(match[1]) > 0 and int(match[1]) == int(match[2]), log[-2000:]
+        assert "ALL TESTS PASSED" in log and match and (args.pea_entry_only or int(match[1]) > 0) and int(match[1]) == int(match[2]), log[-2000:]
         if args.force_decode:
             assert int(match[1]) == len(oracle), log[-2000:]
         print(f"PASS {len(oracle)} shared-state snapshots; {match[0]}", flush=True)
         if args.only_reference:
             return
         run([*common, "-o", out / "program.vvp", *source], out / "compile_program.log")
-        if args.loads or args.stores:
+        if args.loads or args.stores or args.pea:
             run([*common, "-DAP040_PIPELINE_FORCE_DECODE", "-o", out / "loads.vvp", *source],
                 out / "compile_loads.log")
         tests = ("integer", "exceptions", "mmu", "bitfield_mmu", "bitfield_cache", "moves_fc",
@@ -68,19 +79,21 @@ def main():
             tests += ("pipeline_loads", "pipeline_load_fault")
         if args.stores:
             tests += ("pipeline_stores", "pipeline_store_fault")
+        if args.pea:
+            tests += ("pipeline_pea", "pipeline_pea_fault", "pipeline_pea_ext_fault", "pipeline_pea_trace")
         for name in tests:
             asm = ROOT / f"rtl/ap68040/tb/asm/t_{name}.s"
             run([args.vasm, "-Fbin", "-m68040", "-no-opt", "-o", out / f"{name}.bin", asm],
                 out / f"{name}.asm.log", cwd=asm.parent.parent)
             run(["python3", ROOT / "rtl/ap68040/tb/bin2hex.py", out / f"{name}.bin",
                  out / f"{name}.hex"], out / f"{name}.hex.log")
-            program = out / ("loads.vvp" if name.startswith(("pipeline_load", "pipeline_store")) else "program.vvp")
+            program = out / ("loads.vvp" if name.startswith(("pipeline_load", "pipeline_store", "pipeline_pea")) else "program.vvp")
             log = run(["vvp", program, f"+prog={out / (name + '.hex')}"], out / f"{name}.log")
             assert "ALL TESTS PASSED" in log and "FAIL:" not in log, f"{name}: {log[-2000:]}"
             match = re.search(r"HANDOFF entries=(\d+) commits=(\d+) paused=(\d+) cancelled=(\d+)", log)
-            assert match and int(match[1]) > 0 and int(match[1]) == int(match[2]) + int(match[4]), log[-1000:]
+            assert match and (args.pea_entry_only or int(match[1]) > 0) and int(match[1]) == int(match[2]) + int(match[4]), log[-1000:]
             print(f"PASS {name}: {match[0]}", flush=True)
-    run([*common, "-s", "irq_overlap_monitor", "-o", out / "irq_overlap.vvp",
+    run([*common, *(["-DAP040_PIPELINE_FORCE_DECODE"] if args.pea_entry_only else []), "-s", "irq_overlap_monitor", "-o", out / "irq_overlap.vvp",
          EXP / "irq_overlap_monitor.sv", *source], out / "compile_irq_overlap.log")
     run([args.vasm, "-Fbin", "-m68040", "-no-opt", "-o", out / "irq_overlap.bin",
          EXP / "irq_overlap.s"], out / "irq_overlap.asm.log")
@@ -115,6 +128,18 @@ def main():
         match = re.search(r"STORE IRQ injections=(\d+) killed=(\d+) stores=(\d+)", log)
         assert "ALL TESTS PASSED" in log and match and int(match[1]) == 3 and int(match[2]) >= 3 and int(match[3]) == 3, log[-2000:]
         print(f"PASS store interrupt and replay: {match[0]}", flush=True)
+    if args.pea:
+        run([*common, "-DAP040_PIPELINE_FORCE_DECODE", "-s", "irq_pea_monitor",
+             "-o", out / "irq_pea.vvp", EXP / "irq_pea_monitor.sv", *source],
+            out / "compile_irq_pea.log")
+        run([args.vasm, "-Fbin", "-m68040", "-no-opt", "-o", out / "irq_pea.bin",
+             EXP / "irq_pea.s"], out / "irq_pea.asm.log")
+        run(["python3", ROOT / "rtl/ap68040/tb/bin2hex.py", out / "irq_pea.bin",
+             out / "irq_pea.hex"], out / "irq_pea.hex.log")
+        log = run(["vvp", out / "irq_pea.vvp", f"+prog={out / 'irq_pea.hex'}"], out / "irq_pea.log")
+        match = re.search(r"PEA IRQ injections=(\d+) killed=(\d+) stores=(\d+)", log)
+        assert "ALL TESTS PASSED" in log and match and int(match[1]) == 3 and int(match[2]) >= 3 and int(match[3]) == 3, log[-2000:]
+        print(f"PASS PEA interrupt and replay: {match[0]}", flush=True)
     print(f"PASS real-core pipeline ownership integration; artifacts: {out}")
 
 

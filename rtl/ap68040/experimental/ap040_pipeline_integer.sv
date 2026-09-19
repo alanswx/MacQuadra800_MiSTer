@@ -1,24 +1,30 @@
-// Experimental resident-instruction ID/EX/WB pipeline. Not in files.qip.
+// Experimental resident-instruction ID/EX/WB pipeline; opt-in core ownership.
 // Optional head-ordered loads/stores use the owner's memory/exception sequencer.
 `include "ap040_defs.svh"
-module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0, parameter ENABLE_LOADS = 0, parameter ENABLE_STORES = 0) (
+module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0, parameter ENABLE_LOADS = 0, parameter ENABLE_STORES = 0, parameter ENABLE_PEA = 0) (
     input wire clk, nreset, ce, flush,
     // Cancel ID/EX while allowing an accepting WB to commit. A blocked WB
     // is retained. Used when an interrupt is recognized at retirement.
     input wire kill_younger,
     output wire idle,
     // EXTERNAL_STATE uses the owner's one architectural register file and CCR.
-    input wire [31:0] external_a, external_b,
+    input wire [31:0] external_a, external_b, external_sp,
     input wire [4:0] external_ccr,
     output wire [3:0] read_src, read_dst,
     output wire in_supported,
+    // Optional owner admission probe uses the same decoder as real issue.
+    input wire [15:0] next_opcode, next_extension,
+    input wire next_valid, next_extension_valid,
+    output wire next_supported,
     input wire in_valid,
     output wire in_ready,
     input wire [31:0] in_pc,
-    input wire [15:0] in_opcode,
+    input wire [15:0] in_opcode, in_extension,
+    input wire in_extension_valid,
+    output wire [1:0] in_words,
     input wire retire_ready,
     output wire retire_valid,
-    output wire [31:0] retire_pc,
+    output wire [31:0] retire_pc, retire_next_pc,
     output wire [15:0] retire_opcode,
     output wire retire_we,
     output wire [3:0] retire_dst,
@@ -46,7 +52,9 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0, parameter ENABLE_L
     output wire [15:0] fallback_opcode
 );
     reg id_v, ex_v, wb_v;
-    reg ex_load, ex_store, wb_fault;
+    reg ex_load, ex_store, ex_pea, wb_fault;
+    reg [15:0] id_extension, ex_extension;
+    reg [31:0] id_next_pc, ex_next_pc, wb_next_pc;
     reg load_write_r;
     reg [31:0] load_wdata_r;
     reg [4:0] load_ccr_r;
@@ -61,7 +69,7 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0, parameter ENABLE_L
     wire load_issue;
     assign load_req = load_pending || load_issue;
     assign load_write = load_pending ? load_write_r : ex_store;
-    assign load_wdata = load_pending ? load_wdata_r : source_full;
+    assign load_wdata = load_pending ? load_wdata_r : store_value;
     assign load_ccr = load_pending ? load_ccr_r : store_flags;
     assign load_addr = load_pending ? load_addr_r : ex_store ? store_addr : source_full;
     assign load_size = load_pending ? load_size_r : ex_size;
@@ -77,6 +85,9 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0, parameter ENABLE_L
         is_store = ENABLE_STORES && word[15:14] == 0 && word[13:12] != 0 &&
                    word[5:4] == 0 && !(word[13:12] == 1 && word[3]) &&
                    (word[8:6] == 2 || word[8:6] == 3 || word[8:6] == 4);
+    endfunction
+    function automatic is_pea(input [15:0] word);
+        is_pea = ENABLE_PEA && (word & 16'hfff8) == 16'h4870;
     endfunction
     reg [31:0] id_pc, ex_pc, wb_pc;
     reg [15:0] id_opcode, ex_opcode, wb_opcode;
@@ -101,7 +112,10 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0, parameter ENABLE_L
             operation = `AP040_ALU_MOVE; size = `AP040_SZ_L;
             source = {1'b0, word[2:0]}; destination = {1'b0, word[11:9]};
             literal = {{24{word[7]}}, word[7:0]};
-            if (is_load(word)) begin
+            if (is_pea(word)) begin
+                legal = 1; flags = 0;
+                source = {1'b1, word[2:0]}; destination = 4'd15;
+            end else if (is_load(word)) begin
                 legal = 1;
                 source = {1'b1, word[2:0]};
                 destination = {1'b0, word[11:9]};
@@ -171,7 +185,12 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0, parameter ENABLE_L
     wire [3:0] dec_src, dec_dst;
     wire [31:0] dec_immediate;
     wire [52:0] admission = decode(in_opcode);
-    assign in_supported = admission[52];
+    wire [52:0] next_admission = decode(next_opcode);
+    assign next_supported = next_valid && next_admission[52] &&
+        (!is_pea(next_opcode) || (next_extension_valid && !next_extension[8]));
+    assign in_words = is_pea(in_opcode) ? 2'd2 : 2'd1;
+    assign in_supported = admission[52] &&
+        (!is_pea(in_opcode) || (in_extension_valid && !in_extension[8]));
     assign {legal, dec_imm, dec_we, dec_flags, dec_word_src, dec_op,
             dec_size, dec_src, dec_dst, dec_immediate} = decode(id_opcode);
 
@@ -185,6 +204,7 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0, parameter ENABLE_L
     assign retire_valid = nreset && ce && !flush && wb_v;
     wire commit = retire_valid && retire_ready;
     assign retire_pc = wb_pc;
+    assign retire_next_pc = wb_next_pc;
     assign retire_opcode = wb_opcode;
     assign retire_we = wb_we && !wb_fault;
     assign retire_dst = wb_dst;
@@ -194,20 +214,21 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0, parameter ENABLE_L
     assign fallback_pc = id_pc;
     assign fallback_opcode = id_opcode;
 
-    wire [31:0] rf_a, rf_b;
+    wire [31:0] rf_a, rf_b, rf_sp;
     assign read_src = ex_src;
-    assign read_dst = ex_dst;
+    assign read_dst = ex_pea ? ex_extension[15:12] : ex_dst;
     generate if (EXTERNAL_STATE) begin : shared_state
         assign rf_a = external_a;
         assign rf_b = external_b;
+        assign rf_sp = external_sp;
     end else begin : private_state
     ap040_regfile regfile (
         .clk(clk), .nreset(nreset), .ce(ce), .sr_s(1'b1), .sr_m(1'b0),
         .we(commit && wb_we && !wb_fault), .waddr(wb_dst), .wdata(wb_data),
-        .raddr_a(ex_src), .raddr_b(ex_dst),
+        .raddr_a(ex_src), .raddr_b(read_dst),
         .rdata_a(rf_a), .rdata_b(rf_b),
         .aux_we(1'b0), .aux_sel(2'd0), .aux_wdata(32'd0),
-        .usp_q(), .isp_q(), .msp_q(), .dbg_d0(), .dbg_d1(), .dbg_d2(), .dbg_a0(), .dbg_a7()
+        .usp_q(), .isp_q(), .msp_q(), .dbg_d0(), .dbg_d1(), .dbg_d2(), .dbg_a0(), .dbg_a7(rf_sp)
     );
     end endgenerate
     // EX reads late, forwarding the immediately older WB value, including
@@ -216,7 +237,7 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0, parameter ENABLE_L
     wire [31:0] source_full = ex_imm ? ex_immediate :
         (wb_v && wb_we && wb_dst == ex_src) ? wb_data : rf_a;
     wire [31:0] src = ex_store ? load_wdata : ex_load ? (load_done ? load_value : load_data) : ex_word_src ? {{16{source_full[15]}}, source_full[15:0]} : source_full;
-    wire [31:0] dst = (wb_v && wb_we && wb_dst == ex_dst) ? wb_data : rf_b;
+    wire [31:0] dst = (wb_v && wb_we && wb_dst == read_dst) ? wb_data : rf_b;
     wire [4:0] flags_in = wb_v ? wb_ccr : (EXTERNAL_STATE ? external_ccr : ccr);
     wire [31:0] alu_result;
     wire [4:0] alu_flags;
@@ -227,17 +248,22 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0, parameter ENABLE_L
     );
     wire [31:0] merged = ex_size == `AP040_SZ_B ? {dst[31:8], alu_result[7:0]} :
                          ex_size == `AP040_SZ_W ? {dst[31:16], alu_result[15:0]} : alu_result;
+    wire [31:0] pea_index = ex_extension[11] ? dst : {{16{dst[15]}}, dst[15:0]};
+    wire [31:0] pea_value = source_full + (pea_index << ex_extension[10:9]) +
+                           {{24{ex_extension[7]}}, ex_extension[7:0]};
+    wire [31:0] store_value = ex_pea ? pea_value : source_full;
+    wire [31:0] stack_value = wb_v && wb_we && wb_dst == 15 ? wb_data : rf_sp;
     wire [31:0] store_step = ex_size == `AP040_SZ_L ? 32'd4 :
                              (ex_size == `AP040_SZ_W || ex_dst == 15) ? 32'd2 : 32'd1;
-    wire [31:0] store_addr = ex_opcode[8:6] == 4 ? dst - store_step : dst;
-    wire [31:0] store_update = ex_opcode[8:6] == 4 ? load_addr : load_addr + store_step;
+    wire [31:0] store_addr = ex_pea ? stack_value - 32'd4 : ex_opcode[8:6] == 4 ? dst - store_step : dst;
+    wire [31:0] store_update = (ex_pea || ex_opcode[8:6] == 4) ? load_addr : load_addr + store_step;
     // CCR is derived from the actual source before the registered request.
     // MOVE preserves X and clears V/C, independently of address updates.
-    wire [4:0] store_flags = {flags_in[4],
+    wire [4:0] store_flags = ex_pea ? flags_in : {flags_in[4],
         ex_size == `AP040_SZ_B ? source_full[7] : ex_size == `AP040_SZ_W ? source_full[15] : source_full[31],
         ex_size == `AP040_SZ_B ? source_full[7:0] == 0 : ex_size == `AP040_SZ_W ? source_full[15:0] == 0 : source_full == 0,
         2'b00};
-    assign load_issue = (ENABLE_LOADS || ENABLE_STORES) && nreset && ce && !flush && !kill_younger &&
+    assign load_issue = (ENABLE_LOADS || ENABLE_STORES || ENABLE_PEA) && nreset && ce && !flush && !kill_younger &&
         ex_v && ex_load && wb_ready && !load_pending && !load_done && !load_discard;
     always @(posedge clk) begin
         if (!nreset) begin
@@ -250,7 +276,7 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0, parameter ENABLE_L
                 load_done <= 0;
             if (load_issue) begin
                 load_pending <= 1; load_addr_r <= ex_store ? store_addr : source_full;
-                load_write_r <= ex_store; load_wdata_r <= source_full; load_ccr_r <= store_flags;
+                load_write_r <= ex_store; load_wdata_r <= store_value; load_ccr_r <= store_flags;
                 load_size_r <= ex_size; load_discard <= 0;
                 load_pc_r <= ex_pc; load_opcode_r <= ex_opcode;
             end
@@ -275,7 +301,9 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0, parameter ENABLE_L
     always @(posedge clk) begin
         if (!nreset) begin
             id_v <= 0; ex_v <= 0; wb_v <= 0; ccr <= 0;
-            ex_load <= 0; ex_store <= 0; wb_fault <= 0; wb_fault_addr <= 0;
+            ex_load <= 0; ex_store <= 0; ex_pea <= 0;
+            id_extension <= 0; ex_extension <= 0;
+            id_next_pc <= 0; ex_next_pc <= 0; wb_next_pc <= 0; wb_fault <= 0; wb_fault_addr <= 0;
             id_pc <= 0; ex_pc <= 0; wb_pc <= 0;
             id_opcode <= 0; ex_opcode <= 0; wb_opcode <= 0;
             ex_op <= 0; ex_size <= 0; ex_src <= 0; ex_dst <= 0;
@@ -294,7 +322,7 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0, parameter ENABLE_L
                 if (wb_ready) begin
                     wb_v <= ex_v && ex_complete;
                     if (ex_v && ex_complete) begin
-                        wb_pc <= ex_pc; wb_opcode <= ex_opcode;
+                        wb_pc <= ex_pc; wb_next_pc <= ex_next_pc; wb_opcode <= ex_opcode;
                         wb_fault <= ex_load && (load_done ? load_error : load_fault);
                         wb_fault_addr <= load_addr;
                         wb_dst <= ex_dst; wb_we <= ex_we; wb_data <= ex_store ? store_update : merged;
@@ -304,9 +332,10 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0, parameter ENABLE_L
                 if (ex_ready) begin
                     ex_v <= id_v && legal;
                     if (id_v && legal) begin
-                        ex_pc <= id_pc; ex_opcode <= id_opcode;
-                        ex_load <= is_load(id_opcode) || is_store(id_opcode);
-                        ex_store <= is_store(id_opcode);
+                        ex_pc <= id_pc; ex_next_pc <= id_next_pc; ex_opcode <= id_opcode;
+                        ex_extension <= id_extension; ex_pea <= is_pea(id_opcode);
+                        ex_load <= is_load(id_opcode) || is_store(id_opcode) || is_pea(id_opcode);
+                        ex_store <= is_store(id_opcode) || is_pea(id_opcode);
                         ex_op <= dec_op; ex_size <= dec_size;
                         ex_src <= dec_src; ex_dst <= dec_dst;
                         ex_imm <= dec_imm; ex_immediate <= dec_immediate;
@@ -315,7 +344,10 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0, parameter ENABLE_L
                 end
                 if (in_ready) begin
                     id_v <= in_valid;
-                    if (in_valid) begin id_pc <= in_pc; id_opcode <= in_opcode; end
+                    if (in_valid) begin
+                        id_pc <= in_pc; id_next_pc <= in_pc + {29'd0, in_words, 1'b0};
+                        id_opcode <= in_opcode; id_extension <= in_extension;
+                    end
                 end
                 end
             end

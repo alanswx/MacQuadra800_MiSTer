@@ -787,3 +787,85 @@ MOVE and control-flow exits remain other major barriers to sustained overlap.
 No hardware action or Quartus flow was started during P3. Mac remains at the
 last confirmed clean halt on its disposable image. A/UX image location and its
 hardware regression are still pending; do not treat CPU tests as that gate.
+
+
+## P4 candidate: resident brief-index PEA, entry only at PEA
+
+P4 adds PEA d8(An,Xn) behind AP040_EXPERIMENTAL_PIPELINE_PEA. Only a resident
+brief extension is admitted. Full-format or unavailable extensions stay in the
+existing sequencer. Base/index reads share the RF; the existing A7 view supplies
+the stack address, with WB forwarding. PEA preserves CCR and commits A7 only on
+successful store completion. The ordered P3 memory/fault path is reused.
+
+ID/EX/WB now carry a variable next-PC. The first real-core PEA test caught an
+additional old +2 assumption at fetch_next_body reentry, even though the first
+Permute run passed. Corrected reentry and IRQ/trace now use retire_next_pc. The
+failing trace is archived under `scratch/p4/debug/`; do not accept only kernels
+as proof of CPU correctness.
+
+Entry policy was measured on both exact kernels at controlled latency 3:
+
+| Configuration | Permute cycles | Towers cycles |
+| --- | ---: | ---: |
+| Production XSTORE+LEA | 1,577,469 | 27,509,911 |
+| PEA pipeline, unrestricted entry (initial probe) | 1,545,913 | 29,000,193 |
+| Supported-successor entry (initial probe) | 1,526,294 | 27,728,229 |
+| **PEA-only entry, corrected reentry** | **1,536,353** | **27,509,911** |
+
+The selected policy AP040_PIPELINE_PEA_ENTRY_ONLY retains sequencer entry for
+all other instructions, while supported successors may continue in the pipeline.
+It saves 2.61% of Permute cycles and exactly preserves the tested Towers count.
+The broader policies regress Towers and are not selected. These are kernel
+simulations, not Speedometer predictions. Latest accepted hardware Mix remains
+1.005; 1.8 is unmet.
+
+Validation evidence:
+- Independent PEA oracle: 5,006 retirements / 1,056 pushes, all base/index
+  registers, index widths/scales, displacement edges and consecutive A7
+  dependencies at four response delays with/without CE/WB stalls. Memory
+  requests, all registers/CCR and variable next-PC match. Missing/full extensions
+  are rejected. Wrong +2 next-PC and missing A7 forwarding mutations are caught.
+  Reproduce with scripts/cpu/pipeline_pea_oracle.py --out NEW_OUTPUT.
+- Existing independent store oracle and its two negative controls still pass.
+- 14,720 shared-state snapshots and all 14 earlier real-core suites pass using
+  the actual PEA-entry policy. They record zero pipeline entries where appropriate;
+  do not claim these register-only workloads exercise the new pipeline.
+- Forced-admission load/store programs pass. New PEA programs cover 128 base/index
+  combinations, full-format/page-boundary fallback, exact user-stack fault
+  PC/FA/USP/CCR with younger-state cancellation, and extension fault before push.
+  Counts: 336 admitted PEA operations across the three modes for the main program,
+  three for the bus-fault case, zero for the expected extension-fallback fault.
+- PEA trace test passes all three modes: next PC604, trace address600, preserved
+  CCR and correct pushed data. Artifact `scratch/p4/trace/run.log`.
+- Four IRQ/replay tests pass (`scratch/p4/irq.log`). PEA has three injections,
+  three actual younger cancellations and exactly three store launches. It enters
+  through TRAP's architectural prefetch to guarantee resident younger work; the
+  initial cold-fetch test had no younger work and correctly failed its coverage
+  assertion despite passing guest checks.
+- First-100 silicon comparison using PEA-only entry has 1,900 matching field
+  groups and zero real differences (`scratch/p4/corpus.log`,
+  `/tmp/cpu-corpus100-gate.wPfLp5`).
+
+Individual gate evidence is in `scratch/p4/entry_gate/`, plus the corrected IRQ
+and trace runs above. The final consolidated runner completed successfully in
+`scratch/p4/final_gate.log`, including all corrected fixtures.
+No RTL logic changed after those passing checks; final comments identify the
+new file-list inclusion and variable-length admission.
+
+QSF now selects pipeline/loads/stores/PEA/PEA_ENTRY_ONLY alongside XSTORE+LEA,
+without forced decode or the broader selective policy. The module is added to
+both QSF and files.qip. This is a hardware-trial recipe, not a released artifact.
+Next: commit this candidate and run the full Quartus fit, freezing all RTL/QSF/
+QIP/SDC until terminal completion. Archive RAM inference, setup/hold and both
+clock-crossing reports before handing a unique, hash-verified RBF to the operator.
+Mac is at its last confirmed clean halt on the disposable image; do not touch
+the original disk. A/UX location/regression and CD-audio release checks remain
+pending. No P4 hardware result exists yet.
+
+
+P4 final consolidated gate exited zero at 15:29 EDT. All four PEA-specific
+programs and all four IRQ/replay tests passed in that single run. No Quartus
+process was present in the machine-wide process check before build preparation.
+A scratch self-modifying-code probe without cache maintenance produced the same
+old-instruction behavior in both the prior baseline and candidate; it is not
+counted as a passing correctness test or evidence of a candidate regression.
