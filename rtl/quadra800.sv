@@ -535,10 +535,21 @@ wire [31:0] line_cpu_data = (b_addr[3:2] == 2'd0) ? mem_line_data[127:96] :
 // Aligned RAM longword reads are the cache-fill shape before wombat_bus32.
 // Send a first miss directly into the memory service, which still captures its
 // completion in registers, and return later words from the retained BL8 line
-// through their own registered pulse. Adapter-active/ack and direct-miss-ack
-// guards prevent either word from being launched or acknowledged twice.
+// through their own registered pulse. Adapter-active/ack, direct-miss-ack and
+// line-ack guards prevent either word from being launched or acknowledged twice.
+//
+// The line-ack guard (2026-09-19): bus_req still carries the acknowledged
+// request in the clock bus_line_ack is high.  While the CPU was the only
+// master the FSM was always still in S_IDLE in that clock, so bus_line_match
+// stayed high and kept bus_req_adapter low by itself.  The SONIC's DMA arm can
+// leave S_IDLE in the very clock the line ack is registered: eligibility then
+// drops under the ack, bus_req_adapter rose, wombat_bus32 launched a read
+// nobody had asked for, and its completion acknowledged whatever request was
+// on the bus by then -- a fill beat took its neighbour's word, a store was
+// acknowledged without being written.  That was Open Transport's CAS/CAS2
+// lists going circular under receive traffic (verilator/tb_line_dma.sv).
 wire bus_ram_eligible = (svc == S_IDLE) && !walker_pend && !cpu_berr &&
-	                    !bus_miss_ack && !bus_adapter_active &&
+	                    !bus_miss_ack && !bus_line_ack && !bus_adapter_active &&
 	                    !bus_ack_adapter && bus_req && !bus_write &&
 	                    (bus_size == 2'd2) && (bus_addr[1:0] == 2'b00) &&
 	                    (decode(bus_addr[31:2]) == 3'd0);
@@ -553,7 +564,8 @@ wire [31:0] bus_line_data = (bus_addr[3:2] == 2'd0) ? mem_line_data[127:96] :
 	                                                          mem_line_data[31:0];
 
 assign bus_req_adapter = bus_req && !bus_line_match && !bus_line_wait &&
-	                     !bus_first_miss && !svc_bus_direct && !bus_miss_ack;
+	                     !bus_first_miss && !svc_bus_direct && !bus_miss_ack &&
+	                     !bus_line_ack;
 
 always @(posedge clk) begin
 	if (!nreset) begin
