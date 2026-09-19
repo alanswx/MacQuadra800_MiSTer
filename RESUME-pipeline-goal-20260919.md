@@ -858,3 +858,14 @@ Next: commit and launch one full Quartus flow, freeze RTL/QSF/QIP/SDC until
 terminal, check RFbankE MLAB and cache M10Ks, timing and cross-clock reports,
 then have authorized mister_operator run at least5valid hardware Mix trials.
 A/UX skipped/deferred to Dani; other hardware regressions still apply.
+
+### P6 full fit ACTIVE — freeze build sources
+
+Committed P6 `d83e2389bbf5bbdf690e7e3d4eab5bb1ec2d64cb` launched at16:44:58EDT
+in `q800-p6-fit-20260919.service`, MainPID1166285, active/running confirmed.
+Evidence/archive directory `scratch/p6_fit_20260919/`; wrapper `run.sh` records
+source hashes, terminal build/source-check exits, cross-domain extraction and
+unique RBF/report copies. `quartus_sh` and `quartus_map` were running at last
+check. Do not touch RTL/QSF/QIP/SDC or start another Quartus flow until this
+service is terminal. Docs and scratch-only research remain allowed. No P6
+hardware deployment has occurred; operator remains available, MiSTer halted.
