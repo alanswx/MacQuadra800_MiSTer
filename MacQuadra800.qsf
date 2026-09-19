@@ -369,6 +369,9 @@ set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_PIPELINE_PEA=1"
 # P6 memory-entry trial: avoid unrestricted entry's measured Mix regression.
 set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_PIPELINE_P6=1"
 set_global_assignment -name VERILOG_MACRO "AP040_PIPELINE_MEMORY_ENTRY=1"
+# P7 compare trial: indexed CMP/TST plus final-WB legacy handoff.
+set_global_assignment -name VERILOG_MACRO "AP040_PIPELINE_COMPARE=1"
+set_global_assignment -name VERILOG_MACRO "AP040_PIPELINE_EARLY_DRAIN=1"
 set_global_assignment -name VERILOG_MACRO "CACHE_CD_OFF=1"
 #set_global_assignment -name VERILOG_MACRO "VIDEO_512_OFF=1"
 set_global_assignment -name VERILOG_MACRO "CACHE_SMALL=1"

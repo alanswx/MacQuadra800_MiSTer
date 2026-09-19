@@ -1151,3 +1151,28 @@ scratch/hardware_p6entry_20260919/p6entry_results.md; screenshots1–5.
 Operator asked to complete clean shutdown/final_halt.png and report; await
 its final state before hardware actions. NoQuartusflowactive. Main andoriginal
 disk preserved. HDMI-.187 means candidate remains non-release-qualified.
+
+### Compare extension promoted and qualified; next fit prepared
+
+AP040_PIPELINE_COMPARE/ENABLE_COMPARE(defaultoff) now implements brief
+indexedCMP/TST and registerTST. Dead displacement helpers removed. QSF
+enables compare + earlydrain alongside P6/memoryentry. New tracked
+pipeline_compare_{memory_oracle,alu_oracle,negative,faults,boundaries}.py
+preserve prior independent tests, now against actual promoted sources.
+Exactrecipe checks all terminalPASS: fullintegration14legacy+memoryPEA+4IRQ,
+forcedreference14720, independentmemory13166/5120×8,ALU63576×6,2mutations,
+6boundarieswithoutFORCE,2operandfaults×3phases,first1001900groups0diffs
+(/tmp/cpu-corpus100-gate.UX8DIV). Logs scratch/compare_promoted*.log.
+Towers26,256,329/Permute1,519,901/Bubble4,429,205cycles; resultsguardsPASS.
+No claim of1.8 orhardwaregain. Detailed candidate doc:
+docs/cpu-pipeline-compare-20260919.md.
+
+Next authorized action immediately aftercommit/push: single detached
+q800-p7compare-fit-20260919.service using scratch/p7compare_fit_20260919/run.sh.
+FreezeRTL/QSF/QIP/SDC through flow and crossing extraction; archiveuniqueRBF
+withcommit/SHA. No second Quartus flow. Hardwareoperator nowidle; nexttrial
+requires followup oncefitready. Guest cleanlyhalted afterfreshboot; original
+benchmarksession was reset to recover navigation, NOT cleanlyshut down.
+Operator corrected results.md; permanentmeasurementsection29 records this
+limit. Originaldisk/Main untouched, disposable selected. P6entryhardware
+median1.003,mean1.0024,HDMI-.187. CD/audio remainsunchecked,A/UXdeferredDani.

@@ -1373,3 +1373,34 @@ All timing passed:39,631ALMs95%,491RAM,43DSP; CPU+.252ns,HDMI+.089,SDRAM+.741,
 hold+.241; crossings+.741/+.914. Source identities and artifact were verified.
 No A/UX validation (explicitly deferred to Dani); CD/audio remains unchecked.
 P6 is not released, and the1.8goal remains unmet.
+
+## 29. P6 targeted entry recovers the regression, without a net gain
+
+Candidate90b37e4, authentic33MHz/32MB/Ethernet on, same Main and disposable
+Mac image, Speedometer4.02 all10tests iteration1:
+
+| Run | Mix | Timer status |
+| --- | ---: | --- |
+| 1 | 0.998 | Valid |
+| 2 | 1.003 | Valid |
+| 3 | 1.003 | Valid |
+| 4 | 1.004 | Valid |
+| 5 | 1.004 | Valid |
+
+Median1.003, mean1.0024, no invalid timer results. This recovers the unrestricted
+P6median0.963 regression, but does not meaningfully improve P5median1.006.
+It does not meet the1.8goal. Full table and screenshots:
+`scratch/hardware_p6entry_20260919/p6entry_results.md`.
+
+RBF SHA256 `d35e6b42edb653aab94cb95f6a5a92eefea8d8cf9b640d679a5b7055ca95df68`.
+39,603ALMs94%,491RAM,43DSP; CPU+.904ns,SDRAM+.608,hold+.208,
+HDMI-.187(TNS-.568); crossings+.608/+.904. Source and archive hashes checked.
+Marginal HDMI experiment, not release-qualified.
+
+Boot and benchmark execution passed. The operator used same-core reload to
+recover application/navigation state after run5; the original benchmark
+session was NOT cleanly shut down. An unclean-boot warning was dismissed,
+and the subsequent fresh boot reached a clean halt (`final_halt.png`).
+No crash was reported, but this does not prove clean post-benchmark shutdown.
+Original disk untouched; disposable remains selected. No CD/audio validation;
+A/UX explicitly deferred to Dani. No new Main was installed.

@@ -9,7 +9,8 @@ module ap040_pipeline_integer #(
     // Brief indexed MOVE loads and stores; legacy public name retained.
     parameter ENABLE_INDEXLOAD = 0,
     parameter ENABLE_SHIFTS = 0,
-    parameter ENABLE_DISP_LEA = 0
+    parameter ENABLE_DISP_LEA = 0,
+    parameter ENABLE_COMPARE = 0
 ) (
     input wire clk, nreset, ce, flush,
     // Cancel ID/EX while allowing an accepting WB to commit. A blocked WB
@@ -102,8 +103,17 @@ module ap040_pipeline_integer #(
         is_indexstore = ENABLE_INDEXLOAD && word[15:14] == 0 && word[13:12] != 0 &&
             word[5:4] == 0 && !(word[13:12] == 1 && word[3]) && word[8:6] == 6;
     endfunction
+    function automatic is_indexcmp(input [15:0] word);
+        is_indexcmp = ENABLE_COMPARE && (word & 16'hf138) == 16'hb030 && word[7:6] != 3;
+    endfunction
+    function automatic is_indextst(input [15:0] word);
+        is_indextst = ENABLE_COMPARE && (word & 16'hff38) == 16'h4a30 && word[7:6] != 3;
+    endfunction
+    function automatic is_indexread(input [15:0] word);
+        is_indexread = is_indexload(word) || is_indexcmp(word) || is_indextst(word);
+    endfunction
     function automatic is_load(input [15:0] word);
-        is_load = is_indexload(word) || ENABLE_LOADS && word[15:14] == 0 && word[13:12] != 0 &&
+        is_load = is_indexread(word) || ENABLE_LOADS && word[15:14] == 0 && word[13:12] != 0 &&
                   word[8:6] == 0 && word[5:3] == 3'b010;
     endfunction
     function automatic is_store(input [15:0] word);
@@ -137,7 +147,14 @@ module ap040_pipeline_integer #(
             operation = `AP040_ALU_MOVE; size = `AP040_SZ_L;
             source = {1'b0, word[2:0]}; destination = {1'b0, word[11:9]};
             literal = {{24{word[7]}}, word[7:0]};
-            if (is_disp_lea(word)) begin
+            if (is_indexcmp(word) || is_indextst(word)) begin
+                legal = 1; writeback = 0; flags = 1; size = word[7:6];
+                source = {1'b1, word[2:0]}; destination = {1'b0, word[11:9]};
+                operation = is_indexcmp(word) ? `AP040_ALU_CMP : `AP040_ALU_TST;
+            end else if (ENABLE_COMPARE && (word & 16'hff38) == 16'h4a00 && word[7:6] != 3) begin
+                legal = 1; writeback = 0; flags = 1; size = word[7:6];
+                source = {1'b0,word[2:0]}; operation = `AP040_ALU_TST;
+            end else if (is_disp_lea(word)) begin
                 legal = 1; flags = 0;
                 source = {1'b1,word[2:0]}; destination = {1'b1,word[11:9]};
             end else if (is_pea(word)) begin
@@ -227,11 +244,11 @@ module ap040_pipeline_integer #(
     wire [52:0] admission = decode(in_opcode);
     wire [52:0] next_admission = decode(next_opcode);
     assign next_supported = next_valid && next_admission[52] &&
-        (!(is_pea(next_opcode) || is_indexload(next_opcode) || is_indexstore(next_opcode)) || (next_extension_valid && !next_extension[8])) &&
+        (!(is_pea(next_opcode) || is_indexread(next_opcode) || is_indexstore(next_opcode)) || (next_extension_valid && !next_extension[8])) &&
         (!is_disp_lea(next_opcode) || next_extension_valid);
-    assign in_words = (is_pea(in_opcode) || is_indexload(in_opcode) || is_indexstore(in_opcode) || is_disp_lea(in_opcode)) ? 2'd2 : 2'd1;
+    assign in_words = (is_pea(in_opcode) || is_indexread(in_opcode) || is_indexstore(in_opcode) || is_disp_lea(in_opcode)) ? 2'd2 : 2'd1;
     assign in_supported = admission[52] &&
-        (!(is_pea(in_opcode) || is_indexload(in_opcode) || is_indexstore(in_opcode)) || (in_extension_valid && !in_extension[8])) &&
+        (!(is_pea(in_opcode) || is_indexread(in_opcode) || is_indexstore(in_opcode)) || (in_extension_valid && !in_extension[8])) &&
         (!is_disp_lea(in_opcode) || in_extension_valid);
     assign {legal, dec_imm, dec_we, dec_flags, dec_word_src, dec_op,
             dec_size, dec_src, dec_dst, dec_immediate} = decode(id_opcode);
@@ -261,7 +278,7 @@ module ap040_pipeline_integer #(
     wire [31:0] rf_a, rf_b, rf_sp, rf_old_dst;
     assign read_old_dst = ex_dst;
     assign read_src = ex_src;
-    assign read_dst = (ex_pea || is_indexload(ex_opcode) || is_indexstore(ex_opcode)) ? ex_extension[15:12] : ex_dst;
+    assign read_dst = (ex_pea || is_indexread(ex_opcode) || is_indexstore(ex_opcode)) ? ex_extension[15:12] : ex_dst;
     generate if (EXTERNAL_STATE) begin : shared_state
         assign rf_a = external_a;
         assign rf_b = external_b;
@@ -292,7 +309,7 @@ module ap040_pipeline_integer #(
     wire [31:0] alu_result;
     wire [4:0] alu_flags;
     ap040_alu alu (
-        .op(ex_op), .size(ex_size), .shcnt(source_full[5:0]), .a(src), .b(dst),
+        .op(ex_op), .size(ex_size), .shcnt(source_full[5:0]), .a(src), .b(is_indexcmp(ex_opcode) ? old_dst : dst),
         .flags_in(flags_in), .result(alu_result), .flags_out(alu_flags),
         .fast_flags(), .fast_ok()
     );
@@ -307,7 +324,7 @@ module ap040_pipeline_integer #(
     wire [31:0] pea_index = ex_extension[11] ? dst : {{16{dst[15]}}, dst[15:0]};
     wire [31:0] pea_value = source_full + (pea_index << ex_extension[10:9]) +
                            {{24{ex_extension[7]}}, ex_extension[7:0]};
-    wire [31:0] read_addr = is_indexload(ex_opcode) ? pea_value : source_full;
+    wire [31:0] read_addr = is_indexread(ex_opcode) ? pea_value : source_full;
     wire [31:0] store_value = ex_pea ? pea_value : source_full;
     wire [31:0] stack_value = wb_v && wb_we && wb_dst == 15 ? wb_data : rf_sp;
     wire [31:0] store_step = ex_size == `AP040_SZ_L ? 32'd4 :
@@ -320,7 +337,7 @@ module ap040_pipeline_integer #(
         ex_size == `AP040_SZ_B ? source_full[7] : ex_size == `AP040_SZ_W ? source_full[15] : source_full[31],
         ex_size == `AP040_SZ_B ? source_full[7:0] == 0 : ex_size == `AP040_SZ_W ? source_full[15:0] == 0 : source_full == 0,
         2'b00};
-    assign load_issue = (ENABLE_LOADS || ENABLE_STORES || ENABLE_PEA || ENABLE_INDEXLOAD) && nreset && ce && !flush && !kill_younger &&
+    assign load_issue = (ENABLE_LOADS || ENABLE_STORES || ENABLE_PEA || ENABLE_INDEXLOAD || ENABLE_COMPARE) && nreset && ce && !flush && !kill_younger &&
         ex_v && ex_load && wb_ready && !load_pending && !load_done && !load_discard;
     always @(posedge clk) begin
         if (!nreset) begin

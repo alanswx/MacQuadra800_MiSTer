@@ -25,6 +25,7 @@ def main():
     parser.add_argument("--lea", action="store_true")
     parser.add_argument("--only-reference", action="store_true")
     parser.add_argument("--early-drain", action="store_true", help="handoff at final pipeline WB when younger slots are empty")
+    parser.add_argument("--compare", action="store_true", help="indexed CMP/TST and register TST")
     args = parser.parse_args()
     if args.pea_entry_only and not args.pea:
         parser.error("--pea-entry-only requires --pea")
@@ -43,6 +44,8 @@ def main():
               EXP / "handoff_monitor.sv", *(RTL / (u + ".v") for u in units)]
     common = ["iverilog", "-g2012", "-DAP040_EXPERIMENTAL_PIPELINE", "-I", RTL,
               "-s", "tb_ap040_program", "-s", "handoff_monitor"]
+    if args.compare:
+        common.append("-DAP040_PIPELINE_COMPARE")
     if args.early_drain:
         common.append("-DAP040_PIPELINE_EARLY_DRAIN")
     if args.memory_entry:

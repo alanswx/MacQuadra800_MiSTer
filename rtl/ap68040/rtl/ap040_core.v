@@ -336,6 +336,11 @@ localparam PIPE_MEMORY_ENTRY = 1;
 `else
 localparam PIPE_MEMORY_ENTRY = 0;
 `endif
+`ifdef AP040_PIPELINE_COMPARE
+localparam PIPE_COMPARE = 1;
+`else
+localparam PIPE_COMPARE = 0;
+`endif
 wire pipe_load_req, pipe_load_write;
 wire [31:0] pipe_load_wdata;
 wire [4:0] pipe_load_ccr;
@@ -409,7 +414,7 @@ wire pipe_load_launch = pipe_owner && pipe_load_req && !pipe_load_active;
 ap040_pipeline_integer #(
     .EXTERNAL_STATE(1), .ENABLE_LOADS(PIPE_LOADS), .ENABLE_STORES(PIPE_STORES),
     .ENABLE_PEA(PIPE_PEA), .ENABLE_INDEXLOAD(PIPE_P6), .ENABLE_SHIFTS(PIPE_P6),
-    .ENABLE_DISP_LEA(PIPE_P6)
+    .ENABLE_DISP_LEA(PIPE_P6), .ENABLE_COMPARE(PIPE_COMPARE)
 ) integer_pipeline (
     .clk(clk), .nreset(nreset), .ce(ce), .flush(pipe_load_abort),
     .kill_younger(pipe_cancel), .idle(pipe_idle), .empty_after_retire(pipe_empty_after_retire),
