@@ -16,16 +16,12 @@ timer result. Obtain at least five valid hardware runs; report invalids separate
   deployed. The user explicitly approved **reloading the same installed core**.
 - The user subsequently said **make a copy of the hard drive image so there is
   a known-good working copy and repeated shutdown worries are unnecessary**.
-  The operator is instructed to finish boot, cleanly shut down/unmount once,
-  preserve the original, and create/verify a disposable test copy. Once that is
-  done, resets and recovery of the test copy are authorized without repeated
-  shutdown approval. Preserve the unmounted original and never overwrite it.
-- Latest user observation: **“i can see it booting now.”** Operator was told to
-  let this boot finish before preparing the copy. Do not interrupt that work.
-- Intended test copy: `/media/fat/games/MacQuadra800/QuadSquad8-pipeline-test-20260919.hda`.
-  Operator must check free space, avoid overwrites, preserve slot/config identity,
-  sync and compare SHA-256 hashes after copying, then mount only the test copy.
-  Check operator messages for completion; this file does not assert it is done.
+  Copying is complete. Both images were 2,146,461,696 bytes and matched SHA-256
+  `224c5be7d031c4c5448745d29ce9717c22bcc310361888bb0e20f2c521c83e2a` before test boot.
+  The original remains preserved/unmounted; only the disposable test copy is used.
+  Resets/recovery on that copy are authorized without repeated approval.
+- Test copy: `/media/fat/games/MacQuadra800/QuadSquad8-pipeline-test-20260919.hda`.
+  Disk manifest: `scratch/hardware_pipeline_baseline_20260919/disk_manifest.txt`.
 - Installed RBF SHA-256 before recovery:
   `5299e49bf64eb3868a88b620e61353bf8ab393d53df93075eb713eb1ca36c1d1`.
   Main: `0ac8b44069a9201723dcdbc3bf3a84e1963d2bec347e5065c2625e71bd3986cd`.
@@ -168,3 +164,29 @@ pipeline also enabled it is slower (1,680,485), so leave the pipeline off.
 Details and source-identity logs are in docs/CPU_PIPELINE_REWRITE_20260919.md.
 Full-machine Quartus build is the next gate; once running, freeze all RTL/QSF/
 QIP/SDC until it finishes and archive both cross-domain timing reports.
+
+
+## XSTORE fit complete; hardware trial active
+
+Full-machine build **c328ae7**, seed 21, completed successfully. Build and crossing
+report commands both exited zero. RTL freeze has ended; reports and unique RBF
+are archived in `scratch/xstore_fit_20260919/`.
+Artifact: `MacQuadra800_xstore_c328ae7.rbf`, SHA-256
+`e7d26efcb9ac22b7ef4cb2b284b405ba32fdedc3012c2d87ef4bb57af00fa4d3`.
+Fit: **36,871 ALMs (88%)**, 25,889 registers, 491 RAM blocks, 43 DSP.
+Worst setup **+0.068 ns**, hold **+0.243 ns**; CPU setup **+0.979 ns**,
+SDRAM setup **+0.800 ns**; sys->ram **+1.514 ns**, ram->sys **+0.979 ns**.
+Cache arrays retain block RAM inference. QSF only received a fit-history comment
+following completion; the archived artifact remains the c328ae7 build.
+
+Operator `/root/mister_operator` received the follow-up task to copy/hash/load
+this unique RBF, obtain five valid Mix runs with Main/CFG/33MHz/32MB unchanged,
+report invalids and per-test values, then cleanly shut down. Evidence directory:
+`scratch/hardware_xstore_20260919/`. Await results; last measured Mix is 0.925.
+Original disk must remain preserved. Do not infer 1.8 from kernel simulations.
+
+During the freeze, `scratch/towers_probe_20260919/` is an isolated testbench-only
+probe of the original Towers bytes, intended to check another call-heavy kernel
+without changing any Quartus source. Both variants pass count/list/guard checks: baseline 34,118,877 cycles vs XSTORE
+29,647,247 at controlled RAM latency 3 (13.11% fewer). Source identity and logs
+are archived there. This is not a hardware score.

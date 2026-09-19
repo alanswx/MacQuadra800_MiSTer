@@ -530,3 +530,22 @@ at latency 3 is `scratch/permute_xstore_final_20260919/`.
 Combining it with the experimental register pipeline takes **1,680,485** cycles,
 so the hardware candidate enables only XSTORE. These are controlled-memory
 kernel results, not a predicted Speedometer Mix. Quartus/hardware gates follow.
+
+
+The isolated exact Towers probe also passes: original CODE 3 bytes
+`0x95f0:0x9888` (664 bytes, SHA-256
+`d220be94a7c8f839a679a0ad4560c280655771abe0e8bdab1e7ed28205e76374`),
+loaded at their original addresses, execute the original three Tower-14 passes.
+At controlled RAM latency 3, baseline takes **34,118,877 cycles**, XSTORE
+**29,647,247 cycles** (13.11% fewer). Both finish with 16,383 moves in the final
+pass, target stack ordered 1..14, the remaining four nodes in the free list,
+all 18 nodes unique and accounted for, empty source/auxiliary stacks, and intact
+guards. Evidence and source hashes: `scratch/towers_probe_20260919/identity.json`
+and its two run logs. This scratch-only probe uses actual wombat_cpu with a
+controlled RAM responder; it does not model platform SDRAM or predict Mix.
+
+Full-machine XSTORE fit at c328ae7, seed 21 passed: 36,871 ALMs (88%), 491 RAM
+blocks, 43 DSP; setup +0.068 ns, hold +0.243 ns. CPU +0.979 ns, SDRAM +0.800 ns;
+sys->ram +1.514 ns and ram->sys +0.979 ns. RAM inference preserved. Archived
+reports and SHA-verified unique RBF: `scratch/xstore_fit_20260919/`. Five-run
+hardware evaluation is now assigned to the operator; no new Mix result yet.

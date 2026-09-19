@@ -290,6 +290,9 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # 2026-09-18 15:33 ethernet build 2 (665a450: + the any-slot flag as a level, + the front-end's DEBUG word), seed 21 + the
 # switch, on .153: MEETS TIMING on every clock -- 36,502 ALMs (87 %), clk_sys +0.323, HDMI +0.314, clk_ram +0.716, hold
 # +0.220, TNS 0. rbf 2ea4d529 = scratch/eth/build2/.
+# 2026-09-19 XSTORE c328ae7, seed 21: 36,871 ALMs (88%), 491 RAM blocks,
+# 43 DSP; setup +0.068 ns, hold +0.243 ns, CPU +0.979 ns, SDRAM +0.800 ns.
+# Crossings sys->ram +1.514 ns / ram->sys +0.979 ns. Hardware Mix pending.
 set_global_assignment -name SEED 21
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
