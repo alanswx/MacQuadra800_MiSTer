@@ -386,7 +386,13 @@ wire [2:0] pipe_ext_head = epf_head + (pipe_rf_owner ? 3'd1 : 3'd0);
 // Pipeline fetch ownership spans the memory sequencer and return edge.
 // Independent RF ports also preserve partial-Dn operands during CE pauses.
 wire pipe_rf_owner = pipe_owner || pipe_load_active || pipe_load_return;
-wire pipe_drain = pipe_owner && pipe_idle;
+wire pipe_empty_after_retire;
+`ifdef AP040_PIPELINE_EARLY_DRAIN
+wire pipe_exit_ready = pipe_empty_after_retire;
+`else
+wire pipe_exit_ready = pipe_idle;
+`endif
+wire pipe_drain = pipe_owner && pipe_exit_ready;
 // Memory completion still retires through S_EXPERIMENT_PIPE, but ID can fill
 // while it waits. Do not consume a queued word being invalidated by a store.
 // ID does not read operands on admission. With independent RF ports it can
@@ -406,7 +412,7 @@ ap040_pipeline_integer #(
     .ENABLE_DISP_LEA(PIPE_P6)
 ) integer_pipeline (
     .clk(clk), .nreset(nreset), .ce(ce), .flush(pipe_load_abort),
-    .kill_younger(pipe_cancel), .idle(pipe_idle),
+    .kill_younger(pipe_cancel), .idle(pipe_idle), .empty_after_retire(pipe_empty_after_retire),
     .external_dst(pipe_old_dst), .read_old_dst(pipe_old_dst_reg), .external_a(pipe_rdata_a), .external_b(pipe_rdata_b), .external_sp(dbg_a7_wb), .external_ccr(sr[4:0]),
     .read_src(pipe_src), .read_dst(pipe_dst), .in_supported(pipe_supported),
     .next_opcode(epf_data[epf_head]), .next_extension(epf_data[(epf_head + 3'd1) & 3'd7]),
@@ -8060,10 +8066,10 @@ always @(posedge clk) begin
                     // first unexecuted instruction, not the advanced IF PC.
                     pc <= pipe_next_pc;
                     fetch_next;
-                end else if (pipe_idle && !pipe_input) begin
-                    // All pipeline writes have reached the architectural RF
-                    // (including its pending-write bypass). Rejoin the normal
-                    // fetch boundary now, preserving its IRQ/trace checks.
+                end else if (pipe_exit_ready && !pipe_input) begin
+                    // The last WB may commit on this edge when early drain is
+                    // enabled. The next legacy state sees its RF pending-write
+                    // bypass and settled CCR. Keep the usual IRQ/trace boundary.
                     fetch_next;
                 end
             end
@@ -9179,10 +9185,11 @@ always @(posedge clk) begin
         end
 `ifdef AP040_EXPERIMENTAL_PIPELINE
         // The sequencer may keep its existing lookahead while it owns the
-        // core. Pipeline entry still occurs only at S_DECODE after pending
-        // writes settle; its drained exit uses the normal fetch boundary. Never let
-        // lookahead claim an opcode at an overlapping pipeline retirement.
-        if (pipe_owner && !pipe_idle) rd_queue_pop = 0;
+        // core. Pipeline entry still uses the S_DECODE admission policy;
+        // its drained exit uses the normal fetch boundary.
+        // Early drain permits lookahead only when final WB leaves no younger
+        // work. Keeping an idle-only guard here loses the call/fetch shortcut.
+        if (pipe_owner && !pipe_exit_ready) rd_queue_pop = 0;
 `ifdef AP040_PIPELINE_FORCE_DECODE
         // Diagnostic mode exercises every supported opcode in the pipeline.
         rd_queue_pop = 0;

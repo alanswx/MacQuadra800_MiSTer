@@ -6,6 +6,7 @@ parser=argparse.ArgumentParser(description="Profile original Speedometer Bubble 
 parser.add_argument('resource',type=Path)
 parser.add_argument('--out',type=Path,required=True)
 parser.add_argument('--compare-module',type=Path,help='optional alternative pipeline module; core and entry policy remain identical')
+parser.add_argument('--early-drain',action='store_true',help='enable final-WB pipeline handoff')
 args=parser.parse_args()
 d=args.out.resolve();d.mkdir(parents=True,exist_ok=True);rtl=r/'rtl/ap68040/rtl' 
 resource=args.resource.read_bytes()
@@ -52,11 +53,12 @@ s=s.replace('TOWERS32 PASS cycles=%0d latency=%0d moves=16383 nodes=18 lists=PAS
 (d/'tb.sv').write_text(s)
 units=('ap040_core','ap040_bus_timeout','ap040_regfile','ap040_alu','ap040_muldiv','ap040_mmu','ap040_cache','ap040_fpu','primitives/dpram')
 flags=['-DAP040_EXPERIMENTAL_'+x for x in ('XSTORE','LEA','PIPELINE','PIPELINE_LOADS','PIPELINE_STORES','PIPELINE_PEA','PIPELINE_P6')]+['-DAP040_PIPELINE_MEMORY_ENTRY']
+if args.early_drain: flags.append('-DAP040_PIPELINE_EARLY_DRAIN')
 for variant in (('current','compare') if args.compare_module else ('current',)):
  out=d/variant;out.mkdir(exist_ok=True)
  module=r/'rtl/ap68040/experimental/ap040_pipeline_integer.sv' if variant=='current' else args.compare_module.resolve()
  sources=[d/'tb.sv',r/'rtl/wombat_cpu.sv',r/'rtl/wombat_store_buffer.sv',*[rtl/(u+'.v') for u in units],module]
- (out/'identity.json').write_text(json.dumps({'sources':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in sources},'kernel_sha256':hashlib.sha256(kernel).hexdigest(),'resource_sha256':hashlib.sha256(resource).hexdigest(),'input':values,'scope':'unchanged 0x9586..0x95d1 sorting loop only; fixed shuffled input; excludes initializer, allocation and five-iteration wrapper'},indent=2))
+ (out/'identity.json').write_text(json.dumps({'sources':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in sources},'kernel_sha256':hashlib.sha256(kernel).hexdigest(),'resource_sha256':hashlib.sha256(resource).hexdigest(),'input':values,'early_drain':args.early_drain,'scope':'unchanged 0x9586..0x95d1 sorting loop only; fixed shuffled input; excludes initializer, allocation and five-iteration wrapper'},indent=2))
  run(['/home/alans/verilator5/bin/verilator','--binary','--timing','-Wno-fatal','-Wno-BLKLOOPINIT','-j','8','--top-module','tb_cpu_bubble','--Mdir',out/'obj','-I'+str(rtl),*flags,*sources],out/'compile.log')
  run([out/'obj/Vtb_cpu_bubble','+prog='+str(d/'program.hex'),'+latency=3'],out/'run.log')
  log=(out/'run.log').read_text();assert 'BUBBLE500 PASS' in log,log[-2000:]

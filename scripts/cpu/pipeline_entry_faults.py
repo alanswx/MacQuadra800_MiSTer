@@ -7,6 +7,7 @@ r = Path(__file__).resolve().parents[2]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--out', type=Path, default=r/'scratch/pipeline_entry')
 parser.add_argument("--vasm", default="/home/alans/mister/MacQuadra800_fixtures/wombat-vasm/vasmm68k_mot")
+parser.add_argument("--early-drain", action="store_true")
 args = parser.parse_args()
 root_out = args.out.resolve()
 root_out.mkdir(parents=True, exist_ok=True)
@@ -31,6 +32,7 @@ endmodule
 units=('ap040_tg68k_compat','ap040_bus16_adapter','ap040_bus_timeout','ap040_alu','ap040_muldiv','ap040_mmu','ap040_cache','ap040_fpu','ap040_walker_cdc','primitives/dpram')
 sources=[r/'rtl/ap68040/tb/tb_ap040_program.v',d/'monitor.sv',exp/'handoff_monitor.sv',rtl/'ap040_core.v',rtl/'ap040_regfile.v',exp/'ap040_pipeline_integer.sv',*[rtl/(u+'.v') for u in units]]
 flags=['-DAP040_EXPERIMENTAL_'+x for x in ('XSTORE','LEA','PIPELINE','PIPELINE_LOADS','PIPELINE_STORES','PIPELINE_PEA','PIPELINE_P6')]+['-DAP040_PIPELINE_MEMORY_ENTRY']
+if args.early_drain: flags.append('-DAP040_PIPELINE_EARLY_DRAIN')
 with (d/'compile.log').open('w') as f:subprocess.run(['iverilog','-g2012','-I',str(rtl),'-s','tb_ap040_program','-s','handoff_monitor','-s','indexed_fault_monitor',*flags,'-o',str(d/'test.vvp'),*map(str,sources)],stdout=f,stderr=subprocess.STDOUT,check=True)
 for name,opcode,sr in [('movea_word',0x3670,0x271f),('move_word',0x3630,0x271f),('store_word',0x3183,0x2718)]:
  asm=f'''    org 0

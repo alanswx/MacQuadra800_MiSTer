@@ -8,6 +8,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--out', type=Path, default=r/'scratch/pipeline_p6')
 parser.add_argument("--vasm", default="/home/alans/mister/MacQuadra800_fixtures/wombat-vasm/vasmm68k_mot")
 parser.add_argument("--memory-entry", action="store_true")
+parser.add_argument("--early-drain", action="store_true")
 args = parser.parse_args()
 root_out = args.out.resolve()
 root_out.mkdir(parents=True, exist_ok=True)
@@ -28,6 +29,7 @@ endmodule
 units=('ap040_tg68k_compat','ap040_bus16_adapter','ap040_bus_timeout','ap040_alu','ap040_muldiv','ap040_mmu','ap040_cache','ap040_fpu','ap040_walker_cdc','primitives/dpram')
 sources=[r/'rtl/ap68040/tb/tb_ap040_program.v',d/'monitor.sv',exp/'handoff_monitor.sv',rtl/'ap040_core.v',rtl/'ap040_regfile.v',exp/'ap040_pipeline_integer.sv',*[rtl/(u+'.v') for u in units]]
 flags=['-DAP040_EXPERIMENTAL_'+x for x in ('XSTORE','LEA','PIPELINE','PIPELINE_LOADS','PIPELINE_STORES','PIPELINE_PEA','PIPELINE_P6')]+(['-DAP040_PIPELINE_MEMORY_ENTRY'] if args.memory_entry else ['-DAP040_PIPELINE_FORCE_DECODE'])
+if args.early_drain: flags.append('-DAP040_PIPELINE_EARLY_DRAIN')
 for irq in (False,True):
  name='irq' if irq else 'plain'
  with (d/(name+'_compile.log')).open('w') as f:subprocess.run(['iverilog','-g2012','-I',str(rtl),'-s','tb_ap040_program','-s','handoff_monitor','-s','indexed_monitor',*(['-s','irq_load_monitor',str(exp/'irq_load_monitor.sv')] if irq else []),*flags,'-o',str(d/(name+'.vvp')),*map(str,sources)],stdout=f,stderr=subprocess.STDOUT,check=True)

@@ -1124,3 +1124,30 @@ P7compare module+current core/entry4,492,550cycles(-1.87%),bothPASS. Scratch
 source identities/results at scratch/bubble_probe_20260919. No claim of
 hardware score or combinedP7fullqualification. Continued bottleneck work
 should cover nonrecursive kernels as well as Towers/Permute.
+
+### Opt-in early drain promoted and qualified; hardware trial result
+
+AP040_PIPELINE_EARLY_DRAIN now gates final-WB handoff in tracked core;
+QSF DOES NOT ENABLE it yet. Preserve current recipe until broader next
+candidate is selected. New pipeline_drain_edges.py proves12dependency
+handoffs; gate/boundary/fault runners accept --early-drain, corpus uses
+CPU_GATE_PIPELINE_EARLY_DRAIN=1, profile_bubble.py accepts --early-drain.
+All exact promoted checks terminalPASS: full integration, forced14720,
+default-off forced14720, six boundaries, threefaultcases, directededges,
+first1001900groups0diffs(/tmp/cpu-corpus100-gate.sEqLlv). Standalone6schedules
+and2mutationcontrols pass after fixing new output hookup in3wildcard benches.
+Logs scratch/drain_promoted*.log. No simulation processes need waiting.
+
+Bubble earlydrainonly4,514,530(-1.385%); P7compare+earlydrain4,429,205
+(-3.25%vscurrent4,577,936), both result/guardsPASS. P7interfaceadaptation
+scratch/p7_drain_compare_20260919 adds only output to old comparemodule;
+combined feature not yet fully qualified/promoted. Avoid spending a fit on
+just the small early-drain change; combine with broader qualified coverage.
+
+Operator completed five valid90b37e4hardware runs: .998/1.003/1.003/1.004/1.004,
+median1.003 mean1.0024, noinvalidtimerresults. Thus entrypolicy recovers P6
+regression but does not improve P5median1.006 or meet1.8. Full results
+scratch/hardware_p6entry_20260919/p6entry_results.md; screenshots1–5.
+Operator asked to complete clean shutdown/final_halt.png and report; await
+its final state before hardware actions. NoQuartusflowactive. Main andoriginal
+disk preserved. HDMI-.187 means candidate remains non-release-qualified.

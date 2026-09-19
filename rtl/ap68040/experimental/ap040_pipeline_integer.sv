@@ -16,6 +16,8 @@ module ap040_pipeline_integer #(
     // is retained. Used when an interrupt is recognized at retirement.
     input wire kill_younger,
     output wire idle,
+    // No younger work remains after the accepting final WB edge.
+    output wire empty_after_retire,
     // EXTERNAL_STATE uses the owner's one architectural register file and CCR.
     input wire [31:0] external_a, external_b, external_sp, external_dst,
     input wire [4:0] external_ccr,
@@ -243,6 +245,8 @@ module ap040_pipeline_integer #(
     assign in_ready = nreset && ce && !flush && !kill_younger && !load_discard && (!id_v || id_advance);
     assign retire_valid = nreset && ce && !flush && wb_v;
     wire commit = retire_valid && retire_ready;
+    assign empty_after_retire = !id_v && !ex_v && !load_pending &&
+                                (!wb_v || (commit && !wb_fault));
     assign retire_pc = wb_pc;
     assign retire_next_pc = wb_next_pc;
     assign retire_opcode = wb_opcode;

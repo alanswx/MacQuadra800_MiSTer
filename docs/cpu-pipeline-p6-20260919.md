@@ -228,3 +228,32 @@ P7compare module with current memory-entry policy **4,492,550cycles**(-1.87%).
 Both sorted-permutation/guard checks pass; data read/write counts identical.
 This expands diagnostic workload coverage, not hardware Mix validation or
 full qualification of the combined P7/current-policy configuration.
+
+### Promoted opt-in final-WB handoff
+
+`AP040_PIPELINE_EARLY_DRAIN` selects the qualified final-WB exit and matching
+legacy lookahead guard. It defaults off and is not yet enabled in QSF.
+The pipeline exports `empty_after_retire` separately; strict `idle` retains
+its prior meaning. `pipeline_handoff.py`, P6 boundary and entry-fault runners
+accept `--early-drain`; the silicon runner uses
+`CPU_GATE_PIPELINE_EARLY_DRAIN=1`. New `pipeline_drain_edges.py --out OUTPUT`
+checks the12dependent final-WB handoffs.
+
+Exact promoted option passes that directed check, six boundary cases, three
+entry-fault cases, forced reference14,720retirements, default-off forced
+reference14,720retirements, and first100silicon1,900fieldgroups/zero differences
+(`/tmp/cpu-corpus100-gate.sEqLlv`). Standalone prototype six schedules and
+both forwarding mutation controls pass. The newly exported port initially
+failed wildcard testbench elaboration; all three wildcard benches now
+explicitly leave the status output unconnected, and affected checks reran.
+The full promoted integration gate is terminalPASS, including all14legacy
+suites, memory/PEAfault/trace and4IRQ/replay cases. Log:
+`scratch/drain_promoted_gate.log`.
+
+Bubble with promoted early drain alone: **4,514,530cycles** (-1.385% from
+4,577,936). P7compare plus early drain: **4,429,205cycles** (-3.25% overall).
+Both pass exact sorted-permutation/guard checks; total data transactions
+unchanged. The optional compare module must implement the current output
+interface; `scratch/p7_drain_compare_20260919/ap040_pipeline_integer.sv`
+adapts the old scratch module by adding only `empty_after_retire`.
+The combined compare feature is not yet promoted or fully qualified.

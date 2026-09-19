@@ -31,6 +31,10 @@ for unit in ap040_tg68k_compat ap040_core ap040_bus16_adapter ap040_bus_timeout 
     sources+=("$rtl/$unit.v")
 done
 extra_flags=()
+if [[ ${CPU_GATE_PIPELINE_EARLY_DRAIN:-0} == 1 ]]; then
+    [[ ${CPU_GATE_PIPELINE:-0} == 1 ]] || { echo "Early drain requires CPU_GATE_PIPELINE=1" >&2; exit 2; }
+    extra_flags+=(-DAP040_PIPELINE_EARLY_DRAIN)
+fi
 if [[ ${CPU_GATE_PIPELINE_MEMORY_ENTRY:-0} == 1 ]]; then
     [[ ${CPU_GATE_PIPELINE_P6:-0} == 1 ]] || { echo "Memory entry requires CPU_GATE_PIPELINE_P6=1" >&2; exit 2; }
     extra_flags+=(-DAP040_PIPELINE_MEMORY_ENTRY)
