@@ -26,8 +26,8 @@ module tb_pipeline_integer;
     reg held_input = 0;
     reg [0:0] supported [0:65535];
     reg [15:0] decode_probe;
-    reg [1023:0] supported_file;
-    reg [1023:0] program_file, trace_file;
+    string supported_file;
+    string program_file, trace_file;
     initial begin
         if (!$value$plusargs("program=%s", program_file) ||
             !$value$plusargs("trace=%s", trace_file) ||

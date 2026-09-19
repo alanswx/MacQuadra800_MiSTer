@@ -1016,3 +1016,36 @@ JSRpc=1,364,683;UNLK=1,352,232. These include handoff/fetch overhead and are not
 exact retirement latencies. All instruction/memory counts and true kernel
 results unchanged. Calls alone showed less than0.4% gain in P8, so exit count
 alone is a poor basis for selecting the next optimization.
+
+### Targeted-entry qualification terminal; next action promote/build
+
+`p6_hot_overlap_20260919` now passes all completed qualification:
+- Full normal-policy integration gate:14,720architectural reference snapshots
+  (0pipeline entries by design), all14legacy suites, pipeline memory/PEA
+  fault/trace and4IRQ/replay monitors. full_gate.log endsPASS.
+- Separate forced-reference:14,720pipeline entries/commits matching oracle;
+  forced_reference.log endsPASS. This explicitly checks the relaxed rf_we
+  admission guard on register streams, unlike the normal restricted reference.
+- Exact-policy boundaries.py WITHOUT FORCE_DECODE: load/store extension fault,
+  trace andIRQ all6pass.3requestsintrace/IRQ,3IRQkills, no extension-fault launch.
+- entry_faults.py all3cases pass; added monitor proves exactly3rf_we overlaps
+  at admission in addition to exact framePC602/addressf140/register checks.
+- Silicon first100:1,900matching field groups,0diffs; corpus100.log, artifacts
+  `/tmp/cpu-corpus100-gate.73yHAT`.
+
+A harness issue was found and fixed in tracked tb_pipeline_integer.sv: fixed
+128-byte path vectors truncated the long no_address_forward.trace path. Use
+SystemVerilog strings for all three file paths. Reran the long-path prototype
+reference:6schedules and both deliberate forwarding errors pass, then the
+forced real-core reference passes. This was a trace-open error, not a CPU fault.
+
+Next authorized action: promote ONLY targeted-entry+ID/RF-write overlap from
+scratch/p6_hot_overlap_20260919/ap040_core.v behind an explicit default-off
+AP040_PIPELINE_MEMORY_ENTRY-style switch; retain existing P6module/RF features.
+Add the policy flag to QSF and regression/corpus runners, preserve entry_faults
+coverage in tracked tooling, verify the final enabled recipe, commit and fit.
+Do not silently enable new behavior in unrelated/default-off builds. P7compare
+and P8calls remain separate scratch candidates; do not mix them into the next
+fit merely because their kernel checks passed. P6hardware is a reproducible
+regression and must not be accepted as the improvement. No Quartus flow is
+currently active; no next bitstream has been built. Guest is cleanly halted.
