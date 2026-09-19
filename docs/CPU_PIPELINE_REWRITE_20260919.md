@@ -467,3 +467,29 @@ silicon corpus pass (1,900 matching field groups, zero real differences).
 Artifacts: `scratch/pipeline_p1e/`, corpus `/tmp/cpu-corpus100-gate.d4d2eS`.
 Cycles: **56,716 / 120,180 / 140,264** for loop/call/branch benches. These remain
 slower than the default production candidate; pipeline stays disabled in it.
+
+
+## Exact recursive Permutations diagnostic
+
+`python3 scripts/cpu/profile_permute.py RESOURCE --out OUTPUT` verifies the
+original resource hash, extracts the 200-byte Swap/InitPermute/Permute region,
+and loads it at its original CODE 3 addresses. One n=7 invocation must perform
+8,660 calls (T(1)=1, T(n)=1+n*T(n-1)), restore its array, and preserve guards.
+The real `wombat_cpu` MMU/cache/store buffer wraps a controlled-latency RAM
+responder. This does **not** reproduce the SDRAM platform or predict a Mix.
+The original timed wrapper invokes this routine 25 times; the diagnostic uses
+one call plus checked setup/return code and no guest timer or OS navigation.
+
+Default-core cycles for 0 / 3 / 8 extra RAM wait cycles are **1,799,168 /
+2,157,673 / 3,092,466**. All count/array/guard checks pass. Reproduction logs
+and source hashes: `scratch/permute_repro_20260919/`. The old 16-bit compatibility
+wrapper took 2,670,817 cycles and is not the machine's data path; use the 32-bit
+wrapper for further operand experiments.
+
+A conservative retained-data-line prototype improved these to 1,775,837 /
+2,134,602 / 3,072,093 cycles, only about 1.1% at latency 3. It was archived,
+not retained in RTL or selected for fitting. Patch and source are preserved in
+`scratch/permute_dline_20260919/`; it received kernel checks, not a full cache
+regression gate. The stronger next hypothesis is cross-line stack stores:
+those currently invalidate both data-cache sets, potentially forcing later
+recursive stack loads to refill. Investigate before implementing more logic.

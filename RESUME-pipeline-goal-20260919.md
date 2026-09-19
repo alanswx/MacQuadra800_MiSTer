@@ -141,3 +141,18 @@ silicon corpus pass (1,900 matching field groups, zero real differences).
 Artifacts: `scratch/pipeline_p1e/`, corpus `/tmp/cpu-corpus100-gate.d4d2eS`.
 Cycles: **56,716 / 120,180 / 140,264** for loop/call/branch benches. These remain
 slower than the default production candidate; pipeline stays disabled in it.
+
+
+Refill-load hardware comparison is complete: five valid candidate Mix scores
+0.922 / 0.926 / 0.924 / 0.926 / 0.925 (median 0.925) vs baseline median 0.927.
+No useful gain; no observed timer outlier. Candidate booted and shut down cleanly.
+Hardware is at clean halt on the disposable disk; preserve the original.
+See `scratch/hardware_pipeline_baseline_20260919/candidate_results.md`.
+
+A reproducible, hash-verified exact Permute kernel diagnostic is now available:
+`scripts/cpu/profile_permute.py`, with `verilator/tb_cpu_permute.sv`. It checks
+8,660 recursive calls and unchanged array/guards through actual wombat_cpu
+MMU/cache/store-buffer wiring with controlled RAM latency (not real SDRAM).
+Results and the rejected ~1% data-line-buffer experiment are recorded in the
+pipeline design document. Next hypothesis: cross-line stack-store cache
+invalidations. The retained-data-line prototype is archived in scratch only.

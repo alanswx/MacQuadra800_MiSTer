@@ -8995,7 +8995,7 @@ always @(posedge clk) begin
 `ifdef AP040_EXPERIMENTAL_PIPELINE
         // The sequencer may keep its existing lookahead while it owns the
         // core. Pipeline entry still occurs only at S_DECODE after pending
-        // writes settle; its drained exit passes through S_NEXT. Never let
+        // writes settle; its drained exit uses the normal fetch boundary. Never let
         // lookahead claim an opcode at an overlapping pipeline retirement.
         if (pipe_owner && !pipe_idle) rd_queue_pop = 0;
 `ifdef AP040_PIPELINE_FORCE_DECODE

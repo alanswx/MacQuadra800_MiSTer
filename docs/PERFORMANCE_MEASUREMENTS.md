@@ -1261,3 +1261,14 @@ use the verified disposable `QuadSquad8-pipeline-test-20260919.hda` copy.
 Its pre-boot SHA-256 matched the original:
 `224c5be7d031c4c5448745d29ce9717c22bcc310361888bb0e20f2c521c83e2a`.
 The fitted refill-load candidate remains a separate measurement, pending here.
+
+
+Refill-load candidate `f7b8e1f` completed five valid hardware runs:
+**0.922 / 0.926 / 0.924 / 0.926 / 0.925**. Median **0.925**, mean **0.9246**,
+versus installed mean 0.9268 (about 0.24% lower, within observed run spread).
+No useful Speedometer gain is established; no invalid timer outlier occurred.
+Candidate SHA-256 is
+`174967e7be8bfa72a90c96420909274258a49e61357a0af15b99a76c185b24b8`.
+Main/CFG/clock/RAM were unchanged. It booted and reached clean shutdown;
+`candidate_clean_halt.png` and `candidate_results.md` are in the same evidence
+directory. This was a performance experiment, not the complete release gate.
