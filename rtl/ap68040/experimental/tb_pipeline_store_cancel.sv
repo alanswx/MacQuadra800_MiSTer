@@ -9,7 +9,7 @@ module tb_pipeline_store_cancel;
     integer requests=0, cycles=0;
     ap040_pipeline_integer #(.ENABLE_STORES(1)) dut(
         .clk(clk),.nreset(nreset),.ce(ce),.flush(1'b0),.kill_younger(kill),.idle(idle),
-        .external_a(32'd0),.external_b(32'd0),.external_ccr(5'd0),.read_src(),.read_dst(),
+        .external_dst(32'd0), .read_old_dst(), .external_a(32'd0),.external_b(32'd0),.external_ccr(5'd0),.read_src(),.read_dst(),
         .in_supported(),.in_valid(valid),.in_ready(ready),.in_pc(32'd0),.in_opcode(opcode),
         .retire_ready(retire_ready),.retire_valid(),.retire_pc(),.retire_opcode(),
         .retire_we(),.retire_dst(),.retire_data(),.retire_ccr(),

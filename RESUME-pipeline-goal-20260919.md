@@ -832,3 +832,29 @@ P6 scratch core currently hardcodes new feature parameters enabled: convert to
 explicit default-off feature flags before promoting and preserve reproducible
 runners/fixtures. Still no P6 fit or hardware evidence, no new Quartus flow.
 A/UX remains explicitly deferred to Dani and is not a blocker.
+
+
+### P6 promoted and ready for the single fit
+
+P6 is now tracked behind `AP040_EXPERIMENTAL_PIPELINE_P6`, default off in core;
+QSF enables it with unrestricted entry, plus pipeline/load/store/PEA/XSTORE/LEA.
+PEA-only admission explicitly matches PEA, not arbitrary two-word opcodes.
+No hardware deployment yet. New design/reproduction note:
+`docs/cpu-pipeline-p6-20260919.md`.
+
+All promoted qualification terminal PASS:
+- `scratch/p6_promoted_gate.log`: independent reference14,720snapshots plus
+  full real-core14legacy suites, pipeline memory/fault/trace and4IRQ monitors.
+- `scratch/p6_promoted_corpus100.log`: immutable first100,1,900matching field
+  groups,0differences; artifacts `/tmp/cpu-corpus100-gate.tyK2py`.
+- `scratch/p6_promoted_20260919/`: load/store oracles, fault/boundary runners,
+  all6negativecontrols, RF5port normal/poison +3bypass controls. Strengthened
+  ALU oracle61,424retirements per6schedules; restores high-bit seed patterns
+  per source group. Reproduction scripts are `scripts/cpu/pipeline_p6_*.py`.
+- Updated older standalone benches to tie the new optional ports; original
+  prototype gate also passed all6schedules and2forwarding mutations.
+
+Next: commit and launch one full Quartus flow, freeze RTL/QSF/QIP/SDC until
+terminal, check RFbankE MLAB and cache M10Ks, timing and cross-clock reports,
+then have authorized mister_operator run at least5valid hardware Mix trials.
+A/UX skipped/deferred to Dani; other hardware regressions still apply.

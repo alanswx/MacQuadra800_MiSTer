@@ -75,6 +75,7 @@ run regfile       "$WORK/tb_regfile.vvp"
 run regfile_poison "$WORK/tb_regfile.vvp" +poison
 negrun regfile_bypass_control "$WORK/tb_regfile.vvp" +poison +disable_bypass
 negrun regfile_extra_bypass_control "$WORK/tb_regfile.vvp" +poison +disable_extra_bypass
+negrun regfile_fifth_bypass_control "$WORK/tb_regfile.vvp" +poison +disable_fifth_bypass
 run alu_arithmetic "$WORK/tb_alu_arithmetic.vvp"
 run fpu_normalize "$WORK/tb_fpu_normalize.vvp"
 run double_fault "$WORK/tb_dblflt.vvp"

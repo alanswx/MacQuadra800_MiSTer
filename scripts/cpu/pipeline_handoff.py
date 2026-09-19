@@ -14,6 +14,7 @@ def main():
     parser.add_argument("--only-irq", action="store_true")
     parser.add_argument("--force-decode", action="store_true", help="disable sequencer lookahead for full pipeline coverage")
     parser.add_argument("--extended", action="store_true")
+    parser.add_argument("--p6", action="store_true", help="enable shifts, d16 LEA and brief indexed MOVE")
     parser.add_argument("--loads", action="store_true", help="enable head-ordered pipeline loads")
     parser.add_argument("--pea-entry-only", action="store_true", help="enter pipeline only at resident PEA")
     parser.add_argument("--selective", action="store_true", help="retain sequencer for isolated non-PEA entries")
@@ -38,6 +39,8 @@ def main():
               EXP / "handoff_monitor.sv", *(RTL / (u + ".v") for u in units)]
     common = ["iverilog", "-g2012", "-DAP040_EXPERIMENTAL_PIPELINE", "-I", RTL,
               "-s", "tb_ap040_program", "-s", "handoff_monitor"]
+    if args.p6:
+        common.append("-DAP040_EXPERIMENTAL_PIPELINE_P6")
     if args.xstore:
         common.append("-DAP040_EXPERIMENTAL_XSTORE")
     if args.lea:

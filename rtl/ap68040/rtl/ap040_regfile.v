@@ -40,6 +40,8 @@ module ap040_regfile #(parameter EXTRA_READS = 0)
     output     [31:0] rdata_c,
     input       [3:0] raddr_d,
     output     [31:0] rdata_d,
+    input       [3:0] raddr_e,
+    output     [31:0] rdata_e,
 
 	// direct stack pointer access for MOVEC/MOVE USP, independent of the
 	// currently active bank (never asserted together with the main write)
@@ -119,6 +121,10 @@ assign rdata_b = (raddr_b == 4'd15) ? sp_active : q_b;
 generate if (EXTRA_READS) begin : extra_reads
     (* ramstyle = "MLAB, no_rw_check" *) reg [31:0] bank_c [0:15];
     (* ramstyle = "MLAB, no_rw_check" *) reg [31:0] bank_d [0:15];
+    (* ramstyle = "MLAB, no_rw_check" *) reg [31:0] bank_e [0:15];
+    wire hit_e = pend_we && pend_waddr == raddr_e;
+    wire [31:0] q_e = hit_e ? pend_wdata : (rf_written[raddr_e] ? bank_e[raddr_e] : 32'd0);
+    assign rdata_e = raddr_e == 15 ? sp_active : q_e;
     wire hit_c = pend_we && (pend_waddr == raddr_c);
     wire hit_d = pend_we && (pend_waddr == raddr_d);
     wire [31:0] q_c = hit_c ? pend_wdata
@@ -130,10 +136,12 @@ generate if (EXTRA_READS) begin : extra_reads
     always @(posedge clk) begin
         if (nreset && ce && pend_we) begin
             bank_c[pend_waddr] <= pend_wdata;
+            bank_e[pend_waddr] <= pend_wdata;
             bank_d[pend_waddr] <= pend_wdata;
         end
     end
 end else begin : no_extra_reads
+    assign rdata_e = 32'd0;
     assign rdata_c = 32'd0;
     assign rdata_d = 32'd0;
 end endgenerate

@@ -1,16 +1,16 @@
 `timescale 1ns/1ps
 
 // Compare the public architectural view with independent flip-flop storage.
-// +poison makes the pending RAM word unknown until its write commits: neither
+// +poison makes the pending RAM word unknown until its write commits: no
 // read port may depend on that word while the bypass is responsible for it.
 // This is an RTL collision-isolation test, not a vendor-primitive timing model.
 module tb_ap040_regfile;
 reg clk = 0, ce = 0, nreset = 0;
 reg sr_s = 0, sr_m = 0, we = 0, aux_we = 0;
-reg [3:0] waddr = 0, raddr_a = 0, raddr_b = 0, raddr_c = 0, raddr_d = 0;
+reg [3:0] waddr = 0, raddr_a = 0, raddr_b = 0, raddr_c = 0, raddr_d = 0, raddr_e = 0;
 reg [31:0] wdata = 0, aux_wdata = 0;
 reg [1:0] aux_sel = 0;
-wire [31:0] rdata_a, rdata_b, rdata_c, rdata_d, usp_q, isp_q, msp_q;
+wire [31:0] rdata_a, rdata_b, rdata_c, rdata_d, rdata_e, usp_q, isp_q, msp_q;
 wire [31:0] dbg_d0, dbg_d1, dbg_d2, dbg_a0, dbg_a7;
 ap040_regfile #(.EXTRA_READS(1)) dut (.*);
 
@@ -45,7 +45,7 @@ task check_all;
     begin
         for (aidx = 0; aidx < 16; aidx = aidx + 1) begin
             raddr_a = aidx[3:0]; raddr_b = 15 - aidx;
-            raddr_c = aidx[3:0] ^ 4'd5; raddr_d = aidx[3:0] ^ 4'd10;
+            raddr_c = aidx[3:0] ^ 4'd5; raddr_d = aidx[3:0] ^ 4'd10; raddr_e = aidx[3:0] ^ 4'd3;
             #1;
             if (rdata_a !== expected(raddr_a) || rdata_b !== expected(raddr_b)) begin
                 $display("tick=%0d ce=%b reset=%b pending=%b/%h raddr=%h/%h got=%h/%h expected=%h/%h",
@@ -60,7 +60,8 @@ task check_all;
                 $fatal(1, "TEST FAILED: debug/stack-pointer view at tick %0d", ticks);
             if (rdata_c !== expected(raddr_c) || rdata_d !== expected(raddr_d))
                 $fatal(1, "TEST FAILED: extra read ports at tick %0d", ticks);
-            port_checks = port_checks + 4;
+            if (rdata_e !== expected(raddr_e)) $fatal(1,"TEST FAILED: fifth read port");
+            port_checks = port_checks + 5;
         end
     end
 endtask
@@ -76,6 +77,7 @@ task tick;
             dut.bank_b[dut.pend_waddr] = 32'hxxxxxxxx;
             dut.extra_reads.bank_c[dut.pend_waddr] = 32'hxxxxxxxx;
             dut.extra_reads.bank_d[dut.pend_waddr] = 32'hxxxxxxxx;
+            dut.extra_reads.bank_e[dut.pend_waddr] = 32'hxxxxxxxx;
             poisoned = poisoned + 1;
         end
         check_all;
@@ -97,6 +99,7 @@ initial begin
         force dut.extra_reads.hit_c = 1'b0;
         force dut.extra_reads.hit_d = 1'b0;
     end
+    if ($test$plusargs("disable_fifth_bypass")) force dut.extra_reads.hit_e = 0;
     tick; nreset = 1; ce = 1; we = 1;
     for (i = 0; i < 15; i = i + 1) begin
         waddr = i[3:0]; wdata = 32'h10203040 + i; tick;

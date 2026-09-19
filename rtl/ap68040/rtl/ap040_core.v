@@ -325,6 +325,12 @@ localparam PIPE_PEA = 1;
 `else
 localparam PIPE_PEA = 0;
 `endif
+// Broader integer stream: register shifts, d16 LEA and brief indexed MOVE.
+`ifdef AP040_EXPERIMENTAL_PIPELINE_P6
+localparam PIPE_P6 = 1;
+`else
+localparam PIPE_P6 = 0;
+`endif
 wire pipe_load_req, pipe_load_write;
 wire [31:0] pipe_load_wdata;
 wire [4:0] pipe_load_ccr;
@@ -342,7 +348,8 @@ wire pipe_load_direct = pipe_load_active && (state == S_MRD || state == S_MWR) &
 wire pipe_load_ack = pipe_load_return || pipe_load_direct || (ce && pipe_load_abort);
 wire [31:0] pipe_load_value = pipe_load_direct ? mem_rdata : m_val;
 
-wire [31:0] pipe_rdata_a, pipe_rdata_b;
+wire [31:0] pipe_rdata_a, pipe_rdata_b, pipe_old_dst;
+wire [3:0] pipe_old_dst_reg;
 wire pipe_supported, pipe_next_supported, pipe_ready, pipe_retire, pipe_we, pipe_idle;
 wire [3:0] pipe_src, pipe_dst, pipe_wdst;
 wire [31:0] pipe_data, pipe_pc, pipe_next_pc;
@@ -355,7 +362,7 @@ wire [4:0] pipe_ccr;
 `ifdef AP040_PIPELINE_FORCE_DECODE
 wire pipe_entry_ok = 1'b1;
 `elsif AP040_PIPELINE_PEA_ENTRY_ONLY
-wire pipe_entry_ok = pipe_words == 2;
+wire pipe_entry_ok = pipe_words == 2 && (ir & 16'hfff8) == 16'h4870;
 `elsif AP040_PIPELINE_SELECTIVE
 wire pipe_entry_ok = pipe_words == 2 || pipe_next_supported;
 `else
@@ -384,10 +391,14 @@ wire pipe_cancel = pipe_owner && pipe_retire &&
     (irq_pend || tr_t1 || (tr_t0 && t0_force));
 wire pipe_write = pipe_owner && pipe_retire && pipe_we;
 wire pipe_load_launch = pipe_owner && pipe_load_req && !pipe_load_active;
-ap040_pipeline_integer #(.EXTERNAL_STATE(1), .ENABLE_LOADS(PIPE_LOADS), .ENABLE_STORES(PIPE_STORES), .ENABLE_PEA(PIPE_PEA)) integer_pipeline (
+ap040_pipeline_integer #(
+    .EXTERNAL_STATE(1), .ENABLE_LOADS(PIPE_LOADS), .ENABLE_STORES(PIPE_STORES),
+    .ENABLE_PEA(PIPE_PEA), .ENABLE_INDEXLOAD(PIPE_P6), .ENABLE_SHIFTS(PIPE_P6),
+    .ENABLE_DISP_LEA(PIPE_P6)
+) integer_pipeline (
     .clk(clk), .nreset(nreset), .ce(ce), .flush(pipe_load_abort),
     .kill_younger(pipe_cancel), .idle(pipe_idle),
-    .external_a(pipe_rdata_a), .external_b(pipe_rdata_b), .external_sp(dbg_a7_wb), .external_ccr(sr[4:0]),
+    .external_dst(pipe_old_dst), .read_old_dst(pipe_old_dst_reg), .external_a(pipe_rdata_a), .external_b(pipe_rdata_b), .external_sp(dbg_a7_wb), .external_ccr(sr[4:0]),
     .read_src(pipe_src), .read_dst(pipe_dst), .in_supported(pipe_supported),
     .next_opcode(epf_data[epf_head]), .next_extension(epf_data[(epf_head + 3'd1) & 3'd7]),
     .next_valid(epf_ready_pc), .next_extension_valid(epf_ready_pc2), .next_supported(pipe_next_supported),
@@ -439,9 +450,11 @@ regfile
     .raddr_b(rr_b), .rdata_b(rf_rdata_b),
     .raddr_c(pipe_src), .rdata_c(pipe_rdata_a),
     .raddr_d(pipe_dst), .rdata_d(pipe_rdata_b),
+    .raddr_e(pipe_old_dst_reg), .rdata_e(pipe_old_dst),
 `else
 	.we(rf_we), .waddr(rf_waddr), .wdata(rf_wdata),
     .raddr_c(4'd0), .rdata_c(), .raddr_d(4'd0), .rdata_d(),
+    .raddr_e(4'd0), .rdata_e(),
 	.raddr_a(rr_a), .rdata_a(rf_rdata_a),
 	.raddr_b(rr_b), .rdata_b(rf_rdata_b),
 `endif
