@@ -1394,3 +1394,17 @@ Cache snoop suite ALL TESTS PASSED; XSTORE100cases PASS inclCE/snoop/fault.
 Full pipeline/reference regression running session98444, gate.log under
 scratch/p12_idlespan_20260919. Not promoted, needs remaining qualification
 and measured fit; current28b164d Quartus service still active and frozen.
+
+### P12 spanning-read qualification advances
+
+Full reference/pipeline gate terminal PASS (session98444, gate.log).
+New reusable scripts/cpu/cache_spanning_reads.py --cache PATH --out DIR
+runs existing snoop suite plus15 explicit checks:9 within-line longword
+spans,3 word spans, snoops at admission/assembly/CE-paused assembly.
+Baseline and candidate PASS. Candidate all9 longword spans3cycles versus
+baseline4cycles. Wrong r_hway+1 mutation rejected by all12 plain span
+value checks; this proves exercised optimized path, not just compile/pass.
+Artifacts scratch/p12_idlespan_20260919/reusable and bad_way.
+No P12 RTL promoted yet; need other kernel comparison and corpus before
+promotion after current Quartus flow/extraction completes. Current fit
+q800-p9combined-fit-20260919.service still active MainPID1445135.
