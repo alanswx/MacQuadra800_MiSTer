@@ -1353,3 +1353,17 @@ CMP andall1,479,840ALUcomparisonsPASS. Fullintegration session17599, gate.log
 passedinteger/exception/MMU/bitfieldMMU; remainingprogramsstillrunning.
 Nextfit archive scratch/p9combined_fit_20260919, user-service
 q800-p9combined-fit-20260919.service; commitbeforelaunchthenfreezeinputs.
+
+### P9 combined fit launched; exact CAS regression complete
+
+Commit 28b164d pushed to origin/add-ethernet (remote hash verified).
+Exact fast-CAS integration suite terminated PASS, including all reference
+programs and load/store/PEA interrupt and replay checks. Log:
+scratch/p9_fastcas_20260919/gate.log.
+P9 combined Quartus user service q800-p9combined-fit-20260919.service is
+running with MainPID 1445135, archive scratch/p9combined_fit_20260919.
+Sources frozen until compile and crossing extraction finish. No second flow.
+Hardware operator continues P7handoff five-run trial; root does not control
+hardware concurrently. Current completed five-run best remains 1.013.
+Scratch P10 final MOVEM-store retirement prototype is under investigation;
+initial Permute result unchanged at 1,504,787 cycles, so not promoted.
