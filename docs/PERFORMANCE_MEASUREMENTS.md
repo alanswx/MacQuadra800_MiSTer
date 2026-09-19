@@ -1329,3 +1329,24 @@ This is explicitly a **timing-marginal experiment**: CPU setup -0.357ns;
 38,185ALMs91%,491RAM,43DSP. Hold+.223ns, SDRAM+.478ns, clock crossings
 +.478/+.843ns. Cache RAM inference preserved. A/UX and CD audio remain unchecked;
 this trial is not release-qualified and does not satisfy the1.8goal.
+
+
+## 27. P5 independent pipeline RF ports (2026-09-19, mister.local)
+
+Candidate `e12d882`: five valid Mix runs **1.002 / 1.005 / 1.006 / 1.006 / 1.006**.
+Median **1.006**, mean **1.0050**, no invalid timer result. This establishes no
+substantial Mix gain over P4 (median1.005). Authentic33MHz,32MB, Ethernet-on,
+unchanged Main and disposable Mac OS8.1 disk; all ten tests at iteration1.
+Boot and clean shutdown passed; original disk remained untouched/unmounted.
+The final screenshot was independently inspected: Mix1.006, all ten tests at
+iteration1, completion dialog and32768K. Full report and screenshots:
+`scratch/hardware_p5_20260919/p5_results.md`, `run1_complete.png` through
+`run5_complete.png`.
+
+RBF SHA-256 `4449b3c51a3e991515afe0440ce2da5aeab2d6175fbcda210f344d8841f037b1`.
+Full compile/fit succeeded:38,320ALMs91%,26,325registers,491RAM,43DSP.
+CPU setup+.532ns, SDRAM setup+.665ns, hold+.202ns, crossings+1.016/+.532ns.
+HDMI setup **-.091ns**: this remains an experimental, non-release bitstream.
+New RF banks inferred as512bitMLABs; cache M10Ks preserved.
+A/UX testing is explicitly deferred to Dani per user instruction; no A/UX
+validation is claimed. CD audio is still unchecked. The1.8goal remains unmet.

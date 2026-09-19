@@ -798,3 +798,37 @@ P5 hardware trial is still in progress with mister_operator; four completion
 screenshots were present at the last read-only filesystem check. Original disk
 is untouched; A/UX remains explicitly deferred to Dani. No Quartus process was
 left active after the completed TimeQuest extraction.
+
+
+### P5 hardware complete; P6 independent qualification update
+
+P5 five valid hardware Mix scores:1.002/1.005/1.006/1.006/1.006;
+median1.006, mean1.0050, no invalid timer results. Boot/clean halt passed;
+MiSTer and remote remain running with guest halted. Original disk untouched.
+Operator completed; report in `scratch/hardware_p5_20260919/p5_results.md`.
+Final screenshot independently inspected. Permanent measurements in section27
+of docs/PERFORMANCE_MEASUREMENTS.md. Still HDMI-marginal, not a release.
+
+New P6 checks completed in `scratch/p6_indexfull_20260919/`:
+- `alu_oracle/run.py`: independent bit-by-bit shift/rotate and LEA arithmetic,
+  all six schedules pass50,408retirements each. Includes CE/WB/input stalls,
+  flush/replay, all register pairs and size/count edges, LEA signed d16/A7.
+- `rf_check`: five-port oracle passes16,485cycles/2,637,520port checks, both
+  normal and collision-poisoned runs (7,697pending words). Disabling fifth-port
+  pending-write bypass is detected as expected.
+- `boundaries/run.py`: indexed load/store extension fetch faults, trace and
+  IRQ cases all pass. Extension faults launch no indexed pipeline requests;
+  trace/IRQ each launch3, IRQ kills/replays3younger instructions. Exact frames,
+  destination/store memory and no duplicate younger retirement checked.
+- `negative_full.py`: six mutations all detected: incorrect partial Dn merge,
+  wrong indexed-store base, missing third-operand forwarding, zero-count ROX
+  carry, LEA displacement sign and ordinary destination forwarding. These are
+  deliberate failures; original unmodified RTL passes the positive oracles.
+
+Silicon first100comparison running in session47453; inspect `corpus100.log`.
+Uses copied scratch RTL under `corpus_sources`, unrestricted entry (no PEA-only
+or selective macro), pipeline/load/store/PEA and legacy XSTORE/LEA enabled.
+P6 scratch core currently hardcodes new feature parameters enabled: convert to
+explicit default-off feature flags before promoting and preserve reproducible
+runners/fixtures. Still no P6 fit or hardware evidence, no new Quartus flow.
+A/UX remains explicitly deferred to Dani and is not a blocker.
