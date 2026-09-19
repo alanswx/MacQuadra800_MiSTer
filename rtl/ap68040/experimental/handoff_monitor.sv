@@ -2,7 +2,8 @@
 `timescale 1ns/1ps
 `define C tb_ap040_program.dut.core
 module handoff_monitor;
-    integer entries = 0, commits = 0, paused = 0;
+    integer entries = 0, commits = 0, paused = 0, cancelled = 0;
+    reg [31:0] expected_pc;
     always @(posedge tb_ap040_program.clk) begin
         if (tb_ap040_program.nreset) begin
             if (`C.pipe_owner && (`C.rf_we || `C.aux_we))
@@ -13,15 +14,21 @@ module handoff_monitor;
                 $fatal(1, "unsupported opcode admitted to P1");
             if (`C.pipe_owner && !`C.ce) paused = paused + 1;
             if (`C.ce) begin
-                if (`C.pipe_input && `C.pipe_ready) entries = entries + 1;
+                if (`C.pipe_input && `C.pipe_ready) begin
+                    if (!`C.pipe_owner) expected_pc = `C.pc_i;
+                    entries = entries + 1;
+                end
+                if (`C.pipe_cancel)
+                    cancelled = cancelled + int'(`C.integer_pipeline.id_v) + int'(`C.integer_pipeline.ex_v);
                 if (`C.pipe_retire) begin
                     commits = commits + 1;
-                    if (`C.pipe_pc !== `C.pc_i || `C.pipe_opcode !== `C.ir)
-                        $fatal(1, "pipeline instruction identity changed");
+                    if (`C.pipe_pc !== expected_pc)
+                        $fatal(1, "pipeline retirement PC order changed");
+                    expected_pc = expected_pc + 2;
                 end
             end
         end
     end
-    final $display("HANDOFF entries=%0d commits=%0d paused=%0d", entries, commits, paused);
+    final $display("HANDOFF entries=%0d commits=%0d paused=%0d cancelled=%0d", entries, commits, paused, cancelled);
 endmodule
 `undef C

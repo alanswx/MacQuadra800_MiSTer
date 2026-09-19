@@ -134,7 +134,7 @@ def main():
          EXP / "tb_pipeline_integer.sv", EXP / "ap040_pipeline_integer.sv",
          RTL / "ap040_regfile.v", RTL / "ap040_alu.v"], out / "compile_pipeline.log")
     results = []
-    for mode in range(4):
+    for mode in range(6):
         trace = out / f"pipeline_{mode}.trace"
         log = run(["vvp", out / "pipeline.vvp", f"+program={out / 'instructions.hex'}",
                    f"+trace={trace}", f"+count={len(words)}", f"+mode={mode}", f"+supported={out / 'supported.hex'}"], out / f"pipeline_{mode}.log")

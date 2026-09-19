@@ -10,6 +10,7 @@ module reference_trace;
     reg [31:0] pc_before;
     reg [15:0] opcode_before;
     reg ce_before;
+    reg retire_before;
     reg [31:0] value;
     initial begin
         if (!$value$plusargs("trace=%s", path) || !$value$plusargs("count=%d", count))
@@ -21,8 +22,16 @@ module reference_trace;
         pc_before = `CORE.pc_i;
         opcode_before = `CORE.ir;
         ce_before = `CORE.ce;
+`ifdef AP040_EXPERIMENTAL_PIPELINE
+        pc_before = `CORE.pipe_pc;
+        opcode_before = `CORE.pipe_opcode;
+        retire_before = `CORE.pipe_retire;
+`endif
         #1;
-        if (tb_ap040_program.nreset && ce_before && `CORE.retire_req &&
+`ifndef AP040_EXPERIMENTAL_PIPELINE
+        retire_before = `CORE.retire_req;
+`endif
+        if (tb_ap040_program.nreset && ce_before && retire_before &&
             pc_before >= 32'h400 && pc_before < 32'h400 + 2*count) begin
             $fwrite(fd, "%08x %04x %02x", pc_before, opcode_before, `CORE.sr[4:0]);
             for (i = 0; i < 8; i = i + 1) begin

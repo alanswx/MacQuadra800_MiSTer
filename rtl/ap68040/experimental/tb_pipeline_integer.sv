@@ -2,6 +2,8 @@
 module tb_pipeline_integer;
     reg clk = 0;
     always #5 clk = !clk;
+    reg kill_younger = 0;
+    wire idle;
     reg nreset = 0, ce = 1, flush = 0, in_valid = 0, retire_ready = 1;
     reg [31:0] in_pc = 0;
     reg [15:0] in_opcode = 0;
@@ -47,13 +49,20 @@ module tb_pipeline_integer;
             // A cancelled prefix fills all three stages but commits nothing.
             // Restart the stream to prove that no cancelled state leaks out.
             ce = mode != 1 || cycles % 11 != 4;
-            retire_ready = (mode == 2 && !flushed) || (mode == 3 && cycles >= 5000 && !flushed) ? 0 :
+            retire_ready = (mode == 2 && !flushed) || (mode >= 3 && cycles >= 5000 && !flushed) ? 0 :
                            mode != 1 || (cycles % 13 < 8);
             flush = (mode == 2 && cycles == 5) || (mode == 3 && cycles == 5005);
+            kill_younger = mode >= 4 && cycles == 5005;
+            if (kill_younger) begin
+                // Preserve the old WB, whether it commits now or is blocked.
+                sent = retired + (dut.wb_v ? 1 : 0);
+                flushed = 1; held_input = 0;
+                if (mode == 4) retire_ready = 1;
+            end
             if (flush) begin
                 sent = retired; flushed = 1; held_input = 0;
             end
-            in_valid = !flush && (held_input || mode != 1 || cycles % 7 != 3);
+            in_valid = !flush && !kill_younger && (held_input || mode != 1 || cycles % 7 != 3);
             in_pc = 32'h400 + 2 * sent;
             in_opcode = sent < count ? code[sent] : 16'h4afc;
             if (!in_valid) bubble_cycles = bubble_cycles + 1;

@@ -30,11 +30,18 @@ for unit in ap040_tg68k_compat ap040_core ap040_bus16_adapter ap040_bus_timeout 
     [[ -r "$rtl/$unit.v" ]] || { echo "Missing RTL: $rtl/$unit.v" >&2; exit 2; }
     sources+=("$rtl/$unit.v")
 done
+extra_flags=()
+if [[ ${CPU_GATE_PIPELINE:-0} == 1 ]]; then
+    pipeline="$rtl/../experimental/ap040_pipeline_integer.sv"
+    [[ -r "$pipeline" ]] || { echo "Missing experimental pipeline: $pipeline" >&2; exit 2; }
+    extra_flags+=(-DAP040_EXPERIMENTAL_PIPELINE)
+    sources+=("$pipeline")
+fi
 out=$(mktemp -d /tmp/cpu-corpus100-gate.XXXXXX)
 echo "ARTIFACT_DIR=$out"
-sha256sum "$rtl/ap040_core.v" "$payload" "$tb" "$baseline" | tee "$out/identities.txt"
+sha256sum "${sources[@]}" "$payload" "$tb" "$baseline" | tee "$out/identities.txt"
 "$verilator" --binary --timing --build-jobs 8 -Wno-fatal -Wno-BLKLOOPINIT --top-module tb_corpus \
-    -Mdir "$out/obj" -I"$rtl" "$tb" "${sources[@]}" > "$out/compile.log" 2>&1 || {
+    -Mdir "$out/obj" -I"$rtl" "${extra_flags[@]}" "$tb" "${sources[@]}" > "$out/compile.log" 2>&1 || {
     tail -40 "$out/compile.log"; exit 1;
 }
 stdbuf -oL "$out/obj/Vtb_corpus" "+prog=$payload" "+results=$out/results.bin" \

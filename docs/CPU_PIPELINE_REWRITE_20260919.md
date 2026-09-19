@@ -298,3 +298,41 @@ P0 source hashes, not to the integrated machine.
 
 All 14 real-core program suites passed with balanced handoffs, including
 `loops_irq` (4,044 entries/commits). Artifacts: `scratch/pipeline_p1/`.
+
+
+## P1b: overlapping resident issue (development, not a performance candidate)
+
+The experimental core now feeds consecutive resident supported words from its
+fetch queue while earlier instructions execute and commit. An IRQ/trace at WB
+commits that instruction, cancels younger ID/EX work, and supplies the committed
+next PC to the existing exception sequencer. Unsupported operations and empty
+queues drain before returning to the old sequencer. The register file and SR
+remain shared; there is no duplicate architectural state.
+
+Validation: all 8,608 independent-oracle snapshots match; all 14 program suites
+pass; immutable first-100 silicon corpus has **1,900 matching field groups and
+zero real differences**. A directed full-pipeline IPL test injects three
+interrupts across the bench's bus-delay modes, cancels six younger instructions,
+checks that the stacked PC exactly matches the committed ADD count, and verifies
+complete replay after RTE. Standalone tests also cover cancellation with both
+accepting and blocked WB. Logs: `scratch/pipeline_p1b/`; corpus log identifies
+its immutable source/payload hashes and artifact directory.
+
+This first overlap experiment is **slower on the directed workloads**, because
+short supported runs pay entry/drain costs and the experiment disables the
+existing lookahead dispatch. It must not be presented as a speed improvement:
+
+| Phase-0 workload | Default core cycles | P1b cycles |
+|---|---:|---:|
+| straight-line 8,608-instruction payload | 39,058 | 39,064 |
+| bench_loop | 68,100 | 158,590 |
+| pipe_bench | 110,696 | 136,660 |
+| branch_bench | 119,284 | 164,246 |
+
+No P1b hardware deployment is planned. Preserve existing fast paths for short
+runs and extend operand handling before selecting a performance candidate.
+The experiment remains behind `AP040_EXPERIMENTAL_PIPELINE`; release builds do
+not enable it. `CPU_GATE_PIPELINE=1` enables it in `cpu_corpus100_gate.sh`.
+The hardware target requested for continued work is now **at least 1.8 Mix**,
+with repeated valid hardware measurements, unchanged authentic clock, and
+invalid timer results reported separately.

@@ -3,6 +3,10 @@
 `include "ap040_defs.svh"
 module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0) (
     input wire clk, nreset, ce, flush,
+    // Cancel ID/EX while allowing an accepting WB to commit. A blocked WB
+    // is retained. Used when an interrupt is recognized at retirement.
+    input wire kill_younger,
+    output wire idle,
     // EXTERNAL_STATE uses the owner's one architectural register file and CCR.
     input wire [31:0] external_a, external_b,
     input wire [4:0] external_ccr,
@@ -89,7 +93,8 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0) (
     wire wb_ready = !wb_v || retire_ready;
     wire ex_ready = !ex_v || wb_ready;
     wire id_advance = id_v && legal && ex_ready;
-    assign in_ready = nreset && ce && !flush && (!id_v || id_advance);
+    assign idle = !id_v && !ex_v && !wb_v;
+    assign in_ready = nreset && ce && !flush && !kill_younger && (!id_v || id_advance);
     assign retire_valid = nreset && ce && !flush && wb_v;
     wire commit = retire_valid && retire_ready;
     assign retire_pc = wb_pc;
@@ -147,6 +152,10 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0) (
                 id_v <= 0; ex_v <= 0; wb_v <= 0;
             end else begin
                 if (commit) ccr <= wb_ccr;
+                if (kill_younger) begin
+                    id_v <= 0; ex_v <= 0;
+                    if (wb_ready) wb_v <= 0;
+                end else begin
                 if (wb_ready) begin
                     wb_v <= ex_v;
                     if (ex_v) begin
@@ -168,6 +177,7 @@ module ap040_pipeline_integer #(parameter EXTERNAL_STATE = 0) (
                 if (in_ready) begin
                     id_v <= in_valid;
                     if (in_valid) begin id_pc <= in_pc; id_opcode <= in_opcode; end
+                end
                 end
             end
         end

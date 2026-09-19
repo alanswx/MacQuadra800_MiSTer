@@ -302,25 +302,34 @@ wire [31:0] dbg_d0, dbg_d1, dbg_d2, dbg_a0, dbg_a7;
 wire [31:0] dbg_a7_wb = (rf_we && rf_waddr == 4'd15) ? rf_wdata : dbg_a7;
 wire [31:0] usp_wb = (aux_we && aux_sel == 2'd0) ? aux_wdata : usp_q;
 
-// P1 ownership checkpoint, deliberately absent from release builds. Entry
-// serializes one admitted Dn instruction, then rejoins S_NEXT after WB.
+// Experimental ownership/issue checkpoint, absent from release builds.
+// The pipeline consumes only resident Dn instructions. It drains before
+// returning unsupported words to the sequencer; IRQ/trace cancels younger
+// work at a retirement boundary, preserving the committing instruction.
 // Architectural state stays in this core; no bulk import/export or shadow RF.
 `ifdef AP040_EXPERIMENTAL_PIPELINE
 localparam S_EXPERIMENT_PIPE = 8'd250;
-wire pipe_supported, pipe_ready, pipe_retire, pipe_we;
+wire pipe_supported, pipe_ready, pipe_retire, pipe_we, pipe_idle;
 wire [2:0] pipe_src, pipe_dst, pipe_wdst;
 wire [31:0] pipe_data, pipe_pc;
 wire [15:0] pipe_opcode;
 wire [4:0] pipe_ccr;
 wire pipe_claim = (state == S_DECODE) && pipe_supported;
-wire pipe_input = pipe_claim && !rf_we && !aux_we;
 wire pipe_owner = state == S_EXPERIMENT_PIPE;
+wire pipe_input = (pipe_claim && !rf_we && !aux_we) ||
+    (pipe_owner && epf_ready_pc && pipe_supported &&
+     !irq_pend && !sr[15] && !sr[14]);
+wire pipe_cancel = pipe_owner && pipe_retire &&
+    (irq_pend || tr_t1 || (tr_t0 && t0_force));
 wire pipe_write = pipe_owner && pipe_retire && pipe_we;
 ap040_pipeline_integer #(.EXTERNAL_STATE(1)) integer_pipeline (
     .clk(clk), .nreset(nreset), .ce(ce), .flush(1'b0),
+    .kill_younger(pipe_cancel), .idle(pipe_idle),
     .external_a(rf_rdata_a), .external_b(rf_rdata_b), .external_ccr(sr[4:0]),
     .read_src(pipe_src), .read_dst(pipe_dst), .in_supported(pipe_supported),
-    .in_valid(pipe_input), .in_ready(pipe_ready), .in_pc(pc_i), .in_opcode(ir),
+    .in_valid(pipe_input), .in_ready(pipe_ready),
+    .in_pc(pipe_owner ? pc : pc_i),
+    .in_opcode(pipe_owner ? epf_data[epf_head] : ir),
     .retire_ready(pipe_owner), .retire_valid(pipe_retire), .retire_we(pipe_we),
     .retire_dst(pipe_wdst), .retire_data(pipe_data), .retire_ccr(pipe_ccr),
     .retire_pc(pipe_pc), .retire_opcode(pipe_opcode),
@@ -2726,6 +2735,7 @@ task fetch_next;
 endtask
 
 task fetch_next_body;
+    input [31:0] next_pc, current_pc;
 	begin
 		fc_ovr_v <= 0;
 		lk_cyc <= 0;
@@ -2743,11 +2753,11 @@ task fetch_next_body;
 		if (irq_pend) begin
 			if (tr_t1 || (tr_t0 && t0_force)) begin
 				texc_pend <= 1;
-				texc_pc <= pc_i;
+				texc_pc <= current_pc;
 				tr_t1 <= 0;
 			end
 			exc_vec <= `AP040_VEC_AUTOVEC + {5'd0, irq_take_lvl};
-			exc_spc <= pc; exc_addr <= 0;
+			exc_spc <= next_pc; exc_addr <= 0;
 			exc_is_irq <= 1; exc_pass2 <= 0;
 			irq_lvl_l <= irq_take_lvl;
 			// As with trace, an interrupt recognized at the instruction
@@ -2757,7 +2767,7 @@ task fetch_next_body;
 		end
 		else if (tr_t1 || (tr_t0 && t0_force)) begin
 			tr_t1 <= 0;
-			exc_now(`AP040_VEC_TRACE, 4'd2, pc, pc_i);
+			exc_now(`AP040_VEC_TRACE, 4'd2, next_pc, current_pc);
 			// Instruction writeback is registered separately.  Do not let
 			// S_EXC0 sample Dn/An/A7 on the same edge that commits it.
 			state <= S_POST_EXC_F2;
@@ -2775,8 +2785,8 @@ task fetch_next_body;
 			ir <= epf_data[epf_head];
 			if (!movem_mem_op(epf_data[epf_head])) mm_resume <= 0;
 			perf_dispatch_toggle <= ~perf_dispatch_toggle;
-			pc_i <= pc;
-			pc <= pc + 32'd2;
+			pc_i <= next_pc;
+			pc <= next_pc + 32'd2;
 			tr_t1 <= sr[15];
 			tr_t0 <= sr[14];
 			flow_t0_pend <= 0;
@@ -2789,8 +2799,8 @@ task fetch_next_body;
 			rd_queue_pop = 1;
 		end
 		else begin
-			issue_ifetch(pc, sr_s);
-			pc_i <= pc;
+			issue_ifetch(next_pc, sr_s);
+			pc_i <= next_pc;
 			state <= S_FETCH;
 		end
 	end
@@ -7849,10 +7859,24 @@ always @(posedge clk) begin
 			//---------------------------------------------------------- decode
 `ifdef AP040_EXPERIMENTAL_PIPELINE
             S_EXPERIMENT_PIPE: begin
+                if (pipe_input && pipe_ready) begin
+                    epf_pop = 2'd1;
+                    pc <= pc + 32'd2;
+                    perf_dispatch_toggle <= ~perf_dispatch_toggle;
+                end
                 if (pipe_retire) begin
                     sr[4:0] <= pipe_ccr;
-                    // One enabled edge settles the shared MLAB write before
-                    // fetch_next's IRQ/trace checks and lookahead consumers.
+                    pc_i <= pipe_pc;
+                    ir <= pipe_opcode;
+                end
+                if (pipe_cancel) begin
+                    // WB commits, ID/EX die. The exception frame names the
+                    // first unexecuted instruction, not the advanced IF PC.
+                    pc <= pipe_pc + 32'd2;
+                    fetch_next;
+                end else if (pipe_idle && !pipe_input) begin
+                    // Shared MLAB/CCR writes are settled; the old sequencer
+                    // consumes the next unsupported word or demand fetch.
                     state <= S_NEXT;
                 end
             end
@@ -8932,7 +8956,14 @@ always @(posedge clk) begin
 		// The retire boundary the arm above asked for (see fetch_next).
 		if (mgo) mem_issue;
 		if (igo) immf_now(igo_n, igo_ret);
-		if (retire_req) fetch_next_body;
+		if (retire_req) begin
+`ifdef AP040_EXPERIMENTAL_PIPELINE
+            fetch_next_body(pipe_owner ? pipe_pc + 32'd2 : pc,
+                            pipe_owner ? pipe_pc : pc_i);
+`else
+            fetch_next_body(pc, pc_i);
+`endif
+        end
 `ifdef AP040_EXPERIMENTAL_PIPELINE
         // P1 uses the explicit decode ownership boundary for every queue pop.
         // Restore lookahead only with a proved multi-issue entry protocol.
