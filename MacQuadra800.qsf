@@ -648,3 +648,7 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram_beat32.sv
 # 2026-09-19 P9combined 28b164d seed21: MET,39782ALMs95%,26340regs491RAM43DSP.
 # CPU+1.084ns HDMI+.071 SDRAM+.643 hold+.229; crossings sys2ram+.941 ram2sys+1.084.
 # MOVE/RTS retirement and CAS fast-flag decisions. Source/hash/cross checks pass.
+
+# 2026-09-19 P12span1fb24fc seed21: MET39897ALMs95%,26335regs491RAM43DSP.
+# CPU+.366 HDMI+.093 SDRAM+.633 hold+.242, crossings+.670/+.366.
+# Within-line spanning read begins at idle admission; source/hash/cross checks pass.

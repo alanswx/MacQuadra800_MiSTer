@@ -1499,3 +1499,19 @@ P12fitservice stillactiveMainPID1480157, sourcesfrozen. P13qualifiedscratch
 readyfornextfitconsideration; P14loadexpansionrejected. Existingcall
 lookaheadalreadyoverlapstargetfetchwithstackpush anddispatchesJSRfrom
 pipeline drain; futurecalloptimizationmustpreserveA7WB andfault ordering.
+
+### P12 timing met, hardware assigned; P13 promoted
+
+P12span1fb24fc fit terminalSUCCESS sourcecross0,39897ALMs95%,26335regs,
+491RAM43DSP,CPU+.366HDMI+.093SDRAM+.633hold+.242cross+.670/+.366.
+RBF4523268bytes SHA94b446a15e8edcba4bd0576efc5161842e2299f8613a1f415a71bbe33458689b.
+Rootverifiedhash/cacheM10K/RFMLAB. AgentassignedP12fivevalidtrial in
+scratch/hardware_p12span_20260919. P9cleanhalt independentlyviewed
+final_halt_visible2.png, recordupdated; median1.029 valid,outlierexcluded.
+P13qualifiedcross-linecandidate promoted comments-onlydelta fromscratch.
+Nextfit p13cross_fit_20260919, committhenlaunchsingleuser-service.
+
+P16fetch-policy experiments notpromoted: PermuteMOVEMsuppression1483764
+regression; low2=1460178 butTowers25981242regression; low4Permute1452883
+andTowers25195415 improve butBubble4393201vs4077142 regresses7.75%.
+AllkernelsPASS;performance tradeoff rejects global policychange.

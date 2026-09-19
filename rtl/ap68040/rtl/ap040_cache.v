@@ -457,6 +457,16 @@ endfunction
 wire snoop_fill_row = s_stb && !r_bank && (s_addr[SETW+3:4] == r_row[SETW-1:0]);
 wire snoop_look_row = s_stb && !c_instr && (s_addr[SETW+3:4] == a_set);
 wire snoop_xrow     = s_stb && (s_addr[SETW+3:4] == r_setB);
+// A next-line snoop may arrive while CE is stopped. Retain it until
+// the read resumes so the second-line result cannot use stale RAM data.
+reg xline_snoop_pending;
+always @(posedge clk) begin
+    if (!nreset) xline_snoop_pending <= 0;
+    else begin
+        if (ce && rd_accept) xline_snoop_pending <= 0;
+        if (cst == C_LOOK && xlook && snoop_xrow) xline_snoop_pending <= 1;
+    end
+end
 reg  fill_snooped, look_snooped;
 always @(posedge clk) begin
 	if (!nreset) begin
@@ -583,6 +593,7 @@ assign rd_accept = (cst == C_IDLE) && !(cinv_req && !cinv_done) &&
 wire xlook_read = (cst == C_LOOK) && r_xline && !xlook && look_hit &&
                   !look_snooped && !snoop_look_row && !inv_wren;
 assign tag_ridx  = (fill_active || (cst == C_TAGW) || post_active || cross_lookup || cross_second) ? r_row :
+                   idle_xline_hit ? {1'b0, a_set + {{(SETW-1){1'b0}},1'b1}} :
                    xlook_read ? {1'b0, r_setB} : x_row;
 wire [4*TAGW-1:0] tags_next = (r_way == 2'd0) ? {tag_q[4*TAGW-1:TAGW], r_tag} :
                         (r_way == 2'd1) ? {tag_q[4*TAGW-1:2*TAGW], r_tag, tag_q[TAGW-1:0]} :
@@ -709,10 +720,14 @@ wire idle_hit = rd_accept && !ipred_hit && !err_hold && !m_err && fits_lane &&
                 (idle_data_idx == {c_instr, c_addr[SETW+3:2]}) &&
                 (idle_tag_idx == a_row) && look_hit &&
                 !tag_we && !inv_wren && !look_snooped && !snoop_look_row;
-// A settled within-line spanning hit can read its selected way now.
-// C_LOOK then assembles the pair through the existing look2 path, whose
-// snoop checks still reject invalidation during the line read.
+// Start a settled within-line pair read at admission.
 wire idle_span_hit = rd_accept && !ipred_hit && !err_hold && !m_err && span2 &&
+                idle_data_valid && idle_tag_valid &&
+                (idle_data_idx == {c_instr, c_addr[SETW+3:2]}) &&
+                (idle_tag_idx == a_row) && look_hit &&
+                !tag_we && !inv_wren && !look_snooped && !snoop_look_row;
+// Start a settled crossing read's second lookup at admission.
+wire idle_xline_hit = rd_accept && !ipred_hit && !err_hold && !m_err && xline &&
                 idle_data_valid && idle_tag_valid &&
                 (idle_data_idx == {c_instr, c_addr[SETW+3:2]}) &&
                 (idle_tag_idx == a_row) && look_hit &&
@@ -798,9 +813,10 @@ assign cd_rd_en  = (cst == C_IDLE) || rd_accept || store_lookup_accept || iline_
                    xlook_read || cross_lookup;
 // word-wise: array k at way (k - w); line-wise: every array at the hit way;
 // the crossing read's second lookup: word 0 of the next row
-wire  [1:0] rd_w = (xlook_read || cross_lookup || cross_second) ? 2'd0 : x_w;
+wire  [1:0] rd_w = (idle_xline_hit || xlook_read || cross_lookup || cross_second) ? 2'd0 : x_w;
 wire  [SETW:0] rd_row = (cross_lookup || cross_second) ? r_row :
-                        xlook_read ? {1'b0, r_setB} : x_row;
+                        idle_xline_hit ? {1'b0, a_set + {{(SETW-1){1'b0}},1'b1}} :
+                   xlook_read ? {1'b0, r_setB} : x_row;
 assign cd_ridx0  = iline_read ? {line_read_row, line_read_way}
                               : {rd_row, 2'd0 - rd_w};
 assign cd_ridx1  = iline_read ? {line_read_row, line_read_way}
@@ -1077,9 +1093,13 @@ always @(posedge clk) begin
 						r_span2 <= span2;
 						r_fc <= c_fc;
 						look2 <= idle_span_hit;
-						if (idle_span_hit) r_hway <= hit_way;
+                        if (idle_span_hit) r_hway <= hit_way;
 						r_xline <= xline;
-						xlook <= 0;
+                        xlook <= idle_xline_hit;
+                        if (idle_xline_hit) begin
+                            fill_hold2 <= data_hit;
+                            xsnooped <= 0;
+                        end
 						r_setB <= a_set + {{(SETW-1){1'b0}}, 1'b1};
 						r_tagB <= (&a_set) ? a_tag + {{(TAGW-1){1'b0}}, 1'b1} : a_tag;
 						cst <= C_LOOK;
@@ -1215,12 +1235,12 @@ always @(posedge clk) begin
 					// next); a snoop that touched the row around the read
 					// falls back to the bypass
 					xlook <= 0;
-					if (look_hit && !xsnooped && !snoop_xrow) begin
+					if (look_hit && !xsnooped && !xline_snoop_pending && !snoop_xrow) begin
 						rdata_r <= span_extract({fill_hold2, data_hit}, r_size, r_off);
 						ack_r <= 1;
 						cst <= C_IDLE;
 					end
-					else if (!xsnooped && !snoop_xrow) begin
+					else if (!xsnooped && !xline_snoop_pending && !snoop_xrow) begin
 						r_row  <= {1'b0, r_setB};
 						r_tag  <= r_tagB;
 						r_addr <= {r_addr[31:4] + 28'd1, 4'd0};

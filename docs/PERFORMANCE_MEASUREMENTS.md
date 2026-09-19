@@ -1528,6 +1528,8 @@ Completion screenshots: `run1_complete.png` through `run6_complete.png`; each sh
 
 Root independently inspected run6_complete.png (valid Mix1.029, Towers0.865,
 completion dialog) and run5_complete.png (Towers0.140, Mix1.410). The outlier
-is excluded rather than counted as progress. Post-benchmark clean shutdown
-is still pending at this record; operator retains exclusive hardware control.
+is excluded rather than counted as progress. Post-benchmark normal shutdown
+completed after the quit/save flow. Root independently inspected
+`final_halt_visible2.png`, which displays "It is now safe to switch off
+your Macintosh". The operator reports no recovery reload.
 A/UX remains deferred to Dani and CD/audio regression is outstanding.
