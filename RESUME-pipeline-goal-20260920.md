@@ -1,3 +1,12 @@
+# P93 promoted for next fit; P90 archival review complete
+
+P90detailedSTAexit0/rootreviewed, worsttc14→MMUtagmux/u_hit→s_ack→rr_a2,
+CPU-.140. Cross+2.386/+.489. NoQuartusprocessremainedbeforepromotion.
+P93MMUbe5db2dc promotedunchanged; coreP78/pipelineP83 unchanged.
+Nextlaunchpreparedscratch/p93devparalleltags_fit_20260920/run.sh.
+P89fullguestimmutable/live,Speedometersplash;latestqueuedwait33M+shotpending.
+No profile/benchmark yet. Hardwareapprovalstillpending, no transfer.
+
 # P90 fit terminal; detailed STA pending; Speedometer splash visible
 
 P90wrapperterminal build1/source0/cross0. ArchiveRBF4550496bytes,

@@ -402,3 +402,9 @@ Archived `MacQuadra800_p90devdatacopies_1bb5f6f.rbf`, 4,550,496 bytes,
 SHA256 `3d25065f006bbbf06442748bfaa2890f1242d34680551d19430b57ec18238816`
 (root independently verified). Detailed CPU STA and RAM/cross review pending;
 production remains frozen until that review completes. No hardware deployment.
+
+P90 detailed CPU STA completed exit0: remaining worst path tc[14] through
+MMU retained-tag mux/comparison, physical address and store-buffer acknowledgement
+to core rr_a[2], -0.140ns. Crossings sys-to-RAM +2.386ns, RAM-to-sys +0.489ns.
+P93 therefore still targets a measured critical chain. With all P90 flows
+terminal, promoted the simulation-qualified P93 MMU unchanged for its next fit.
