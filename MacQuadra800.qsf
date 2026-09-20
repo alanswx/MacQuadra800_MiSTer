@@ -334,7 +334,7 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # 2026-09-19 P24 stack prefetch + pipeline BRA (0177679), seed 21:
 # timing met; 39,716 ALMs; CPU +0.518, HDMI +0.119, SDRAM +0.804 ns;
 # hold +0.229, sys->ram +0.804 and ram->sys +0.518 ns.
-set_global_assignment -name SEED 21
+set_global_assignment -name SEED 22
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
@@ -682,3 +682,9 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram_beat32.sv
 # 2026-09-20 P47 fast read flags (406a098), seed21: placement FAILED.
 # Required4356LABs > available4191; no freshRBF. P52 returns refill to64bytes
 # while retaining bounded prefix logic, indirectTST, residentCMP and fastflags.
+
+# 2026-09-20 P52 refill64/fastflags (fc6c880), seed21: placement passed,
+# routing FAILED from congestion. 41,356 ALMs99%,26,038regs,43DSP;
+# 3,740,942 memory bits. No fresh RBF. Source check PASS; archive
+# scratch/p52refill64_fit_20260920. P57 early MOVE store uses seed22
+# for a different placement; divider remains unchanged pending P59 gates.

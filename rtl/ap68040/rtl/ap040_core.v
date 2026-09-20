@@ -2013,7 +2013,7 @@ task mem_issue;
 		                  state == S_PIPE_DEA || state == S_DECODE ||
 		                  state == S_RET1 || state == S_UNLK1 ||
 		                  state == S_MOVEM_LOOP || pipe_load_launch)) ||
-		     (mgo_wr && (state == S_EXEC || state == S_MOVEM_LOOP ||
+		     (mgo_wr && (state == S_EXEC || state == S_PIPE_DEA || state == S_MOVEM_LOOP ||
 		                 // the pushes: BSR.B from decode, BSR.W, JSR, PEA,
 		                 // LINK -- registered data (pc, ea_addr, port A
 		                 // selected a state earlier) at dbg_a7 - 4
@@ -3296,6 +3296,9 @@ wire        hint_data = (state == S_MRD) && !m_issued;
 // (fast_store).  A store that was not hinted takes the registered
 // acknowledge as before.  (2026-09-19)
 wire        hint_st_exec  = (state == S_EXEC) && (p_dst == DK_MEM);
+wire        hint_st_move_ea = (state == S_PIPE_DEA) && !p_rmw &&
+    exec_kind == EK_ALU && alu_op == `AP040_ALU_MOVE &&
+    p_dst == DK_MEM && !p_wbsup && p_src == SK_MEM;
 wire        hint_st_pushf = ((state == S_DECODE) && (ir[15:8] == 8'h61) &&
                              (ir[7:0] != 8'h00) && (ir[7:0] != 8'hFF)) ||
                             ((state == S_BCC_EXT) && (ir[11:8] == 4'h1)) ||
@@ -3303,9 +3306,10 @@ wire        hint_st_pushf = ((state == S_DECODE) && (ir[15:8] == 8'h61) &&
 wire        hint_st_push  = (state == S_PEA1) || (state == S_LINK2);
 wire        hint_st_movem = (state == S_MOVEM_LOOP) && !mm_dir;
 wire        hint_st_mwr   = (state == S_MWR) && !m_issued;
-wire        hint_store    = hint_st_exec || hint_st_pushf || hint_st_push ||
+wire        hint_store    = hint_st_move_ea || hint_st_exec || hint_st_pushf || hint_st_push ||
                             hint_st_movem || hint_st_mwr;
-wire [31:0] hint_store_addr = hint_st_exec  ? dst_addr :
+wire [31:0] hint_store_addr = hint_st_move_ea ? ea_addr :
+                              hint_st_exec  ? dst_addr :
                               hint_st_mwr   ? m_addr_r :
                               hint_st_movem ? mm_addr :
                               hint_st_pushf ? (dbg_a7_wb - 32'd4) :
@@ -5618,6 +5622,14 @@ always @(posedge clk) begin
 			S_PIPE_DEA: begin
 				dst_addr <= ea_addr;
 				if (p_rmw) mrd(ea_addr, p_dsize, S_PIPE_DDONE);
+                else if (exec_kind == EK_ALU && alu_op == `AP040_ALU_MOVE &&
+                         p_dst == DK_MEM && !p_wbsup && p_src == SK_MEM) begin
+                    // The successful source read and destination EA are complete.
+                    // MOVE needs no destination operand; reuse the ordinary ALU
+                    // flags and ordered write path one state earlier.
+                    if (p_flags) sr[4:0] <= alu_fl;
+                    mwr(ea_addr, p_dsize, alu_res, S_NEXT);
+                end
 				else state <= S_EXEC;
 			end
 

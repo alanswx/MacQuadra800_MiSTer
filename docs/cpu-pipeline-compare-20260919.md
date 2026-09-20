@@ -1156,3 +1156,43 @@ retired instruction latencies; do not sum them with pipeline counters as an
 independent timing measurement. The additional workload supports trying P57
 on hardware after fit, and exposes register-save/restore work for future
 profiling. No hardware Mix improvement is established by these results.
+
+
+## P52 routing failure; P57 seed22; isolated divider experiment
+
+P52 wrapper is terminal: build.exit=3, source_check.exit=0. Placement passed,
+but routing failed from congestion (warnings 16618/188026 and error 170143).
+Archived fit summary: 41,356 ALMs (99%), 26,038 registers, 3,740,942 memory
+bits. No fresh RBF exists; output_files still contains the old P39 RBF and
+must not be deployed as P52. This differs from P47's placement-area failure.
+
+Promoted the exact fully qualified P57 core hash recorded above, with its
+unchanged pipeline module. Selected seed22 for a different placement after
+P52 seed21's routing failure. No divider change is included in this fit.
+
+Scratch P59 (`scratch/p59_divskip_20260920`) changes only the iterative divider:
+when a nonzero divisor has a dividend magnitude fitting in 32 bits, initialize
+its restoring accumulator to the state after 32 leading-zero steps and execute
+eight rounds instead of sixteen. Other dividends and zero divisors retain the
+old path. Sign correction and overflow logic are unchanged.
+
+Independent Python integer oracle: 24,300 signed/unsigned divisions PASS,
+including range boundaries, quotient overflow, signed remainder, random full
+64-bit dividends, and clock-enable stalls; 16,230 used the short path, 8,070
+the original path. The result is available after 9 or 17 enabled clocks after
+start respectively. This is a standalone divider check, not a complete CPU gate.
+
+P59 combined with P57, original Quick Sort output/guards PASS at all latencies:
+
+| RAM latency | P57 cycles | P59 cycles |
+|---:|---:|---:|
+| 0 | 170,504 | 166,992 |
+| 3 | 182,275 | 178,772 |
+| 8 | 205,645 | 202,149 |
+
+At latency3 this saves another 1.92% of cycles; combined P57/P59 is 3.76%
+below P52 on this workload. No hardware score is implied. Profile runner now
+accepts `--muldiv` and hashes that selected source. P59 full integration is
+running with explicit substitution of its divider and the P57 core/module;
+only the integer integration case has completed so far. Do not promote P59
+until the required gates finish. Production RTL contains P57 only.

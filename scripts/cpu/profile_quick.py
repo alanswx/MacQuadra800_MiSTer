@@ -6,6 +6,7 @@ parser=argparse.ArgumentParser(description="Profile original Speedometer Quick S
 parser.add_argument('resource',type=Path)
 parser.add_argument('--out',type=Path,required=True)
 parser.add_argument('--latencies',type=int,nargs='+',default=[3],help='controlled RAM latency values, default 3')
+parser.add_argument('--muldiv',type=Path,help='optional isolated multiply/divide unit')
 parser.add_argument('--core',type=Path,help='optional isolated candidate CPU core')
 parser.add_argument('--compare-module',type=Path,help='optional alternative pipeline module; core and entry policy remain identical')
 parser.add_argument('--early-drain',action='store_true',help='enable final-WB pipeline handoff')
@@ -176,6 +177,7 @@ for variant in (('current','compare') if args.compare_module else ('current',)):
  module=r/'rtl/ap68040/experimental/ap040_pipeline_integer.sv' if variant=='current' else args.compare_module.resolve()
  sources=[d/'tb.sv',r/'rtl/wombat_cpu.sv',r/'rtl/wombat_store_buffer.sv',*[rtl/(u+'.v') for u in units],module]
  sources=[args.core.resolve() if args.core and p==rtl/'ap040_core.v' else p for p in sources]
+ sources=[args.muldiv.resolve() if args.muldiv and p==rtl/'ap040_muldiv.v' else p for p in sources]
  (out/'identity.json').write_text(json.dumps({'sources':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in sources},'kernel_sha256':hashlib.sha256(kernel).hexdigest(),'resource_sha256':hashlib.sha256(resource).hexdigest(),'input':values,'latencies':args.latencies,'early_drain':args.early_drain,'compare':args.compare,'scope':'unchanged 0x93ce..0x946d recursive sort; fixed shuffled input; excludes initializer, allocation and original wrapper'},indent=2))
  run(['/home/alans/verilator5/bin/verilator','--binary','--timing','-Wno-fatal','-Wno-BLKLOOPINIT','-j','8','--top-module','tb_cpu_quick','--Mdir',out/'obj','-I'+str(rtl),*flags,*sources],out/'compile.log')
  for latency in args.latencies:
