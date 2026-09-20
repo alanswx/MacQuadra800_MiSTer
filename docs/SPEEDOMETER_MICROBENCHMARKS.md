@@ -334,3 +334,10 @@ Focused remapping/invalidation test passes3phases with4765full-copy cycles,
 First100corpus1900groups/zero differences, session75079exit0,
 /tmp/cpu-corpus100-gate.Sy8o6W. Fullintegration and Matrix4KB stillrunning;
 no promotion/fit yet. This is an area/timing fallback, not an established gain.
+
+P90 final simulation qualification: Matrix4KB3127667cycles,1599 more thanP89,
+all1600results/guardsPASS (session40699exit0). Fullintegration35760exit0 with
+precise load/store/PEA fault, interrupt and replay gates allPASS. Together with
+MMU/invalidation/corpus/workload gates, this qualifies P90 for a fit. Promoted
+unchanged five-copy source; guarded wrapper scratch/p90devdatacopies_fit_20260920/run.sh.
+No claim of area/timing improvement before Quartus completes.

@@ -1,3 +1,14 @@
+# Latest: P90 qualified and promoted; next fit launch follows
+
+Fullintegration35760exit0, allprecisefault/IRQ/replayPASS. Matrix4K40699exit0,
+3127667cycles (+1599vsP89), alloraclesPASS. AllplannedP90gatescomplete.
+PromotedMMU2c445c90 unchanged; coreP78/pipelineP83. NoQuartusflowactivebefore
+promotion; launchprepared scratch/p90devdatacopies_fit_20260920/run.sh next.
+P89fullguest immutable794ade3 remainsunchanged/live2943117. Rootviewedf1500:
+Findermenubar andgraydesktop, iconsnotreadyyet. Latest1.32Bhalfcycles; control
+initialwait1320000000risingedges stillpending (roughly2.64Bhalfcycles), noinput.
+P89hardwareexactapprovalstillpending; nohardwaretransfer.
+
 # Latest: P90 fallback qualification in progress
 
 P90MMU2c445c90b1bbd7ea4b8452b6ff3e91bd4fa56e363d0beb9c430ae33f3c033abd.
