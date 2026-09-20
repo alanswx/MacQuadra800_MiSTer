@@ -1,3 +1,22 @@
+# P97 measured Mix started; ROM SANE dispatch resolved
+
+P97 fullguest PID3190686 still active. Root reviewed screenshot_f5188.png:
+all ten tests checked, all iteration counts 1. Profile started at simulator
+halfcycle4435476481; Return pressed4435476483, released4437576487. Queued
+wait33M risingedges and shot; inspect next screenshot for benchmark execution.
+Do not resend Run Set. Oldhost sb_full counter still invalid for queue4.
+Snapshot guest PID3301309 active, last observed610Mhalfcycles; scheduled
+ramdump8 follows1.2B risingedges (~2.4Bhalfcycles), so no snapshot yet.
+
+Added scripts/cpu/resolve_sane_rom.py and docs/WHETSTONE_SANE_DISPATCH_20260920.md.
+ROM-identity-checked 1024-entry decoder yields A9EB slot15ac ->40826206 and
+A9EC slot15b0 ->40826228. Actual ROM prologues match hooks0ac8/0acc;
+handlers dereference these handles before dispatch, or load a resource.
+Need live table AND handle contents, with MMU translation checked. Static
+ROM addresses are not the installed runtime implementation. Wrong-ROM
+negative check passes. No CPU RTL changes or hardware actions this turn.
+MiSTer remains P96 safehalt, best hardware median1.211; goal1.8 unmet.
+
 # Snapshot-capable SANE guest launched
 
 q800-whet-snapshot-20260920.service activePID3301309, directory
