@@ -2037,3 +2037,32 @@ stackedPC60a/SR2011, younger cancellations and32increments replayed once.
 First100corpus1900groups0diffs (/tmp/cpu-corpus100-gate.rcNF3h).
 Fullintegration stillrunning; no promotion or fit yet. Evidence under
 scratch/p83_indirect_add_20260920 and scratch/{matrix83_mmu8,bubble83,quick83_mmu8}_20260920.
+
+
+P83 full integration completed, session51751exit0: all precise fault,
+interrupt and replay gates pass. Together with the targeted ADD semantics,
+fault/IRQ checks and first100corpus, it is simulation-qualified for a fit.
+Prepared scratch/p83devmemadd_fit_20260920/run.sh remains UNLAUNCHED while
+P82 occupies Quartus. P82 synthesis reports42DSPs (one more thanP78),25377
+registers and unchanged3675406RAM bits; final fit/timing stillpending.
+
+Subsequent screens, none promoted:
+
+* P84 adds byte/word CMPI to P83. MatrixMMU8Klat3 regresses3638968→3643769
+  (+4801cycles); Bubble3394944 unchanged. Full result oracles pass but no
+  full correctness qualification. Matrix fetch transactions rise substantially,
+  offsetting the reduced sequencer occupancy. Scratchp84_immediate_compare_20260920.
+* P85 adds d16(An) CMP to P83's existing ordered-load/compare machinery.
+  Bubble3394944 and Quick178573 unchanged; pipeline issue counts unchanged.
+  Inspecting core lookahead showed the new form still bypassed pipeline admission.
+* P86 pairs P85module with a scratch core admitting that d16CMP through resident
+  lookahead and late-extension waiting. Bubble3522604cycles versus the true
+  P83baseline3394944 (+3.76%), sorted/guardsPASS. The same scratchcore with
+  the oldP82module gives3397855, a separate admission-only control, NOT the
+  baseline performance. Pipeline issues rise748500→873749 without a benefit.
+  This confirms the original no-change screen was missing coverage, and the
+  fully admitted variant actually regresses. Reject; no broader qualification.
+
+Evidence: scratch/{matrix84_mmu8,bubble84,bubble85,quick85_mmu8,bubble86}_20260920,
+with source/program identities in each variant directory. Production remains
+P82, no build-input changes during these screens.

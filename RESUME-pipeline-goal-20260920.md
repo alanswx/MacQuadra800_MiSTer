@@ -1,3 +1,21 @@
+# Latest: P83 qualified; P84–P86 screens rejected
+
+P83 fullintegration51751exit0 and finalPASS; all planned simulation gates complete.
+PreparedUNLAUNCHED scratch/p83devmemadd_fit_20260920/run.sh. P82stilllivefit,
+wrapper2848075/fitter2857951; A&S42DSPs (oneextra),25377regs,3675406RAMbits.
+ProductioncoreP78e2493f18/pipelineP82d57480d0 staysfrozen.
+
+P84CMPIbyte/wordrelativeP83: Matrix3643769 vsP83 3638968, regression4801;
+Bubble3394944unchanged. P85d16CMPmodulealone Bubble/Quickunchanged but no
+newpipelineissues: lookaheadbypassesitsadmission. P86scratchcorepairsP85module
+withmatchinglookahead/lateextensionadmission, Bubble3522604 vsP83 3394944,
++3.76%regression despiteissues748500→873749. BothoraclesPASS, nofullgates.
+P86oldP82modulecontrol3397855 includesextraadmissioncost; NOTtruebaseline.
+Allthree rejected/notpromoted. Scratch directories p84_immediate_compare_20260920,
+p85_displacement_compare_20260920,p86_displacement_compare_entry_20260920.
+No pendinglocalbenchmark sessions. P82fitonlylivework pluscheapoperator.
+HardwareexactP75transferapprovalstillpending; noMiSTerchanges, best1.133P70.
+
 # Latest: P82 fit live; P83 ADD partial qualification passes
 
 P82 launched userunitq800-p82devindexmul-fit-20260920, wrapper2848075 verifiedactive,
