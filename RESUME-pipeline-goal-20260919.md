@@ -2381,3 +2381,10 @@ Do notrestart the activeflow or changeRTL/QSF/QIP/SDC. Nextactionpollsame
 service, inspectfresharchive/cross/RAM/timing, then sendverifiedP52artifactto
 operatorfor5validhardwareMixruns. P57buildcanfollowsequentiallyafterP52archive
 whilehardwareoperatorrunsP52. Goalstill1.8unmet; noblockcondition.
+
+
+## Current continuation index (2026-09-20)
+
+See `RESUME-pipeline-goal-20260920.md` for the active P57 seed22 flow, P52
+routing failure, qualified P62 next candidate, separate divider experiments,
+and unchanged hardware score. Earlier live-build entries above are historical.
