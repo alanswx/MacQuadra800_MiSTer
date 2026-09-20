@@ -184,3 +184,18 @@ Unapplied delta remains scripts/cpu/move_displacement_extension.patch.
 New identity-checked wrapper scratch/p64movesubset_fit_20260920/run.sh is
 prepared NOT launched. Old P62 wrapper expects pre-P63 pipeline and must not
 be used for this combination. Inspect complete P63 result before next build.
+
+
+## Monitoring / hardware delegation
+
+User explicitly requested a cheaper model for completion monitoring and MiSTer
+tests. GPT-5.6-luna agent `/root/fit_and_hardware_operator` now owns P63 user-unit
+monitoring and subsequent hardware operation. It must report the terminal
+wrapper/artifact/timing/source checks to root before deployment; root reviews
+artifact evidence and every fresh benchmark start/completion screenshot.
+Older `/root/mister_operator` is idle and handing over script paths; do not
+allow concurrent hardware input. Root reviewed fresh readiness screenshot
+`scratch/hardware_readiness_p63_20260920/current.png`: safe shutdown, still P39,
+33MHz/32MB, disposable disk selected. Agent must recheck before deployment.
+No P63 hardware artifact or score exists yet. Ask the monitoring agent for
+terminal evidence rather than duplicating its polling loop.
