@@ -416,3 +416,28 @@ Return on Run Set. Screenshot f5220 confirms the Whetstone phase running.
 A local watcher polls screenshots, stops profiling on the completion alert,
 and leaves the simulator alive for visual review and normal guest shutdown.
 No completed score or hardware performance claim exists yet.
+
+
+Dhrystone dependency inventory (original CODE3, no benchmark changes): DStone
+starts at0x0bca (`LINK A6,#-86`), ends with RTS0x0dc8, debug name at0x0dcb.
+Bytes[0x0bca:0x0dca] SHA256
+`aa1e3cbd001a0619a30a7013a49d3bfe1acb6c00091ef41d39e783d73f12c026`.
+The actual workload loops0x0cb0..0x0dae, comparing an unsigned-expanded word
+counter with50,000. Helpers Proc1..8 start0x0dd4,0x0e66,0x0e96,0x0ed4,
+0x0f00,0x0f1a,0x0f8c,0x0fae; Func1..3 start0x1048,0x106a,0x10e6.
+Disassembly from each proper routine boundary is in
+`scratch/dhrystone_inventory_20260920/routines.dis`; Proc6's embedded jump
+table at0x0f52 requires separate code/data handling, so its linear decode
+stops at the indexed JMP and is not a complete Proc6 listing.
+
+The workload includes word multiply/divide, indexed arrays, record copying,
+procedure calls, stack locals and A5 globals. Runtime calls to raw resource
+target0x48 occur twice during initialization and once per loop (string-copy
+calling context); Func2 calls raw0x40 with two string pointers and compares
+the returned word with zero (string-comparison context). Their precise runtime
+implementations/relocations still need verification. The surrounding DStone
+wrapper also allocates/frees two40-byte records and performs timer calibration.
+An isolated loop can supply deterministic storage and omit the timing wrapper,
+but must preserve actual string routines, helper code, A5 data and numerical
+oracles to represent the complete Dhrystone workload. No such fixture or
+Dhrystone-specific speed claim has been produced by this inventory.
