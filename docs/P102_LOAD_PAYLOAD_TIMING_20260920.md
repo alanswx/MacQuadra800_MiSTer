@@ -6,7 +6,7 @@ load operand selection, ALU flags, and branch refill into epf_data[5][1].
 CPU slack is -1.531 ns. This motivates removing acknowledgement from the
 payload mux rather than adding latency to every read.
 
-The unapplied patch `scripts/cpu/load_payload_state_select.patch` selects
+The applied patch `scripts/cpu/load_payload_state_select.patch` selects
 m_val only in S_PIPE_LOAD_RETURN, otherwise mem_rdata. Existing response,
 fault, flush, and retirement qualifications remain intact. Successful direct
 responses select the same bus data; split returns select the same buffered
@@ -27,9 +27,17 @@ baseline was used without relaxing that guard.
 Read-completion IRQ gate passes all three bus phases, with three injected
 interrupts and three cancelled pipeline records:
 scratch/p102_load_payload_20260920/read_irq.log.
-Broader pipeline_handoff integration is running under exec session 59618;
-log scratch/p102_load_payload_20260920/integration.log. Its completion and
-fault/split/CE-pause coverage must be reviewed before promotion.
+Broader pipeline_handoff integration completed with exit 0, including all
+programs, 14,720 architectural snapshots, and final IRQ/replay gates. The
+forced pipeline load program checks every An/Dn and byte/word/long size,
+odd addressing, a longword crossing a 4K boundary, and condition flags.
+It reports 1,161 entries/commits and 2,861 CE-paused ownership cycles.
+Pipeline load faults report 12 entries, 6 commits, 6 cancellations.
+The separate fixed first-100 corpus gate passes 1,900 field groups with
+zero differences: /tmp/cpu-corpus100-gate.Fk1LH7. This is not the full corpus.
 
-Production RTL unchanged. No synthesis/fit or hardware test of P102 yet;
-no timing improvement is claimed. MiSTer remains on the last P96 state.
+The exact candidate is now applied to production for fitting. No timing
+improvement or hardware performance is claimed before measurements.
+Build wrapper: scratch/p102devpayload_fit_20260920/run.sh, seed 22;
+CD/audio and Ethernet remain omitted for development. Source inputs must
+remain frozen during the complete flow, archive and detailed timing reports.

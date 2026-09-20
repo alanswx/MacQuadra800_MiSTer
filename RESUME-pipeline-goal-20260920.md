@@ -1,3 +1,14 @@
+# P102 qualified and promoted for timing fit
+
+Exact candidate applied to production; patch scripts/cpu/load_payload_state_select.patch
+now APPLIED. Integration exec59618 completedexit0, allprograms/IRQreplayPASS.
+First100 corpus exec3425 completedexit0,1900fieldgroups0diffs,/tmp/cpu-corpus100-gate.Fk1LH7.
+Whet exact31784029cycles/captures; read IRQ3phasesPASS.
+Next launch prepared scratch/p102devpayload_fit_20260920/run.sh via systemd,
+unit q800-p102devpayload-fit-20260920. No fit launched at this commit yet.
+Freeze RTL/QSF/QIP/SDC through full wrapper once launched. No hardware actions.
+Goal1.8unmet; hardwaremedian1.211. See docs/P102_LOAD_PAYLOAD_TIMING_20260920.md.
+
 # P102 isolated timing candidate under qualification
 
 Unapplied scripts/cpu/load_payload_state_select.patch removes ack from the

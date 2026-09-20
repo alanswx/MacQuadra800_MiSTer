@@ -358,7 +358,10 @@ wire pipe_load_direct = pipe_load_active && (state == S_MRD || state == S_MWR) &
 wire pipe_read_retire = pipe_load_direct && state == S_MRD &&
     !irq_pend && !sr[15] && !sr[14];
 wire pipe_load_ack = pipe_load_return || pipe_load_direct || (ce && pipe_load_abort);
-wire [31:0] pipe_load_value = pipe_load_direct ? mem_rdata : m_val;
+// Select the response payload from registered state, independently of ack.
+// Only S_PIPE_LOAD_RETURN consumes the buffered split-transfer value;
+// ordinary responses consume mem_rdata under the unchanged ack/fault gates.
+wire [31:0] pipe_load_value = pipe_load_return ? m_val : mem_rdata;
 
 wire [31:0] pipe_rdata_a, pipe_rdata_b, pipe_old_dst;
 wire [3:0] pipe_old_dst_reg;
