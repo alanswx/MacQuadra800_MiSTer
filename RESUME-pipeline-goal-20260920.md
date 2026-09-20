@@ -1,3 +1,26 @@
+# Exact P75/P89/P96 hardware approvals received; P96 prioritized
+
+User explicitly approved each quoted exact artifact/destination/testing request:
+P75 MacQuadra800_p75devclear_d90c597.rbf, P89 MacQuadra800_p89devmmucopies_794ade3.rbf,
+and P96 MacQuadra800_p96devmemread_cc81bea.rbf, to mister.local10.3.89.233,
+disposable disk, boot/five valid Speedometer runs/shutdown. Prior approval blocker
+resolved for these three artifacts. P97 is NOT included in exact approval.
+Sole operator fit_and_hardware_operator instructed prioritizeP96 if P75 not
+loaded yet; otherwise finishP75 safely thenP96. Await operator concrete result.
+P97 fullguest build completed and boot running: servicePID3190686, heartbeat
+70Mcycles. P97 Quartus servicePID3193601 active; production frozen.
+
+P98 scratch eager drain: allow empty queue to start draining on capture edge
+(count!=0 || push). No production change. Quick latency3/8 169885/189310 vsP97
+170343/189778 (0.269/0.247%); Matrix2848462 vs2848468 (effectively unchanged).
+All benchmark oracles PASS. Existing directed queue bench PASS. Random posted
+scoreboard initially failed COVERAGE ONLY (no simultaneous count1), not data.
+Scratch tb_posted_directed.sv adds deterministic occupancies1..3, PASS1186writes,
+simultaneous1/2/3=1/3/9;3682fullstalls762CEstalls168errdrains. Not promoted.
+Scratch/p98_eager_queue_20260920 and quick98_eager_queue_20260920,
+matrix98_eager_queue_20260920 retain evidence. Need broader performance/SDRAM
+checks before considering fit. Goal still unmet; no new reviewed hardware score.
+
 # P97 fit running from72bb651; fullguest build also live
 
 Started q800-p97devqueue4-fit-20260920.service, wrapperPID3193601, exact commit
