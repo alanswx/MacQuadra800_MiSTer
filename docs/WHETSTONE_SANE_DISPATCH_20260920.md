@@ -88,3 +88,27 @@ per operand longword in this fixture. No production RTL changed. It still
 needs MMU, page-crossing and fault/restart qualification before promotion;
 there is no Quartus or hardware result. A 2.6% add-wrapper improvement alone
 cannot close the real-machine Whetstone deficit.
+
+## P99 MMU screen
+
+The 32-bit runner now accepts `--mmu 4k|8k --remap`. Both supervisor and
+user roots point at real resident page tables. The operand virtual page at
+2000 maps to physical 6000; the old physical page is poisoned with DEAD.
+The independent host oracle reads the translated location and requires the
+entire poisoned page to remain unchanged. Nonzero walker reads/writes,
+TC enable and descriptor used bits are required, so a disabled/bypassed
+MMU cannot silently pass this workload.
+
+| Mapping | RAM latency | Baseline loop | P99 loop | Clocks saved |
+|---|---:|---:|---:|---:|
+| Remapped 4 KB | 3 | 22834 | 22237 | 597 |
+| Remapped 4 KB | 8 | 24477 | 23880 | 597 |
+| Remapped 8 KB | 3 | 22697 | 22100 | 597 |
+| Remapped 8 KB | 8 | 24422 | 23825 | 597 |
+
+All exact results, guards and subtraction controls pass. The 4 KB runs
+perform 18 walker reads/8 writes; 8 KB performs 15/7. Evidence directories:
+`scratch/sane_add32_{base,p99}_mmu{4k,8k}_20260920`.
+The gain survives real translation (~2.4–2.6%). These are successful
+within-page accesses, not fault injection or cross-page qualification;
+P99 remains isolated and unapplied pending those checks.

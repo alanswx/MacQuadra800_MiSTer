@@ -20,6 +20,7 @@ def main():
     p.add_argument('rom', type=Path)
     p.add_argument('--out', type=Path, required=True)
     p.add_argument('--prepare-only', action='store_true', help='write fixture and identity without compiling or running')
+    p.add_argument('--mmu', choices=('off', '4k', '8k'), default='off')
     p.add_argument('--core', type=Path)
     p.add_argument('--fpu', type=Path)
     p.add_argument('--vasm', default='/home/alans/mister/MacQuadra800_fixtures/wombat-vasm/vasmm68k_mot')
@@ -96,6 +97,11 @@ fail:
  dc.l $80000000,0
  dc.w $5aa5
 '''
+    if a.mmu != 'off':
+        if not a.prepare_only:
+            p.error('--mmu requires --prepare-only; page tables are supplied by the 32-bit bench')
+        setup = ' move.l #$4000,d0\n movec d0,urp\n movec d0,srp\n move.l #$' + ('8000' if a.mmu == '4k' else 'c000') + ',d0\n movec d0,tc\n'
+        asm = asm.replace(' move.l #$12345678,a6', setup + ' move.l #$12345678,a6')
     (out/'program.s').write_text(asm)
 
     def run(cmd, log):
@@ -124,7 +130,7 @@ fail:
                 'program_sha256': hashlib.sha256(program).hexdigest(),
                 'sources': {str(s): hashlib.sha256(s.read_bytes()).hexdigest() for s in sources},
                 'oracle': '100 exact additions of 1 to 2 produce extended 102 = 4005:cc000000:00000000; source/guards/stack/A0/A6 unchanged',
-                'pipeline': False, 'mmu': False}
+                'pipeline': False, 'mmu': a.mmu}
     (out/'identity.json').write_text(json.dumps(identity, indent=2)+'\n')
     if a.prepare_only:
         return

@@ -1,3 +1,18 @@
+# P99 survives remapped 4 KB and 8 KB MMU screen
+
+Extended SANE32fixture with realsharedRAMwalker and --mmu4k|8k --remap.
+Virtualoperandpage2000->physical6000; oldphysicalpage poisonedDEAD; host
+checkswholepoisonpageunchanged, exactresult/source/guards, nonzerowalks,
+TCenabled+descriptorusedbits. Bothroots4000. No productionRTLchanges.
+Allbaseline/P99 latency3/8pass; subtractionnegativefails ineachconfig.
+4Kbaseline22834/24477 ->P9922237/23880;8K22697/24422->22100/23825.
+Exactly597loopcyclessaved each. 4Kwalks18R8W;8K15R7W. Evidence
+scratch/sane_add32_{base,p99}_mmu{4k,8k}_20260920. Need pagecross/fault
+qualification, nofit/hardware yet; candidatepatch stillunapplied.
+LiveP97last5.29Bhalfcycles,snapshotguest1.49B; bothverifiedactive. Snapshot
+scheduled2.4Bhalfcycles. P97profile stillrunning allten; don'tresendRunSet.
+Goal1.8unmet; hardwarebestP96median1.211; MiSTer unchangedsafehalt.
+
 # 32-bit SANE fixture and P99 early FPU read screen
 
 Added profile_sane_add32.py + tb_cpu_sane.sv; same unchangedROMadd70bytes,
