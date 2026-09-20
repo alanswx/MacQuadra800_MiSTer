@@ -212,3 +212,20 @@ flags required, DEVELOPMENT ONLY labeling). See
 `docs/CPU_DEVELOPMENT_FEATURES_20260920.md`. Both features must be restored
 and full hardware validation repeated before final acceptance. P64 stays a
 subsequent one-at-a-time CPU experiment. Cheap operator has been notified.
+
+
+## P63 terminal, hardware assigned; development profile promoted
+
+Full-feature P63 fit SUCCESS, build.exit1 solely timing gate, source0/cross0.
+Artifact4555188bytes, SHA5dafc05bb5a47a3c6cbb31ef5e0e7f826d8aa32a9ed110d1c3af27532b1cf587,
+archive scratch/p63subset_fit_20260920/MacQuadra800_p63subset_6fbe313.rbf.
+41,174ALMs98%; CPU-1.709ns,HDMI-.213,SDRAM+.478,holdmin+.242,
+crosssysram+2.325/ramsys+.827. Root verified and assigned cheap operator
+/root/fit_and_hardware_operator five-run experimental hardware gate on this
+exact archived RBF; timing miss does NOT bar user-authorized experimentation.
+Operator owns hardware access. No score yet. Original disk remains untouched.
+
+Both development feature macros now applied in QSF, exact P63 CPU unchanged.
+Next sole build wrapper scratch/p63devnocdnet_fit_20260920/run.sh; commit/push
+before launching q800-p63devnocdnet-fit-20260920.service. P64 still unapplied.
+Current QSF is development-only and must restore CD/Ethernet before release.

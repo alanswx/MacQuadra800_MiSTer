@@ -1533,3 +1533,19 @@ Prepared NOT launched scratch/p64movesubset_fit_20260920/run.sh checks exact
 P64core/P63ALU/P63pipeline/baseline-divider hashes. Wait for complete P63 fit
 and artifact review before choosing the next FPGA action. This supersedes
 using the old P62 wrapper, which correctly rejects the changed pipeline hash.
+
+
+P63 full-feature FPGA completed: FIT SUCCESS, timing gate FAIL (build.exit1),
+source_check0 and cross0. 41,174ALMs98%,26,579registers,491RAMblocks,43DSP.
+CPU setup-1.709ns/TNS-108.544,HDMI-.213/TNS-2.190,SDRAM+.478,holdmin+.242;
+crosssys->RAM+2.325,RAM->sys+.827. Fresh4555188-byte artifact:
+scratch/p63subset_fit_20260920/MacQuadra800_p63subset_6fbe313.rbf,
+SHA2565dafc05bb5a47a3c6cbb31ef5e0e7f826d8aa32a9ed110d1c3af27532b1cf587.
+Root verified archive/hash/timing; cheap operator assigned authorized
+experimental hardware testing (negative timing bars release, not experiments).
+No P63 hardware score yet.
+
+Next build applies only CDROM_OFF and ETHERNET_OFF, retains exact P63 CPU
+and seed22. It is the p63devnocdnet development profile, not P64. CPU frequency,
+RAM/cache/disk/video settings unchanged. Features must be restored for final
+acceptance. Current QSF is development-only; artifact names/report must say so.

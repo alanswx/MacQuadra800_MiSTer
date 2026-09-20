@@ -376,8 +376,8 @@ set_global_assignment -name VERILOG_MACRO "MISTER_DISABLE_ADAPTIVE=1"
 # line below and prints a DEBUG BUILD banner so it cannot pass unnoticed.
 # ============================================================================
 #set_global_assignment -name VERILOG_MACRO "SCSI_TRACE=1"
-#set_global_assignment -name VERILOG_MACRO "CDROM_OFF=1"
-#set_global_assignment -name VERILOG_MACRO "ETHERNET_OFF=1"
+set_global_assignment -name VERILOG_MACRO "CDROM_OFF=1"
+set_global_assignment -name VERILOG_MACRO "ETHERNET_OFF=1"
 # Posted cross-line cache-store merge, validated on hardware.
 set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_XSTORE=1"
 # Overlap LEA displacement fetch with base selection; checked independently.
@@ -694,3 +694,11 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram_beat32.sv
 # 491 RAM blocks, 43 DSP. No fresh RBF; source manifest passed. Archive:
 # scratch/p57movestore_fit_20260920. P63 keeps seed22 and reduces only the
 # pipeline ALU operation set; full CPU/silicon100 qualification passed.
+
+# 2026-09-20 P63 pipeline ALU subset (6fbe313), seed22: FIT SUCCESS,
+# 41,174 ALMs98%,26,579regs,491RAMblocks,43DSP. Timing FAILED:
+# CPU -1.709ns, HDMI -0.213ns, SDRAM +0.478ns, worst hold +0.242ns.
+# Cross sys->RAM +2.325ns, RAM->sys +0.827ns. Archived fresh RBF in
+# scratch/p63subset_fit_20260920. Next development build keeps exact P63 CPU
+# and seed22, temporarily omits CD-ROM/audio and Ethernet using macros above.
+# DEVELOPMENT ONLY: restore both features and revalidate before release.
