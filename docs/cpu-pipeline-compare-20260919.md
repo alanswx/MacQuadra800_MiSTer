@@ -1903,3 +1903,7 @@ and leaves destination and younger registers unchanged. This option requires
 a candidate exposing hint_indexed_read; ordinary comparison tests are unchanged.
 Full integration and hardware-derived corpus gates are running; not promoted
 or ready for a fit until qualification completes. P76 remains frozen in Quartus.
+
+P77 qualification completed: full integration exit0, all precise fault,
+interrupt/replay gates pass; first100corpus1900field groups match,0diffs.
+Prepared next-fit wrapper remains unlaunched while P76 occupies Quartus.

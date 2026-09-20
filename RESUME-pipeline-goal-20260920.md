@@ -1,3 +1,18 @@
+# Latest: P77 full qualification complete; P78 screened next
+
+P77 full integration34258 collectedexit0, full.log endsPASS including all
+precise faults/IRQ/replay. First100corpus already1900groups0diffs; directed
+indexed sequencer MULS/MULU/DIVS/DIVU faults alsoPASS. P77 can be considered
+for fit once P76 full wrapper and archive/cross/STA finish. Prepared UNLAUNCHED
+wrapper scratch/p77devindexread_fit_20260920/run.sh with corehashba7e8325...
+P76 still sole live fit; production remains P76 and frozen.
+
+P78 scratch/p78_displacement_read_20260920 adds early d16-source read/hint
+on top of P77, not production. Matrix screen session2320 running.
+Operator interrupted/reassigned to report pending hardware command/handle
+because repeated status requests went unanswered. No root hardware inputs;
+operator retains sole ownership; do not repeat any unverified pending action.
+
 P77 corpus terminal update: session48930 exit0, all1900field groups match,
 0real diffs in first100only (/tmp/cpu-corpus100-gate.b3fISZ).
 Full integration34258 still live, current loops_irq test at last check.
