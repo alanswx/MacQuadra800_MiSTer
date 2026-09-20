@@ -539,3 +539,15 @@ MacOSstartupscreenreviewed, notyetdesktop. Existing timerobserverQueens/Sieve
 only. Profiler totaldispatch toggle/state/cachecounts usable; opcodehistogram
 reads legacyir even duringpipeline dispatch and must NOT be treated as exact
 pipeline opcode attribution. No workload profile has been collected yet.
+
+
+P73 final qualification: integration4418collectedexit0, full.log endsPASS
+real-corepipelineownershipincludingfault/interrupt/replay. All planned simulation
+gates complete with baseline divider. Prepared NOTLAUNCHED wrapper
+scratch/p73devshared_fit_20260920/run.sh with exactcorehasha4875880...and
+baseline925bbea...divider. Area/timingunmeasured; waitP70completebeforepromotion.
+P67fullguest screenshotf1520reviewed: Finder menu bar visible, desktop icons
+stillloading; no profileyet. Existing sim_speedometer README warns historic
+keyboardsequence previously openedPrinceofPersia and wasrejected. Use live
+screenshots/manualnavigation, notprefixreplay. Appendedwait33Mthen shot tolocal
+controlfile; simulatorremainslive, P70Quartusremainslive.

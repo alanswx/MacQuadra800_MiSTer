@@ -1768,3 +1768,15 @@ OriginalP67alsoPASS; intentionally reversed shift fails atoffset1,n1,word0.
 Upper/crossing instruction-coherence3patcheseachPASS. First10029767exit0:
 1900groups0diffs `/tmp/cpu-corpus100-gate.EOuMAA`. Fullintegration4418active;
 finish beforepromotion. Sources/logs under scratch/p73_refill_shared_seed_20260920.
+
+
+P73 final qualification: integration4418collectedexit0, full.log endsPASS
+real-corepipelineownershipincludingfault/interrupt/replay. All planned simulation
+gates complete with baseline divider. Prepared NOTLAUNCHED wrapper
+scratch/p73devshared_fit_20260920/run.sh with exactcorehasha4875880...and
+baseline925bbea...divider. Area/timingunmeasured; waitP70completebeforepromotion.
+P67fullguest screenshotf1520reviewed: Finder menu bar visible, desktop icons
+stillloading; no profileyet. Existing sim_speedometer README warns historic
+keyboardsequence previously openedPrinceofPersia and wasrejected. Use live
+screenshots/manualnavigation, notprefixreplay. Appendedwait33Mthen shot tolocal
+controlfile; simulatorremainslive, P70Quartusremainslive.
