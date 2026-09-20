@@ -1,3 +1,16 @@
+# P104 planned simulation qualification complete, still isolated
+
+New move_simple_restart.py real4kMMU invalidpage repair+PFLUSH+RTE.
+Baseline/P10436casesx3phasesPASS,exec76136/17114done0,correctframe/rollback/
+CCR/data/exactlyonefault/finalAnupdates. SeparateAnonly;8kfaultaliasnotcovered.
+Restartsummaryscratch/p104_move_simple_dest_20260920/restart_summary.json.
+Corpusfirst100exec13784done0,1900groups0diffs,/tmp/cpu-corpus100-gate.x7wk5R.
+Earlierfullintegration/value/fault/IRQ/trace/splitallPASS; Whet4.868%fewerclocks.
+P104stillUNAPPLIED. P102fitactivewrapper3426490,fit3435576; sourcehashcheckPASS.
+FREEZEbuildinputsthroughWHOLEwrapper/archive/cross/detailedSTA. Next inspect
+P102timing then choose nextfit (P104qualifiedforbuild); nohardwaredeployment.
+Goal1.8unmet; hardwareP96median1.211. Docs/P104_MOVE_SIMPLE_DESTINATION_20260920.md.
+
 # P104 broad integration now complete PASS
 
 Exec75762completedexit0, final real-corepipelineownershipPASS inclallIRQ/replay.

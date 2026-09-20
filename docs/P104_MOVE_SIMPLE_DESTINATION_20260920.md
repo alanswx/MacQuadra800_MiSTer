@@ -68,3 +68,33 @@ comparison. Fit inputs remain frozen for active P102; no hardware change.
 Update: broad integration exec75762 has now completed with exit 0, including
 all programs and final precise IRQ/load/store/PEA replay gates. Dedicated RTE
 recovery and corpus comparison remain pending.
+
+## RTE recovery and corpus results
+
+New scripts/cpu/move_simple_restart.py builds real 4K MMU page tables with
+an invalid source or destination page. The handler verifies the format-7
+frame, stacked PC/SR/fault address, both rolled-back address registers and
+that the following instruction has not changed D2. It repairs the descriptor,
+flushes the ATC and executes RTE. The resumed program requires exactly one
+fault, correct final CCR/data and exactly the expected address updates.
+
+Both P102 and P104 pass 36 cases each across three bus phases (108 case/phase
+combinations per core): byte/word/long, postincrement/predecrement sources,
+plain/postincrement/predecrement destinations, source/destination invalid page.
+Exec76136 and exec17114 completed with exit 0. Evidence:
+scratch/{base,p104}_simple_restart_20260920 and
+scratch/p104_move_simple_dest_20260920/restart_summary.json. This gate uses
+separate source/destination registers and 4K pages; same-register fault alias
+and 8K-page recovery are not covered by it. Successful aliases are covered
+by the earlier value and boundary tests.
+
+Candidate first-100 corpus comparison completed with exit 0 (exec13784):
+1,900 field groups match, zero differences. Artifacts:
+/tmp/cpu-corpus100-gate.x7wk5R. This is only the fixed first-100 payload,
+not the full corpus. Candidate and supporting RTL were copied to
+scratch/p104_move_simple_dest_20260920/tree before compilation.
+
+The planned simulation qualification is complete. P104 remains isolated
+while P102's fit wrapper is active. Next inspect P102 timing/archive, then
+choose the next hardware build without mixing candidates mid-flow.
+No P104 hardware speed or timing claim is made.
