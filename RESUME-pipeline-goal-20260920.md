@@ -1,3 +1,10 @@
+# P94 placement-only seed23 prepared on restored P90 RTL
+
+P90-.140CPU/-.123HDMI warrantsoneplacementcomparisonwithoutCPUchanges.
+QSFseed23;preparedscratch/p94devdataseed23_fit_20260920/run.sh checks
+exactP90core/pipeline/MMU/divider/ALUandseed23. Committhenlaunchsequentially.
+P89fullMixsim+watchercontinueunchanged;latest5.66Bhalfcycles.
+
 # P90 MMU restored after P93 timing rejection; no active Quartus
 
 P93allarchive/STAterminal/rootreviewed:CPU-1.612,TNS-143.132;hold+.247;
