@@ -1703,3 +1703,25 @@ onP18 baseline gives Bubble4,079,134vs4,077,142(+1,992cycles),PASSvalues but
 no performance gain; not promoted or fully qualified.
 
 P24 fit actually launched on0177679, serviceq800-p24stackbra-fit-20260919 active MainPID1605366. RTL/QSF/QIP/SDC frozen until terminal archive/cross extraction. P18 operator now running.
+
+### P26 within-page unaligned early issue improves call-heavy kernels
+
+Scratch candidate scratch/p26_unaligned_issue_20260919 starts from committed
+P24 RTL. The only RTL delta replaces mem_issue's alignment-only early-admission
+guard with within-4KB guards: byte always, word offset!=fff, long offset<=ffc.
+State whitelist, on-board address class, shared-port arbitration and completion/
+fault paths remain unchanged. Transfers crossing4KB keep old delayed issue and
+MMU split behavior (also conservative for8KB pages). Not yet promoted.
+Original latency3 kernels independently PASS: Permute1,391,673vsP24 1,439,538
+(-47,865cycles,3.325%); Towers24,525,593vs25,223,939(-698,346,2.769%);
+Bubble4,077,142unchanged. These are simulation cycles,not hardwareMix scores.
+Silicon1001,900fieldgroups0diff PASS,/tmp/cpu-corpus100-gate.uITaev.
+Existing memory-MOVE source/destination/postinc/predec/extension fault cases PASS.
+RTS9cases×3phases PASS with default stack and new --word-aligned-stack option
+in scripts/cpu/pipeline_rts_boundaries.py. Added mode uses7002stack, checks7006
+post-returnSP and adjusted precise frames/sourcefaultaddress; splitcase remains
+6fff->7003. Initial scratch conversion left stale7004expectedSP and was rejected;
+corrected fixture passes allcases. Existing default behavior rerunPASS.
+Fullintegration15015 still running lastseen throughcache; log gate.log underP26.
+P24fitservice remains activeMainPID1605366,inputfreezeunchanged. P18 hardware
+operator active. Best accepted hardwaremedian1.050;goal1.8notmet.
