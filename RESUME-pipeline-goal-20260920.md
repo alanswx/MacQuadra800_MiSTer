@@ -1,3 +1,14 @@
+# P93 fit active; P89 Speedometer registration reminder
+
+P93promotedcommit5eec8fb, activeunitq800-p93devparalleltags-fit-20260920.service
+MainPID3060215. Cheapoperatorassignedcompletearchive+detailedSTA;productionfrozen.
+P90archivefullyreviewedincludingRAM:ctagM10K44032,registerbanksMLAB512,
+ATCunchanged. WorstCPU-.140, crossings+2.386/+.489; artifacthashverified.
+P89sim2943117stilllive. f4733splashclock12:01;Returndismissedtoshareregister
+reminder(f4865). AppendedEscape100ms+16.5Mwait+shot:INFLIGHT.
+Inspectnewshot,thenCmdBbenchmarksetup. No profile/runsyet.
+HardwareexactP89approvalstillpending;nohardwaretransfer.
+
 # P93 promoted for next fit; P90 archival review complete
 
 P90detailedSTAexit0/rootreviewed, worsttc14→MMUtagmux/u_hit→s_ack→rr_a2,
