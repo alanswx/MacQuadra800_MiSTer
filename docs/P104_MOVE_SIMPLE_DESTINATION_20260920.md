@@ -64,3 +64,7 @@ the destination write has completed. Logs in the same directory named
 Remaining before promotion: complete broad integration (exec75762 still live),
 dedicated fault recovery through RTE for these modes, and candidate corpus
 comparison. Fit inputs remain frozen for active P102; no hardware change.
+
+Update: broad integration exec75762 has now completed with exit 0, including
+all programs and final precise IRQ/load/store/PEA replay gates. Dedicated RTE
+recovery and corpus comparison remain pending.
