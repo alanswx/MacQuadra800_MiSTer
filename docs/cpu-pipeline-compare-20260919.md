@@ -1685,3 +1685,22 @@ this illustrates why occupancy alone cannot predict performance gain.
 No promotion or FPGA build: gain is too small to prioritize over the current
 larger-refill fit. These kernel checks are a performance screen, not full CPU
 qualification. No full integration/corpus/hardware claim for P68.
+
+
+## P69: shorter divider on the MOVE/refill candidate
+
+Scratch-only `scratch/p69_refill_divshort_20260920`, current P67 core plus
+previously qualified P59 divider (existing `scripts/cpu/divider_short.patch`).
+Divider SHA `1f1df9410c86354d50dd46318d84395d67fc932ac9c1672cb40a9c5014a37a17`;
+core remains `e2c0baba83bb7eb8ac1e9de1bab14ef2dbc49a4a9fe1dbd400c82498dab0a0ec`.
+It skips eight restoring rounds when the absolute dividend's upper32bits are
+zero and divisor nonzero; it retains the baseline path otherwise.
+
+Quick original kernel PASS163139/174919/198296cycles atlatency0/3/8, versus
+P67's166651/178422/201792 (about1.96% fewer atlat3); sorted permutation and
+byte guards PASS. First100 PASS100rows1900groups0differences,
+`/tmp/cpu-corpus100-gate.8nLP7c`. Quick33749/corpus90842collectedexit0.
+Full integration19078stillactive, through FPUPASS atlastcheck; complete it
+before promotion. Existing standalone24,567-case divider oracle qualification
+is unchanged; this run checks composition with the larger refill/MOVE core.
+No P69 FPGA fit or hardware result. P67production remains frozen during fit.

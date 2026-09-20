@@ -430,3 +430,27 @@ P69scratch applies existingP59shortdivider atop P67(nootherchange):
 scratch/p69_refill_divshort_20260920. Quick33749counts163139/174919/198296PASS
 atlat0/3/8; fullintegration19078 and first10090842 running. Collectexit/results.
 NoP69FPGA source promotion or hardware result; productionstillfrozenP67.
+
+
+## P69: shorter divider on the MOVE/refill candidate
+
+Scratch-only `scratch/p69_refill_divshort_20260920`, current P67 core plus
+previously qualified P59 divider (existing `scripts/cpu/divider_short.patch`).
+Divider SHA `1f1df9410c86354d50dd46318d84395d67fc932ac9c1672cb40a9c5014a37a17`;
+core remains `e2c0baba83bb7eb8ac1e9de1bab14ef2dbc49a4a9fe1dbd400c82498dab0a0ec`.
+It skips eight restoring rounds when the absolute dividend's upper32bits are
+zero and divisor nonzero; it retains the baseline path otherwise.
+
+Quick original kernel PASS163139/174919/198296cycles atlatency0/3/8, versus
+P67's166651/178422/201792 (about1.96% fewer atlat3); sorted permutation and
+byte guards PASS. First100 PASS100rows1900groups0differences,
+`/tmp/cpu-corpus100-gate.8nLP7c`. Quick33749/corpus90842collectedexit0.
+Full integration19078stillactive, through FPUPASS atlastcheck; complete it
+before promotion. Existing standalone24,567-case divider oracle qualification
+is unchanged; this run checks composition with the larger refill/MOVE core.
+No P69 FPGA fit or hardware result. P67production remains frozen during fit.
+
+Fullguest simulator verifiedlive PID2547288, +ram default0 maps32MB. Bootshot
+scratch/p67_fullguest_20260920/tree/verilator/screenshot_f333.png shows gray
+startup framebuffer, not desktop; ~300Mhalfcycles after~5minwall. Do not call
+this a boot gate or Whetstone profile yet. Simulatorcontrol appendshot works.
