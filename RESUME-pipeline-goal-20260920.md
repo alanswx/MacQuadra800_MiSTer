@@ -7,6 +7,19 @@ on these observations. The 1.8 hardware goal remains unachieved and active.
 
 ## Current production and build
 
+**Current (supersedes older state below):** the sole ACTIVE flow is user unit
+`q800-p63devnocdnet-fit-20260920.service`, wrapper2438580, quartus_sh2438602,
+quartus_map2438691 at launch. Commit29190feddc3cded8f88956d6332188e53e22fb78,
+archive scratch/p63devnocdnet_fit_20260920. Exact P63 CPU, CDROM_OFF and
+ETHERNET_OFF enabled, seed22; development-only. Preflight passed and synthesis
+is live. Freeze RTL/QSF/QIP/SDC until the entire wrapper ends.
+Full-feature P63 completed; GPT-5.6-luna operator owns five-run hardware
+qualification of its archived 6fbe313 RBF, and monitors the new build during
+waits. Do not deploy mutable output_files or the new development artifact
+without root review. Root verified full-feature P63 timing miss and authorized
+experimental testing under the persistent user/BUILD.md policy.
+
+
 **Latest authoritative state:** P57 is terminal routing FAILED. Production now
 contains qualified **P63** (P57 core + pipeline ALU subset), source commit
 `6fbe31353f03b19ad9ee2440c28847238fb9c852`. The sole ACTIVE user unit is
