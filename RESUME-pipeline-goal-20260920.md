@@ -1,3 +1,20 @@
+# Latest: P75 simulation-qualified; genuine full Mix profile captured
+
+P75core8e80f0136462d2619f8f6adb8fd6c8c15c412aeecc495b197dced29c03f9c7f0
+P64+earlyCLRstoreANDmatchinghint. Sieve-4.83%lat3, Quick/Bubbleunchanged.
+Fullintegration82305exit0; corpus29782exit0/1900groups0diffs; focusedCLRfaults
+candidateandbaselinePASS. Patchscripts/cpu/clear_store_hint.patch. NOproduction
+promotion/fit yet; currentP73stillfitting, freezeproductioninputs.
+
+FullguestP67 genuinealltenMix completed: rootreviewedf6222, simulated1.187.
+Profileworkload.tsv andreport.md under scratch/p67_fullguest_20260920;
+965772857clocks, MMU/cacheenabledalltime. MRD26.17%/MWR12.17%,MDwait1.17%.
+MemoryidlewhileMRD common; investigate translation/handshake, extend small
+CPU/RAMharnesswithMMUcoverage. CurrentmicrobenchMMUofflimitsrepresentativeness.
+Monitorfailed timeoutwaitingstop; simulatorlaterprocessedqueuedstop, profile
+validwithextraUIoverhead (~2guestsecafterobservedcompletion). capture.json
+rootrecovered. Quitqueuedtoflushsim; verifyexit. No hardwareacceptance claim.
+
 # Latest: P70 hardware complete; P74 microbenchmark screen rejected
 
 P70 fivepairs and final_halt root-reviewed, deployment_record.md reviewed;

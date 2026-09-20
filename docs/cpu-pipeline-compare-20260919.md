@@ -1805,3 +1805,45 @@ by14,999cycles atlat0/3, absorbing almost all15,000 eliminated CLR execution
 cycles. This is a controlled-RAM result, not proof about every hardware path.
 The tiny measured benefit does not justify fitting or broader qualification.
 No full correctness gate or hardware trial claimed; candidate not promoted.
+
+## P75 CLR early-store plus matching hint — qualified in simulation
+
+P74 omitted the store hint when issuing from S_PIPE_DEA; that omission caused
+most of the recovered execution cycle to return as an acknowledgment wait.
+P75 extends both the early CLR issue and the existing MOVE EA store-hint
+qualification. CoreSHA2568e80f0136462d2619f8f6adb8fd6c8c15c412aeecc495b197dced29c03f9c7f0,
+based on P64; baseline divider925bbea, no128-byte refill or shortdivider.
+Patch scripts/cpu/clear_store_hint.patch. Production remains P73/frozen.
+
+Original Sieve flags/count/guardsPASS atlat0/3/8:288821/294780/376177 versus
+303820/309734/377576:4.94%/4.83%/0.37% fewer cycles. Quick unchanged
+167015/178786/202156; Bubble unchanged3456612lat3, all output oraclesPASS.
+First100corpus1900groups0diffs /tmp/cpu-corpus100-gate.eNy67h, session29782exit0.
+Fullintegration scratch/p75full PASS, session82305exit0, including fault/IRQ/replay.
+New clear_store_faults.py passes candidate and baseline in allthreebus/CEphases:
+byte/word/long indexed destination faults, absolute destination fault, pre/post
+address-update rollback controls, extension-fetch fault. Validates stackedSR/PC,
+faultaddress, rollback, untouchedmemory and youngerregisters. Simple pre/post
+modes bypass S_PIPE_DEA, so zero changed-path coverage is required for those
+controls; indexed/absolute require three hits. No fit/hardware claim yet.
+
+## First genuine full Mix guest profile completed
+
+ImmutableP67 snapshot scratch/p67_fullguest_20260920; screenshotf6222 rootreviewed:
+allteniteration1complete, simulatedMix1.187. This is NOT hardware acceptance.
+workload.tsv contains965772857clocks/257445279opcode-load events. MMU, I-cache,
+D-cache enabled throughout. Report generated with the snapshot's state names.
+Topshares: S_MRD26.17%, S_MWR12.17%, S_PIPE_REGS12.00%, S_DECODE9.54%,
+S_FETCH7.06%, S_PIPE_START7.00%, S_EXPERIMENT_PIPE6.51%, S_MD_WAIT1.17%.
+Memory-state occupancy includes setup/acknowledgment, not exclusively stall.
+182381170MRDclocks occur withcacheidle; fullguesttranslation/handshake deserves
+investigation before assumingcachemisses dominate. SmallSievefixtureMMUoff is
+an important scope difference. Counters overlap; do not add memory subcounts.
+
+Monitor detectedcompletion but timedout60s awaitingstop: automatic screenshots
+had queued extra waits. Underlying simulator remainedlive, processedstop and
+wroteprofile. Root recoveredcapture.json withoutrestartingguest. Bracket includes
+UI launch and approximatelytwo guestseconds AFTER firstobservedcompletion;
+no per-state subtraction attempted. Legacyir opcodehistogramnotreliable for
+pipelineattribution. TimerobserverQueens/Sieveonly, notproofalltimeraccuracy.
+Quitqueued after capture to flush/dispose local sim; verifyunitexit subsequently.
