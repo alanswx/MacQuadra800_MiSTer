@@ -341,3 +341,20 @@ precise load/store/PEA fault, interrupt and replay gates allPASS. Together with
 MMU/invalidation/corpus/workload gates, this qualifies P90 for a fit. Promoted
 unchanged five-copy source; guarded wrapper scratch/p90devdatacopies_fit_20260920/run.sh.
 No claim of area/timing improvement before Quartus completes.
+
+## Full-Mix FPU-state occupancy cross-check
+
+Re-read P67's completed workload.tsv against its immutable core state numbers,
+not current opcode histograms. S_FPU*, S_FSAVE* and S_FREST* total5743125clocks
+(0.5947% of965772857). Including floating-point conditional control states
+S_FBCC/S_FSCC*/S_FDBCC adds9504, totaling5752629 (0.5957%). S_FPU_GO, which
+issues/waits for the arithmetic operation, accounts for1707750clocks (0.1768%).
+The hardware FPU was enabled and exercised; this is not evidence it was absent.
+
+These are exclusive sequencer-state occupancies over the whole Mix/UI bracket,
+not the fraction of Whetstone time spent on floating-point work. SANE dispatch,
+operand memory traffic and ordinary instructions can run in shared states and
+are excluded here. Nevertheless, the very small dedicated arithmetic wait
+makes optimizing the FPU arithmetic unit alone a weak lead compared with
+shared instruction, translation and memory paths. A Whetstone-specific bracket
+is still needed before attributing its complete cost. No P89 score yet.

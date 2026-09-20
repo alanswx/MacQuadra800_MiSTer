@@ -1,3 +1,14 @@
+# Live P90 fit / P89 simulator; FPU occupancy reviewed
+
+P90unitq800-p90devdatacopies-fit-20260920.service activeMainPID2986703,
+commit1bb5f6f; productionfrozen, cheapoperator monitorsfullarchive/STA.
+P89simunitactiveMainPID2943117,latest1.47Bhalfcycles, initial2.64Bhalfcycle
+waitstillpending. f1500Findermenubaronly; nextautoscreenshotf3000. Noinputyet.
+P67realMix FPUdedicatedstates inclfloatingbranch 5752629clocks/.5957%;
+S_FPU_GO1707750/.1768%. ActualSANE/memoryworkalsooccupiessharedstates.
+This disfavors arithmeticunit-onlyoptimization; detailedscope in guide.
+No hardwareapprovalanswer, no hardwaretransfer. No live microbenchmarks.
+
 # Latest: P90 qualified and promoted; next fit launch follows
 
 Fullintegration35760exit0, allprecisefault/IRQ/replayPASS. Matrix4K40699exit0,
