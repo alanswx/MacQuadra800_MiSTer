@@ -1,3 +1,11 @@
+# Current running work
+
+P83 fit launched from66f0d5f, userunitq800-p83devmemadd-fit-20260920.service,
+MainPID2890999 verifiedactive. Cheaperoperator monitors entire archive and
+CPU STA. Freeze RTL/QSF/QIP/SDC until all finish. No active benchmark sessions.
+P87 scratch prefetch thresholds2/4/6: Matrix3702936/3638968/3638968, alloracles
+PASS; reject (regression/no gain). No production changes from this screen.
+
 # Latest: P82 archived; P83 promoted for next fit
 
 P82 wrapper and detailed STA terminal; root checked artifact hash, reports,

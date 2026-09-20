@@ -170,3 +170,12 @@ All other-state counts are zero. Multiply's extra prefetch and setup occupancy
 is a concrete optimization lead; ordinary reads already retire on the response
 edge. State categories describe observed occupancy, not proof that every such
 cycle can be removed. These totals are simulation evidence, not hardware Mix.
+
+P87 prefetch screen (scratch only): defer speculative self-fill while pipeline
+ownership is active, pipeline is non-idle and at least N words are buffered.
+N=2 removes MULS prefetch/setup waits but regresses total Matrix cycles to
+3702936 (+1.76% versus P83); instruction queue starvation offsets the saving.
+N=4 and N=6 exactly reproduce P83's3638968 and all read timings. All three
+pass the independent matrix/input/guard oracle. None is promoted or fully
+qualified. Evidence: scratch/matrix87_prefetch{,4,6}_20260920. This rejects
+simple queue-threshold throttling as a useful optimization for this workload.
