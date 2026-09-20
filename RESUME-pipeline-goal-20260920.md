@@ -1,3 +1,19 @@
+# Latest: P89 translation-copy candidate has substantial simulation gain
+
+P89 isolated MMU scratch/p89_mmu_copies_20260920/ap040_mmu.v, unapplied
+scripts/cpu/mmu_translation_copies.patch. Four direct-mapped copies per space,
+existing invalidation/permission rules. Matrix8K3638968→2870854 (-21.11%),
+Matrix4K3771795→3126068 (-17.12%), Quick8K178573 unchanged. All oracles pass.
+RemappedSieve8K286818 flags/poisonedpage guardsPASS; matching baseline pending.
+New --mmu-module harness override and overlapping PIPE_READ_BLOCKERS counters.
+MMUgate session62648 LIVE: scripts/cpu/mmu_candidate_gate.py --mmu-module
+scratch/p89_mmu_copies_20260920/ap040_mmu.v --out
+scratch/p89_mmu_copies_20260920/mmu_gate. Icarus real-core t_mmu,
+t_bitfield_mmu,t_atcprobe,t_moves_fc,t_exceptions across default3phases.
+Collect terminal status; do not claim qualified before regression/fullgates.
+P83fit stillverifiedactive MainPID2890999, production frozen, operator monitors.
+No hardware approval answer; no transfers. Besthardware still1.133P70.
+
 # Latest screen: P88 rejected; P83 fit remains active
 
 P88 fast indexed multiply retirement: Matrix3638968 unchanged versusP83,

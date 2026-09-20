@@ -196,3 +196,36 @@ the pipeline load offer is not delayed by a separate request register before
 core launch. hint_p2 already carries its effective address on that launch edge.
 An earlier hint would require operand/address availability earlier than EX,
 not simply exposing the existing load_issue signal. No such change made yet.
+
+## P89: retain four ATC translations per space
+
+New PIPE_READ_BLOCKERS counters inspect hint match, cache acceptance, RAM read
+readiness and tag match during issued pipeline reads awaiting response. These
+are overlapping prerequisite failures, not additive stall categories. P83
+Matrix8KB sees roughly128000 hint-mismatch clocks per64000 reads at each hot
+PC; cache-array readiness is rarely the limiting condition. Evidence:
+`scratch/matrix83_cache_blockers_20260920` (all existing oracle checks pass).
+
+P89 scratch MMU retains four direct-mapped ATC copies per instruction/data
+space, indexed by the low two ATC set bits. Full row/tag comparisons remain;
+all copies invalidate on the original reset/fill/sweep/PFLUSH/TC conditions.
+Permissions, cache attributes and modified status still come from the copied
+ATC entry. Unapplied patch: scripts/cpu/mmu_translation_copies.patch.
+Shared fixture accepts --mmu-module and hashes the selected source.
+
+| Workload, latency3 | P83 original MMU | P89 | Result |
+|---|---:|---:|---|
+| Matrix8KB |3638968|2870854|21.11% fewer cycles|
+| Matrix4KB |3771795|3126068|17.12% fewer cycles|
+| Quick8KB |178573|178573|unchanged|
+
+All Matrix1600 results, inputs and guards pass, with identical walker counts
+for each page-size comparison. Ordinary Matrix8KB pipeline reads now respond
+in roughly one cycle, versus three; multiply still has its prefetch/setup
+wait. Remapped Sieve8KB passes at286818cycles with all8191 independent flag
+checks and poisoned/unmapped-page guards; a matching current baseline remains
+to be measured before claiming that remapped test's speedup.
+Evidence scratch/{matrix89_mmu8,matrix83_mmu4,matrix89_mmu4,quick89_mmu8,
+sieve89_mmu8}_20260920. Existing real-core MMU/protection/ATC/function-code/
+exception programs launched via scripts/cpu/mmu_candidate_gate.py; qualification
+is pending. No production RTL change, fit or hardware score for P89 yet.

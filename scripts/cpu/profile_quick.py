@@ -10,6 +10,7 @@ parser.add_argument('--mmu-remap-buffer',action='store_true',help='Sieve transla
 parser.add_argument('--mmu',choices=('off','4k','8k'),default='off',help='real MMU with identity page tables and shared physical RAM walker')
 parser.add_argument('--latencies',type=int,nargs='+',default=[3],help='controlled RAM latency values, default 3')
 parser.add_argument('--alu',type=Path,help='optional isolated ALU; applies to both compared pipeline modules')
+parser.add_argument('--mmu-module',type=Path,help='optional isolated MMU implementation')
 parser.add_argument('--muldiv',type=Path,help='optional isolated multiply/divide unit')
 parser.add_argument('--store-buffer',type=Path,help='optional isolated store-buffer module')
 parser.add_argument('--core',type=Path,help='optional isolated candidate CPU core')
@@ -359,6 +360,7 @@ if args.profile:
  integer pr_count[0:32767],pr_cycles[0:32767],pr_max[0:32767];
  integer pr_retired[0:32767],pr_retire_gap[0:32767],pr_ack_cycle[0:32767];
  integer pr_prefetch[0:32767],pr_setup[0:32767],pr_wait[0:32767],pr_other[0:32767];
+ integer pr_hint_miss[0:32767],pr_cache_busy[0:32767],pr_array_wait[0:32767],pr_tag_miss[0:32767];
  integer pr_start=-1,pr_pc=0,pr_index=0,pr_elapsed=0;
 ''')
  s=s.replace('for(i=0;i<256;i=i+1) states[i]=0;', '''for(i=0;i<256;i=i+1) states[i]=0;
@@ -366,12 +368,21 @@ if args.profile:
    pr_count[i]=0;pr_cycles[i]=0;pr_max[i]=0;pr_retired[i]=0;
    pr_retire_gap[i]=0;pr_ack_cycle[i]=-1;
    pr_prefetch[i]=0;pr_setup[i]=0;pr_wait[i]=0;pr_other[i]=0;
+   pr_hint_miss[i]=0;pr_cache_busy[i]=0;pr_array_wait[i]=0;pr_tag_miss[i]=0;
   end''')
  s=s.replace('cycles=cycles+1; states[dut.core.state]', '''if(pr_start>=0 && !dut.core.pipe_load_ack) begin
    pr_index=pr_pc>>1;
    if(dut.core.state==dut.core.S_MRD && !dut.core.m_issued && dut.core.epf_pend) pr_prefetch[pr_index]++;
    else if(dut.core.state==dut.core.S_MRD && !dut.core.m_issued) pr_setup[pr_index]++;
-   else if(dut.core.state==dut.core.S_MRD && dut.core.m_issued) pr_wait[pr_index]++;
+   else if(dut.core.state==dut.core.S_MRD && dut.core.m_issued) begin
+    pr_wait[pr_index]++;
+    if(!dut.mm_hint_match) pr_hint_miss[pr_index]++;
+    if(!dut.g_cache.cache.fast_accept) pr_cache_busy[pr_index]++;
+    if(!dut.g_cache.cache.idle_data_valid || !dut.g_cache.cache.idle_tag_valid ||
+       dut.g_cache.cache.idle_data_idx != {1'b0,dut.g_cache.cache.hq_lo[dut.g_cache.cache.SETW+3:2]} ||
+       dut.g_cache.cache.idle_tag_idx != {1'b0,dut.g_cache.cache.hq_lo[dut.g_cache.cache.SETW+3:4]}) pr_array_wait[pr_index]++;
+    if(!dut.g_cache.cache.hint_look_hit) pr_tag_miss[pr_index]++;
+   end
    else pr_other[pr_index]++;
   end
   if(dut.core.pipe_load_ack && pr_start>=0) begin
@@ -397,6 +408,7 @@ if args.profile:
       if(pr_count[j]!=pr_retired[j]) $fatal(1,"pipeline read retirement count mismatch pc=%h",j*2);
       if(pr_cycles[j] != pr_count[j]+pr_prefetch[j]+pr_setup[j]+pr_wait[j]+pr_other[j]) $fatal(1,"pipeline read timing accounting mismatch");
       $display("PIPE_READ pc=%04h reads=%0d response_cycles=%0d max_response=%0d retire_gap_cycles=%0d prefetch_wait=%0d setup=%0d ack_wait=%0d other=%0d",j*2,pr_count[j],pr_cycles[j],pr_max[j],pr_retire_gap[j],pr_prefetch[j],pr_setup[j],pr_wait[j],pr_other[j]);
+      $display("PIPE_READ_BLOCKERS pc=%04h hint_mismatch=%0d cache_not_accepting=%0d array_unready=%0d tag_miss=%0d",j*2,pr_hint_miss[j],pr_cache_busy[j],pr_array_wait[j],pr_tag_miss[j]);
      end
      $display("BUFFER_UPPER_BOUND''')
 (d/'tb.sv').write_text(s)
@@ -411,6 +423,7 @@ for variant in (('current','compare') if args.compare_module else ('current',)):
  sources=[args.core.resolve() if args.core and p==rtl/'ap040_core.v' else p for p in sources]
  sources=[args.store_buffer.resolve() if args.store_buffer and p==r/'rtl/wombat_store_buffer.sv' else p for p in sources]
  sources=[args.alu.resolve() if args.alu and p==rtl/'ap040_alu.v' else p for p in sources]
+ sources=[args.mmu_module.resolve() if args.mmu_module and p==rtl/'ap040_mmu.v' else p for p in sources]
  sources=[args.muldiv.resolve() if args.muldiv and p==rtl/'ap040_muldiv.v' else p for p in sources]
  (out/'identity.json').write_text(json.dumps({'sources':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in sources},'kernel_sha256':hashlib.sha256(kernel).hexdigest(),'resource_sha256':hashlib.sha256(resource).hexdigest(),'input':values,'latencies':args.latencies,'early_drain':args.early_drain,'compare':args.compare,'scope':('unchanged 0x93ce..0x946d recursive sort; fixed shuffled input; excludes initializer, allocation and original wrapper' if args.kernel=='quick' else 'unchanged 0x5dda..0x5e2d dot product; 1600 calls over fixed signed 40x40 matrices; excludes original initialization, allocation, timing/UI' if args.kernel=='matrix' else 'unchanged 0xb6a..0xbad Sieve inner pass including initialization; original addresses; excludes allocation, disposal, outer 100-pass repetition and timing/UI'), 'kernel':args.kernel, 'mmu':args.mmu, 'mmu_remap_buffer':args.mmu_remap_buffer, 'memory_model':'shared physical RAM responder and walker; see mmu and mmu_remap_buffer for mapping', 'program_sha256':hashlib.sha256((d/'program.bin').read_bytes()).hexdigest(), 'oracle_sha256':hashlib.sha256((d/'expected.hex').read_bytes()).hexdigest() if args.kernel in ('sieve','matrix') else None},indent=2))
  run(['/home/alans/verilator5/bin/verilator','--binary','--timing','-Wno-fatal','-Wno-BLKLOOPINIT','-j','8','--top-module','tb_cpu_quick','--Mdir',out/'obj','-I'+str(rtl),*flags,*sources],out/'compile.log')
