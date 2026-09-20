@@ -441,3 +441,14 @@ An isolated loop can supply deterministic storage and omit the timing wrapper,
 but must preserve actual string routines, helper code, A5 data and numerical
 oracles to represent the complete Dhrystone workload. No such fixture or
 Dhrystone-specific speed claim has been produced by this inventory.
+
+
+P93 parallel-tag fit completed from5eec8fb:39,432ALMs94%,25,510registers,
+482RAMblocks,42DSP. CPU -1.612ns/TNS-143.132, SDRAM +0.095ns, HDMI +0.133ns.
+Buildexit1(timing),sourcecheck0,crossSTA0. Archived artifact
+`MacQuadra800_p93devparalleltags_5eec8fb.rbf`, SHA256
+`4f66d666b182b51775d242530edbcab659f30a376c1e92c2341dbc75e210e63e`
+independently verified. This is worse CPU timing than P90's -0.140ns with no
+cycle improvement. Reject as a timing candidate; detailed CPU STA pending,
+then restore qualified P90 MMU before choosing the next timing experiment.
+No P93 hardware test or timing improvement claim.

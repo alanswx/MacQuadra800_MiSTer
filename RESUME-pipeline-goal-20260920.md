@@ -1,3 +1,16 @@
+# P93 timing regression; detailed STA pending; full Mix running
+
+P93wrapperterminal build1/source0/cross0;39432ALM25510regs482RAM42DSP.
+CPU-1.612/TNS-143.132 versusP90-.140;SDRAM+.095,HDMI+.133.
+RBFhash4f66d666b182b51775d242530edbcab659f30a376c1e92c2341dbc75e210e63erootverified.
+OperatorassigneddetailedCPU STAandRAM/crossreview;productionstillFROZEN.
+AfterterminalrestoreP90MMU2c445c90;P93hasnocyclegainandworsetiming.
+P89sim2943117+watcher3070167live,latest5.50Bhalfcycles. Rootreviewedf6405:
+Whet3.124,Dhry.785,Towers.829,Quick1.157,Bubble1.189,Queens.767;Puzzlerunning.
+No finalMixyet. Timerfilecurrently0bytes:bufferedstream; inspectafterflush,
+noindependenttimer-validityclaimyet. Watcherownscontroluntilcompletion.
+ExactP89hardwareapprovalstillpending,nohardwaretransfer.
+
 # P89 full Benchmark Mix running with profiler; P93 fit live
 
 Rootviewedf5000Speedometerhardwarewindow:68040,integralFPU/MMU,32MB.
