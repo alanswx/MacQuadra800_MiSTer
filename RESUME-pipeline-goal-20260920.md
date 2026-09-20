@@ -1,3 +1,10 @@
+# Latest screens: P91/P92 rejected with P89 MMU
+
+P91P84CMPIbyte/wordmodule withP89MMU Matrix2875655 vs2870854 (+4801),
+alloraclesPASS. P92P87prefetchthreshold2core withP89MMU Matrix2934837
+(+63983),alloraclesPASS. Neitherpromoted. No live simulation sessions.
+P89unit verifiedactive MainPID2933764; production remains frozen.
+
 # Current live fit: P89
 
 P89 launchedfrom794ade3; unitq800-p89devmmucopies-fit-20260920.service,

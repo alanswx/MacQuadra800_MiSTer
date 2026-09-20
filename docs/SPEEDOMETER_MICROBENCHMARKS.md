@@ -294,3 +294,17 @@ and SANE trap implementation, stack/global setup and a numerical oracle.
 Counting trap/call sites does not establish dynamic frequency or cycle share.
 Do not replace those calls with stubs and report it as Whetstone performance.
 Source evidence: scratch/speedo_kernel_profile_20260919/CODE3.{bin,dis}.
+
+## Re-screening after the MMU improvement
+
+P91 reuses isolated P84 immediate byte/word CMPI support with P89's MMU:
+Matrix8KB latency3 regresses2870854→2875655 (+4801), exactly the old absolute
+penalty. Pipeline exit moves from CMPI at0x5e20 to BLE at0x5e24, but instruction
+fetches increase275261→339260 and the net result is slower. All matrix oracles
+pass. Evidence scratch/matrix91_cmpi_mmu89_20260920 (both baseline/candidate).
+
+P92 reuses P87's two-word prefetch threshold with P89MMU: Matrix2934837,
++63983 versus2870854. Multiply's prefetch/setup waits vanish, but instruction
+starvation rises (pipe_ready_empty192000; baseline0). All oracles pass.
+Evidence scratch/matrix92_prefetch_mmu89_20260920. Both re-screens rejected;
+production remains P89 and no additional qualification/fit is warranted.
