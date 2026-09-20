@@ -1,3 +1,15 @@
+# Latest: P83 archived; P89 promoted for fit
+
+P83 terminal/archive/rootreview complete:39485ALM94%,25400regs,483RAM,42DSP.
+CPU-1.851/TNS-145.577,HDMI-2.361,SDRAM-.114; cross+2.596/+.690.
+Source/cross/detailedCPU STAexit0, artifacthashverified, ctagM10K44032 and
+bankE MLAB512 healthy. Archive scratch/p83devmemadd_fit_20260920.
+No Quartusprocesslive beforepromotion. Timing-failed development artifact only.
+P89MMU37075a31 promoted unchanged afterallqualifiedgates; P78core/P83pipeline
+unchanged. Prepared scratch/p89devmmucopies_fit_20260920/run.sh; launchfollows
+thiscommit, freezeallbuildinputs afterward. Hardwareapprovalstillpending.
+Whetstone routine investigation juststarted; no new Whetstone findings yet.
+
 # Latest: P89 fully simulation-qualified; fit prepared and waiting
 
 Fullintegration98466 collectedexit0, finalPASS including precisefault/IRQ/replay.
