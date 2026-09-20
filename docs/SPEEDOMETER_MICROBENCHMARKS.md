@@ -381,3 +381,13 @@ Production remains P90 and is frozen for its ongoing Quartus flow.
 P93 first-100 corpus completed: 1,900 field groups match, zero differences;
 artifacts `/tmp/cpu-corpus100-gate.mtqqAx`, session7731 exit0. This is the
 first-100 fixture, not the complete instruction corpus. Integration remains live.
+
+P93 remaining qualification completed: full integration session63505 exit0,
+including precise load/store/PEA faults and interrupt/replay monitors. Matrix
+4KB latency3 =3,127,667 cycles; remapped Sieve8KB =286,818; Quick8KB =178,573.
+All equal P90, with independent result/input/guard checks passing (sessions
+53749/79750/40017 exit0). This completes the planned simulation qualification.
+Prepared, not launched: `scratch/p93devparalleltags_fit_20260920/run.sh`, checking
+exact candidate MMU/core/pipeline/ALU/divider hashes. P90 production remains
+unchanged until its entire fit/archive/STA completes. P93 is a candidate for
+an FPGA timing comparison, not an established timing fix or speed improvement.

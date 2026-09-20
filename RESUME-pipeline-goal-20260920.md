@@ -1,3 +1,17 @@
+# P93 simulation-qualified; P90 fit and P89 guest remain live
+
+Fullintegration63505exit0 includingload/store/PEAfaults andIRQ/replay.
+Matrix4KB53749exit0:3127667; remappedSieve79750exit0:286818;
+Quick40017exit0:178573. AllsameP90, independentoraclesPASS.
+Combined withfiveMMUprograms,invalidation,Matrix8KB,first100 thiscompletes
+plannedP93simulationqualification. PreparedNOTLAUNCHEDwrapper
+scratch/p93devparalleltags_fit_20260920/run.sh; no promotion or FPGA claim.
+P90unit remainsactive2986703, fitter2995454; cheaperoperatorfollowupassigned
+monitoringthroughterminalarchive+detailedSTA. Productionstillfrozen.
+P89fullguest2943117live, latest2.36Bhalfcycles; initial2.64Bwaitthen shot
+stillpending. No guestinputs or profilequeued; inspectshot before navigation.
+HardwareexactP89approvalstillpending, no transfer.
+
 # Live P93 qualification, P90 fit, P89 full guest
 
 P93 scratch MMU parallel tag comparison SHAbe5db2dcb1baa201d40ff3ad674bbfcb0206c377c7cfcf4caba68b67443d470c.
