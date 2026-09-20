@@ -289,3 +289,31 @@ wrapper region) account for 22.02% and 13.65% respectively. Buckets are
 memory work while those PCs remain current. These data prioritize the
 frequent arithmetic wrappers and their transfers over assuming the dedicated
 FPU arithmetic wait state is the only bottleneck.
+
+## Follow-up screens: P100 stores and P101 admission
+
+The same complete Whetstone image was run against two isolated cores derived
+from P99. `compare_whetstone_runs.py` now rejects differences in fixture,
+ROM, flags, latency or any supporting RTL before checking stack/globals/code
+captures byte for byte. It reproduces the existing P99 comparison.
+
+| Core | Loop clocks, RAM latency 3 | Change versus P99 |
+|---|---:|---:|
+| P99 | 31784029 | baseline |
+| P100 early FPU result stores | 31560013 | 0.705% fewer |
+| P101 admit supported successor | 31874357 | 0.284% more |
+
+Both preserve all captured outputs. P100 adds S_FPU_WR to the existing
+within-page early-store issue gate and supplies its address hint. Patch
+`scripts/cpu/fpu_store_early_issue.patch` is **unapplied** and has not passed
+store-fault or broader qualification. The small gain does not justify
+changing the current build. P101 adds `pipe_next_supported` to the entry
+policy; it is rejected for this workload and retained only under scratch.
+Evidence: scratch/whetstone_full_{p100,p101}_20260920/comparison.json and
+scratch/{p100_fpu_store,p101_successor_entry}_20260920.
+
+These are differential fixture results, not hardware scores or independent
+numerical validation. P99 Quartus fitting remained live throughout; no frozen
+production RTL was edited. The cache already implements within-line and
+cross-line spanning reads: stale comments suggesting all unaligned accesses
+bypass do not describe the current implementation.

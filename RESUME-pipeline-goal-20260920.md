@@ -1,3 +1,20 @@
+# P100 tiny gain; P101 admission slower; no production changes
+
+Ran2isolatedP99-derivedcores throughcompleteWhetfixture. P100earlyFPUresultstore
+loop31560013 vsP9931784029 saves0.705%; P101supported-successorentry31874357
+slower0.284%, rejectedforthisworkload. Bothstack/globals/CODE3capturesexactmatch.
+New compare_whetstone_runs.py enforcesimage/ROM/flags/latency/supportingRTLsame,
+thenbitwiseoutputs; notindependentnumericaloracle. Tests completedexit0.
+Evidence scratch/whetstone_full_{p100,p101}_20260920/comparison.json.
+P100patch scripts/cpu/fpu_store_early_issue.patch UNAPPLIED, notstorefaultqualified;
+P101onlyscratch/p101_successor_entry_20260920. Nochangeinfittingdirection.
+Cacheinspectionconfirms span2/xline readsandstoresalreadyimplemented despite
+staleheadercomment. Needdetailedcache/operandcostattributionforlargergains.
+
+P99fitunit3369109stillactive; actualquartus_fitPID3377045 verifiedCPU~299%,
+elapsed10m39lastpoll. FreezeproductionbuildinputsuntilWHOLEwrapperends.
+MiSTerP96safehalt unchangedmedian1.211;P97sim1.270;goal1.8unmet.
+
 # Full original Whetstone executes in ~57 seconds; P99 saves1.785%
 
 New run_whetstone_image.py/tb_cpu_whetstone.sv execute32MBfixture+realROM,
