@@ -1,3 +1,21 @@
+# Whetstone reproducible inventory added; P97 Applications navigation
+
+Previous turn progressed5validP96hardware+shutdown+realQuadra comparison.
+This turn added scripts/cpu/inventory_whetstone.py, hashchecks originalCODE3,
+properalignedLINK-to-RTS routines. Output scratch/whetstone_inventory_20260920.
+WStone531instructions36SANE15JSR; helpers0x840:51instructions6SANE,
+0x932:123instructions17SANE. 59totalstaticSANE sites, allselectorsresolved
+from immediate stackpush. 13externalJSR sites raw0x50..0x78 UNRESOLVED runtime;
+2localcalls. StaticcountsNOTfrequencies/cost. Needruntimeidentities+faithful
+Whetfixture/oracle or targetedfullguestprofile beforeoptimization claims.
+IMPORTANT foundP97immutablehostprofiler sb_full predicate stillsbc==2;
+exclude sb_full_request_samples fromP97queueattribution. Guestscoreunaffected.
+No running executable modified; production profiler fix stillneeded.
+P97simservice3190686verifiedlive; f3617ApplicationsfolderROOTreviewed.
+Queuedtype'Speedometer 4'+CmdO; next screenshotverifyfolderthenopenapp.
+MiSterP96safehalt,5validmedian1.211 alreadycomplete;rootownsinput.
+CurrentproductionP97queue fitfinished; noactiveQuartus. Goal1.8unmet.
+
 # P96 five valid hardware runs complete; safe shutdown; real Quadra comparison
 
 Root completed5fresh all10/iteration1 hardware runs:1.207,1.211,1.211,1.212,1.212.

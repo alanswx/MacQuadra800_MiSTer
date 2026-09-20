@@ -620,3 +620,23 @@ queue checks pass; deterministic occupancy1..3 preamble was needed to cover all
 simultaneous enqueue/drain cases (random-only P98 lacked occupancy1 coverage).
 Scratch/p98_eager_queue_20260920/tb_posted_directed.sv passes1186writes.
 Not promoted, fitted, fullguest-qualified or hardware-tested.
+
+
+Whetstone dependency inventory after the real-Quadra comparison:
+`python3 scripts/cpu/inventory_whetstone.py scratch/speedo_kernel_profile_20260919/CODE3.bin
+--out scratch/whetstone_inventory_20260920` validates the original CODE3 SHA,
+decodes exact LINK-to-RTS boundaries, and emits JSON plus disassembly.
+WStone [0x8,0x836):531instructions,36SANE sites,15absoluteJSR sites.
+Local helper [0x840,0x92c):51instructions,6SANE sites; helper [0x932,0xb4e):
+123instructions,17SANE sites. All59 SANE sites have a directly preceding
+immediate stack selector. These are static counts, not execution frequencies.
+WStone calls raw0x58 six times,0x50/0x60 twice each,0x68/0x70/0x78 once each,
+and each local helper once. The13 external calls still need relocation/runtime
+resolution; do not replace them with host floating-point math. No faithful
+standalone Whetstone execution or numerical oracle has been completed yet.
+
+P97 live fullguest profiling limitation: the immutable host build counts queue
+full requests with `sbc == 2`, inherited from the two-entry queue. Its
+sb_full_request_samples therefore means requests at occupancy2, NOT full queue
+for P97. Exclude that counter from P97 attribution. This host-only counter does
+not affect guest execution, displayed scores or other state-cycle counters.
