@@ -242,3 +242,12 @@ Both development feature macros now applied in QSF, exact P63 CPU unchanged.
 Next sole build wrapper scratch/p63devnocdnet_fit_20260920/run.sh; commit/push
 before launching q800-p63devnocdnet-fit-20260920.service. P64 still unapplied.
 Current QSF is development-only and must restore CD/Ethernet before release.
+
+
+Detailed timing follow-up: archived P63 .sta.rpt has summaries, not individual
+failing CPU paths. Do not infer its path from P39 or from the partial current
+database. After p63devnocdnet's COMPLETE wrapper ends, and before any next flow,
+run quartus_sta -t scripts/cpu/timequest_worst_paths.tcl
+scratch/p63devnocdnet_fit_20260920/cpu_timing. The script now accepts an output
+directory (default scratch/cpu_timing) and leaves unrelated root worst_paths.txt
+and worst_detail.txt untouched. Cheap operator notified to capture this then.
