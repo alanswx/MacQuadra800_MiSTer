@@ -702,3 +702,9 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram_beat32.sv
 # scratch/p63subset_fit_20260920. Next development build keeps exact P63 CPU
 # and seed22, temporarily omits CD-ROM/audio and Ethernet using macros above.
 # DEVELOPMENT ONLY: restore both features and revalidate before release.
+
+# 2026-09-20 P63devnocdnet (29190fe), seed22: FIT SUCCESS,39,411ALMs94%,
+# 25,372regs,483RAMblocks,41DSP. CPU-.862ns,HDMI-.268ns,SDRAM+.796ns,
+# holdmin+.172ns,crosssysram+1.229ns/ramsys+1.259ns. Timing-failed development
+# trial, archived scratch/p63devnocdnet_fit_20260920. P64devmove retains these
+# temporary feature omissions and adds only qualified d16 MOVE destination overlap.

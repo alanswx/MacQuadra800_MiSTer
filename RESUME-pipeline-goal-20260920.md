@@ -271,3 +271,18 @@ Bubble latency3 3456612→3270270 (-5.39%cycles); Quick170140/181911/205281 at
 latency0/3/8 (-364 each vsP63), output/guards PASS. Prefix42770patterns PASS,
 upper/crossing SMC PASS. Fullintegration session39775 and first100 session12640
 RUNNING; inspect full.log/corpus.log. NoP65fit/hardware; production frozenP63dev.
+
+
+Latest transition: P63 full-feature five pairs and shutdown_attempt.png root
+reviewed, median1.129; remote hash/disposable confirmed by operator. Cheap
+operator now assigned P63devnocdnet hardware trial, archive29190fe RBF
+SHAf877992fd51c01324393ccf36ead3d6c678e24b7e1c2f771a859106301a405ed.
+That flow COMPLETE,source/cross/detailedSTA0;fit39411ALMs94%,CPU-.862,
+HDMI-.268,SDRAM+.796,holdmin+.172,cross+1.229/+1.259. No development score yet.
+
+P64 MOVE patch now promoted (previous fullintegration/corpus/targeted gates
+passed); current core SHA609b1687e27b5da1096d6b1c990027b46d27f00272ce1d96b45ef6ed97a2f980.
+CD/Ethernet remain omitted. Launch after commit as sole user unit
+q800-p64devmove-fit-20260920.service via scratch/p64devmove_fit_20260920/run.sh.
+P65 remains separate scratch; first100 PASS1900groups0diffs
+/tmp/cpu-corpus100-gate.n4wqdQ, fullintegration39775 still running atlastcheck.

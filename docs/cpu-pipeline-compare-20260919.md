@@ -1572,3 +1572,24 @@ and crossing self-modifying-code fixtures PASS, three patch observations each.
 Full integration and immutable first100 are RUNNING, not yet qualified;
 logs full.log/corpus.log in candidate scratch, full fixtures scratch/p65full.
 Current FPGA flow remains exact P63 with only CD/Ethernet omitted.
+
+
+P63 hardware root review complete for five pairs and normal shutdown image:
+median1.129,mean1.1288,zero apparent timer anomalies. Remote-copy hash and
+untouched original/disposable slot confirmed by operator; local config record
+requested. Full table in PERFORMANCE_MEASUREMENTS.md. Timing-failed experimental.
+
+P63devnocdnet FPGA FIT SUCCESS:39411ALMs94%,25372regs,483RAMblocks,41DSP.
+Savings1763 fittedALMs vsfull P63 (not the historical3036 CD-only estimate).
+CPU-.862/TNS-18.740,HDMI-.268/TNS-4.527,SDRAM+.796,holdmin+.172,
+crosssysram+1.229/ramsys+1.259. Source/cross/detailedSTA exit0; build1timinggate.
+Root verified4553660-byte freshRBF SHA256
+f877992fd51c01324393ccf36ead3d6c678e24b7e1c2f771a859106301a405ed.
+Detailed worstCPU path state[2]→epf_data[7][4],30.486nsdata,-.862slack,
+archived cpu_timing. Healthy tagM10K and bankE MLAB inference verified.
+Cheap operator assigned five-run development-only hardware gate; no score yet.
+
+P64devmove is next FPGA candidate: exact previously qualified P64 core
+609b1687e27b5da1096d6b1c990027b46d27f00272ce1d96b45ef6ed97a2f980,
+P63ALU/pipeline,baseline divider,seed22,CD/Ethernet omitted. Only CPU change
+from P63devnocdnet is the d16 MOVE destination overlap. P65 remains scratch.

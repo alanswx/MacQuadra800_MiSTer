@@ -1699,7 +1699,7 @@ Normal Cmd-Q/save completed with unique record `P39refill64-record-20260920`. `f
 Root reviewed all five completion images, run2_start.png and final_halt2.png. Median gain over P33 is 2.03%. Timing numbers above were corrected against the P39 archive; the operator report initially carried P18 hold/crossing values. This is an experimental result with failed CPU timing, not a release qualification.
 
 
-## P63 pipeline ALU subset — five runs reviewed, closure pending
+## P63 pipeline ALU subset — five runs and clean shutdown reviewed
 
 Full-feature artifact `MacQuadra800_p63subset_6fbe313.rbf`, SHA256
 `5dafc05bb5a47a3c6cbb31ef5e0e7f826d8aa32a9ed110d1c3af27532b1cf587`.
@@ -1725,8 +1725,10 @@ Median1.129, mean1.1288, range1.126–1.130. Median gain over P39's1.105 is
 2.17%. This is below the1.8goal. No claim that ALU specialization alone caused
 the gain: P63 also includes the previously unmeasured P52/P57 CPU changes.
 
-Closure pending: operator's deployed-copy/config/disposable-disk record and
-root-reviewed clean-shutdown image. Prior readiness was33MHz/32MB/Ethernet,
-and completed screens show32768K; frequency needs the deployment record.
+Root reviewed `shutdown_attempt.png`: normal safe-shutdown message. Operator
+confirmed the remote RBF hash matches the archive and slot0 stayed on
+`games/MacQuadra800/QuadSquad8-pipeline-test-20260919.hda`; original untouched.
+Prior readiness was33MHz/32MB/Ethernet and completion screens show32768K.
+A persisted deployment/config record has been requested from the operator.
 This full-feature trial is separate from the active CD/Ethernet-disabled
 build, whose hardware score is not yet measured.
