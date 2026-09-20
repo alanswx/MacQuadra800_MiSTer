@@ -144,3 +144,29 @@ limited headroom here. Legacy IR occupancy is not verified opcode attribution.
 
 Shared-harness regression after this extension: QuickMMU8K179011 and
 SieveMMU8K289371 at latency3, both unchanged, all oracles pass.
+
+## Pipeline read timing by issued PC
+
+`--profile` now reports PIPE_READ using actual launch, response and accepted
+retirement handshakes. These counters avoid the stale legacy IR. Each completed
+read must retire once, and elapsed response cycles must equal one response cycle
+plus the mutually exclusive prefetch/setup/ack-wait/other categories. This is a
+fault-free, 64KB fixture profiler, not a general guest exception profiler.
+
+Validated P82 versus P83 with P78 core, MMU8KB, latency3 in
+`scratch/matrix83_read_breakdown_20260920`: all1600 results and input/guard
+checks pass; cycles remain3702562 and3638968 respectively. Each listed PC
+executes64000 reads. Both variants have identical first four read timings:
+
+| PC | Operation | Response cycles total | Prefetch wait | Setup | Ack wait | Retirement gap |
+|---|---|---:|---:|---:|---:|---:|
+|5df6|indexed MOVEA.L|193731|7|1601|128123|0|
+|5e0c|indexed MOVE.W|193474|0|0|129474|0|
+|5e10|indexed MOVEA.L|195578|0|0|131578|0|
+|5e16|indexed MULS.W|321672|64198|64000|129474|64000|
+|5e1a|ADD.W (A2),D2, P83 only|196908|0|0|132908|0|
+
+All other-state counts are zero. Multiply's extra prefetch and setup occupancy
+is a concrete optimization lead; ordinary reads already retire on the response
+edge. State categories describe observed occupancy, not proof that every such
+cycle can be removed. These totals are simulation evidence, not hardware Mix.

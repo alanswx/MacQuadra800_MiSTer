@@ -353,6 +353,52 @@ if args.profile:
   if(dut.core.pipe_owner && dut.core.pipe_exit_ready && !dut.core.pipe_input && dut.core.epf_ready_pc) exits[dut.core.epf_data[dut.core.epf_head]]++;
   cycles=cycles+1; states[dut.core.state]""")
  s=s.replace('$display("BUFFER_UPPER_BOUND', 'for(j=0;j<65536;j=j+1) begin if(regs_cycles[j]) $display("REGS_IR opcode=%04h cycles=%0d",j[15:0],regs_cycles[j]); if(admission_denied[j]) $display("ENTRY_DENIED opcode=%04h cycles=%0d",j[15:0],admission_denied[j]); if(opcycles[j]) $display("ACTIVE_IR opcode=%04h cycles=%0d",j[15:0],opcycles[j]); if(exits[j]) $display("PIPE_EXIT opcode=%04h count=%0d",j[15:0],exits[j]); end $display("PIPELINE cycles=%0d issues=%0d",pipe_cycles,pipe_issues); $display("FETCH_PROFILE empty=%0d decode_extension_wait=%0d pipe_ready_empty=%0d data_prefetch_wait=%0d data_setup=%0d data_ack_wait=%0d regs_queue_ready=%0d regs_queue_empty=%0d",fetch_empty,decode_ext_wait,pipe_ready_empty,data_prefetch_wait,data_setup,data_ack_wait,regs_queue_ready,regs_queue_empty); $display("BUFFER_UPPER_BOUND')
+if args.profile:
+ # Attribute actual pipeline read handshakes by issued PC, never legacy IR.
+ s=s.replace('integer states[0:255];', '''integer states[0:255];
+ integer pr_count[0:32767],pr_cycles[0:32767],pr_max[0:32767];
+ integer pr_retired[0:32767],pr_retire_gap[0:32767],pr_ack_cycle[0:32767];
+ integer pr_prefetch[0:32767],pr_setup[0:32767],pr_wait[0:32767],pr_other[0:32767];
+ integer pr_start=-1,pr_pc=0,pr_index=0,pr_elapsed=0;
+''')
+ s=s.replace('for(i=0;i<256;i=i+1) states[i]=0;', '''for(i=0;i<256;i=i+1) states[i]=0;
+  for(i=0;i<32768;i=i+1) begin
+   pr_count[i]=0;pr_cycles[i]=0;pr_max[i]=0;pr_retired[i]=0;
+   pr_retire_gap[i]=0;pr_ack_cycle[i]=-1;
+   pr_prefetch[i]=0;pr_setup[i]=0;pr_wait[i]=0;pr_other[i]=0;
+  end''')
+ s=s.replace('cycles=cycles+1; states[dut.core.state]', '''if(pr_start>=0 && !dut.core.pipe_load_ack) begin
+   pr_index=pr_pc>>1;
+   if(dut.core.state==dut.core.S_MRD && !dut.core.m_issued && dut.core.epf_pend) pr_prefetch[pr_index]++;
+   else if(dut.core.state==dut.core.S_MRD && !dut.core.m_issued) pr_setup[pr_index]++;
+   else if(dut.core.state==dut.core.S_MRD && dut.core.m_issued) pr_wait[pr_index]++;
+   else pr_other[pr_index]++;
+  end
+  if(dut.core.pipe_load_ack && pr_start>=0) begin
+   pr_index=pr_pc>>1;pr_elapsed=cycles-pr_start;
+   pr_count[pr_index]++;pr_cycles[pr_index]+=pr_elapsed;
+   if(pr_elapsed>pr_max[pr_index]) pr_max[pr_index]=pr_elapsed;
+   pr_ack_cycle[pr_index]=cycles;pr_start=-1;
+  end
+  if(dut.core.pipe_retire && (dut.core.pipe_owner || dut.core.pipe_read_retire)) begin
+   pr_index=dut.core.pipe_pc>>1;
+   if(pr_index<32768 && pr_ack_cycle[pr_index]>=0) begin
+    pr_retired[pr_index]++;pr_retire_gap[pr_index]+=cycles-pr_ack_cycle[pr_index];
+    pr_ack_cycle[pr_index]=-1;
+   end
+  end
+  if(dut.core.pipe_load_launch && !dut.core.pipe_load_write) begin
+   if(pr_start>=0) $fatal(1,"overlapping pipeline read attribution");
+   pr_start=cycles;pr_pc=dut.core.pipe_load_pc;
+   if(pr_pc>=65536) $fatal(1,"pipeline PC outside fixture");
+  end
+  cycles=cycles+1; states[dut.core.state]''')
+ s=s.replace('$display("BUFFER_UPPER_BOUND', '''for(j=0;j<32768;j=j+1) if(pr_count[j]) begin
+      if(pr_count[j]!=pr_retired[j]) $fatal(1,"pipeline read retirement count mismatch pc=%h",j*2);
+      if(pr_cycles[j] != pr_count[j]+pr_prefetch[j]+pr_setup[j]+pr_wait[j]+pr_other[j]) $fatal(1,"pipeline read timing accounting mismatch");
+      $display("PIPE_READ pc=%04h reads=%0d response_cycles=%0d max_response=%0d retire_gap_cycles=%0d prefetch_wait=%0d setup=%0d ack_wait=%0d other=%0d",j*2,pr_count[j],pr_cycles[j],pr_max[j],pr_retire_gap[j],pr_prefetch[j],pr_setup[j],pr_wait[j],pr_other[j]);
+     end
+     $display("BUFFER_UPPER_BOUND''')
 (d/'tb.sv').write_text(s)
 units=('ap040_core','ap040_bus_timeout','ap040_regfile','ap040_alu','ap040_muldiv','ap040_mmu','ap040_cache','ap040_fpu','primitives/dpram')
 flags=['-DAP040_EXPERIMENTAL_'+x for x in ('XSTORE','LEA','PIPELINE','PIPELINE_LOADS','PIPELINE_STORES','PIPELINE_PEA','PIPELINE_P6')]+['-DAP040_PIPELINE_MEMORY_ENTRY']
@@ -372,4 +418,4 @@ for variant in (('current','compare') if args.compare_module else ('current',)):
   logfile=out/f'run_latency{latency}.log'
   run([out/'obj/Vtb_cpu_quick','+prog='+str(d/'program.hex'),f'+latency={latency}'],logfile)
   log=logfile.read_text();assert {'quick':'QUICK500 PASS','sieve':'SIEVE8191 PASS','matrix':'MATRIX40 PASS'}[args.kernel] in log,log[-2000:]
-  print(variant,'\n'.join(l for l in log.splitlines() if l.startswith(('QUICK500','SIEVE8191','MATRIX40','MMU_WALKS','MMU_REMAP','LATENCY','PIPELINE','PIPE_EXIT','FETCH_PROFILE'))),flush=True)
+  print(variant,'\n'.join(l for l in log.splitlines() if l.startswith(('QUICK500','SIEVE8191','MATRIX40','MMU_WALKS','MMU_REMAP','LATENCY','PIPELINE','PIPE_EXIT','PIPE_READ','FETCH_PROFILE'))),flush=True)

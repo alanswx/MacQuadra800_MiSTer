@@ -1,3 +1,18 @@
+# Latest: P82 archived; P83 promoted for next fit
+
+P82 wrapper and detailed STA terminal; root checked artifact hash, reports,
+source/cross/STA exits0 and RAM inference (ctag M10K44032, bankE MLAB512).
+Artifact SHA111b8cc379fa3adf5d831ee0137e8ffbc8d8789580f3ef6e6532f339b7e0adea.
+39458ALMs94%,25355regs,483RAM,42DSP. CPU-.322/TNS-2.936,HDMI+.016,
+SDRAM+.823,holdmin+.244; sys/RAM+2.408/+0.847. Experimental timing failure.
+P83 qualified source promoted unchanged, core remainsP78. Wrapper prepared at
+scratch/p83devmemadd_fit_20260920/run.sh; launch follows this commit.
+
+New profiler validated session59789exit0; Matrix P82/P83 cycles unchanged,
+all results pass. Multiply reads spend64000 setup and64198 prefetch-wait cycles,
+versus almost none for other pipeline reads. See microbenchmark guide table.
+Hardware transfer approval remains pending; no deployment performed.
+
 # Latest: P83 qualified; P84–P86 screens rejected
 
 P83 fullintegration51751exit0 and finalPASS; all planned simulation gates complete.
