@@ -452,3 +452,12 @@ independently verified. This is worse CPU timing than P90's -0.140ns with no
 cycle improvement. Reject as a timing candidate; detailed CPU STA pending,
 then restore qualified P90 MMU before choosing the next timing experiment.
 No P93 hardware test or timing improvement claim.
+
+P93 final archive review: detailed STA exit0, hold minimum+0.247ns,
+crossings sys-to-RAM+0.476ns and RAM-to-sys+0.628ns. Worst path now starts
+at cache ctag RAM write-enable register and ends at core epf_data[1][9].
+RAM inference remains healthy:ctag M10K44,032bits, ATC M10K5,888bits,
+extra register-bank E MLAB512bits. All flows terminal before restoring
+production to the exact previously qualified P90 MMU SHA2c445c90.
+No new correctness test is required for this byte-identical restoration;
+P90's existing qualification evidence remains the applicable evidence.

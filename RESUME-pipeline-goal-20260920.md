@@ -1,3 +1,13 @@
+# P90 MMU restored after P93 timing rejection; no active Quartus
+
+P93allarchive/STAterminal/rootreviewed:CPU-1.612,TNS-143.132;hold+.247;
+cross+.476/+.628;healthyctag/ATC/registerRAM. WorstctagWEreg→epf_data1[9].
+NoQuartusprocessremained. RestoredexactP90MMU2c445c90 fromqualifiedscratch;
+P78core/P83pipelineunchanged. No new fitlaunched. P93patch/evidenceretained.
+P89fullguest2943117+watcher3070167remainlive;latest5.60Bhalfcycles,
+Puzzlerunning. Alltenrun/profileongoing;watcherownscontroluntilcompletion.
+ExactP89hardwareapprovalstillpending,nohardwaretransfer.
+
 # P93 timing regression; detailed STA pending; full Mix running
 
 P93wrapperterminal build1/source0/cross0;39432ALM25510regs482RAM42DSP.
