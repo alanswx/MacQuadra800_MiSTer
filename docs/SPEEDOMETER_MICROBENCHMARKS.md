@@ -262,3 +262,19 @@ production source edits and no promotion yet.
 Matching remapped Sieve8KB baseline completed (session73131exit0):289371
 cycles versusP89 286818,0.88% fewer. Both use15walker reads/7writes and pass
 allprime/guard/remapping checks. Evidence scratch/sieve83_remap8_20260920.
+
+P89 full pipeline integration completed, session98466exit0, ending PASS
+real-core pipeline ownership integration. Precise source/store/PEA faults,
+interrupt cancellation and replay all pass. With the independent workloads,
+existing MMU programs, explicit multi-copy invalidation and first100corpus,
+P89 is simulation-qualified for a fit. Prepared (unlaunched) wrapper
+scratch/p89devmmucopies_fit_20260920/run.sh guards MMU SHA
+37075a31467f4d04f07ad9c83c1eca1efad8c80d36a840743e22bac875bd7fa5,
+P78core/P83pipeline, baseline divider/ALU. Wait for P83's complete archive/STA.
+
+P90 area fallback screen retains four data copies but only one instruction
+copy (five total versusP89's eight). Matrix8KB2872453 versusP89 2870854,
+1599 extra cycles; all1600results/guards pass and walker counts unchanged.
+Most P89 benefit is therefore from data translations. Scratch only, not fully
+qualified and not selected for the next fit. Evidence:
+scratch/p90_mmu_data_copies_20260920 and scratch/matrix90_mmu8_20260920.

@@ -1,3 +1,15 @@
+# Latest: P89 fully simulation-qualified; fit prepared and waiting
+
+Fullintegration98466 collectedexit0, finalPASS including precisefault/IRQ/replay.
+All planned P89 gates pass. MMUSHA37075a31467f4d04f07ad9c83c1eca1efad8c80d36a840743e22bac875bd7fa5.
+PreparedUNLAUNCHED scratch/p89devmmucopies_fit_20260920/run.sh checks exactMMU,
+P78core/P83pipeline/baseALU/divider anddevelopmentCD/Ethernetoff. Do notpromote
+orlaunch untilP83wrapper ANDarchive ANDCPU STA terminal/rootreviewed.
+P83fitter verifiedlivePID2901217 (~12minutes); operator continuesmonitoring.
+P90scratchfivecopies(4data/1instruction) Matrix2872453 vsP89 2870854 (+1599),
+alloraclesPASS. Area fallback only, notfullyqualified. KeepP89 asnextfit.
+No live regression sessions. Hardwaretransferapprovalstillpending; score1.133.
+
 # Remapped Sieve baseline completed
 
 Session73131exit0: original289371 versusP89 286818cycles (-0.88%), allguards
