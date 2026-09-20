@@ -19,6 +19,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('rom', type=Path)
     p.add_argument('--out', type=Path, required=True)
+    p.add_argument('--prepare-only', action='store_true', help='write fixture and identity without compiling or running')
     p.add_argument('--core', type=Path)
     p.add_argument('--fpu', type=Path)
     p.add_argument('--vasm', default='/home/alans/mister/MacQuadra800_fixtures/wombat-vasm/vasmm68k_mot')
@@ -125,6 +126,8 @@ fail:
                 'oracle': '100 exact additions of 1 to 2 produce extended 102 = 4005:cc000000:00000000; source/guards/stack/A0/A6 unchanged',
                 'pipeline': False, 'mmu': False}
     (out/'identity.json').write_text(json.dumps(identity, indent=2)+'\n')
+    if a.prepare_only:
+        return
     run(['iverilog', '-g2012', '-I', rtl, '-s', 'tb_ap040_program', '-o', 'bench.vvp', *sources], 'compile.log')
     result = run(['vvp', 'bench.vvp', '+prog=program.hex', '+prof', '+memlat'], 'run.log')
     if 'ALL TESTS PASSED' not in result:

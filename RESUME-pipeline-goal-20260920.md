@@ -1,3 +1,21 @@
+# 32-bit SANE fixture and P99 early FPU read screen
+
+Added profile_sane_add32.py + tb_cpu_sane.sv; same unchangedROMadd70bytes,
+independent102oracle and guards/source/SP/A0/A6. Productionpipelineflags,
+cache/storequeue, controlled32bitRAM; MMUoff/noSDRAMretainedline. Baseline
+loopcycles latency0/3/8=22519/22693/24256. ExactresultsPASS; FSUBnegativefails.
+P99 scratch/p99_fpu_read_20260920/ap040_core.v adds S_FPU_RD/loadingMVM2
+hints and existingearlyissuequalification. Cycles21921/22096/23659, saves
+598/597/597(~2.6%). ExactresultsPASS/negativefails. Patch preserved at
+scripts/cpu/fpu_read_early_issue.patch, UNAPPLIED. No productionRTLchanges.
+Need MMU/pagecross/faultordering qualification beforepromotion, nofit/hardware.
+Evidence scratch/sane_add32_{baseline,p99}_20260920 identityandlogs.
+
+P97fullguest3190686 and snapshotguest3301309 verifiedactive. Snapshotlast
+1.24Bhalfcycles, dump scheduled2.4Bhalfcycles. Requested freshP97shot while
+benchmark runs; inspectlatestshot before nextaction. Profilecontinues.
+HardwarebestP96median1.211; goal1.8unmet; MiSTer unchangedsafehalt.
+
 # Exact ROM SANE add microbenchmark passes
 
 Added scripts/cpu/profile_sane_add.py. ROM bytes408eaa4c..408eaa92 unchanged,

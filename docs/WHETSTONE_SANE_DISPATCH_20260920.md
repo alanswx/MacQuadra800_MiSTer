@@ -58,3 +58,33 @@ correctness and CPU/FPU comparisons, but **not** representative of Quadra
 SDRAM/store-queue timing. Next port these unchanged routine bytes and the
 independent oracle to the existing 32-bit wombat_cpu memory harness before
 using measurements to choose a production optimization.
+
+## 32-bit fixture and isolated P99 screen
+
+`profile_sane_add32.py` uses the same byte-exact program and independent
+exact arithmetic oracle through wombat_cpu, the production cache and ordered
+write queue. It enables the current integer-pipeline flags, checks bus request
+stability until acknowledgement, checks output/source/guards independently in
+the host, and requires the FSUB negative control to fail. Identity manifests
+record all sources and flags. MMU remains disabled; controlled RAM replaces
+the SDRAM controller and retained-line path.
+
+| RAM latency | Baseline loop clocks | P99 loop clocks | Reduction |
+|---|---:|---:|---:|
+| 0 | 22519 | 21921 | 2.66% |
+| 3 | 22693 | 22096 | 2.63% |
+| 8 | 24256 | 23659 | 2.46% |
+
+Evidence: scratch/sane_add32_baseline_20260920 and
+scratch/sane_add32_p99_20260920. All exact-result cases pass and both variants
+reject the subtraction control. Whole-fixture baseline latency-3 state
+occupancy is 7788 read + 2677 write clocks out of 23503 (44.5%). This is
+not the measured loop alone and is not a full Whetstone profile.
+
+P99 (`scripts/cpu/fpu_read_early_issue.patch`, **unapplied**) adds address hints
+for S_FPU_RD and loading S_FPU_MVM2, allowing their reads to use the existing
+within-page low-RAM early-issue gate. It saves approximately one setup cycle
+per operand longword in this fixture. No production RTL changed. It still
+needs MMU, page-crossing and fault/restart qualification before promotion;
+there is no Quartus or hardware result. A 2.6% add-wrapper improvement alone
+cannot close the real-machine Whetstone deficit.
