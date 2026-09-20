@@ -1568,11 +1568,16 @@ Root independently viewed run5_complete.png and final_halt_visible2.png. The fiv
 
 ## P13 cross-line cache candidate — 2026-09-19
 
-Candidate: `MacQuadra800_p13cross_ef4f71d.rbf`  
-SHA256: `e97fc787dd8d4f6d81acdaf8f39b369de9a88d6cf428441b03104084500679e8`  
-Configuration: authentic 33 MHz, 32 MB, Ethernet on (`CFG 40 00 00 00`).  
-Disk: disposable `QuadSquad8-pipeline-test-20260919.hda`; original QuadSquad8 image remained unmounted and untouched.  
-Timing: CPU +0.757 ns, HDMI +0.135 ns, SDRAM +0.200 ns, hold minimum +0.238 ns; crossings +0.200/+0.757 ns.  
+Candidate: `MacQuadra800_p13cross_ef4f71d.rbf`
+
+SHA256: `e97fc787dd8d4f6d81acdaf8f39b369de9a88d6cf428441b03104084500679e8`
+
+Configuration: authentic 33 MHz, 32 MB, Ethernet on (`CFG 40 00 00 00`).
+
+Disk: disposable `QuadSquad8-pipeline-test-20260919.hda`; original QuadSquad8 image remained unmounted and untouched.
+
+Timing: CPU +0.757 ns, HDMI +0.135 ns, SDRAM +0.200 ns, hold minimum +0.238 ns; crossings +0.200/+0.757 ns.
+
 
 All five runs completed all ten Iteration 1 tests and showed the normal completion screen. No timer-invalid outliers occurred.
 

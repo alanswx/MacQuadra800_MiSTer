@@ -1701,3 +1701,5 @@ scratch/p24stackbra_fit_20260919 and serviceq800-p24stackbra-fit-20260919.
 Check service live state before editing RTL. P25 scratch displacement-CMP support
 onP18 baseline gives Bubble4,079,134vs4,077,142(+1,992cycles),PASSvalues but
 no performance gain; not promoted or fully qualified.
+
+P24 fit actually launched on0177679, serviceq800-p24stackbra-fit-20260919 active MainPID1605366. RTL/QSF/QIP/SDC frozen until terminal archive/cross extraction. P18 operator now running.
