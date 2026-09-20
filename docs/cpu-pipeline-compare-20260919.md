@@ -1603,3 +1603,31 @@ P64devmove build launched from7952a01 as sole flow; exact preflight passed.
 Measured wrapper durations: full P63 24m54 versus P63devnocdnet21m56, about
 12% faster for this pair. More resource headroom may avoid failed fits, but
 neither faster routing nor timing closure is guaranteed by these two samples.
+
+
+## P66: isolate queue branch targets from the decode-state selector
+
+Unapplied candidate `scripts/cpu/queue_branch_target.patch`, based on P64
+core SHA `609b1687e27b5da1096d6b1c990027b46d27f00272ce1d96b45ef6ed97a2f980`.
+Candidate core SHA `3935c0c9df415a560c9a50c3deacad0f85538414b9feb0934a02e5da3530c5ed`;
+P63 pipeline/ALU and baseline divider remain unchanged. No P65 refill change.
+
+The P63 development fit's worst CPU path starts at state[2] and passes through
+opcode selection and branch-target arithmetic into epf_data, missing by 0.862 ns.
+P66 derives lookahead branch opcode/target directly from the instruction queue.
+The shared early-target selector already handles S_DECODE separately, and bd_ok
+excludes S_DECODE. All bd_* consumers were inspected for this qualification.
+This removes an unnecessary state dependency; actual area/timing benefit is
+unmeasured until a separate Quartus fit. It does not claim a cycle-count gain.
+
+Validation on the isolated candidate:
+- Full integration PASS (`scratch/p66full`), including branch_early, exceptions,
+  MMU/cache, restart, pipeline faults, interrupts, and replay; no saved-log
+  early-target consistency diagnostics. Prototype oracle: 14,720 snapshots.
+- Original QuickSort kernel PASS sorted permutation and guards, exact P64
+  cycle counts 167015/178786/202156 at memory latency 0/3/8.
+- Immutable first-100 corpus PASS: 100 rows, 1900 field-groups, zero differences;
+  `/tmp/cpu-corpus100-gate.Vo0SmS`. This is not the full CPU corpus.
+
+P64 development build remains active and its RTL is frozen. P66 is a saved,
+simulation-qualified patch only; no P66 FPGA or hardware result exists.
