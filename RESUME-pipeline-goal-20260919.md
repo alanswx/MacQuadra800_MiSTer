@@ -2137,3 +2137,36 @@ fullwrapperterminal. Then repair standalone wildcardbenchports, consider
 promoting qualified P42 (which includesP41BRF128prefix), commit, and launch one
 newfit. P39 hardware trial still needs its completed/source-verified artifact.
 Besthardwaremedian1.083; target1.8unmet; A/UXdeferred andCD/audiooutstanding.
+
+### P43/P44/P45 measured store experiments (not promoted)
+
+P43 scratch/p43_indirect_clr_20260919 adds legal byte/word/long CLR(An) to
+P42's store pipeline and its single-word entry policy. Queens output/guards
+PASS, but unchanged68209cycles despite more pipeline activity. No qualification
+or promotion justified by this result.
+
+P44 scratch/p44_store_retire_20260919 extends successful acknowledgement-edge
+retirement to stores (optional module parameter ENABLE_FAST_STORE_RETIRE).
+Retire data selects store_update and core accepts the normal MWR ack, retaining
+IRQ/trace/fault fallback. Exploratory original kernels pass: Permute1383722
+(regresses3051 vsP42), Towers24341138 (saves49191), Queens68209 unchanged.
+No combinational-loop warning in inspected compilation. NOT correctness-qualified.
+The first Queens invocation combined candidate core with production module,
+which lacks the new parameter, and failed elaboration. Added --pipeline-module
+to profile_queens.py so an exact core/module pair runs without that mixed baseline;
+correct paired run passes. Source hashes identify the actual pair.
+
+P45 scratch/p45_store_nopea_20260919 excludes PEA from fast store retirement.
+Permute returns to1380671 (no regression), Towers retains24341138 (0.202%fewer
+thanP42), Bubble remains3270270. All kernel output/guard checks pass. P45 has
+NOT run full integration, silicon corpus, store completion IRQ/fault/trace or
+coherence qualification; don't promote it as qualified. The core uses the new
+pipe_mem_retire signal and retains a read-only pipe_read_retire alias for the
+existing read IRQ monitor. The module renames fast_read_retire to fast_mem_retire.
+If qualified later, ownership monitor must explicitly allow only successful
+non-PEA store acknowledgements as well as the existing read case; preserve all
+other checks. P42 remains the qualified next fit candidate.
+
+P39 fit service is still live MainPID1759655, child quartus_fit1769571 observed
+at32minutes, CPU171%; physical synthesis log is buffered. No restart or source
+changes. Wait for full wrapper/archive termination before any tracked RTL edit.

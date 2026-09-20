@@ -6,6 +6,7 @@ parser=argparse.ArgumentParser(description="Profile original Speedometer Queens 
 parser.add_argument('resource',type=Path)
 parser.add_argument('--out',type=Path,required=True)
 parser.add_argument('--core',type=Path,help='optional isolated candidate CPU core')
+parser.add_argument('--pipeline-module',type=Path,default=r/'rtl/ap68040/experimental/ap040_pipeline_integer.sv',help='pipeline module paired with --core')
 parser.add_argument('--compare-module',type=Path,help='optional alternative pipeline module; core and entry policy remain identical')
 parser.add_argument('--early-drain',action='store_true',help='enable final-WB pipeline handoff')
 parser.add_argument('--compare',action='store_true',help='enable indexed CMP/TST and register TST')
@@ -210,7 +211,7 @@ if args.compare: flags.append('-DAP040_PIPELINE_COMPARE')
 if args.early_drain: flags.append('-DAP040_PIPELINE_EARLY_DRAIN')
 for variant in (('current','compare') if args.compare_module else ('current',)):
  out=d/variant;out.mkdir(exist_ok=True)
- module=r/'rtl/ap68040/experimental/ap040_pipeline_integer.sv' if variant=='current' else args.compare_module.resolve()
+ module=args.pipeline_module.resolve() if variant=='current' else args.compare_module.resolve()
  sources=[d/'tb.sv',r/'rtl/wombat_cpu.sv',r/'rtl/wombat_store_buffer.sv',*[(args.core.resolve() if u=='ap040_core' and args.core else rtl/(u+'.v')) for u in units],module]
  (out/'identity.json').write_text(json.dumps({'sources':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in sources},'kernel_sha256':hashlib.sha256(kernel).hexdigest(),'resource_sha256':hashlib.sha256(resource).hexdigest(),'input':'eight queens, initially empty board','early_drain':args.early_drain,'compare':args.compare,'scope':'unchanged 0x91a4..0x9285 recursive Try routine; one eight-queen solve; excludes Queens 250-iteration wrapper and its initializer'},indent=2))
  run(['/home/alans/verilator5/bin/verilator','--binary','--timing','-Wno-fatal','-Wno-BLKLOOPINIT','-j','8','--top-module','tb_cpu_queens','--Mdir',out/'obj','-I'+str(rtl),*flags,*sources],out/'compile.log')
