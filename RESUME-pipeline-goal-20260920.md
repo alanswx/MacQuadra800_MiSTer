@@ -1,3 +1,19 @@
+# Root owns MiSTer input; overlapping mouse walkers fixed
+
+Previous goal turn verified live jobs. Found FOUR live click.sh process trees
+3210829/3212534/3217575/3219673 fighting over mouse; observation timeouts were
+incorrectly followed by new launches. Operator stopped all, root verified no
+mister_ws/click processes then interrupted operator to enforce handoff.
+Root now sole hardware input owner. Operator reassigned READ-ONLY deployment
+identity handoff + P97fit monitoring/STA, explicitly no hardware input.
+Added flock exclusion and EXIT/TERM/INT mouse release to scripts/guest/click.sh;
+bash syntax passes and held-lock invocation rejects before input.
+Fresh root_current.png reviewed responsive Finder desktop; Photoshop closed.
+Root launched ONE calibrated click.sh411418dclick, live execsession27725.
+MUST poll this session, never duplicate merely because observation yields.
+P96 run count remains0; earlier run1_* filenames are navigation, not results.
+P97 sim/fit remain independent live jobs; production HDL remains frozen.
+
 # P96 hardware desktop visually reviewed; benchmark evidence not yet valid
 
 Previous turn progressed P98 qualification; this turn verified live jobs and
