@@ -1102,3 +1102,13 @@ first100corpus above, this completes the planned simulation qualification.
 No FPGA/hardware qualification yet. Prepared next-build archive wrapper:
 `scratch/p57movestore_fit_20260920/run.sh`; do not launch until P52's complete
 wrapper is terminal and the exact P57 candidate is promoted/committed.
+
+
+Scoring analysis follow-up (2026-09-20): see
+[SPEEDOMETER_MIX_ANALYSIS_20260920.md](SPEEDOMETER_MIX_ANALYSIS_20260920.md).
+The original DoBMAve routine indicates an arithmetic mean of ten normalized
+ratings. Root rechecked P39 run5: recorded integer-kernel numbers are elapsed
+seconds, not ratings; Whetstone rating 2.947 contributes about 27% of the total.
+Profile its original SANE/math workload before assuming which CPU unit limits it.
+P52 remains live under the **user** systemd service; a system-scope query gives
+a misleading inactive result. Verify the wrapper/fitter PIDs before any restart.
