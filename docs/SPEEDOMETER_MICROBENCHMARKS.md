@@ -179,3 +179,20 @@ N=4 and N=6 exactly reproduce P83's3638968 and all read timings. All three
 pass the independent matrix/input/guard oracle. None is promoted or fully
 qualified. Evidence: scratch/matrix87_prefetch{,4,6}_20260920. This rejects
 simple queue-threshold throttling as a useful optimization for this workload.
+
+P88 multiply response-edge retirement screen (scratch only): permit indexed
+MULS/MULU to use the existing direct-read retirement handshake, using full
+product flags rather than the ALU MOVE flags. Matrix remains exactly3638968
+cycles despite removing all64000 multiply response-to-retirement gap cycles.
+All1600 matrix results/inputs/guards pass. Independent Python product/CCR
+oracle passes128 signed/unsigned cases across3 bus/CE phases, with384 actual
+pipeline launches and retirements. Evidence: scratch/matrix88_fastmul_20260920
+and scratch/p88_fast_multiply_20260920/oracle. No full fault/IRQ qualification
+or fit: reject because it adds a combinational multiply to the retirement path
+without improving total cycles. Production retains registered multiply WB.
+
+Inspection also confirms load_req already includes combinational load_issue;
+the pipeline load offer is not delayed by a separate request register before
+core launch. hint_p2 already carries its effective address on that launch edge.
+An earlier hint would require operand/address availability earlier than EX,
+not simply exposing the existing load_issue signal. No such change made yet.

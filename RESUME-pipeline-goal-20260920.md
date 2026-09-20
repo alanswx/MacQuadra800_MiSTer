@@ -1,3 +1,15 @@
+# Latest screen: P88 rejected; P83 fit remains active
+
+P88 fast indexed multiply retirement: Matrix3638968 unchanged versusP83,
+despite retire_gap64000→0. Independent full32product/CCR oracle128cases×3
+phases PASS with384 launches/retires. No full qualification needed: reject
+zero-gain combinational retirement path. Sources/logs scratch/p88_fast_multiply_20260920
+and scratch/matrix88_fastmul_20260920. No live simulation sessions.
+P83 unit verifiedactive MainPID2890999; cheaperoperator still monitors.
+Production remains frozen. Next broader lead is load/address scheduling;
+load_req already includes combinational load_issue and hint_p2 already uses
+that address, so merely exposing load_issue earlier cannot improve it.
+
 # Current running work
 
 P83 fit launched from66f0d5f, userunitq800-p83devmemadd-fit-20260920.service,
