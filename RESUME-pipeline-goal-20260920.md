@@ -7,6 +7,15 @@ on these observations. The 1.8 hardware goal remains unachieved and active.
 
 ## Current production and build
 
+**LATEST ACTIVE BUILD:** user unit q800-p64devmove-fit-20260920.service,
+wrapper2490271,quartus_sh2490301,quartus_map2490413 atlaunch. Commit
+7952a01e6b5667a2c1e9bef133f74faa63b2a677; archive scratch/p64devmove_fit_20260920.
+P64 MOVE optimization, P63 ALU, baseline divider, seed22, CD/Ethernet omitted.
+Preflight passed and synthesis active. Freeze RTL/QSF/QIP/SDC. Cheap operator
+monitors it while testing archived P63devnocdnet on hardware; never mix artifacts.
+All earlier ACTIVE statements below are historical and superseded by this one.
+
+
 **Current (supersedes older state below):** the sole ACTIVE flow is user unit
 `q800-p63devnocdnet-fit-20260920.service`, wrapper2438580, quartus_sh2438602,
 quartus_map2438691 at launch. Commit29190feddc3cded8f88956d6332188e53e22fb78,
@@ -286,3 +295,9 @@ CD/Ethernet remain omitted. Launch after commit as sole user unit
 q800-p64devmove-fit-20260920.service via scratch/p64devmove_fit_20260920/run.sh.
 P65 remains separate scratch; first100 PASS1900groups0diffs
 /tmp/cpu-corpus100-gate.n4wqdQ, fullintegration39775 still running atlastcheck.
+
+P65 final qualification: integration39775 and first10012640 collected exit0;
+full.log ends PASS real-core pipeline ownership integration. First1001900groups
+0diffs /tmp/cpu-corpus100-gate.n4wqdQ. P65 remains P63-based, not P64-based;
+noP65FPGA or hardware result. Development fit-time comparison: P63full24m54
+versus P63dev21m56 (~3min/12% faster this pair), not a general guarantee.

@@ -1593,3 +1593,13 @@ P64devmove is next FPGA candidate: exact previously qualified P64 core
 609b1687e27b5da1096d6b1c990027b46d27f00272ce1d96b45ef6ed97a2f980,
 P63ALU/pipeline,baseline divider,seed22,CD/Ethernet omitted. Only CPU change
 from P63devnocdnet is the d16 MOVE destination overlap. P65 remains scratch.
+
+
+P65 full integration completed PASS (session39775exit0), including precise
+interrupt/replay and fault gates. Immutable first100 completed PASS,1900field
+ groups/zero differences (/tmp/cpu-corpus100-gate.n4wqdQ,session12640exit0).
+P65 stays isolated on P63 baseline and has no FPGA/hardware measurements.
+P64devmove build launched from7952a01 as sole flow; exact preflight passed.
+Measured wrapper durations: full P63 24m54 versus P63devnocdnet21m56, about
+12% faster for this pair. More resource headroom may avoid failed fits, but
+neither faster routing nor timing closure is guaranteed by these two samples.
