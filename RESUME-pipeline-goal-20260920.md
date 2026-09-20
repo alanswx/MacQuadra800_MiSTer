@@ -261,3 +261,13 @@ operator supplies remote-copy/config/disposable identity and clean shutdown
 for root review. Do not call release-qualified: CPU/HDMI timing still fail.
 Do not attribute gain solely to ALU subset (P52/P57 changes also present).
 Devnocdnet remains a separate active build; no hardware score yet.
+
+
+P65 larger-refill experiment prepared in scratch while cheap operator owns
+hardware/build monitoring. Exact128-byte P52→P47 delta on P63/P57core; noP64
+MOVE change, baseline divider, P63ALU/pipeline. Core SHA213efb3eaed8990a24c3315cc3bc2816b7b2725f8c588fb4d1db2ee7040921d7.
+Unapplied scripts/cpu/refill128_subset.patch; scratch/p65_refill128_subset_20260920.
+Bubble latency3 3456612→3270270 (-5.39%cycles); Quick170140/181911/205281 at
+latency0/3/8 (-364 each vsP63), output/guards PASS. Prefix42770patterns PASS,
+upper/crossing SMC PASS. Fullintegration session39775 and first100 session12640
+RUNNING; inspect full.log/corpus.log. NoP65fit/hardware; production frozenP63dev.

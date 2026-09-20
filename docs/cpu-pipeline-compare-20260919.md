@@ -1549,3 +1549,26 @@ Next build applies only CDROM_OFF and ETHERNET_OFF, retains exact P63 CPU
 and seed22. It is the p63devnocdnet development profile, not P64. CPU frequency,
 RAM/cache/disk/video settings unchanged. Features must be restored for final
 acceptance. Current QSF is development-only; artifact names/report must say so.
+
+
+## P65: reconsider 128-byte refill with reduced-feature headroom
+
+P65 restores only the known P52→P47 buffer-size delta onto the P63/P57 core;
+P63 ALU/pipeline and baseline divider remain unchanged. It does NOT include
+P64's MOVE optimization. Scratch `scratch/p65_refill128_subset_20260920`,
+core SHA256 `213efb3eaed8990a24c3315cc3bc2816b7b2725f8c588fb4d1db2ee7040921d7`, unapplied `scripts/cpu/refill128_subset.patch`.
+The prior full-feature128-byte candidate failed placement. CD/Ethernet omission
+may provide headroom, but P65 has no synthesis/fit/hardware evidence yet.
+
+Original Bubble loop, same500-value independent sorted-permutation/guards,
+latency3: P63 3456612→P65 3270270cycles (-5.39%). Original Quick recursion:
+latency0/3/8 gives170140/181911/205281cycles,364 fewer than P63 at each latency.
+These are kernel simulation results, not Mix predictions. Source identities
+are in scratch/bb65/current/identity.json and scratch/qk65/current/identity.json.
+The Bubble profiler now accepts --core and hashes that selected source.
+
+Independent refill run-length oracle42770patterns/64words PASS. Upper-half
+and crossing self-modifying-code fixtures PASS, three patch observations each.
+Full integration and immutable first100 are RUNNING, not yet qualified;
+logs full.log/corpus.log in candidate scratch, full fixtures scratch/p65full.
+Current FPGA flow remains exact P63 with only CD/Ethernet omitted.

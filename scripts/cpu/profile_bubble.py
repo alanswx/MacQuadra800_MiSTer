@@ -5,6 +5,7 @@ r=Path(__file__).resolve().parents[2]
 parser=argparse.ArgumentParser(description="Profile original Speedometer Bubble sorting loop on a fixed shuffled input; not a hardware score.")
 parser.add_argument('resource',type=Path)
 parser.add_argument('--out',type=Path,required=True)
+parser.add_argument('--core',type=Path,help='optional isolated CPU core candidate')
 parser.add_argument('--compare-module',type=Path,help='optional alternative pipeline module; core and entry policy remain identical')
 parser.add_argument('--early-drain',action='store_true',help='enable final-WB pipeline handoff')
 parser.add_argument('--compare',action='store_true',help='enable indexed CMP/TST and register TST')
@@ -171,6 +172,7 @@ for variant in (('current','compare') if args.compare_module else ('current',)):
  out=d/variant;out.mkdir(exist_ok=True)
  module=r/'rtl/ap68040/experimental/ap040_pipeline_integer.sv' if variant=='current' else args.compare_module.resolve()
  sources=[d/'tb.sv',r/'rtl/wombat_cpu.sv',r/'rtl/wombat_store_buffer.sv',*[rtl/(u+'.v') for u in units],module]
+ sources=[args.core.resolve() if args.core and p==rtl/'ap040_core.v' else p for p in sources]
  (out/'identity.json').write_text(json.dumps({'sources':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in sources},'kernel_sha256':hashlib.sha256(kernel).hexdigest(),'resource_sha256':hashlib.sha256(resource).hexdigest(),'input':values,'early_drain':args.early_drain,'compare':args.compare,'scope':'unchanged 0x9586..0x95d1 sorting loop only; fixed shuffled input; excludes initializer, allocation and five-iteration wrapper'},indent=2))
  run(['/home/alans/verilator5/bin/verilator','--binary','--timing','-Wno-fatal','-Wno-BLKLOOPINIT','-j','8','--top-module','tb_cpu_bubble','--Mdir',out/'obj','-I'+str(rtl),*flags,*sources],out/'compile.log')
  run([out/'obj/Vtb_cpu_bubble','+prog='+str(d/'program.hex'),'+latency=3'],out/'run.log')
