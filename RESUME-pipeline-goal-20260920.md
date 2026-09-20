@@ -1,3 +1,22 @@
+# Latest: P76 fit live; original Matrix microbenchmark validated
+
+P76 fit launched userunit q800-p76devimmstore-fit-20260920.service,
+buildcommit c0e4c5d, wrapper PID2759726 verified active. Build inputs frozen.
+Cheaper operator investigating reviewed P75 transfer retry after verifying
+mister.local identity; no root hardware inputs. No P75 scores recorded yet.
+
+New profile_matrix.py/shared profile_quick.py runs original CODE3 5dda..5e2d
+40-term dot product1600times, deterministic signed inputs, independent full
+B*A word-result oracle and input/guard checks. P75/P76 MMU8Klat0/3/8:
+4117756/4149716/4223782 versus4117755/4149715/4223781, negligible improvement.
+All PASS; no-accumulation negative control fails at index0 as intended.
+Quick/Sieve regression179011/289371 unchanged. Evidence scratch/matrix{75,76}_mmu8_20260920.
+Profile priorities and limits documented in docs/SPEEDOMETER_MICROBENCHMARKS.md.
+Memory-read state34.51%, pipeline register/start23.63%, MDwait6.17%; do not
+interpret as independent stall fractions. Indexed MULS causes64000pipeline
+exits. Next candidate should target repeated operand/entry overhead, rather
+than assume immediate stores improve Matrix. Best hardware still1.133P70.
+
 # Latest: P76 promoted for fit; P75 hardware pending
 
 P75 fit completed; no Quartus processes remained before P76 promotion.

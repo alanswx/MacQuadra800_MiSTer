@@ -101,3 +101,46 @@ translated buffer guards and poisoned physical pages.
 
 Quick Sort also passes with8KB translation:179,011cycles atlatency3,
 12walker reads/6writes; evidence `scratch/quick75_mmu8_20260920`.
+
+## Original integer Matrix routine
+
+`scripts/cpu/profile_matrix.py` uses unchanged CODE3 bytes0x5dda..0x5e2d,
+including its LINK/MOVEM prologue and return. Each call computes one40-term
+dot product; a small assembly wrapper makes1600 calls for a40×40 result.
+The calling convention uses output pointer, B and A row-pointer tables, row
+and column parameters. Original instruction addresses are retained.
+
+The fixture supplies deterministic signed16-bit matrices (seed20260920,
+full signed range). An independent Python B×A calculation checks all1600
+word results modulo65536. Both input matrices, their row tables, surrounding
+memory and output guards must remain unchanged. Removing ADD.W(A2),D2 at
+0x5e1a in a disposable program causes the result oracle to fail at index0.
+This deliberately tests arithmetic validation, not merely guest completion.
+
+Run with the same options as Sieve, for example `--mmu 8k --early-drain
+--compare --latencies 0 3 8 --disassemble --profile`. The fixture excludes
+Mac allocation, original input initialization, timing and UI. Its signed
+inputs are controlled test data, not a capture of Speedometer's original
+matrix contents. CPU/MMU/cache/store-buffer paths remain real; RAM latency
+is controlled and these cycles do not predict hardware Mix directly.
+
+| CPU, MMU8KB | latency0 | latency3 | latency8 |
+|---|---:|---:|---:|
+| P75 | 4,117,756 | 4,149,716 | 4,223,782 |
+| P76 | 4,117,755 | 4,149,715 | 4,223,781 |
+
+All1600 results and guards pass, with21walker reads/9writes. The one-cycle
+change is negligible; immediate stores do not improve this inner loop.
+Evidence: scratch/matrix{75,76}_mmu8_20260920, including source/program/oracle
+identities and the P76 negative_no_accumulate log. Compilation took about8s;
+each simulated full matrix took about6s on this host.
+
+P76 latency3 occupancy: S_MRD34.51%, S_PIPE_REGS12.53%, S_PIPE_START11.10%,
+S_EXPERIMENT_PIPE10.80%, S_MD_WAIT6.17%. These are state occupancies, not
+independent pure-stall estimates. The original indexed MULS is a pipeline
+exit64000 times. This makes reducing load/operand setup and repeated pipeline
+entry around indexed arithmetic worth screening; faster multiply alone has
+limited headroom here. Legacy IR occupancy is not verified opcode attribution.
+
+Shared-harness regression after this extension: QuickMMU8K179011 and
+SieveMMU8K289371 at latency3, both unchanged, all oracles pass.

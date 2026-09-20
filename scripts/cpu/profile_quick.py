@@ -4,7 +4,7 @@ import argparse,hashlib,json,random,subprocess
 r=Path(__file__).resolve().parents[2]
 parser=argparse.ArgumentParser(description="Profile original Speedometer integer kernels on CPU/cache/RAM; not a hardware score.")
 parser.add_argument('resource',type=Path)
-parser.add_argument('--kernel',choices=('quick','sieve'),default='quick',help='original integer kernel; sieve runs one full pass without Mac allocation')
+parser.add_argument('--kernel',choices=('quick','sieve','matrix'),default='quick',help='original integer kernel; sieve runs one full pass without Mac allocation')
 parser.add_argument('--out',type=Path,required=True)
 parser.add_argument('--mmu-remap-buffer',action='store_true',help='Sieve translation control: move one virtual buffer page to different physical RAM')
 parser.add_argument('--mmu',choices=('off','4k','8k'),default='off',help='real MMU with identity page tables and shared physical RAM walker')
@@ -23,7 +23,7 @@ if any(n<0 for n in args.latencies): parser.error('latencies must be nonnegative
 d=args.out.resolve();d.mkdir(parents=True,exist_ok=True);rtl=r/'rtl/ap68040/rtl' 
 resource=args.resource.read_bytes()
 assert hashlib.sha256(resource).hexdigest()=='af67113bceb4eb906e973a9b747a0b1925b9d64c62f0f9a84bc6f0578839ca80'
-start,end=(0x93ce,0x946e) if args.kernel=='quick' else (0xb6a,0xbae)
+start,end={'quick':(0x93ce,0x946e),'sieve':(0xb6a,0xbae),'matrix':(0x5dda,0x5e2e)}[args.kernel]
 kernel=resource[82+0x6250f+start:82+0x6250f+end];(d/(args.kernel+'.bin')).write_bytes(kernel)
 if args.disassemble:
  from capstone import Cs,CS_ARCH_M68K,CS_MODE_BIG_ENDIAN,CS_MODE_M68K_040
@@ -93,6 +93,60 @@ unexpected:
  org $afff
  dc.b $5a,$a5
 '''
+if args.kernel=='matrix':
+ # Signed 16-bit input, independently calculated B*A with word wraparound.
+ # The original routine computes one 40-term dot product per call.
+ rng=random.Random(20260920)
+ a=[[rng.randrange(-32768,32768) for _ in range(40)] for _ in range(40)]
+ b=[[rng.randrange(-32768,32768) for _ in range(40)] for _ in range(40)]
+ expected=[sum(b[row][k]*a[k][col] for k in range(40))&65535 for row in range(40) for col in range(40)]
+ (d/'expected.hex').write_text(''.join(f'{v:04x}\n' for v in expected))
+ values={'a':a,'b':b,'operation':'B*A, signed word inputs, word results'}
+ asm=''' org 0
+ dc.l $e000,start
+ rept 254
+ dc.l unexpected
+ endr
+ org $400
+start:
+ move.w #$2700,sr
+ move.l #$80008000,d0
+ movec d0,cacr
+ lea ($8000).l,a5
+ lea ($c002).l,a3
+ moveq #1,d7
+row_loop:
+ moveq #1,d6
+column_loop:
+ move.w d6,-(sp)
+ move.w d7,-(sp)
+ move.l #$7000,-(sp)
+ move.l #$7100,-(sp)
+ move.l a3,-(sp)
+ jsr ($5dda).l
+ lea 16(sp),sp
+ addq.l #2,a3
+ addq.w #1,d6
+ cmpi.w #40,d6
+ ble column_loop
+ addq.w #1,d7
+ cmpi.w #40,d7
+ ble row_loop
+ move.w #$600d,($f102).l
+ stop #$2700
+unexpected:
+ move.w #$bad0,($f102).l
+ stop #$2700
+ org $5dda
+ incbin "'''+str(d/'matrix.bin')+'''"
+'''
+ for table,base,rows in ((0x7000,0x8000,a),(0x7100,0xa000,b)):
+  asm+=f' org ${table:x}\n'+''.join(f' dc.l ${base+82*i:x}\n' for i in range(41))
+ for base,rows in ((0x8000,a),(0xa000,b)):
+  asm+=f' org ${base:x}\n'+ ' dc.w $a55a\n'*41
+  for row in rows: asm+=' dc.w $a55a,'+','.join(f'${v&65535:04x}' for v in row)+'\n'
+  asm+=' dc.w $5aa5\n'
+ asm+=' org $c000\n dc.w $a55a\n rept 1600\n dc.w $dead\n endr\n dc.w $5aa5\n'
 if args.mmu!='off':
  asm=asm.replace(' lea ($8000).l,a5', ' move.l #$4000,d0\n movec d0,urp\n movec d0,srp\n move.l #$'+('8000' if args.mmu=='4k' else 'c000')+',d0\n movec d0,tc\n lea ($8000).l,a5')
 (d/(args.kernel+'.s')).write_text(asm)
@@ -219,6 +273,17 @@ if args.kernel=='sieve':
      $display("BUFFER_UPPER_BOUND hits=%0d saved_cycles=%0d",buffer_hits,buffer_saving);
      $display("SIEVE8191 PASS cycles=%0d latency=%0d prime_flags=PASS guards=PASS",cycles,latency);
 '''+s[finish:]
+if args.kernel=='matrix':
+ s=s.replace('reg [15:0] mem[0:32767];','reg [15:0] mem[0:32767]; reg [15:0] expected[0:1599]; reg [15:0] initial_mem[0:32767];')
+ s=s.replace('  $readmemh(path,mem);', '  $readmemh(path,mem);\n  $readmemh("'+str(d/'expected.hex')+'",expected);\n  for(i=0;i<32768;i=i+1) initial_mem[i]=mem[i];')
+ begin=s.index("     if(mem['hc000>>1]")
+ finish=s.index('     for(j=0;j<256;',begin)
+ s=s[:begin]+'''     if(mem['hc000>>1]!==16'ha55a || mem['hcc82>>1]!==16'h5aa5) $fatal(1,"matrix guards changed");
+     for(i=0;i<1600;i=i+1) if(mem[('hc002+2*i)>>1]!==expected[i]) $fatal(1,"matrix mismatch index=%0d actual=%h expected=%h",i,mem[('hc002+2*i)>>1],expected[i]);
+     for(i=('h7000>>1);i<('had24>>1);i=i+1) if(mem[i]!==initial_mem[i]) $fatal(1,"matrix input or guard changed addr=%h",i*2);
+     $display("BUFFER_UPPER_BOUND hits=%0d saved_cycles=%0d",buffer_hits,buffer_saving);
+     $display("MATRIX40 PASS cycles=%0d latency=%0d all_1600_results=PASS inputs_and_guards=PASS",cycles,latency);
+'''+s[finish:]
 if args.mmu!='off':
  s=s.replace('reg ack=0;', '''reg ack=0;
  wire walker_we; wire [31:0] walker_addr,walker_wdat;
@@ -299,10 +364,10 @@ for variant in (('current','compare') if args.compare_module else ('current',)):
  sources=[args.core.resolve() if args.core and p==rtl/'ap040_core.v' else p for p in sources]
  sources=[args.alu.resolve() if args.alu and p==rtl/'ap040_alu.v' else p for p in sources]
  sources=[args.muldiv.resolve() if args.muldiv and p==rtl/'ap040_muldiv.v' else p for p in sources]
- (out/'identity.json').write_text(json.dumps({'sources':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in sources},'kernel_sha256':hashlib.sha256(kernel).hexdigest(),'resource_sha256':hashlib.sha256(resource).hexdigest(),'input':values,'latencies':args.latencies,'early_drain':args.early_drain,'compare':args.compare,'scope':('unchanged 0x93ce..0x946d recursive sort; fixed shuffled input; excludes initializer, allocation and original wrapper' if args.kernel=='quick' else 'unchanged 0xb6a..0xbad Sieve inner pass including initialization; original addresses; excludes allocation, disposal, outer 100-pass repetition and timing/UI'), 'kernel':args.kernel, 'mmu':args.mmu, 'mmu_remap_buffer':args.mmu_remap_buffer, 'memory_model':'shared physical RAM responder and walker; see mmu and mmu_remap_buffer for mapping', 'program_sha256':hashlib.sha256((d/'program.bin').read_bytes()).hexdigest(), 'oracle_sha256':hashlib.sha256((d/'expected.hex').read_bytes()).hexdigest() if args.kernel=='sieve' else None},indent=2))
+ (out/'identity.json').write_text(json.dumps({'sources':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in sources},'kernel_sha256':hashlib.sha256(kernel).hexdigest(),'resource_sha256':hashlib.sha256(resource).hexdigest(),'input':values,'latencies':args.latencies,'early_drain':args.early_drain,'compare':args.compare,'scope':('unchanged 0x93ce..0x946d recursive sort; fixed shuffled input; excludes initializer, allocation and original wrapper' if args.kernel=='quick' else 'unchanged 0x5dda..0x5e2d dot product; 1600 calls over fixed signed 40x40 matrices; excludes original initialization, allocation, timing/UI' if args.kernel=='matrix' else 'unchanged 0xb6a..0xbad Sieve inner pass including initialization; original addresses; excludes allocation, disposal, outer 100-pass repetition and timing/UI'), 'kernel':args.kernel, 'mmu':args.mmu, 'mmu_remap_buffer':args.mmu_remap_buffer, 'memory_model':'shared physical RAM responder and walker; see mmu and mmu_remap_buffer for mapping', 'program_sha256':hashlib.sha256((d/'program.bin').read_bytes()).hexdigest(), 'oracle_sha256':hashlib.sha256((d/'expected.hex').read_bytes()).hexdigest() if args.kernel in ('sieve','matrix') else None},indent=2))
  run(['/home/alans/verilator5/bin/verilator','--binary','--timing','-Wno-fatal','-Wno-BLKLOOPINIT','-j','8','--top-module','tb_cpu_quick','--Mdir',out/'obj','-I'+str(rtl),*flags,*sources],out/'compile.log')
  for latency in args.latencies:
   logfile=out/f'run_latency{latency}.log'
   run([out/'obj/Vtb_cpu_quick','+prog='+str(d/'program.hex'),f'+latency={latency}'],logfile)
-  log=logfile.read_text();assert ('QUICK500 PASS' if args.kernel=='quick' else 'SIEVE8191 PASS') in log,log[-2000:]
-  print(variant,'\n'.join(l for l in log.splitlines() if l.startswith(('QUICK500','SIEVE8191','MMU_WALKS','MMU_REMAP','LATENCY','PIPELINE','PIPE_EXIT','FETCH_PROFILE'))),flush=True)
+  log=logfile.read_text();assert {'quick':'QUICK500 PASS','sieve':'SIEVE8191 PASS','matrix':'MATRIX40 PASS'}[args.kernel] in log,log[-2000:]
+  print(variant,'\n'.join(l for l in log.splitlines() if l.startswith(('QUICK500','SIEVE8191','MATRIX40','MMU_WALKS','MMU_REMAP','LATENCY','PIPELINE','PIPE_EXIT','FETCH_PROFILE'))),flush=True)
