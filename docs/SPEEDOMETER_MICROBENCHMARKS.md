@@ -391,3 +391,14 @@ Prepared, not launched: `scratch/p93devparalleltags_fit_20260920/run.sh`, checki
 exact candidate MMU/core/pipeline/ALU/divider hashes. P90 production remains
 unchanged until its entire fit/archive/STA completes. P93 is a candidate for
 an FPGA timing comparison, not an established timing fix or speed improvement.
+
+
+P90 fit completed (commit1bb5f6f): 39,465 ALMs (94%), 25,490 registers,
+482 RAM blocks, 42 DSPs. CPU setup slack -0.140 ns / TNS -0.312 ns,
+HDMI -0.123 ns, SDRAM +0.380 ns, minimum hold +0.164 ns. The CPU miss is
+smaller than P89's -1.538 ns, but this is still a timing-failed development
+build, not release acceptance. Build exit1, source verification0, cross STA0.
+Archived `MacQuadra800_p90devdatacopies_1bb5f6f.rbf`, 4,550,496 bytes,
+SHA256 `3d25065f006bbbf06442748bfaa2890f1242d34680551d19430b57ec18238816`
+(root independently verified). Detailed CPU STA and RAM/cross review pending;
+production remains frozen until that review completes. No hardware deployment.

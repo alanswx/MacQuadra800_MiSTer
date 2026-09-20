@@ -1,3 +1,15 @@
+# P90 fit terminal; detailed STA pending; Speedometer splash visible
+
+P90wrapperterminal build1/source0/cross0. ArchiveRBF4550496bytes,
+SHA3d25065f006bbbf06442748bfaa2890f1242d34680551d19430b57ec18238816rootverified.
+39465ALM94%,25490regs482RAM42DSP;CPU-.140/TNS-.312,HDMI-.123,SDRAM+.380,
+holdmin+.164. OperatorfollowupassigneddetailedCPU STAandRAM/crossreview;
+productionFROZENuntilterminal. P93qualifiedprepared,butnotpromoted/launched.
+P89sim2943117live: f4177confirmed4.02app;typed'spe'+CmdOlaunched.
+f4463andf4594showSpeedometersplash,continuednormaldiskreads.
+Appendedwait33M+shot,INFLIGHT;inspectnextbeforeinput. No benchmark/profileyet.
+ExactP89hardwareapprovalstillpending;nohardwaretransfer.
+
 # P89 simulator navigating to Speedometer 4.02
 
 Rootviewedf3631confirmedFinderdiskselected+Trash;CmdOopenedstartupdisk(f3738).
