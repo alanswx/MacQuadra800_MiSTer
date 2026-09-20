@@ -1863,3 +1863,11 @@ Silicon first100 rows:1900fieldgroups match,0diffs; artifacts
 /tmp/cpu-corpus100-gate.3xjC7s. Full integration still running; do not promote yet.
 Sessions: fullgate78655. P24/P26 hardware trials remain queued/active with operator;
 P18 duplicate-pair audit pending. Goal1.8 remains unmet.
+
+
+P33 fullintegration terminalPASS including MMU, MOVEM restart, FPU and precise
+load/store/PEA interrupt replay. Promoted candidate core after all above gates;
+production differs from qualified scratch only in whitespace/comments (normalized
+comparison PASS). QSF records completed P26 fit. Next fit will use P33 source;
+no hardware performance claim yet. Best accepted median remains1.050 pending
+P18 independent-run audit; goal1.8 unmet.

@@ -1963,6 +1963,17 @@ task mem_issue;
 		m_addr_r <= mgo_a; m_size <= mgo_sz; m_wr <= mgo_wr; r_m_ret <= mgo_ret;
 		if (mgo_wr) m_wdat <= mgo_d;
 		state <= mgo_wr ? S_MWR : S_MRD;
+        // Select the destination base/index while the source is being read.
+        // Skip any source extension consumed on this edge; the three-bit
+        // queue index wraps at eight words. Do not consume destination words.
+        if (!mgo_wr && mgo_ret == S_PIPE_SDONE && p_src == SK_MEM &&
+            p_dst == DK_MEM && exec_kind == EK_ALU &&
+            alu_op == `AP040_ALU_MOVE && !p_rmw && dst_mode_r == 3'b110 &&
+            epf_ready_pc && !epf_flushed && epf_count > {2'd0,epf_pop} &&
+            !epf_data[epf_head + {1'b0,epf_pop}][8]) begin
+            rr_a <= {1'b1,dst_rn_r};
+            rr_b <= epf_data[epf_head + {1'b0,epf_pop}][15:12];
+        end
 		// Normal within-page operand reads from on-board RAM (from the operand
 		// pipe) and within-page destination writes (from S_EXEC) claim the shared
 		// port while entering S_MRD/S_MWR, removing the request-setup cycle;
@@ -2970,7 +2981,12 @@ endtask
 // off the shared memory port just ahead of it.
 wire ea_state = (state == S_EA_DISP)  || (state == S_EA_BASE) ||
                 (state == S_EA_D16)   || (state == S_EA_EXTW) ||
-                (state == S_EA_EXTW2) || (state == S_EA_BD)   ||
+                // Brief MOVE destination calculation has time to overlap a
+                // fetch before its store; delaying it stalls the next operand.
+                ((state == S_EA_EXTW2) &&
+                 !(p_src == SK_MEM && p_dst == DK_MEM && exec_kind == EK_ALU &&
+                   alu_op == `AP040_ALU_MOVE && !p_rmw && !extw[8] &&
+                   r_ea_ret == S_PIPE_DEA)) || (state == S_EA_BD) ||
                 (state == S_EA_MIND)  || (state == S_EA_OD)   ||
                 (state == S_EA_ABS)   || (state == S_PIPE_SRD) ||
                 (state == S_PIPE_DEA);
@@ -5145,6 +5161,15 @@ always @(posedge clk) begin
 			end
 
 			S_MRD: begin
+                // Prepare only register selectors; extension consumption and
+                // destination access still wait for source read success.
+                if (r_m_ret == S_PIPE_SDONE && p_src == SK_MEM &&
+                    p_dst == DK_MEM && exec_kind == EK_ALU &&
+                    alu_op == `AP040_ALU_MOVE && !p_rmw && dst_mode_r == 3'b110 &&
+                    epf_ready_pc && !epf_data[epf_head][8]) begin
+                    rr_a <= {1'b1, dst_rn_r};
+                    rr_b <= epf_data[epf_head][15:12];
+                end
 				// A queue fetch owns the memory port: hold this transfer
 				// until it completes.  Only the issue is delayed -- the
 				// acknowledge branches below stay unreachable meanwhile,
@@ -5190,6 +5215,16 @@ always @(posedge clk) begin
                              alu_op == `AP040_ALU_MOVE && !p_rmw && dst_mode_r == 3'b110) begin
                         src_val <= mem_rdata;
                         ea_start(dst_mode_r, dst_rn_r, p_dsize, S_PIPE_DEA);
+                        if (epf_ready_pc && !epf_flushed && !epf_data[epf_head][8] &&
+                            rr_a == {1'b1,dst_rn_r} && rr_b == epf_data[epf_head][15:12] &&
+                            !rf_we && !aux_we) begin
+                            extw <= epf_data[epf_head];
+                            ea_base_v <= rf_capture_a;
+                            pc <= pc + 32'd2;
+                            epf_pop = 2'd1;
+                            epf_issue = 1;
+                            state <= S_EA_EXTW2;
+                        end
                     end
 					else if (r_m_ret == S_PIPE_SDONE && p_dst == DK_REG) begin
 						src_val <= mem_rdata;

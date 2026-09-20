@@ -662,3 +662,8 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram_beat32.sv
 # 2026-09-19 P12span1fb24fc seed21: MET39897ALMs95%,26335regs491RAM43DSP.
 # CPU+.366 HDMI+.093 SDRAM+.633 hold+.242, crossings+.670/+.366.
 # Within-line spanning read begins at idle admission; source/hash/cross checks pass.
+
+# 2026-09-19 P26 within-page unaligned operands (c8c58bf), seed21:
+# MET 39,730 ALMs95%,26,362regs,491RAM,43DSP; CPU+.775,HDMI+.113,
+# SDRAM+.668,hold+.205ns; crossings sys->ram+1.186,ram->sys+.775ns.
+# Archived source-verified RBF in scratch/p26unaligned_fit_20260919.
