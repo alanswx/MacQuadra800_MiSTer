@@ -1725,3 +1725,30 @@ corrected fixture passes allcases. Existing default behavior rerunPASS.
 Fullintegration15015 still running lastseen throughcache; log gate.log underP26.
 P24fitservice remains activeMainPID1605366,inputfreezeunchanged. P18 hardware
 operator active. Best accepted hardwaremedian1.050;goal1.8notmet.
+
+### P26 full gate complete; P27 memory attribution; P28 rejected
+
+P26 fullintegration15015 terminalPASS including precise load/store/PEA IRQ replay.
+It is simulation-qualified for a future fit after activeP24 completes. Keep
+production inputs frozen (q800-p24stackbra-fit-20260919,MainPID1605366).
+P27 scratch/p27_memory_profile_20260919/run.py and detail.py instrument original
+Permute/Towers benches using exact P26 core/module and retain output checks.
+Identical total cycles confirm instrumentation neutrality. Non-overlapping
+S_MRD categories [prefetchwait,setup,error,ack,operandwait]:
+Permute[68,5046,0,129769,153253]; Towers[147780,318841,0,2162642,2209669].
+S_MWR samecategories: Permute[71960,51178,0,129762,39788];
+Towers[179792,319670,0,1770106,933297]. Cache-state occupancy during operandwait
+is overlapping detail,not additional cycles. Both have zero cycles without MMU
+output request during operandwait. Logs profile.log/detail/{permute,towers}/run.log.
+Permute writeprefetchwait topfamilies:JSR4eba27162,MOVEM48e717048,
+PEA487012067,ADDQ52ad8684,LINK4e565053. Towers dominated by indexedstore3186
+49191,push3f0549157,LINK4e5649190,MOVEM48e732098;JSRonly16.
+P28 scratch/p28_call_fetch_20260919 extends P18 four-word refill threshold to
+JSR/BSR/PEA on P26. OriginalkernelsPASS,but Permute1,393,414vs1,391,673
+(+1,741cycles),Towers24,525,593unchanged,Bubble4,077,138vs4,077,142(-4).
+RejectP28; notpromoted/notfullyqualified. Generic queue throttling remains a
+tradeoff,not an assumed speedup. Next larger opportunity worth inspecting is
+memory-to-memory MOVE destination EA overlap with the source read, using real
+opcode/state evidence and preserving two-access fault order.
+P18 hardware operator stillactive; root requested status because no completed-run
+artifacts yet. No accepted P18 score. Best hardwaremedian1.050,goal1.8unmet.
