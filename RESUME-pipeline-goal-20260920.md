@@ -567,3 +567,12 @@ control appends wait66M rising edges then shot; inspect that new screenshot
 before further input. Current simulator unit/PID unchanged. No Whetstone
 bracket started. P70 fitter verified live2585604; cheaper operator reassigned
 to monitor through terminal rather than stop after a status-only report.
+
+
+Fullguest navigation milestone: after Exit to Finder plus66M-edge settling,
+latest screenshot (~2.065Ghalfcycles) visibly shows Finder desktop, selected
+Mac-7-5-5 disk, Trash, and Finder menus. MacAtrium successfully exited.
+Sent Command-O (11/44,100ms holds), thenwait33M andshot toopen selected disk.
+This command is IN FLIGHT; inspect new screenshot after its final wait before
+sending more keys. No Whetstone profile started. Do not replay old prefix.
+P70fit remains active; no artifactreview/deployment yet. P73qualifiedwaiting.
