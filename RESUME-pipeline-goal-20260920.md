@@ -1,3 +1,27 @@
+# Latest: P73 shared refill selector promoted for fitting
+
+P70 complete and root-reviewed: archivedRBF9a76b04 SHA
+94ed1c2e58b636d458cb848cb130fbaaeb9cb498dce1f451a83f0ad32b06021e,
+4520576bytes,fit39433ALMs94%,CPU+.158,HDMI+.022,SDRAM-.054,holdmin+.248.
+The actual failure is sys→RAM r_addr[23]→a_ram[23] -.054ns; RAM→sys+1.225.
+Source/cross/detailedSTAcommands0; healthy44032bitM10Kcachetag/512bitMLABbankE.
+Timing-failed experimentalhardware trial explicitly root-authorized, cheaper
+operator owns MiSTer: fivefreshall10iteration1runs,33MHz32MBdisposable,normal
+shutdown, exclusion/reporting of invalidtimers. No hardware result yet.
+
+P73 now promoted: core a4875880f4ddc1d66e55187763019a0f3d64cf23b6bbd45430b69bcd050ac3e2,
+baseline divider925bbea473dfbd8c65cf0271416632c947f64563199eb6d6070b54286161fb0c.
+P64MOVE +128byte refill/sharedadjacentline seedselection; NOshortdivider.
+Allsimulationgatespassed (see below). Separate experiment, compare withP64
+forrefill gain; P70hasdifferentdivider. CD/Ethernetoff,seed22unchanged.
+Launchaftercommit wrapper scratch/p73devshared_fit_20260920/run.sh as userunit
+q800-p73devshared-fit-20260920.service. NoQuartusbeforepromotion; confirm live.
+P67old128refillfailedrouting98%; P73area/timingbenefit stillunmeasured.
+
+FullguestP67 simulator remains live independently, PID2547288. Finder disk
+windowf2619reviewed; typed'appli'+CmdO withwait33Mandshot INFLIGHT toopen
+Applications. Inspectnextshotbeforefurtherinput. No benchmarkprofileyet.
+
 # Latest: P70 qualified and promoted for the next fit
 
 P70 = P64 64-byte MOVE core plus P59 shortdivider. Fullintegration77746exit0,

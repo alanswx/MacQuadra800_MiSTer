@@ -1780,3 +1780,12 @@ stillloading; no profileyet. Existing sim_speedometer README warns historic
 keyboardsequence previously openedPrinceofPersia and wasrejected. Use live
 screenshots/manualnavigation, notprefixreplay. Appendedwait33Mthen shot tolocal
 controlfile; simulatorremainslive, P70Quartusremainslive.
+
+
+P70 fit completed39,433ALMs94%, CPU+.158ns/HDMI+.022, but sys→RAM address
+crossing r_addr[23]→a_ram[23] misses-.054ns. Reversecross+1.225,holdmin+.248.
+Root reviewed freshartifact/hash/source/cross/RAM/detailedSTA and authorized
+experimental hardware trial only. No P70hardware scoreyet.
+P73 shared128-byte selector promoted next after fullP70archive/reports and
+noQuartusprocess. Baseline divider restored for this isolated area/refill
+experiment; it is not cumulative withP70's shortdivider.
