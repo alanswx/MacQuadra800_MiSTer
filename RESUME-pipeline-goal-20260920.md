@@ -1,3 +1,23 @@
+# P97 remapped Sieve passes; full guest build/boot launched
+
+Previous goal turn made progress: real SDRAM integration passed, P96 fit finished.
+This turn verified P96 cpu_timing.exit=0 and no remaining Quartus processes.
+P96 source freeze can lift; production still P96 with original two-entry queue.
+Sieve real8KBMMU with remapped buffer page PASS all prime flags/guards at lat0/3/8:
+baseline 280784/286818/376532; P97 280784/286818/375292.
+Sessions16841/46948 both exit0; scratch/sieve97_queue4_20260920 and
+scratch/sieve96_baseline_20260920 retain evidence. Lower latencies unchanged;
+lat8 gains1240cycles (0.329%). No hardware-score inference.
+Started q800-p97-fullguest-profile-20260920.service, immutable git archive b9cbe96
+plus exact scratch P97 store buffer, fresh disposable local fixture disk.
+Directory scratch/p97_fullguest_20260920 contains identity.json, build/run/start
+scripts, control.txt. Same P89 dev flags/fastboot ROM; P96 core/P90MMU/P83pipeline.
+Production unchanged; candidate not promoted and no P97 Quartus fit yet.
+Need collect build terminal, review boot screenshots, navigate original all-ten
+RunSet and collect full mix. Headless control supports keyboard; mouse is GUI-only.
+P96 exact hardware approval still pending; no hardware transfers.
+Goal remains unmet; best reviewed hardware median1.133, prior fullsim Mix1.236.
+
 # P97 SDRAM integration passes; P96 fit terminal with CPU timing met
 
 Progress: independent posted scoreboard followed by actual SDRAM integration.

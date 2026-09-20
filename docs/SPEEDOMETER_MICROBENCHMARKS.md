@@ -600,3 +600,11 @@ controller and chip model, using the registered-first-miss configuration.
 Each run checks 64 sequential reads and 2048 mixed operations; zero data failures
 and zero chip protocol errors. Stimulus holds completion through the queue's
 sampling edge. This is RAM-path coverage, not full-machine qualification.
+
+
+P97 remapped Sieve: real8KB MMU virtual0x8000 -> physical0x6000, latencies0/3/8.
+Baseline cycles280784/286818/376532; queue4 cycles280784/286818/375292.
+All prime flags, guards and remap checks pass. No lower-latency gain; latency8
+saves1240cycles (0.329%). Full guest simulation launched in
+scratch/p97_fullguest_20260920 from b9cbe96 archive plus exact candidate queue;
+identity.json records core/MMU/pipeline/queue hashes. Results pending.
