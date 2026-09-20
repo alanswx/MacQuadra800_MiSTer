@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check pipeline CMP handoff across odd targets, trace and interrupt boundaries."""
+"""Check precise IRQ frames at taken and untaken pipeline branch retirement."""
 import argparse
 from pathlib import Path
 import subprocess
@@ -24,9 +24,9 @@ integer commits=0,injections=0; reg injected=0; integer irq_test=0;
 initial if($value$plusargs("irq_test=%d",irq_test)) begin end
 always @(negedge tb_ap040_program.clk)
  if(!tb_ap040_program.nreset) injected=0;
- else if(irq_test && !injected && `C.pipe_load_req && `C.pipe_load_pc=='h600) begin
-  tb_ap040_program.ipl_lvl=2; injected=1; injections++;
- end
+ else if(irq_test && !injected && `C.ce && `C.pipe_owner && `C.pipe_retire && `C.pipe_pc=='h604) begin
+  tb_ap040_program.ipl_lvl=3'd2; force `C.irq_pend=1; force `C.irq_take_lvl=3'd2; injected=1; injections++;
+ end else if(injected) begin release `C.irq_pend;release `C.irq_take_lvl;end
 always @(posedge tb_ap040_program.clk) if(tb_ap040_program.nreset && `C.ce && `C.pipe_retire && `C.pipe_pc=='h600) commits++;
 final begin
  $display("BOUNDARY commits=%0d injections=%0d",commits,injections);
@@ -39,8 +39,10 @@ units=('ap040_tg68k_compat','ap040_bus16_adapter','ap040_bus_timeout','ap040_alu
 sources=[r/'rtl/ap68040/tb/tb_ap040_program.v',d/'monitor.sv',exp/'handoff_monitor.sv',args.core.resolve(),rtl/'ap040_regfile.v',args.pipeline_module.resolve(),*[rtl/(u+'.v') for u in units]]
 flags=['-DAP040_EXPERIMENTAL_'+x for x in ('XSTORE','LEA','PIPELINE','PIPELINE_LOADS','PIPELINE_STORES','PIPELINE_PEA','PIPELINE_P6')]+['-DAP040_PIPELINE_COMPARE','-DAP040_PIPELINE_MEMORY_ENTRY','-DAP040_PIPELINE_EARLY_DRAIN']
 run(['iverilog','-g2012','-I',rtl,'-s','tb_ap040_program','-s','handoff_monitor','-s','boundary_monitor',*flags,'-o',d/'test.vvp',*sources],'compile.log')
-# 68040 checks an odd Bcc target even when the condition is false; see t_exceptions.s.
-for name,sr,vec,pc,fa,fmt,branch in [('odd',0x2710,3,0x604,0x608,0x200c,0x6603),('t1',0xa710,9,0x604,0x600,0x2024,0x6604),('t0',0x6710,9,0x60a,0x604,0x2024,0x6604),('irq',0x2010,26,0x604,None,0x68,0x6604),('odd_untaken',0x2710,3,0x604,0x608,0x200c,0x6703)]:
+# Assert the external source and force its qualified internal request for one
+# retirement edge. This targets the redirect/IRQ priority without relying on
+# synchronizer latency. The existing pin-level IRQ invariant remains enabled.
+for name,sr,vec,pc,fa,fmt,branch in [('taken',0x2010,26,0x60a,None,0x68,0x6604),('untaken',0x2010,26,0x606,None,0x68,0x6704)]:
  vectors=['$7000','start']+['handler' if i==vec else 'failed' for i in range(2,256)]
  asm=' org 0\n'+''.join(' dc.l '+v+'\n' for v in vectors)+f''' org $400
 start:
@@ -62,8 +64,7 @@ start:
  dc.w ${branch:04x}
 '''
  asm+=' bra.w failed\n nop\n moveq #1,d7\n'
- if name=='irq':asm+=' cmpi.w #1,($c100).l\n bne failed\n bra success\n'
- else:asm+=' bra failed\n'
+ asm+=' bra failed\n'
  asm+=f'''handler:
  cmpi.w #${sr:04x},(a7)
  bne failed
@@ -74,7 +75,6 @@ start:
 '''
  if fa is not None:asm+=f' cmpi.l #${fa:x},8(a7)\n bne failed\n'
  asm+=' cmpi.l #1,d3\n bne failed\n tst.l d7\n bne failed\n'
- if name=='irq':asm+=' move.w #0,($f110).l\n addq.w #1,($c100).l\n rte\n'
  asm+='''success:
  move.w #$600d,($f102).l
  stop #$2700
@@ -85,6 +85,6 @@ failed:
  (d/(name+'.s')).write_text(asm)
  run([args.vasm,'-Fbin','-m68040','-no-opt','-o',d/(name+'.bin'),d/(name+'.s')],name+'_asm.log')
  run(['python3',r/'rtl/ap68040/tb/bin2hex.py',d/(name+'.bin'),d/(name+'.hex')],name+'_hex.log')
- run(['vvp',d/'test.vvp','+prog='+str(d/(name+'.hex')),'+irq_test='+str(int(name=='irq'))],name+'.log')
+ run(['vvp',d/'test.vvp','+prog='+str(d/(name+'.hex')),'+irq_test='+str(1)],name+'.log')
  s=(d/(name+'.log')).read_text();assert 'ALL TESTS PASSED' in s and 'FAIL:' not in s,s[-2000:]
  print(name,'PASS',next(l for l in s.splitlines() if l.startswith('BOUNDARY')),flush=True)

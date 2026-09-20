@@ -1576,3 +1576,24 @@ Timingmet1fb24fc. Rootviewedrun5completion andfinal_halt_visible2; normal
 quit/save/Finder/shutdown,no recoveryreload. FullreporttrackedinPERFORMANCE.
 Hardwareagentidleatverifiedsafehalt, readyforP13whenfitterminal/checked.
 Goal1.8notmet. P13fitstillrunninglastcheckMainPID1515481.
+
+### P19 integration, silicon subset and retirement IRQ checks passed
+
+P19 full integration terminal PASS, including precise load/store/PEA IRQ replay.
+Silicon100: 1,900 field groups match, zero real differences; artifacts
+`/tmp/cpu-corpus100-gate.DJUQzP`. This is the first 100 rows, not full corpus.
+Existing branch boundary cases odd/t1/t0/irq/odd_untaken each pass three phases;
+runner now accepts an optional candidate pipeline module while retaining default.
+New `scripts/cpu/pipeline_branch_retire_irq.py` checks taken/untaken branch IRQ
+frames (SR, PC, format/vector) and unchanged younger register, three phases each.
+The injector asserts external IPL2 and forces the qualified request for the
+retirement edge; this is a precise arbitration test, not synchronizer coverage.
+Initial scratch injection omitted external IPL and tripped the phantom interrupt
+invariant despite passing frame checks; corrected injection preserves that invariant.
+Reusable candidate run passes (`irq_reuse.log`). Mutation replacing interrupt
+return PC with branch fallthrough fails the taken-frame check in all three phases
+(`irq_bad.log`). Prototype remains scratch-only. New branch target-fetch fault
+and wrong-path-read coverage still needed. Bubble run active session35165,
+`scratch/p19_branchpipe_20260919/bubble.log`; candidate uses matched core/module.
+P13 fit remains active, input freeze unchanged. Best hardware median1.043;
+1.8 goal remains unmet. Progress commits are authorized for push to add-ethernet.
