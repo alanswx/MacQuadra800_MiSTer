@@ -1502,3 +1502,34 @@ Build exit3, source check0; no fresh RBF. No P57 hardware score exists.
 This follows P52 congestion, so P63's qualified ALU subset is promoted as the
 next isolated area experiment, retaining seed22 and P57 core/baseline divider.
 P62 remains unapplied. Archive scratch/p57movestore_fit_20260920.
+
+
+## P63 synthesis and P64 combined-candidate qualification — 2026-09-20
+
+Fresh P63 synthesis completed08:29:39, after build start08:24:48, from6fbe313.
+Pipeline ALU combinational ALUTs2182→1637 (-545,24.98%); pipeline hierarchy
+3764→3183 (-581). No fitted ALM or routing claim yet. Registers26608,
+RAM3,740,942bits,43DSP. Cache tags remain44,032bits M10K; source manifest PASS.
+Synthesis reports preserved as scratch/p63subset_fit_20260920/synthesis.map.*.
+Fit now running PID2397271 in the same user unit; no new RBF yet.
+
+P64 is the previously qualified P62 d16 destination MOVE optimization on top
+of P63's smaller ALU. It is NOT promoted and includes neither P59 nor P60.
+Only difference from P63 is scripts/cpu/move_displacement_extension.patch;
+core SHA609b1687e27b5da1096d6b1c990027b46d27f00272ce1d96b45ef6ed97a2f980.
+ALU/pipeline stay exactly P63. Full integration completed PASS, including
+interrupt/replay, faults, MMU/cache, and FPU tests; scratch/p64full and
+scratch/p64_move_subset_20260920/full.log. Immutable first100 reference PASS:
+1900field-groups match, zero differences, /tmp/cpu-corpus100-gate.PKVtFj.
+Directed d16 MOVE values all144fixtures/3phases PASS (432acks,429directEA);
+source/destination/postinc/predec/extension faults and IRQ/T1/alias/split
+boundaries PASS. Logs under scratch/p64_move_subset_20260920.
+Original Quick Sort output/guard oracles PASS with cycles167015/178786/202156
+at latency0/3/8, identical to P62 before ALU specialization. At latency3 this
+is1.914% fewer cycles than P63/P57's182275, not a hardware score prediction.
+The profiler manifest in scratch/qk64/current/identity.json records all sources.
+
+Prepared NOT launched scratch/p64movesubset_fit_20260920/run.sh checks exact
+P64core/P63ALU/P63pipeline/baseline-divider hashes. Wait for complete P63 fit
+and artifact review before choosing the next FPGA action. This supersedes
+using the old P62 wrapper, which correctly rejects the changed pipeline hash.

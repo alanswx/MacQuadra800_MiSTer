@@ -166,3 +166,21 @@ baseline divider unchanged, seed22 retained to isolate area change.
 Build wrapper: scratch/p63subset_fit_20260920/run.sh. Launch as sole user
 unit q800-p63subset-fit-20260920.service after commit. Freeze build sources
 until that wrapper completes. P62 stays unapplied pending routing evidence.
+
+
+## Latest: P63 synthesis measured; P64 ready, unapplied
+
+P63 synthesis PASS08:29:39. Pipeline ALU2182→1637 combinational ALUTs (-25%);
+pipeline total3764→3183. Actual fitted ALMs/routing/timing still pending.
+Same active user unit, fitter PID2397271 replaces synthesis PID2388607.
+Source manifest PASS. Synthesis reports copied to P63 archive/synthesis.map.*.
+
+P64 combines exact P62 core with P63 ALU/pipeline, baseline divider; no other
+changes. Full integration and first100 PASS (1900groups0diffs,
+/tmp/cpu-corpus100-gate.PKVtFj), directed MOVE faults/boundaries/values PASS,
+Quick167015/178786/202156 at latencies0/3/8. All sessions terminal exit0.
+Artifacts scratch/p64_move_subset_20260920, scratch/p64full, scratch/qk64.
+Unapplied delta remains scripts/cpu/move_displacement_extension.patch.
+New identity-checked wrapper scratch/p64movesubset_fit_20260920/run.sh is
+prepared NOT launched. Old P62 wrapper expects pre-P63 pipeline and must not
+be used for this combination. Inspect complete P63 result before next build.
