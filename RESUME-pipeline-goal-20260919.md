@@ -2315,3 +2315,14 @@ Prepared archivewrapper scratch/p52refill64_fit_20260920/run.sh. Next action:
 commit/push, launch detached q800-p52refill64-fit-20260920.service, then freeze
 RTL/QSF/QIP/SDC until complete archive wrapper is terminal. No hardware deployed.
 Goal still1.8; best measured experimental1.105, besttimingclean1.083.
+
+P52 build launched and independently verified live: service
+q800-p52refill64-fit-20260920.service MainPID2240198 active/running,
+quartus_sh2240218, quartus_map2240303. Buildcommitfc6c880b20491bb93ea058bf0d0044a54302efd1
+pushed. Source identity check PASS in archive/live_source_check.log. Archive
+scratch/p52refill64_fit_20260920. RTL/QSF/QIP/SDC frozen until full wrapper
+terminal including cross-domain timing/archive. Old output_files RBF remains
+unusable as P52 until a fresh artifact is verified. Next: inspect terminal fit,
+RAM inference, CPU and cross-domain timing; if fresh candidate exists, hardware
+five-run gate on disposable disk. Hardware lastknownP39 safehalt; reobserve
+beforedeploy. Existing operator available, userauthorized cheaper-model use.
