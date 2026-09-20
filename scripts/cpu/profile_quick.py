@@ -11,6 +11,7 @@ parser.add_argument('--mmu',choices=('off','4k','8k'),default='off',help='real M
 parser.add_argument('--latencies',type=int,nargs='+',default=[3],help='controlled RAM latency values, default 3')
 parser.add_argument('--alu',type=Path,help='optional isolated ALU; applies to both compared pipeline modules')
 parser.add_argument('--muldiv',type=Path,help='optional isolated multiply/divide unit')
+parser.add_argument('--store-buffer',type=Path,help='optional isolated store-buffer module')
 parser.add_argument('--core',type=Path,help='optional isolated candidate CPU core')
 parser.add_argument('--compare-module',type=Path,help='optional alternative pipeline module; core and entry policy remain identical')
 parser.add_argument('--early-drain',action='store_true',help='enable final-WB pipeline handoff')
@@ -362,6 +363,7 @@ for variant in (('current','compare') if args.compare_module else ('current',)):
  module=r/'rtl/ap68040/experimental/ap040_pipeline_integer.sv' if variant=='current' else args.compare_module.resolve()
  sources=[d/'tb.sv',r/'rtl/wombat_cpu.sv',r/'rtl/wombat_store_buffer.sv',*[rtl/(u+'.v') for u in units],module]
  sources=[args.core.resolve() if args.core and p==rtl/'ap040_core.v' else p for p in sources]
+ sources=[args.store_buffer.resolve() if args.store_buffer and p==r/'rtl/wombat_store_buffer.sv' else p for p in sources]
  sources=[args.alu.resolve() if args.alu and p==rtl/'ap040_alu.v' else p for p in sources]
  sources=[args.muldiv.resolve() if args.muldiv and p==rtl/'ap040_muldiv.v' else p for p in sources]
  (out/'identity.json').write_text(json.dumps({'sources':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in sources},'kernel_sha256':hashlib.sha256(kernel).hexdigest(),'resource_sha256':hashlib.sha256(resource).hexdigest(),'input':values,'latencies':args.latencies,'early_drain':args.early_drain,'compare':args.compare,'scope':('unchanged 0x93ce..0x946d recursive sort; fixed shuffled input; excludes initializer, allocation and original wrapper' if args.kernel=='quick' else 'unchanged 0x5dda..0x5e2d dot product; 1600 calls over fixed signed 40x40 matrices; excludes original initialization, allocation, timing/UI' if args.kernel=='matrix' else 'unchanged 0xb6a..0xbad Sieve inner pass including initialization; original addresses; excludes allocation, disposal, outer 100-pass repetition and timing/UI'), 'kernel':args.kernel, 'mmu':args.mmu, 'mmu_remap_buffer':args.mmu_remap_buffer, 'memory_model':'shared physical RAM responder and walker; see mmu and mmu_remap_buffer for mapping', 'program_sha256':hashlib.sha256((d/'program.bin').read_bytes()).hexdigest(), 'oracle_sha256':hashlib.sha256((d/'expected.hex').read_bytes()).hexdigest() if args.kernel in ('sieve','matrix') else None},indent=2))

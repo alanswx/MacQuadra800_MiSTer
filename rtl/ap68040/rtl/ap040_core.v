@@ -2012,7 +2012,7 @@ task mem_issue;
 		if (((!mgo_wr && (state == S_PIPE_START || state == S_PIPE_SRD ||
 		                  state == S_PIPE_DEA || state == S_DECODE ||
 		                  state == S_RET1 || state == S_UNLK1 ||
-		                  state == S_MOVEM_LOOP || pipe_load_launch)) ||
+		                  state == S_MOVEM_LOOP || hint_early_read || pipe_load_launch)) ||
 		     (mgo_wr && (state == S_EXEC || state == S_PIPE_DEA || state == S_MOVEM_LOOP ||
 		                 // the pushes: BSR.B from decode, BSR.W, JSR, PEA,
 		                 // LINK -- registered data (pc, ea_addr, port A
@@ -3350,6 +3350,16 @@ wire [31:0] hint_pipe_addr = hint_pipe_dst ? hint_dst_addr :
                              ((src_mode_r == 3'b101) && hint_ext_ok &&
                               (rr_a == {1'b1, src_rn_r}))
                            ? hint_d16_addr : rf_rdata_a;
+// The brief extension and base are complete; source faults still return
+// through the ordinary read machinery before any result can retire.
+wire hint_indexed_read = state == S_EA_EXTW2 && !extw[8] &&
+    r_ea_ret == S_PIPE_SRD && p_src == SK_MEM && p_dst == DK_REG;
+wire hint_displacement_read = state == S_EA_D16 &&
+    r_ea_ret == S_PIPE_SRD && p_src == SK_MEM && p_dst == DK_REG;
+wire hint_early_read = hint_indexed_read || hint_displacement_read;
+wire [31:0] hint_displacement_addr = (ea_pcmode ? ea_pcb : rf_rdata_a) + sxw(imm[15:0]);
+wire [31:0] hint_indexed_offset = (extw[11] ? rf_rdata_b : sxw(rf_rdata_b[15:0])) << extw[10:9];
+wire [31:0] hint_indexed_addr = ea_base_v + hint_indexed_offset + sxb(extw[7:0]);
 wire        hint_ea   = (state == S_PIPE_SRD) ||
                         ((state == S_PIPE_DEA) && p_rmw);
 // Redirect states present their target on the hint bus one cycle before
@@ -3416,6 +3426,8 @@ wire [31:0] hint_addr = hint_data  ? m_addr_r :
                         hint_store ? hint_store_addr :
                         hint_bcc   ? (pc + sxb(ir[7:0])) :
                         hint_pipe  ? hint_pipe_addr :
+                        hint_displacement_read ? hint_displacement_addr :
+                        hint_indexed_read ? hint_indexed_addr :
                         hint_ea    ? ea_addr :
                         hint_pop   ? hint_pop_addr :
                         hint_redir ? hint_redir_addr :
@@ -3431,7 +3443,7 @@ wire [31:0] hint_addr = hint_data  ? m_addr_r :
 assign mem_addr  = mem_addr_q;
 assign mem_instr = mem_instr_q;
 assign mem_hint_addr  = mem_req ? mem_addr_q  : hint_addr;
-assign mem_hint_instr = mem_req ? mem_instr_q : !(hint_data || hint_store || hint_pipe || hint_ea || hint_pop || hint_p2);
+assign mem_hint_instr = mem_req ? mem_instr_q : !(hint_data || hint_store || hint_pipe || hint_ea || hint_early_read || hint_pop || hint_p2);
 
 //---------------------------------------------------------------------------
 // main state machine
@@ -5424,6 +5436,10 @@ always @(posedge clk) begin
 			S_EA_D16: begin
 				ea_addr <= (ea_pcmode ? ea_pcb : rf_rdata_a) + sxw(imm[15:0]);
 				state <= r_ea_ret;
+                if (hint_displacement_read) begin
+                    rr_b <= p_dreg;
+                    mrd(hint_displacement_addr, p_ssize, S_PIPE_SDONE);
+                end
 `ifdef AP040_EXPERIMENTAL_LEA
                 // LEA has no operand access or flags to finish after EA.
                 // Retire only after its extension has completed normally.
@@ -5452,6 +5468,10 @@ always @(posedge clk) begin
 				if (!extw[8]) begin
 					ea_addr <= ea_base_v + idx + sxb(extw[7:0]);
 					state <= r_ea_ret;
+                    if (hint_indexed_read) begin
+                        rr_b <= p_dreg;
+                        mrd(hint_indexed_addr, p_ssize, S_PIPE_SDONE);
+                    end
 				end
 				// The PRM marks IS=1 with I/IS[2]=1 "reserved", but real 68040
 				// silicon EXECUTES those encodings instead of trapping -- captured

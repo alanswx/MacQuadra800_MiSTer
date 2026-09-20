@@ -1,3 +1,21 @@
+# Latest: P76 archived; qualified P78 promoted for next fit
+
+P76 terminal: fit39448ALMs94%,25375regs,483RAM,41DSP. CPU-.621ns/TNS-6.649,
+HDMI+.412,SDRAM+.786,holdmin+.098. Crosssys→RAM+1.517/RAM→sys+.574.
+Buildexit1timingonly; source/cross/detailedSTAexit0. HealthycachetagM10K44032,
+regfilebankE MLAB512. Artifact scratch/p76devimmstore_fit_20260920/
+MacQuadra800_p76devimmstore_c0e4c5d.rbf SHA
+5fab620aeb38196c968f44eac74093bad15f1aa3e77abbc63dca4faddd474022,
+4522928bytes; detailedworstATCvalid[8]→epf_data[6][14]. Rootreviewed.
+No deployment; P75exacttransferapproval stillpending; operator hardwareidle.
+
+NoQuartusprocessesremain. P78productionpromoted coree2493f18... after complete
+qualification. Nextlaunchpreparedscratch/p78devdispread_fit_20260920/run.sh,
+userunitq800-p78devdispread-fit-20260920. NOTyetlaunchedatthiscommit.
+Baseline divider,64byteprefetch,seed22,CD/Ethernetoff,unchangedstorebuffer.
+P79MOVEA.Wadmission no gain, rejected. P80fullqueue turnover tiny gain,
+notpromoted; patchandmicrobenchmarkmoduleoverride retained forfuturetests.
+
 # Latest: P78 fully simulation-qualified; P79 MOVEA.W admission screen
 
 P78 fullintegration session71144 collectedexit0; final log allIRQ/load/store/PEA

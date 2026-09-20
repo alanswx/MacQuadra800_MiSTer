@@ -1936,3 +1936,20 @@ that initial run as shortcut validation. Fullintegration and corpus pending.
 P78 qualification completed: full integration exit0 including precise
 fault/interrupt/replay checks; first100corpus1900field groups match,0diffs.
 Prepared fit wrapper remains unlaunched until P76 completes and is archived.
+
+
+P79 screen: register MOVEA.W admission with a supported successor, relativeP78,
+produces exactly the same Matrixlat0/3/8, Quicklat3 and Sievelat3 cycle counts.
+Pipeline issue count increases without reducing execution time. Not promoted,
+no full qualification; source/logs scratch/p79_moveaw_entry_20260920 and
+scratch/{matrix,quick,sieve}79_mmu8_20260920.
+
+P80 store-buffer screen: allow push on a full queue in the same cycle as pop,
+using the existing simultaneous-update path. Unapplied scripts/cpu/store_turnover.patch;
+shared kernel runner now accepts --store-buffer and records its source hash.
+Existing store-buffer unit bench passes. WithP78core, Matrixlat0/3/8 gives
+3989767/4020128/4094194: only1599cycles saved atlat3/8 (~0.04%). Sieve gives
+283361/289371/378506; lat3 unchanged. All result oracles pass. This is only a
+screen, not memory-path/hardware qualification. No promotion; existing queue
+remains in nextfit. Evidence scratch/p80_store_turnover_20260920 and
+scratch/{matrix,sieve}80_mmu8_20260920.
