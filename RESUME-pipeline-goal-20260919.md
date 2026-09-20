@@ -1752,3 +1752,17 @@ memory-to-memory MOVE destination EA overlap with the source read, using real
 opcode/state evidence and preserving two-access fault order.
 P18 hardware operator stillactive; root requested status because no completed-run
 artifacts yet. No accepted P18 score. Best hardwaremedian1.050,goal1.8unmet.
+
+### P18 initial trial report contradicted by root visual review; retry assigned
+
+Operator initially reported display corruption and recovered to P13 without a
+valid score. Root inspected current3.png/open4.png: both show the normal Speedometer
+registration dialog (Register/Not Yet), and speedometer_open2.png shows its normal
+splash. These images do NOT substantiate display corruption or HDMI-timing causality.
+Root corrected user-facing assessment and assigned retry from visible P13 safe halt,
+explicitly dismissing Not Yet and requiring visual evidence before declaring failure.
+Root viewed final_halt_visible.png: recognizable safe-switch-off dialog. Report's
+fd-position claim does not establish disk closure and must not be relied upon.
+No P18 valid benchmark score and no proven display failure from this attempt.
+P18 remains a marginal HDMI-timing trial; release timing requirement unchanged.
+Operator is retrying same archived P18 artifact; original disk remains preserved.
