@@ -1,3 +1,11 @@
+# P97 fullguest missing dependency corrected; build verified live
+
+Initial fullguest build exited because the archive omitted scripts/fixtures/
+speedometer_timing_observer/adapter.inc. Archived scripts from the SAME b9cbe96
+commit into the isolated tree, preserved initial_build_failure.log, and restarted
+only after service was conclusively failed/MainPID0. Service now active PID3190686.
+No candidate RTL change. Build and boot results still pending.
+
 # P97 remapped Sieve passes; full guest build/boot launched
 
 Previous goal turn made progress: real SDRAM integration passed, P96 fit finished.
