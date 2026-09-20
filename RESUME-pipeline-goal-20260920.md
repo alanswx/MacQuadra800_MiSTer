@@ -1,3 +1,7 @@
+P77 corpus terminal update: session48930 exit0, all1900field groups match,
+0real diffs in first100only (/tmp/cpu-corpus100-gate.b3fISZ).
+Full integration34258 still live, current loops_irq test at last check.
+
 # Latest: P77 indexed source-read screen improves Matrix; gates running
 
 P77 isolated core scratch/p77_indexed_read_20260920/ap040_core.v SHA
