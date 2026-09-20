@@ -1607,3 +1607,23 @@ Towers25,227,008 (~0.95% fewer) and unchanged Permute1,457,331, this is a mixed
 result, not an unqualified speed improvement. Do not promote P19 as-is. Diagnose
 branch redirect/admission cost or prioritize already-qualified P18 after P13 fit.
 Log: scratch/p19_branchpipe_20260919/bubble/compare/run.log.
+
+### P13 fit complete; P18 selected for next fit
+
+P13 ef4f71d archived fit/source/cross exit0. Timing met:39,772ALMs,
+26,361registers,491RAM,43DSP; CPU+.757,HDMI+.135,SDRAM+.200ns,
+worsthold+.238; sys->ram+.200,ram->sys+.757. Cache tag M10K and
+512-bit bank E MLAB retained. Root independently verified archived RBF SHA256
+`e97fc787dd8d4f6d81acdaf8f39b369de9a88d6cf428441b03104084500679e8`,
+4,538,688 bytes. Hardware operator assigned five-run P13 trial from P12 safe
+halt using archived artifact only. No P13 hardware results yet.
+P18 stack-family speculative refill threshold promoted after prior full gate,
+silicon100, branch/RTS boundaries and three benchmark kernels passed.
+RTL differs from qualified scratch copy only by comment/whitespace.
+Next fit archive/service: scratch/p18stack_fit_20260919,
+q800-p18stack-fit-20260919.service. Check live state before further RTL edits.
+P20 scratch branch-refill variant leaves Bubble unchanged at4,200,476 cycles.
+Its branch profile:124,750 BLE.B retirements,61,667 taken,zero taken redirects
+with epf_pend/mem_req/mem_ack busy. Regression123,334cycles is exactly two per
+taken branch. Speculative fetch contention at redirect is not supported by this
+measurement. P19/P20 remain unpromoted. Best hardware median1.043,goal1.8unmet.

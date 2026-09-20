@@ -9460,6 +9460,12 @@ always @(posedge clk) begin
 		         // worth 12% on loop code (bench_loop).  Demand fetches are
 		         // untouched -- S_FETCH and S_IMMF are not EA states.
 		         !ea_state &&
+                 // Leave memory slots for stack transfers once four words
+                 // are queued. Demand fetch and other instruction families
+                 // retain their usual admission and refill thresholds.
+                 (epf_count <= 4'd4 ||
+                  !((ir & 16'hfff0) == 16'h4e50 || ir == 16'h4e75 ||
+                    ((ir & 16'hfb80) == 16'h4880 && ir[5:3] >= 2))) &&
 		         (epf_ftail[1] ? (epf_count <= 4'd7) : (epf_count <= 4'd6)))
 		begin
 			epf_brf <= 0;

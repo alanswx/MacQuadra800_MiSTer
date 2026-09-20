@@ -324,6 +324,9 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # Worst CPU path regfile pend_we -> general ALU -> pc[22], 27 logic levels.
 # Experimental trial only. Source/archive/cross checks pass; 26,347 registers.
 # RBF SHA256 e12627b49d97fd2efd41433c058e1c28906c7959317a63c52544cd655b26759e.
+# 2026-09-19 P13 cross-line cache admission (ef4f71d): timing met,
+# 39,772 ALMs; CPU +0.757, HDMI +0.135, SDRAM +0.200 ns;
+# worst hold +0.238, sys->ram +0.200 and ram->sys +0.757 ns.
 set_global_assignment -name SEED 21
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
