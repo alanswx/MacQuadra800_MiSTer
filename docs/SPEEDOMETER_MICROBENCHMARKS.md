@@ -408,3 +408,11 @@ MMU retained-tag mux/comparison, physical address and store-buffer acknowledgeme
 to core rr_a[2], -0.140ns. Crossings sys-to-RAM +2.386ns, RAM-to-sys +0.489ns.
 P93 therefore still targets a measured critical chain. With all P90 flows
 terminal, promoted the simulation-qualified P93 MMU unchanged for its next fit.
+
+P89 full-guest run reached Speedometer 4.02 and the full Mix setup. Root
+reviewed screenshot f5080: all ten benchmarks selected, one iteration each.
+CPU profiling started at simulator cycle4,311,678,977 immediately before
+Return on Run Set. Screenshot f5220 confirms the Whetstone phase running.
+A local watcher polls screenshots, stops profiling on the completion alert,
+and leaves the simulator alive for visual review and normal guest shutdown.
+No completed score or hardware performance claim exists yet.

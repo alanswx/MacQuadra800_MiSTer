@@ -1,3 +1,18 @@
+# P89 full Benchmark Mix running with profiler; P93 fit live
+
+Rootviewedf5000Speedometerhardwarewindow:68040,integralFPU/MMU,32MB.
+CmdBsetupf5080rootreviewed:alltenselected,oneiterationeach.
+Profile startedcycle4311678977;ReturnRunSet follows. f5220rootreviewed:
+BenchmarkMixwindowredWhetstoneindicator,runinprogress. No completedscoreyet.
+Localwatcherunitq800-p89-profile-monitor-20260920.service MainPID3070167active,
+script scratch/p89_fullguest_20260920/monitor.py;solecontrolwriterwhileactive.
+Pollswait33M+shot/OCR;oncompletionqueuesprofile stop and leavesguestalive.
+Stop-writetimeout600sec(increasedfromP67's60);rootvisualreviewrequired.
+Simulator2943117live/latest4.41Bhalfcycles; immutableP89source794ade3.
+P93fitunitq800-p93devparalleltags-fit-20260920.service3060215live;
+productionfrozenuntilwrapper/archive/detailedSTAterminal. Operatorassigned.
+ExactP89hardwareapprovalstillpending,nohardwaretransfer.
+
 # P93 fit active; P89 Speedometer registration reminder
 
 P93promotedcommit5eec8fb, activeunitq800-p93devparalleltags-fit-20260920.service
