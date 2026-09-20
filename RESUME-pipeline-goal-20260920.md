@@ -1,3 +1,23 @@
+# Latest: P89 fully archived; exact hardware approval requested
+
+P89wrapper/archive/detailedSTAterminal androotreviewed. Artifact
+scratch/p89devmmucopies_fit_20260920/MacQuadra800_p89devmmucopies_794ade3.rbf,
+4532100bytes SHA58fcfb24d62fab368de3438510b7dde079b4d66607f3eba58862e1dbbaf63813.
+39392ALM94%,25669regs,482RAM,42DSP. CPU-1.538/TNS-90.521,HDMI-.011,
+SDRAM+.404,holdmin+.251; cross+1.497/+.918. Source/cross/detailedSTAexit0,
+buildexit1timingonly. Allbuildsources nowunfrozen; do notalter liveP89simtree.
+Worstpath mem_addr_q14→MMUu_tag/u_hit→physicaladdress→store_buffer.s_ack→
+pipe_load_direct→fast_read_retire→epf_data1[2],28logiclevels,31.153ns.
+This isactualSTAevidence, notproof anycomponentcanbe safely removed.
+
+New asyncquestion asks explicitcopy/load P89hashabove to mister.local10.3.89.233,
+disposabletestdisk,boot/fiveSpeedometerruns/shutdown,CPUtimingmissdisclosed.
+ReplacesstaleP75proposal. Priorautomaticreview rejected transfer requiring
+exactartifact/destinationauthorization. NOtransferuntilanswer; no retry/bypass.
+OperatorfinishedP89monitoring; reactivateforhardwareonlyafterapproval.
+FullguestP89unitstillactive MainPID2943117,latest~820Mhalfcycles,OSRAMexecution,
+onlyf500Welcomeshot reviewed. Initial40guestsecwait stillpending. No benchmark.
+
 # Latest: fullguest welcome screen; P89 latency sweep passes
 
 P89 fullguestbuildexit0; sameunitMainPID2943117 nowVemu, liveboot.
