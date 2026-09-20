@@ -1,3 +1,14 @@
+# P89 simulator navigating to Speedometer 4.02
+
+Rootviewedf3631confirmedFinderdiskselected+Trash;CmdOopenedstartupdisk(f3738).
+Typedappli+CmdOopenedApplications;f3937fullydrawn,Speedometer4.02Foldervisible.
+Appendedtyped"speedometer 4"+CmdO+16.5Mwait+shot: INFLIGHT.
+Inspectnewshotbeforeopeningapplication. NoSpeedometerprofile/runsyet.
+P89unit2943117 remainslive(latest3.31Bhalfcycles);sameimmutable794ade3tree.
+P90fitter2995454verifiedlive23:44elapsed;wrapperstillactive,productionfrozen.
+P93fullyqualifiedandpreparedwrapperunchanged; waitfullP90archive/STA.
+ExactP89hardwareapprovalstillpending; physicalMiSTeruntouched.
+
 # P89 simulated guest exited MacAtrium; Finder settling
 
 P89fullguest2943117stilllive. Rootreviewedf3000:MacAtriumready.
