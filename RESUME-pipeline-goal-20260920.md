@@ -1,3 +1,14 @@
+# P95 startup bypass rejected after unchanged cycles
+
+P95scratchSK_REG/DK_REGEK_ALUearlyretirewhenbothreadportindicesmatch.
+Quick11144exit0:178573,Matrix96105exit0:2872453;exactP90,oraclesPASS.
+No promotion/fullqualification;candidate scratch/p95_register_start_20260920.
+IMPORTANT S_PIPE_REGSperformsALU/shiftretirement,notjuststartup;12.71%isnot
+removableoverhead. NextinvestigatememoryreadlatencywithconcretePC/statecounts.
+P94seed23fitunit3108048verifiedactive;productionunchanged/frozen.
+P89simterminalMix1.236+profile;timeridentities0,guestshutdownunvalidated.
+Hardwareexactapprovalpending,nohardwaretransfer.
+
 # P89 simulation terminal; profile usable, timer observer captured no identities
 
 SimulatorunitinactiveMainPID0/ExecMainStatus0afterlocalcontrolquit. GuestNOT

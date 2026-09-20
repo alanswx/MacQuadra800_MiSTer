@@ -502,3 +502,19 @@ validation for this P89 run, despite the visually verified full completion.
 Do not report all timers valid or infer the intended Queens/Sieve coverage
 actually occurred. The profile and screenshot remain usable within their
 reported scope; hardware five-run and timer-validation requirements remain open.
+
+
+P95 scratch screen: bypass S_PIPE_START→S_PIPE_REGS only for SK_REG/DK_REG
+EK_ALU when rr_a/p_sreg and rr_b/p_dreg already match, using forwarded
+rf_capture ports and existing retire_operand_alu. Quick8KB latency3=178573,
+Matrix8KB latency3=2872453, exactly P90; all independent result/input/guard
+oracles pass. Candidate `scratch/p95_register_start_20260920/ap040_core.v`;
+evidence quick95_mmu8/matrix95_mmu8. No measured benefit, no promotion or
+broader qualification. Production remains exact P90 RTL for live P94seed23fit.
+
+Profiling interpretation correction: S_PIPE_REGS is the legacy operand
+capture/**retirement** state and directly performs ALU/shift retirement;
+it is not solely pipeline setup or register-seeding overhead. Its12.71%
+share cannot be treated as removable startup cost. S_PIPE_START's7.04%
+includes source/destination memory address setup. Inspect actual transitions
+and measure each proposed bypass before attributing savings to these states.
