@@ -1,3 +1,16 @@
+# P97 four-entry queue screening; P96 fit live
+
+Scratchp97_store_queue4_20260920/wombat_store_buffer.sv expandsorderedqueue
+2→4,preservesreadpassonlycount1 andcrossingguards. No productionchange.
+InitialQuicklat3/8=170343/189778vsP96176265/199930;Matrix2848468vs2872453.
+AlloraclesPASS. Foundnewq2/q3size/address/fcresetfieldsomittedbygenerator;
+completedreset,thenadaptedexistingqueueunitT3forfifthbackpressure/fivedrain
+andtiesposted0. ALLTESTSPASSED includingexistingread/crossingchecks.
+Finalreset-completesourcescreensLIVE Quick24610,Matrix97758;collectterminals
+beforeclaimingexactfinalsourcegain. Needposted+simultaneouspush/popcoverage,
+fullintegration,system/memoryregressionsandfitbeforepromotion.
+P96fit3155988verifiedactive;productionfrozen. Hardwareapprovalpending.
+
 # P96 qualified/promoted; next launch seed22fit
 
 Fullintegration90761exit0includesfault/IRQ/replay;baseline92995exit0.

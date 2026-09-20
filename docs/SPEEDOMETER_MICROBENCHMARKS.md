@@ -564,3 +564,16 @@ Combined with first100 and directed early-source fault coverage, promoted
 qualified core SHA256 `c4d167c694ad384c5ff3f4109f9e8b5dded91c71d991985a16deebef69160db9` unchanged, with P90 MMU/P83 pipeline and seed22.
 Prepared `scratch/p96devmemread_fit_20260920/run.sh` checks exact source hashes
 and seed. No FPGA timing/area or full Mix improvement claim until measured.
+
+
+P97 scratch four-entry store queue screen retains the original one-queued-write
+read bypass and line-crossing restrictions. Relative to production P96's
+2-entry queue: Quick8KB latency3 176265→170343, latency8 199930→189778;
+Matrix8KB latency3 2872453→2848468. All independent result/guard checks pass.
+Initial generated source omitted reset assignments for some new queue fields;
+these were completed before qualification. Final-source workload reruns are
+pending under quick97_queue4_final/matrix97_queue4_final. Adapted original
+queue bench passes, including fifth-store backpressure, five ordered drains,
+and existing read/crossing checks; it ties s_posted low, so posted-write and
+simultaneous push/pop coverage must be added before qualification. No
+production change, FPGA area/timing result, or hardware performance claim.
