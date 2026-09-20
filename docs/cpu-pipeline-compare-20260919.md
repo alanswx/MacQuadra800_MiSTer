@@ -1953,3 +1953,40 @@ Existing store-buffer unit bench passes. WithP78core, Matrixlat0/3/8 gives
 screen, not memory-path/hardware qualification. No promotion; existing queue
 remains in nextfit. Evidence scratch/p80_store_turnover_20260920 and
 scratch/{matrix,sieve}80_mmu8_20260920.
+
+
+### Broader P78 screen and indexed multiply prototype (P82)
+
+Identical original-kernel fixtures,latency3: BubbleP76 3456611→P78 3394944
+(1.78% fewer cycles), Queens65181 unchanged, Permute1380669→1380668(negligible).
+All sorted/board/array/guard oracles pass. Bubble/Queens/Permute here are MMUoff;
+these cannot be mixed with the MMU8K Matrix/Quick/Sieve counts. Evidence
+scratch/{bubble,queens,permute}{76,78}_broader_20260920. P81 screen added
+register sources to the early-store condition/hint; Bubble and Quick unchanged,
+so not promoted or fully qualified (scratch/p81_register_store_20260920).
+
+P82 isolated pipeline module SHA256
+`d57480d06c7b982eb67a6ca4e024ebcb9b5c5af6e222abd4628c60e6e4f6cb45`,
+unapplied `scripts/cpu/indexed_multiply_pipeline.patch`, paired with P78core.
+Add brief-indexed MULS.W/MULU.W to existing ordered-load machinery. Two signed
+17-bit operands implement both forms in one multiply expression; write the
+full32-bit product, preserveX, setN/Z, clearV/C. Force registered WB for these
+operations; never use combinational fast read retirement for multiply.
+
+Original MatrixMMU8Klat3:4021727→3702562 (7.94% fewer cycles versusP78), all
+1600word results/inputs/guardsPASS. Matrixalone cannot prove full-product signed
+semantics: the oracle sees only the accumulated low16bits. Dedicated
+pipeline_multiply_oracle.py uses independent Python full32-bit products and
+CCR for128signed/unsigned cases (extremes and seeded random data), alternating
+word/long negative scaled indices and X. All128cases pass in3bus/CE phases,
+384pipeline launches/retirements explicitly required. An initial unaligned
+fixture passed arithmetic but only96operations enteredpipeline; the final
+fixture aligns each multiply to16bytes so every case is covered. Evidence
+scratch/p82_indexed_multiply_20260920/oracle_aligned.
+
+Directed indexed MULS/MULU source faults (`pipeline_compare_faults.py --multiply`)
+pass in3phases each, preserving stackedSR/PC/fault address and destination/
+younger registers, with3pipeline load launches and canceled operations.
+Still UNQUALIFIED: decoder independent support map, complete corpus/integration,
+interrupt/replay and broader workload screens remain; area/timing unmeasured.
+No production edit or fit. CurrentP78fit remains frozen.

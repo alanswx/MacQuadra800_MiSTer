@@ -1,3 +1,30 @@
+# Latest: P82 indexed multiply screen saves7.94% Matrix; partial gates only
+
+P78 fit live q800-p78devdispread-fit-20260920, wrapper2808540, commit7fffdf4.
+Productioncoree2493f18..., baselinepipelinee53cadf2..., frozen througharchive.
+Broader P76→P78 Bubble3456611→3394944(-1.78%), Queens65181unchanged,
+Permute1380669→1380668. AlloraclesPASS, MMUoff for these fixtures.
+P81earlyregisterstores noBubble/Quickgain; notpromoted.
+
+P82 scratch/p82_indexed_multiply_20260920/ap040_pipeline_integer.sv SHA
+ d57480d06c7b982eb67a6ca4e024ebcb9b5c5af6e222abd4628c60e6e4f6cb45,
+pairedP78core. Unappliedscripts/cpu/indexed_multiply_pipeline.patch adds
+brief-indexedMULS.W/MULU.W orderedload + registeredWB, explicitly nofastretire.
+MatrixMMU8Klat3baseline4021727→candidate3702562, alloraclesPASS,7.94%saving.
+Source/results scratch/matrix82_mmu8_20260920/current andcompare.
+Independent128full32bitproducts+CCR cases PASS3phases,384pipeline launches/
+retirementsrequired; alignedfixture oracle_aligned (initialunalignedcoveragefailed).
+DirectedpipelineMULS/MULUbusfaultsPASS3phaseseach,precise state unchanged.
+
+Next: complete decoder-map/oracle integration and interrupt/replay qualification,
+negative control, broader kernel screens, first100corpus withmodifiedpipeline.
+DoNOTpromote basedonMatrixlow16resultsalone; neworaclefull32covers arithmetic
+but is notfullqualification. CorelateextensionwaitingdoesnotrecognizeMULyet;
+unaligned/coldfallbackremainscorrectbutmaylimitcoverage/performance. No need
+change it merely to inflatecoverage: alignedoraclealreadyforcesall128cases.
+P75exactartifacttransferapprovalstillpending; hardwareoperator soleowner,
+currentlyonlymonitoringP78. Besthardware1.133P70 unchanged.
+
 # Latest: P76 archived; qualified P78 promoted for next fit
 
 P76 terminal: fit39448ALMs94%,25375regs,483RAM,41DSP. CPU-.621ns/TNS-6.649,

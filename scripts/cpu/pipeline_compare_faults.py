@@ -13,7 +13,9 @@ parser.add_argument('--indirect-tst',action='store_true')
 parser.add_argument('--sequencer-read',action='store_true',help='test early brief-indexed sequencer MUL/DIV reads with shortcut coverage')
 parser.add_argument('--displacement-read',action='store_true',help='use d16 sequencer source reads; requires --sequencer-read')
 parser.add_argument('--pc-relative-read',action='store_true',help='use d16(PC); requires --displacement-read')
+parser.add_argument('--multiply',action='store_true',help='test indexed MULS/MULU in an isolated pipeline module')
 args = parser.parse_args()
+if args.multiply and args.sequencer_read: parser.error('--multiply and --sequencer-read are separate paths')
 if args.pc_relative_read and not args.displacement_read: parser.error('--pc-relative-read requires --displacement-read')
 if args.displacement_read and not args.sequencer_read: parser.error('--displacement-read requires --sequencer-read')
 root_out = args.out.resolve()
@@ -68,6 +70,7 @@ sources=[r/'rtl/ap68040/tb/tb_ap040_program.v',d/'monitor.sv',exp/'handoff_monit
 flags=['-DAP040_EXPERIMENTAL_'+x for x in ('XSTORE','LEA','PIPELINE','PIPELINE_LOADS','PIPELINE_STORES','PIPELINE_PEA','PIPELINE_P6')]+['-DAP040_PIPELINE_COMPARE','-DAP040_PIPELINE_MEMORY_ENTRY','-DAP040_PIPELINE_EARLY_DRAIN']
 with (d/'compile.log').open('w') as f:subprocess.run(['iverilog','-g2012','-I',str(rtl),'-s','tb_ap040_program','-s','handoff_monitor','-s','indexed_fault_monitor',*flags,'-o',str(d/'test.vvp'),*map(str,sources)],stdout=f,stderr=subprocess.STDOUT,check=True)
 cases=[('cmp_word',0xb670,0x271f),('tst_word',0x4a70,0x271f)]
+if args.multiply: cases=[('muls_word',0xc7f0,0x271f),('mulu_word',0xc6f0,0x271f)]
 if args.sequencer_read: cases=[('muls_word',0xc7f0,0x271f),('mulu_word',0xc6f0,0x271f),('divs_word',0x87f0,0x271f),('divu_word',0x86f0,0x271f)]
 if args.indirect_tst:cases += [(f'indirect_tst_{size}',0x4a10+(size<<6),0x271f) for size in range(3)]
 for name,opcode,sr in cases:
