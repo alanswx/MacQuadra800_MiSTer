@@ -783,3 +783,35 @@ production differs from qualified scratch only in whitespace/comments (normalize
 comparison PASS). QSF records completed P26 fit. Next fit will use P33 source;
 no hardware performance claim yet. Best accepted median remains1.050 pending
 P18 independent-run audit; goal1.8 unmet.
+
+
+### P34/P35 controls; P36 read retirement and hardware audit
+
+P34 scratch/p34_branch_continue_20260919 keeps pipeline ownership over an untaken
+short Bcc at an empty-pipeline boundary and enables prior tested EXT decoder.
+Bubble4,014,059 unchanged vsP33, outputPASS; more pipeline coverage but no total
+cycle benefit. Not promoted or fully qualified.
+P35 scratch/p35_read_retire_20260919 bypasses WB on successful reads; Bubble
+unchanged4,014,059 and UNOPTFLAT feedback through branch cancellation. Rejected.
+P36 scratch/p36_read_handoff_20260919 separates registered-WB retirement/branch
+signals from direct-read retirement and permits immediate legacy handoff after
+an otherwise-empty successful read. No UNOPTFLAT in Bubble compile. Bubble
+3,951,038 (-63,021 vsP33;1.570%), independent output/guardPASS; Permute1,391,673
+andTowers24,427,253 unchanged. Fullintegration initially stops on old ownership
+monitor (it only allowed S_EXPERIMENT_PIPE retirement); scratch monitor now
+permits only successful S_MRD ack, active read, noIRQ/trace, emptyWB and readEX,
+retaining all other assertions. Rerun full_v2 session47622 ongoing.
+IRQ completion test injects external+qualified IRQ on exact read ack; direct
+retirement suppressed and normal WB cancels younger work. All3busphases PASS,
+framePC602,loadedD1=55,youngerD2=0; injections3/cancels3. Candidate unpromoted.
+
+Root audit rejects P18/P24 five-run aggregates. Identical pairs1/2 and3/4 were
+not independent runs: root viewed each run2 image, old scores with NO completion
+modal. Operator command sequence CmdB thenReturn while oldcompletionmodalopen
+means CmdBignored andReturndismissesoldmodal. Only1/3/5currentlycount,3validruns
+per candidate; two additional actualstarts/completions required for each. Root
+prepended correction notices to both scratch reports; earlier operator audit
+claiming deterministic repeated values is superseded. Operator instructed to
+verify startdialog before timing and completionmodal after; P26trialactive.
+P33Quartusservice activeMainPID1680006, sourcefreeze remains. Goal1.8unmet;
+bestacceptedfive-runmedian remainsP13 1.050.
