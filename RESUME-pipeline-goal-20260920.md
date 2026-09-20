@@ -1,3 +1,15 @@
+# P102 isolated timing candidate under qualification
+
+Unapplied scripts/cpu/load_payload_state_select.patch removes ack from the
+pipeline load payload mux; selects buffered m_val only in S_PIPE_LOAD_RETURN.
+Production unchanged. Whet latency3 exactsame31784029 loop/captures versus
+matching-instrumentation P99. Read IRQ all3phasesPASS3injections3cancels.
+Integration LIVE execsession59618, log scratch/p102_load_payload_20260920/integration.log;
+run directory scratch/p102_integration_20260920. Recheck completion beforepromotion.
+NoQuartus/nohardware yet. Details docs/P102_LOAD_PAYLOAD_TIMING_20260920.md.
+Added --core to pipeline_handoff.py to qualify isolated candidates directly.
+Goal1.8unmet; P96hardwaremedian1.211. P99fitCPU-1.531 motivates this change.
+
 # P99 fit complete, CPU timing worse; Whet memory attribution collected
 
 P99wholewrapperterminalMainPID0ExecMainStatus1(timingfailure), source/cross/
