@@ -41,3 +41,8 @@ improvement or hardware performance is claimed before measurements.
 Build wrapper: scratch/p102devpayload_fit_20260920/run.sh, seed 22;
 CD/audio and Ethernet remain omitted for development. Source inputs must
 remain frozen during the complete flow, archive and detailed timing reports.
+
+Build launched from commit 2c31be6 under user service
+q800-p102devpayload-fit-20260920.service. Verified active wrapper PID 3426490
+and Quartus synthesis PID 3426606. Build inputs are frozen until the whole
+wrapper completes. Final fit/timing results remain pending.
