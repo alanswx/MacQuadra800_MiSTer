@@ -1,3 +1,14 @@
+# Latest: P70 hardware complete; P74 microbenchmark screen rejected
+
+P70 fivepairs and final_halt root-reviewed, deployment_record.md reviewed;
+median1.133/mean1.1322, noinvalidtimers/exclusions,33MHz32MBdisposable.
+Complete table nowdocs/PERFORMANCE_MEASUREMENTS.md. Goalstillunmet.
+P74 isolated P64+CLRstoreearly screen savesonly0.08%Sieve; memorywaitabsorbs
+nearlyall removedexecutioncycles. Notpromoted orfullqualified; scratch/p74_clear_store_20260920.
+Sieveprofiling now lets us reject this in seconds before fitting.
+P73 fit remains soleactivebuild lastcheck; no sourcechanges.
+Fullguestprofile monitor lastf5827; stillactive, pendingcompletion.
+
 # Latest: user-requested CPU/RAM microbenchmarks extended with Sieve
 
 New scripts/cpu/profile_sieve.py shares profile_quick.py responder; docs in

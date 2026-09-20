@@ -1793,3 +1793,27 @@ Median**1.131**, mean**1.1304**, range**1.127–1.132**. Versus same-feature
 P63dev median1.122, the observed median gain is about0.8%. Towers and Quick
 improve consistently; this remains far below1.8. Full-feature P63median1.129
 is a different feature configuration and cannot isolate the MOVE change.
+
+## P70 short divider — five hardware runs, 2026-09-20
+
+P64 MOVE core plus short divider, authentic33MHz/32MB, CD/audio and Ethernet
+omitted. Artifact `scratch/p70devdivide_fit_20260920/MacQuadra800_p70devdivide_9a76b04.rbf`,
+SHA256 `94ed1c2e58b636d458cb848cb130fbaaeb9cb498dce1f451a83f0ad32b06021e`,
+4,520,576bytes. Operator deployment record confirms matching remote hash/size,
+CFG40000000, disposable slot0 and original disk untouched. Root reviewed all
+five fresh all-ten/iteration1 setup/result pairs and final safe-shutdown image.
+No observed or reported invalid timers; no exclusions.
+
+| Run | KWhet/s | Dhry/s | Towers | Quick | Bubble | Queens | Puzzle | Permute | Int.Matrix | Sieve | Mix |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 897.054 | 13243.977 | .793 | .644 | .766 | .538 | 1.175 | 1.254 | .796 | 1.113 | 1.129 |
+| 2 | 904.887 | 13244.029 | .793 | .643 | .766 | .538 | 1.169 | 1.254 | .794 | 1.111 | 1.133 |
+| 3 | 904.722 | 13243.819 | .793 | .643 | .766 | .538 | 1.165 | 1.254 | .794 | 1.112 | 1.133 |
+| 4 | 904.908 | 13244.748 | .793 | .643 | .766 | .538 | 1.172 | 1.254 | .792 | 1.109 | 1.133 |
+| 5 | 904.395 | 13243.819 | .793 | .643 | .766 | .538 | 1.171 | 1.254 | .791 | 1.109 | 1.133 |
+
+Integer columns are elapsed seconds. Median1.133, mean1.1322, range1.129–1.133.
+Compared with same-feature P64median1.131, the observed median difference is
+about0.18%; this is a small effect and far below the1.8goal. Not a release:
+CPU+.158ns, HDMI+.022ns, sys→RAM−.054ns, RAM→sys+1.225ns, holdminimum+.248ns.
+Evidence: `scratch/hardware_p70devdivide_20260920/deployment_record.md` and images.

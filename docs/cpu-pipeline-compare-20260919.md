@@ -1789,3 +1789,19 @@ experimental hardware trial only. No P70hardware scoreyet.
 P73 shared128-byte selector promoted next after fullP70archive/reports and
 noQuartusprocess. Baseline divider restored for this isolated area/refill
 experiment; it is not cumulative withP70's shortdivider.
+
+## P74 CLR destination completion screen — not promoted
+
+The new original Sieve harness showed23,190 EA-extension clocks and23,193
+execution clocks. An isolated P64-based candidate extends the existing
+S_PIPE_DEA direct MOVE-store path to CLR: same ALU flags and ordered mwr call,
+one sequencer state earlier, with no destination read. Production untouched.
+Source/patch: `scratch/p74_clear_store_20260920`.
+
+Sieve all8191flags/count/guards pass at latency0/3/8:
+303561/309490/377203 versus P64baseline303820/309734/377576.
+Only259/244/373cycles saved (~0.08% atlat3). The profile's data_ack_wait rises
+by14,999cycles atlat0/3, absorbing almost all15,000 eliminated CLR execution
+cycles. This is a controlled-RAM result, not proof about every hardware path.
+The tiny measured benefit does not justify fitting or broader qualification.
+No full correctness gate or hardware trial claimed; candidate not promoted.
