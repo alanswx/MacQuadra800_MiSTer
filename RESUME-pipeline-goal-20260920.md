@@ -1,3 +1,13 @@
+# Snapshot-capable SANE guest launched
+
+q800-whet-snapshot-20260920.service activePID3301309, directory
+scratch/whet_snapshot_host_20260920; updatedhostadb18c3/P97RTL, fresh localfixture
+copyrun.hda, executablehash/flags/RTLidentityinidentity.json. Controlwait1.2B
+risingedges thenramdump8 then shot; leavesguestalive forinspection/navigation.
+No previousrun restarted. OriginalP97fullguest3190686 stilllive independently.
+Two localVerilators, noQuartusflow, MiSterP96safehalt. Nextcollectbothscreens,
+inspectRAMsnapshotwhenready andcontinueP97Speedometersetup.
+
 # RAM snapshot host command implemented/tested; live P97 unchanged
 
 Previous turn resolvedWhetstaticruntimecalls. Read-only gdb attach to local
