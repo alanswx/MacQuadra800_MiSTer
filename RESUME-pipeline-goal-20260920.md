@@ -1,3 +1,17 @@
+# Latest: P78 corpus passed; P75 exact transfer approval pending
+
+P78corpus45496exit0: first100,1900fieldgroupsmatch,0diffs;
+/tmp/cpu-corpus100-gate.xR0fZ4. Fullintegration71144stillliveatloops_irq.
+Prepared UNLAUNCHED wrapper scratch/p78devdispread_fit_20260920/run.sh;
+no promotion beforefullgateandP76wrapper/archivecompletion.
+
+Operator finally confirmed P75 copy rejectedTWICE, nevercopied/launched;
+MiSTer safelyhalted. Async approval question now pending for exactP75artifact
+MacQuadra800_p75devclear_d90c597.rbf to verifiedmister.local10.3.89.233 and
+disposable-disk tests. No hardware retry until answer. Operator instructed
+monitorP76only whileapprovalpending. Localworkmaycontinue. P76active at
+11:49:52,wrapper2759726/fitter2769012. Production stillfrozenP76.
+
 # Latest: P78 displacement-read screen and directed faults pass
 
 Isolated P78 core SHAe2493f18064f04bae36e458d3ebf02af05bf148f1decca5a41f170596464c0d8,
