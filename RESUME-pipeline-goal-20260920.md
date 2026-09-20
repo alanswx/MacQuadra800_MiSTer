@@ -400,3 +400,20 @@ this illustrates why occupancy alone cannot predict performance gain.
 No promotion or FPGA build: gain is too small to prioritize over the current
 larger-refill fit. These kernel checks are a performance screen, not full CPU
 qualification. No full integration/corpus/hardware claim for P68.
+
+
+Full-guest profiling setup started: immutable `git archive c95dced` under
+`scratch/p67_fullguest_20260920/tree` (not a worktree), current P67 core hash
+verified; build session57503 active, logbuild.log. MatchingAP040/CACHE/CD/ETHERNET
+flags captured inidentity.json; vendored untracked sim/mac copied. Disposable
+87MBlocal MacQuadra800-Speedometer402-profile.hda copied torun.hda, never edit
+fixture. Buildscript and runscript beside it; runscript NOT YET STARTED. Collect
+buildsession before starting simulator. It uses fastbootROM solely skipping RAM
+test; simulation is profiling evidence, never a hardware Speedometer score.
+Control regularfilecontrol.txt accepts appended PS/2 scan-code down/up, wait,
+shot, profile start/stop, quit. Runscript sets --cpu-profile workload.tsv and
+--speedometer-observe speedometer.jsonl; screenshotframes500/1500/3000/5000/7000,
+maxcycles12G. Boot guest, launch original Speedometer, select genuine Whetstone
+workload including SANE/mathcalls, bracket it; never substitute math stubs.
+P64hardware root reviewed first3pairs1.127/1.131/1.132; remaining2/shutdown with
+cheap operator. P67FPGA remains live fitting. No new FPGA source changes.
