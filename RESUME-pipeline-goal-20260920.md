@@ -1,3 +1,23 @@
+# Latest: P77 indexed source-read screen improves Matrix; gates running
+
+P77 isolated core scratch/p77_indexed_read_20260920/ap040_core.v SHA
+ba7e8325100d09a8d9badc585386008b3d2a57cd4a79c5d6f5033658aacb9e84.
+Patch scripts/cpu/indexed_read_early.patch relative to P76, unapplied.
+Early brief-index source mrd plus hint for register destinations; Matrix
+MMU8Klat0/3/8 4053766/4085726/4159792, saves1.54% atlat3 versusP76.
+Quick179011/Sieve289371 unchanged; all output oracles pass.
+Directed MULS/MULU/DIVS/DIVU busfaults passed three phases each with direct
+shortcut coverage and precise exception state checks.
+
+Active full integration session34258, log scratch/p77_indexed_read_20260920/full.log,
+out scratch/p77full. Active corpus session48930, log candidate/corpus.log,
+ARTIFACT_DIR=/tmp/cpu-corpus100-gate.b3fISZ. Collect terminal exits and examine
+logs before qualification/promotion. First corpus launch only failed missing
+experimental module; supplied unchanged module and restarted gate, not CPU failure.
+P76 fit still live userunit q800-p76devimmstore-fit-20260920; fitter2769012.
+Root production inputs remain frozen. Operator remains sole MiSTer input owner;
+awaiting reviewed P75 transfer status, no new hardware result yet.
+
 # Latest: P76 fit live; original Matrix microbenchmark validated
 
 P76 fit launched userunit q800-p76devimmstore-fit-20260920.service,

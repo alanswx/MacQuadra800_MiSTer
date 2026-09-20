@@ -1877,3 +1877,29 @@ P76 follow-up: fullintegration13131 nowterminalexit0/PASS, including all precise
 load/store/PEA interrupt/replay cases. Planned simulation qualification complete.
 Prepared but NOT launched: scratch/p76devimmstore_fit_20260920/run.sh. P75still
 fitting; retainitsproductioninputs untilcompletewrapperexit andartifactreview.
+
+
+### P77: brief indexed sequencer read launch
+
+Isolated candidate relative to P76, core SHA256
+`ba7e8325100d09a8d9badc585386008b3d2a57cd4a79c5d6f5033658aacb9e84`;
+unapplied patch `scripts/cpu/indexed_read_early.patch`. For a completed brief
+indexed source EA with a register destination, start the existing ordered
+read directly in S_EA_EXTW2, skipping S_PIPE_SRD. Select the destination
+register at the same edge and provide the same address on the cache hint.
+MMIO/page-crossing request guards and read completion/fault logic are unchanged.
+Full-format extensions and memory destinations retain their paths.
+
+Original Matrix MMU8KB cycles at latency0/3/8:4,053,766 /4,085,726 /4,159,792,
+with every result, input and guard passing. Relative to P76 this saves63,989
+cycles,1.54% at latency3. Quick179011 and Sieve289371 at latency3 are unchanged.
+These are controlled CPU/RAM cycles, not hardware scores. Evidence in
+`scratch/matrix77_mmu8_20260920`, `quick77_mmu8_20260920`, `sieve77_mmu8_20260920`.
+
+`pipeline_compare_faults.py --sequencer-read` adds indexed MULS/MULU/DIVS/DIVU
+source bus faults. All four pass in three bus/CE phases, with explicit checks
+that the early path enters S_MRD directly, preserves stacked PC/SR/fault address,
+and leaves destination and younger registers unchanged. This option requires
+a candidate exposing hint_indexed_read; ordinary comparison tests are unchanged.
+Full integration and hardware-derived corpus gates are running; not promoted
+or ready for a fit until qualification completes. P76 remains frozen in Quartus.
