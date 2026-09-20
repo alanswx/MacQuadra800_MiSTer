@@ -1,3 +1,19 @@
+# Live P93 qualification, P90 fit, P89 full guest
+
+P93 scratch MMU parallel tag comparison SHAbe5db2dcb1baa201d40ff3ad674bbfcb0206c377c7cfcf4caba68b67443d470c.
+Matrix8KB latency3 exactly2872453, alloraclesPASS; fiveMMUprograms and
+invalidation4765fullcycles/3flushes/84clearsPASS. Unappliedpatch
+scripts/cpu/mmu_parallel_tags.patch relativeP90. No timing/area claim.
+Fullintegration session63505 LIVE (scratch/p93full, candidate/full.log).
+Corpus session7731 exit0:1900groups0diffs, /tmp/cpu-corpus100-gate.mtqqAx
+(candidate/corpus_v5.log); initial defaultVerilator
+launch failed unsupported --binary beforetests, rerunusesexplicitVerilator5.
+P90 wrapper2986703 andquartus_fit2995454 verifiedlive; productionfrozen.
+P89 fullguest2943117 verifiedlive, latest2.18Bhalfcycles; initialwaitends2.64B,
+thenqueuedshot. No guestinputqueued. ExactP89hardwareapprovalstillpending.
+Previous weighting-answer turn did not advance goal; this turn collected P93
+screening evidence and started broader qualification without touchingfitinputs.
+
 # Live P90 fit / P89 simulator; FPU occupancy reviewed
 
 P90unitq800-p90devdatacopies-fit-20260920.service activeMainPID2986703,

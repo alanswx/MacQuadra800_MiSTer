@@ -358,3 +358,26 @@ are excluded here. Nevertheless, the very small dedicated arithmetic wait
 makes optimizing the FPU arithmetic unit alone a weak lead compared with
 shared instruction, translation and memory paths. A Whetstone-specific bracket
 is still needed before attributing its complete cost. No P89 score yet.
+
+
+P93 tests parallel constant-index retained MMU tag comparisons before selecting
+one of P90's five copies. It changes only request-path `u_hit` logic; retained
+entry contents, indexing, permissions and invalidation remain unchanged. Patch
+`scripts/cpu/mmu_parallel_tags.patch` is relative to production P90. Candidate
+MMU SHA256 `be5db2dcb1baa201d40ff3ad674bbfcb0206c377c7cfcf4caba68b67443d470c`.
+This targets the tag-mux/equality chain in the measured P89 critical path;
+there is no FPGA timing or area improvement claim before a fit.
+
+Matrix 8KB MMU, latency 3: 2,872,453 cycles, exactly P90, all 1,600 results,
+inputs and guards pass (`scratch/matrix93_mmu8_20260920`). Five existing MMU
+programs pass. Directed invalidation passes all three bus/CE phases with
+4,765 full-copy cycles, three populated flushes and 84 clear checks.
+Full integration and first-100 corpus qualification are in progress in an
+isolated snapshot under `scratch/p93_parallel_mmu_tags_20260920/tree`.
+An initial corpus launch used the older default Verilator and failed at
+`--binary` before testing; the rerun explicitly uses the established Verilator 5.
+Production remains P90 and is frozen for its ongoing Quartus flow.
+
+P93 first-100 corpus completed: 1,900 field groups match, zero differences;
+artifacts `/tmp/cpu-corpus100-gate.mtqqAx`, session7731 exit0. This is the
+first-100 fixture, not the complete instruction corpus. Integration remains live.
