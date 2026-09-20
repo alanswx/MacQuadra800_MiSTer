@@ -1,3 +1,31 @@
+# P96 five valid hardware runs complete; safe shutdown; real Quadra comparison
+
+Root completed5fresh all10/iteration1 hardware runs:1.207,1.211,1.211,1.212,1.212.
+Median1.211 mean1.2106; invalidtimers0/exclusions0. Each valid_runN_setup and
+valid_runN_complete rootvisuallyreviewed, >=65s undisturbed run beforecapture.
+results.json contains per-test elapsedtimes. p96-record-20260920 saved through
+normalSpeedometerquit, internalrecordnamep96. final_shutdown.png ROOTREVIEWED
+safe-to-switch-off screen. Hardware now SAFEHALT; root owns input, no running
+hardware task. P96 remote artifact hash/config rechecked aftershutdown.
+Shutdown vmouse: home m110,6→Specialtitle164,10; down m20,62→ShutDownhighlight.
+Shortclick/release didn'tactivate; explicit 'down 1 up 3' finallycompleted.
+final_halt.png earlier is still menu, NOT finalproof; final_shutdown.png isproof.
+
+User requested docs/perf/real_quadra800.jpg review. Rootvisuallytranscribedall10.
+New docs/P96_REAL_QUADRA_COMPARISON_20260920.md has complete comparison.
+P96run5 throughput%real: Whet46.6,Dhry55.9,Towers61.4,Quick85.3,Bubble82.4,
+Queens58.5,Puzzle81.2,Permute51.0,Matrix90.5,Sieve94.7. RealMix1.897.
+Whet rating3.133vs6.727 alone~52.5%ofMixgap; matchingitonly→Mix1.5714.
+PRIORITY SHIFT: exactWhet/SANE/runtimefixture+profile, thenPermute/Dhry/Queens;
+smallqueuegains cannotclosegap. PriorlowdedicatedFPUstatefractiondoesNOTrule
+outWhetstonecost in sharedruntime/integer/memory paths. RealRAM120MBvsP9632MB.
+
+P97fit terminalrootcheckedexits1/0/0/0;39614ALMs95%,CPU-.682. Noexactapproval
+forP97hardware. P97fullguest stillrunning; f2383Finderreviewed, CmdOstartupdisk
+queued. Neednextscreenshot thenApplications/Speedometer navigation.
+CurrentproductionP97queue, coreP96/MMUP90/pipelineP83; noQuartusflowactive.
+P98eagerdrainpatchunapplied. ExactP75/P89/P96approvalsvalid. Goal1.8UNMET.
+
 # P96 hardware run1=1.207 VALID; run2 STARTED (root owns input)
 
 Root reviewed valid_run1_complete.png: completiondialog +Mix1.207, positive
