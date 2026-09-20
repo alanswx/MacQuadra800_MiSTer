@@ -1,3 +1,8 @@
+# Current status: P67 fit failed routing; P70/P72 isolated tests active
+
+P67 is no longer an active FPGA build. No fresh bitstream. See final entry.
+MiSTer safehalt after five valid P64 runs, median1.131. Local fullguest sim live.
+
 # Latest transition: P67 promoted for development fit
 
 P64 complete: artifact `scratch/p64devmove_fit_20260920/MacQuadra800_p64devmove_7952a01.rbf`,
@@ -464,3 +469,27 @@ LAUNCHED scratch/p69devdivide_fit_20260920/run.sh; requires P67core plus
 P59dividerhash1f1df9410c86354d50dd46318d84395d67fc932ac9c1672cb40a9c5014a37a17.
 No productionmutation yet; P67stillactive. Fullguest simulator has advanced
 pastgrayROMscreen intoSCSIdiskactivity, notyetdesktop/profiledworkload.
+
+
+## P67 fit failed routing; follow-up screens
+
+P67 wrapper terminalexit3/sourcecheck0, nofreshRBF/STA/crossreports. Placement
+completed, routing terminated due congestion (16618/188026/170143),41,185ALMs98%,
+25,347registers,483RAMblocks,41DSP. No Quartus process remains. Do not use the
+old output_files RBF or timing reports as P67 evidence. P69's simulation-qualified
+128-byte combination inherits this area concern and is not queued unchanged.
+
+P70 uses P64's fitting64-byte core SHA609b1687e27b5da1096d6b1c990027b46d27f00272ce1d96b45ef6ed97a2f980
+plusP59shortdivider. Scratch p70_move_divshort_20260920; Quick89458exit0:
+163503/175283/198660lat0/3/8,sorted/guardsPASS. First10070943exit0:1900groups0diffs,
+/tmp/cpu-corpus100-gate.WgStgM. Fullintegration77746stillrunning. Prepared
+scratch/p70devdivide_fit_20260920/run.sh, NOT LAUNCHED or promoted.
+
+P71 scratch128-byte buffer with seed count capped4 and only4queue seed ports:
+Quick167139/178910/202280 andBubble3454620lat3PASS. Almost all P67's Bubble gain
+lost (P67=3270270;P64=3456612), with Quick slower than P64. Not promoted or
+fully qualified; no area claim without synthesis. Sessions26303/74803exit0.
+P72 scratch variant caps seed6/6ports, sameP67base/no shortdivider. Screening
+Quick30498 andBubble56969active; logs underp72_refill128_seed6_20260920. No fit.
+FullguestP67simulation remainslive independently of failedFPGAfit; snapshot
+sources immutable, useful for profiling only. Latestshotf847 notyetreviewed.
