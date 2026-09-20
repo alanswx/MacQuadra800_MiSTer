@@ -341,3 +341,15 @@ collect process exit before final qualification. Other results pending.
 P63dev five benchmark start/completion pairs root-reviewed, median1.122;
 shutdown and persisted identity report pending with cheaper hardware operator.
 P66 commit2b4f4e6 pushed; all its simulation processes collected exit0.
+
+
+P67 interim qualification update: Quick71688, corpus78472, Bubble/coherence42693
+collected exit0. Core SHAe2c0baba83bb7eb8ac1e9de1bab14ef2dbc49a4a9fe1dbd400c82498dab0a0ec.
+Quick166651/178422/201792; Bubble3270270lat3, sorted/guardsPASS. Upper/crossing
+self-modifying-code cases PASS3patcheseach. First100PASS1900groups0diffs,
+/tmp/cpu-corpus100-gate.2VUHij. Independent diff against P65 contains only the
+P64 d16 MOVE change. Integration79688 still active, through branch_earlyPASS;
+collect final result before considering promotion. Prefix log at
+scratch/p67_move_refill128_20260920/prefix.log. P64 build still fitting, source
+manifest unchanged; no candidate promotion or new Quartus flow launched.
+Prefix86843 collected exit0: 42,770 patterns across 64 words PASS.
