@@ -2008,3 +2008,9 @@ onlycommentchanges. QSF recordsP33result. Nextfit archive/servicep39refill64.
 P24repairedset1/3/5/6/7 reportsmedian1.051,rootviewed6/7completionandrepairhalt;
 fulltable/originalthreevisualreviewpending. BestacceptedP26median1.078;
 goal1.8unmet,A/UXdeferredtoDani,CD/audiooutstanding.
+
+P39 fit launched on committed/pushed26b644c; service
+q800-p39refill64-fit-20260919 active MainPID1759655. Exact-source archive wrapper
+scratch/p39refill64_fit_20260919/run.sh. Production RTL/QSF/QIP/SDC frozen until
+wrapper terminal including cross reports and archive. P33 archive hardware queue
+already sent to operator. No active second Quartus flow; build script serializes.
