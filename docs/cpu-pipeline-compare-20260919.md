@@ -1872,3 +1872,8 @@ P75 baseline negative cases alsoPASS; defaultCLRcases stillPASS. The monitor
 counts only the target PC, excluding fixture setup stores. Simplepre/post modes
 bypass S_PIPE_DEA and are rollback controls. Flags/framePC/address, memory and
 younger register checks remain explicit. No production source changes.
+
+P76 follow-up: fullintegration13131 nowterminalexit0/PASS, including all precise
+load/store/PEA interrupt/replay cases. Planned simulation qualification complete.
+Prepared but NOT launched: scratch/p76devimmstore_fit_20260920/run.sh. P75still
+fitting; retainitsproductioninputs untilcompletewrapperexit andartifactreview.

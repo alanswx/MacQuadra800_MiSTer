@@ -1,3 +1,11 @@
+# Latest: P76 full simulation qualification complete
+
+Fullintegration13131collectedexit0,allfault/IRQ/replayPASS. P76canbeconsidered
+fornextfitafterP75completes, notbefore. Preparedwrapper
+scratch/p76devimmstore_fit_20260920/run.sh (unlaunched); corehasha3e649df...
+P75stillsoleliveflow, fitterPID2725520 atlastcheck, userunit
+q800-p75devclear-fit-20260920, frozenproduction. Hardwarebestmedian1.133P70.
+
 # Latest: P76 immediate-store candidate screened; full gate pending
 
 P76=P75+early immediateMOVE store andmatchinghint, scratch/p76_immediate_store_20260920.
