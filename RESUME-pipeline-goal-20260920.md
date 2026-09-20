@@ -1,3 +1,21 @@
+# Latest: P78 archived; qualified P82 promoted for fit
+
+P78artifact scratch/p78devdispread_fit_20260920/MacQuadra800_p78devdispread_7fffdf4.rbf,
+4510196bytes, SHA2dff8e0c80318f3658fc62ddcf707890a0efcdb93854176b228c8015d5d43cfd.
+Root reviewed source/cross/detailedSTAexit0, buildexit1timingonly, healthy
+cachetagM10K44032/regfileMLAB512. Fit39488ALMs94%,25407regs,483RAM,41DSP.
+CPU-.661/TNS-11.391,HDMI+.229,SDRAM+.605,holdmin+.246;
+crosssys→RAM+2.564/RAM→sys+.918. WorstATCvalid114→epf_data[7][7].
+NoQuartusprocessesremain beforepromotion. P82pipeline d57480d0... nowproduction,
+pairedunchangedP78coree2493f18..., baseline925bbeadivider. Preparedwrapper
+scratch/p82devindexmul_fit_20260920/run.sh nextlaunch(notyetatthiscommit).
+
+P83isolatedscratch/p83_indirect_add_20260920/ap040_pipeline_integer.sv adds
+ADD (An),Dn byte/word/long to orderedload + existingALU, no entrypolicychange.
+MatrixMMU8Klat3 3638968 vsP82 3702562 (-1.72%), alloraclesPASS.
+Semanticoracle28143running, fullqualificationnotstarted. DoNOTpromoteP83yet.
+P75exacthardwaretransferapprovalstillpending, no hardwareactions.
+
 # Latest: P82 simulation-qualified for fit; P78 still building
 
 P82corepairedP78 e2493f18..., pipelined57480d0...; no production changes.
