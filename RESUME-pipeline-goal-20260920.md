@@ -1,3 +1,15 @@
+# P104 simple-destination faults and boundaries pass
+
+Extended fault/boundary scripts --simple-destination2/3/4. BaselineP102 andP104
+PASS source/destfaults54casephases/core, IRQ/T1/alias/split36casephases/core.
+Exec38691/86695doneexit0. Allvalue-modesbaseline/candidatealsoPASSexec78372done0.
+Faultgatechecksformat7,SR,PC,address,rollbackbutSTOPSINHANDLER: RTEretryPENDING.
+Broadintegrationexec75762stillLIVE, latestbranch_earlyPASS; nofailureobserved.
+Nextfinishintegration, addRTErecoverygatefornewmodes, corpusbeforepromotion.
+P104Whet4.868%fewerclocks,capturesmatch. ProductionunchangedP102.
+P102Quartusfit3435576stillactivewrapper3426490; sourcehashcheckPASS.
+FREEZEuntilwholewrapperarchiveSTAends. Goal1.8unmet; noMiSTeractions.
+
 # P104 larger Whet gain: 4.868%, isolated qualification running
 
 Opcodeprofileexec37417done0:57opcodes sums5389204readcycles, exactP102loop/captures.

@@ -10,7 +10,9 @@ parser.add_argument('--out', type=Path, required=True)
 parser.add_argument('--vasm', default='/home/alans/mister/MacQuadra800_fixtures/wombat-vasm/vasmm68k_mot')
 parser.add_argument('--displacement-destination',action='store_true',help='exercise d16(An) destinations instead of indexed destinations')
 parser.add_argument('--source-extension', choices=['d16','indexed'], help='exercise early source reads and require their coverage')
+parser.add_argument('--simple-destination',type=int,choices=(2,3,4),help='test (An), (An)+ or -(An) destinations')
 args = parser.parse_args()
+if args.simple_destination and args.displacement_destination: parser.error('choose one destination kind')
 d = args.out.resolve()
 d.mkdir(parents=True, exist_ok=True)
 rtl = r/'rtl/ap68040/rtl'
@@ -44,17 +46,25 @@ endmodule
 if args.displacement_destination:
  monitor=d/'monitor.sv'
  monitor.write_text(monitor.read_text().replace('`C.dst_mode_r==6','`C.dst_mode_r==5').replace('`C.state==`C.S_EA_EXTW2','`C.state==`C.S_IMMF'))
+if args.simple_destination:
+ monitor=d/'monitor.sv'
+ monitor.write_text(monitor.read_text().replace('`C.dst_mode_r==6',f'`C.dst_mode_r=={args.simple_destination}'))
 units=('ap040_tg68k_compat','ap040_bus16_adapter','ap040_bus_timeout','ap040_alu','ap040_muldiv','ap040_mmu','ap040_cache','ap040_fpu','ap040_walker_cdc','primitives/dpram')
 sources=[r/'rtl/ap68040/tb/tb_ap040_program.v',d/'monitor.sv',args.core.resolve(),rtl/'ap040_regfile.v',exp/'ap040_pipeline_integer.sv',*[rtl/(u+'.v') for u in units]]
 flags=['-DAP040_EXPERIMENTAL_'+x for x in ('XSTORE','LEA','PIPELINE','PIPELINE_LOADS','PIPELINE_STORES','PIPELINE_PEA','PIPELINE_P6')]+['-DAP040_PIPELINE_COMPARE','-DAP040_PIPELINE_MEMORY_ENTRY','-DAP040_PIPELINE_EARLY_DRAIN']
 run(['iverilog','-g2012','-I',rtl,'-s','tb_ap040_program','-s','fallback_monitor',*flags,'-o',d/'test.vvp',*sources],'compile.log')
 for name,source,src_addr,dst_addr,loc,fa,sr,count in [
  ('source','(a0)',0xf140,0xc100,0x600,0xf140,0x271f,0),
+ ('source_postinc','(a0)+',0xf140,0xc100,0x600,0xf140,0x271f,0),
+ ('source_predec','-(a0)',0xf142,0xc100,0x600,0xf140,0x271f,0),
  ('destination','(a0)',0xc000,0xf140,0x600,0xf140,0x2718,3),
  ('postinc_destination','(a0)+',0xc000,0xf140,0x600,0xf140,0x2718,3),
  ('predec_destination','-(a0)',0xc002,0xf140,0x600,0xf140,0x2718,3),
  ('extension','(a0)',0xc000,0xc100,0x1ffe,0x2000,0x271f,3),
 ]:
+ if args.simple_destination:
+  if name=='extension':continue # no destination extension in these modes
+  if args.simple_destination==4:dst_addr+=2 # predecrement targets original destination
  early_expected=0
  if args.source_extension and source=='(a0)' and name!='extension':
   source='(0,a0)' if args.source_extension=='d16' else '(0,a0,d1.l)'
@@ -115,6 +125,7 @@ failed:
   start=asm.index('handler:');handler=asm[start:];asm=asm[:start]
   i=asm.index(' org $1ffe');asm=asm[:i]+' bra failed\n'+handler+asm[i:]
  if args.displacement_destination: asm=asm.replace('(0,a1,d1.l)','(0,a1)')
+ if args.simple_destination: asm=asm.replace('(0,a1,d1.l)',{2:'(a1)',3:'(a1)+',4:'-(a1)'}[args.simple_destination])
  (d/(name+'.s')).write_text(asm)
  run([args.vasm,'-Fbin','-m68040','-no-opt','-o',d/(name+'.bin'),d/(name+'.s')],name+'_asm.log')
  run(['python3',r/'rtl/ap68040/tb/bin2hex.py',d/(name+'.bin'),d/(name+'.hex')],name+'_hex.log')

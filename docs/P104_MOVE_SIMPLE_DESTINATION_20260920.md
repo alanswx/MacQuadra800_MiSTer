@@ -29,10 +29,38 @@ read acknowledgements and 429 observed direct destination transitions.
 The transition counter is sampled only when CE is enabled, so it is coverage,
 not an equality oracle for acknowledgements. It must be nonzero on candidates.
 
-Baseline all three modes and P104 modes 2/3 are running under exec78372.
+Baseline and P104 all three modes completed with exit 0 (exec78372 and earlier predecrement run).
 Broad integration is running under exec75762, log
 scratch/p104_move_simple_dest_20260920/integration.log.
 Dedicated simple-destination fault/restart/interrupt checks remain necessary;
 existing indexed/displacement tests alone do not cover this change.
 No P104 promotion, fit or hardware test yet. P102 Quartus remains active;
 production build sources remain frozen until its entire wrapper finishes.
+
+## Fault and boundary qualification
+
+Extended pipeline_memmove_faults.py and pipeline_memmove_boundaries.py with
+--simple-destination 2/3/4. Fault checks include failed source reads in plain,
+postincrement and predecrement forms, then destination faults with all three
+source forms. For every case the handler checks stacked SR/PC/fault address,
+format 7, unchanged following instruction, destination sentinel, and both
+address registers restored to their pre-instruction values. There is no
+source/destination alias in this fault set. Extension-fault cases are excluded
+for simple destinations because these addressing modes have no extension.
+
+Both P102 baseline and P104 pass all six cases, three destination modes and
+three bus phases (54 case/phase combinations per core). Exec38691 exited 0.
+Logs: scratch/p104_move_simple_dest_20260920/{base,p104}_faults{2,3,4}.log.
+These tests stop in the exception handler; they do not prove RTE retry.
+
+Both cores also pass IRQ, T1 trace, source/destination-register alias and
+page-split source fallback for all three modes and all three bus phases
+(36 case/phase combinations per core). Exec86695 exited 0. The split case
+uses the real MMU configuration with transparent translation and requires
+S_MRD_B coverage. IRQ and trace checks verify stacked next PC/SR and that
+the destination write has completed. Logs in the same directory named
+{base,p104}_boundaries{2,3,4}.log.
+
+Remaining before promotion: complete broad integration (exec75762 still live),
+dedicated fault recovery through RTE for these modes, and candidate corpus
+comparison. Fit inputs remain frozen for active P102; no hardware change.
