@@ -1,3 +1,21 @@
+# Full original Whetstone executes in ~57 seconds; P99 saves1.785%
+
+New run_whetstone_image.py/tb_cpu_whetstone.sv execute32MBfixture+realROM,
+CPU/MMU/cache/queue controlledRAMlat3. Bothrunscompletedexit0, noerrors.
+BaselineP96core/P97queue4 loop32361803clocks; P99loop31784029(-1.785%).
+Captured1KBstack/globals/CODE3 byteidentical; candidatecomparison.json hashes.
+IndependentnumericaloracleSTILLPENDING; returnmarkerexplicitlynotPASSverdict.
+Both59SANEsites verifiedagainstselector_targets.json: entireCODE3matches
+relocatedinputplusEXACT59JSRpatchesonly,354patchbytes. rewrite_check.json.
+Evidence scratch/whetstone_full_{base,p99}_20260920; sessions2361/11672done.
+ProfileP99MRD24.38%,MWR11.56%,FPU_GO5.28%; PCbuckets408eaa00add22.02%,
+408ead00mul13.65% ofwholefixture. Buckets256bytes, notexactfunctiontiming.
+Nextusefastfullfixtureforlargerwrapper/memoryoptimizations; noMixprediction.
+
+P99Quartusunit3369109stillactiveatlastpoll; buildinputsFROZENthroughwhole
+wrapper+archive+cross/detailedSTA. Currentproduction4cd5824,docsnewer.
+NoMiSTeractions. HardwarebestP96median1.211, P97sim1.270, goal1.8unmet.
+
 # Full Whetstone fixture image prepared, execution pending
 
 Added scripts/cpu/build_whetstone_image.py; output

@@ -256,3 +256,36 @@ Generated artifact: scratch/whetstone_full_fixture_20260920/ram.bin;
 identity.json records input/output hashes, relocations and slot targets.
 Generation passes, but **execution, output oracle and performance validation
 remain pending**. Do not use this image's existence as a benchmark result.
+
+## Full fixture execution and differential result
+
+`run_whetstone_image.py` / `tb_cpu_whetstone.sv` now execute the prepared RAM
+image with the actual 1 MB ROM and the real CPU/MMU/cache/write queue.
+Binary loads verify lengths and reset vectors; accesses outside modeled RAM
+and ROM fail explicitly. Requests must remain stable until acknowledgement.
+The clock limit is 100 million cycles. The harness records CPU states and
+PC buckets, then captures 1 KB of stack, Whetstone globals and CODE3 bytes.
+A return marker is explicitly not a numerical-oracle verdict.
+
+At controlled RAM latency 3, the pre-P99 core takes **32,361,803 loop clocks**;
+P99 takes **31,784,029**, a **1.785% reduction**. Each completes in about
+57 seconds of host time. Both complete the original WStone, with matching
+captured stack/globals/code byte for byte. Evidence:
+scratch/whetstone_full_{base,p99}_20260920; candidate comparison.json contains
+hashes and limits. This is not a hardware score prediction or an independent
+numerical reference.
+
+All 59 original CODE3 immediate-selector/A9EB sites are verified against the
+resolved selector table: each became exactly its expected six-byte absolute
+JSR. The entire captured CODE3 region equals the relocated original plus
+only those expected patches. Both variants report 354 patch-byte writes and
+735 walker reads. Zero walker writes are expected here because resident
+page descriptors were inherited from the running guest snapshot.
+
+P99 whole-fixture occupancy: S_MRD 24.38%, S_MWR 11.56%, S_FPU_GO 5.28%.
+The ROM PC buckets 408EAA00 (add wrapper region) and 408EAD00 (multiply
+wrapper region) account for 22.02% and 13.65% respectively. Buckets are
+256-byte ranges, not exact function boundaries; counts include operand and
+memory work while those PCs remain current. These data prioritize the
+frequent arithmetic wrappers and their transfers over assuming the dedicated
+FPU arithmetic wait state is the only bottleneck.
