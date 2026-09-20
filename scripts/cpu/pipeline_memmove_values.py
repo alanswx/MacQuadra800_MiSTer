@@ -10,7 +10,9 @@ parser.add_argument('--out',type=Path,required=True)
 parser.add_argument('--require-direct-ea',action='store_true',help='require coverage of source acknowledgement directly entering destination calculation')
 parser.add_argument('--vasm',default='/home/alans/mister/MacQuadra800_fixtures/wombat-vasm/vasmm68k_mot')
 parser.add_argument('--displacement-destination',action='store_true',help='exercise d16(An) destinations instead of indexed destinations')
+parser.add_argument('--simple-destination',type=int,choices=(2,3,4),help='test (An), (An)+ or -(An) destinations')
 args=parser.parse_args()
+if args.simple_destination and args.displacement_destination: parser.error('choose one destination kind')
 d=args.out.resolve();d.mkdir(parents=True,exist_ok=True)
 rtl=r/'rtl/ap68040/rtl';exp=r/'rtl/ap68040/experimental'
 
@@ -28,13 +30,26 @@ for suffix,n in [('b',1),('w',2),('l',4)]:
     ccr=(0x10 if k%2 else 0)+(4 if value==0 else 8 if value&(1<<(n*8-1)) else 0)
     source={2:'(a0)',3:'(a0)+',4:'-(a0)',5:'(4,a0)'}[mode]
     dest_operand=f"({idx*scale+disp},{'a0' if alias else 'a1'})" if args.displacement_destination else f"({disp},{'a0' if alias else 'a1'},d1.l*{scale})"
+    after_a0=after;after_a1=0xc100;guard_lo=0xa5;guard_hi=0x5a
+    if args.simple_destination:
+     dm=args.simple_destination;base=after if alias else 0xc100
+     dest=base-(n if dm==4 else 0)
+     final=base+(n if dm==3 else -n if dm==4 else 0)
+     if alias:after_a0=final
+     else:after_a1=final
+     reg='a0' if alias else 'a1'
+     dest_operand={2:f'({reg})',3:f'({reg})+',4:f'-({reg})'}[dm]
+     # Source initialization follows guards; account for source/guard overlap.
+     raw=value.to_bytes(n,'big')
+     if 0xb040<=dest-1<0xb040+n:guard_lo=raw[dest-1-0xb040]
+     if 0xb040<=dest+n<0xb040+n:guard_hi=raw[dest+n-0xb040]
     asm+=f''' move.w #{k},($f100).l
  movea.l #${start:x},a0
  movea.l #$c100,a1
  move.l #{idx},d1
- move.{suffix} #${value:x},($b040).l
  move.b #$a5,(${dest-1:x}).l
  move.b #$5a,(${dest+n:x}).l
+ move.{suffix} #${value:x},($b040).l
  move.w #${0x271f if k%2 else 0x270f:x},sr
  move.{suffix} {source},{dest_operand}
  move.w sr,d6
@@ -43,13 +58,13 @@ for suffix,n in [('b',1),('w',2),('l',4)]:
  bne failed
  cmpi.{suffix} #${value:x},(${dest:x}).l
  bne failed
- cmpi.b #$a5,(${dest-1:x}).l
+ cmpi.b #${guard_lo:x},(${dest-1:x}).l
  bne failed
- cmpi.b #$5a,(${dest+n:x}).l
+ cmpi.b #${guard_hi:x},(${dest+n:x}).l
  bne failed
- cmpa.l #${after:x},a0
+ cmpa.l #${after_a0:x},a0
  bne failed
- cmpa.l #$c100,a1
+ cmpa.l #${after_a1:x},a1
  bne failed
  cmpi.l #{idx},d1
  bne failed
@@ -84,6 +99,9 @@ endmodule
 if args.displacement_destination:
  monitor=d/'monitor.sv'
  monitor.write_text(monitor.read_text().replace('`C.dst_mode_r==6','`C.dst_mode_r==5').replace('`C.state==`C.S_EA_EXTW2','(`C.state==`C.S_EA_DISP || `C.state==`C.S_IMMF)'))
+if args.simple_destination:
+ monitor=d/'monitor.sv'
+ monitor.write_text(monitor.read_text().replace('`C.dst_mode_r==6',f'`C.dst_mode_r=={args.simple_destination}').replace('`C.state==`C.S_EA_EXTW2','`C.state==`C.S_EA_DISP'))
 units=('ap040_tg68k_compat','ap040_bus16_adapter','ap040_bus_timeout','ap040_alu','ap040_muldiv','ap040_mmu','ap040_cache','ap040_fpu','ap040_walker_cdc','primitives/dpram')
 sources=[r/'rtl/ap68040/tb/tb_ap040_program.v',d/'monitor.sv',args.core.resolve(),rtl/'ap040_regfile.v',exp/'ap040_pipeline_integer.sv',*[rtl/(u+'.v') for u in units]]
 flags=['-DAP040_EXPERIMENTAL_'+x for x in ('XSTORE','LEA','PIPELINE','PIPELINE_LOADS','PIPELINE_STORES','PIPELINE_PEA','PIPELINE_P6')]+['-DAP040_PIPELINE_COMPARE','-DAP040_PIPELINE_MEMORY_ENTRY','-DAP040_PIPELINE_EARLY_DRAIN']

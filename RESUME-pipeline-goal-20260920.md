@@ -1,3 +1,16 @@
+# P104 larger Whet gain: 4.868%, isolated qualification running
+
+Opcodeprofileexec37417done0:57opcodes sums5389204readcycles, exactP102loop/captures.
+2f10memory->stack1148221cycles,2f20predec->stack588037. P104 extends existing
+ack-time destinationEA start to modes2/3/4; skips SDONE/DST, normalEA/rollbackretained.
+UNAPPLIEDscripts/cpu/move_simple_destination_ack.patch, candidate scratch/p104_move_simple_dest_20260920/ap040_core.v.
+Whetexec99321done0:31784029->30236820(-4.868%), capturesmatch, comparisonvalid.
+Predec144valuefixtures3phasesPASSexec83851; runner extended --simple-destination.
+Othermode/baselinevaluechecksLIVEexec78372; integrationLIVEexec75762.
+Needdedicatedsimpledestfault/restart/IRQ beforepromotion; notcoveredbyoldindexedtests.
+P102fitstillactive, freezeRTL/QSF/QIP/SDCthroughwholewrapper. NoMiSTeractions.
+See docs/P104_MOVE_SIMPLE_DESTINATION_20260920.md. Goal1.8unmet.
+
 # Whetstone ordinary operand reads dominate memory costs
 
 New consumer profile completedexit0(exec83220), exact31784029loop/capturesP102.
