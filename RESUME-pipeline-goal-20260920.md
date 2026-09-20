@@ -1,3 +1,20 @@
+# P96 hardware desktop visually reviewed; benchmark evidence not yet valid
+
+Previous turn progressed P98 qualification; this turn verified live jobs and
+reviewed boot/navigation evidence. P97sim screenshot_f500.png now Welcome to
+Macintosh; previous ROM4080A870 loop matches successfulP89boot at180..300Mcycles.
+No reset/restart. Fullguest3190686 and Quartus3193601 remain live.
+Root reviewed hardware_p96devmemread_20260920/boot.png startup and run1_start.png
+Finder desktop. run1_complete.png MUST NOT be counted based on its filename;
+no root-reviewed benchmark completion exists yet. nav_apps.png showed desktop
+Mail icon labelled Applications (possible accidental rename during keyboard
+navigation). Operator notified to stop assuming windows opened, use Speedometer
+alias at411,418 in640x480 and Command Linux56, not simulator PS/2 codes.
+nav_open1.png reviewed: Finder background and empty menu during app transition;
+not benchmark setup/completion. Operator remains sole hardware input owner.
+P96 hardware boot reached desktop; five valid benchmark runs still outstanding.
+All exactP75/P89/P96 approvals valid. Goal unmet; no new accepted score.
+
 # P98 SDRAM and remapped Sieve qualification; P97 early boot reviewed
 
 Previous turn progressed P98 screening and received exact hardware approvals.
