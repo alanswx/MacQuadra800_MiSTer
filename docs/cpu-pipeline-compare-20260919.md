@@ -1274,3 +1274,45 @@ to apply on top of it. Neither is applied while P57's FPGA flow runs. P60
 adds a magnitude comparison and remainder selection; its area/timing costs
 are unknown. Prefer the smaller P59 if the broader path has no measured
 workload benefit or prevents fitting. No hardware result exists for either.
+
+
+P60 full integration is now terminal PASS, including all exception/MMU/cache/
+FPU/MOVEM and precise pipeline load/store/PEA interrupt cancellation/replay
+cases (session57502 exit0, candidate `full.log`). P59 remains the smaller
+qualified choice; P60's additional hardware-workload benefit is unmeasured.
+
+## P57 Quick Sort fetch and operand occupancy
+
+The tracked Quick Sort profiler now emits `FETCH_PROFILE` with `--profile`.
+It counts actual core predicates at each enabled simulation clock; CPU RTL and
+benchmark bytes are unchanged. Output/guard checks pass and total cycle counts
+exactly reproduce the earlier P57 measurements at all three RAM latencies.
+Artifacts are `scratch/qk57fetch/current/run_latency*.log`.
+
+| Predicate / cycles | latency0 | latency3 | latency8 |
+|---|---:|---:|---:|
+| Total | 170,504 | 182,275 | 205,645 |
+| S_FETCH and no ready opcode | 11,905 | 13,886 | 16,638 |
+| Waiting for indexed/PEA extension at decode | 1,295 | 1,295 | 1,295 |
+| Pipeline owns RF, input-ready, no ready opcode | 0 | 0 | 0 |
+| Data transfer not issued, prefetch pending | 3,856 | 4,036 | 4,351 |
+| Data transfer not issued, no prefetch pending | 3,803 | 3,804 | 3,804 |
+| Issued data transfer without acknowledgment | 8,965 | 18,479 | 38,623 |
+| S_PIPE_REGS with ready next opcode | 30,324 | 30,322 | 30,322 |
+| S_PIPE_REGS without ready next opcode | 2,723 | 2,725 | 2,725 |
+
+The module's `in_ready` depends on pipeline capacity, enable and cancellation,
+not on queue validity, so the zero input-ready/empty observation is not a
+validity-gated tautology. It is still limited to this workload and admission
+policy: unsupported instructions and boundaries are separate costs.
+
+S_PIPE_REGS is legacy register-operand ALU retirement, not an instruction-fetch
+wait state. Most of its 33,047 cycles have the next opcode ready. Do not label
+this entire count as stalled time. S_FETCH empty is 7.6% at latency3; even that
+is an occupancy count, not a promise that all those cycles can be removed.
+Counters are not a partition of total cycles and should not be blindly added.
+Operand acknowledgment waits rise substantially with memory latency. These
+results favor investigating actual operand/retirement throughput over another
+unmeasured expansion of speculative fetch, while retaining hardware testing as
+the deciding evidence. They do not establish the bottleneck of Whetstone or the
+complete Mac workload.
