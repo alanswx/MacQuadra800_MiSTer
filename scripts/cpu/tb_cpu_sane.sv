@@ -25,7 +25,7 @@ module tb_cpu_sane;
  reg [31:0] rdata=0;
  reg [15:0] mem[0:32767];
  integer latency=1, waitleft=0, cycles=0, i, j, bytes, done=0;
- integer states[0:255];
+ integer states[0:255]; integer fpu_crossings=0, require_cross=0, fpu_reads=0; reg [7:0] previous_state=0;
  integer lat_count[0:2], lat_total[0:2], lat_start=-1, lat_class;
  integer buffer_hits=0, buffer_saving=0; integer stamp_start=0;
  reg shadow_valid=0; reg [27:0] shadow_tag=0;
@@ -62,6 +62,7 @@ module tb_cpu_sane;
   for(i=0;i<256;i=i+1) states[i]=0;
   for(i=0;i<3;i=i+1) begin lat_count[i]=0;lat_total[i]=0;end
   $readmemh(path,mem);
+  if($value$plusargs("require_cross=%d",require_cross)) begin end
   if($value$plusargs("mmu=%d",mmu_shift)) begin end
   if($value$plusargs("remap=%d",remap)) begin end
   if(mmu_shift!=0 && mmu_shift!=12 && mmu_shift!=13) $fatal(1,"invalid page size");
@@ -81,6 +82,16 @@ module tb_cpu_sane;
   nreset=1;
  end
  always @(posedge clk) if(nreset) begin
+  if(dut.core.state==dut.core.S_MRD && dut.core.d_ack && !dut.core.d_err &&
+     (dut.core.r_m_ret==dut.core.S_FPU_RD || dut.core.r_m_ret==dut.core.S_FPU_MVM3)) begin
+   if(require_cross && fpu_reads<6) $display("FPU_ADDRESS %h",dut.core.m_addr_r);
+   fpu_reads++;
+
+  end
+  if(dut.core.state==dut.core.S_MRD_B && previous_state!=dut.core.S_MRD_B &&
+     (dut.core.r_m_ret==dut.core.S_FPU_RD || dut.core.r_m_ret==dut.core.S_FPU_MVM3) &&
+     dut.core.m_cross) fpu_crossings++;
+  previous_state=dut.core.state;
   cycles=cycles+1; states[dut.core.state]=states[dut.core.state]+1;
   if(fault || halted || (walker_req && mmu_shift==0)) $fatal(1,"unexpected CPU fault/walker/halt pc=%h",dut.core.pc_i);
   if(cycles>100000000) $fatal(1,"timeout pc=%h",dut.core.pc_i);
@@ -134,6 +145,8 @@ module tb_cpu_sane;
       if(remap) for(i=0;i<(1<<mmu_shift)/2;i++) if(mem[('h2000>>1)+i]!==16'hdead) $fatal(1,"translation bypass wrote poisoned page");
       $display("MMU PASS shift=%0d remap=%0d reads=%0d writes=%0d",mmu_shift,remap,walk_reads,walk_writes);
      end
+     if(require_cross && fpu_crossings==0) $fatal(1,"missing FPU page-crossing read");
+     $display("FPU_CROSS reads=%0d",fpu_crossings);
      $finish;
     end
    end

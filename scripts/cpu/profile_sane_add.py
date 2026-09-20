@@ -20,6 +20,7 @@ def main():
     p.add_argument('rom', type=Path)
     p.add_argument('--out', type=Path, required=True)
     p.add_argument('--prepare-only', action='store_true', help='write fixture and identity without compiling or running')
+    p.add_argument('--stack', type=lambda x: int(x, 0), default=0xe000)
     p.add_argument('--mmu', choices=('off', '4k', '8k'), default='off')
     p.add_argument('--core', type=Path)
     p.add_argument('--fpu', type=Path)
@@ -97,6 +98,9 @@ fail:
  dc.l $80000000,0
  dc.w $5aa5
 '''
+    if not 0xc000 <= a.stack < 0xf000 or a.stack & 1:
+        p.error('stack must be word-aligned in C000..EFFF')
+    asm = asm.replace('$e000', f'${a.stack:x}')
     if a.mmu != 'off':
         if not a.prepare_only:
             p.error('--mmu requires --prepare-only; page tables are supplied by the 32-bit bench')
@@ -130,7 +134,7 @@ fail:
                 'program_sha256': hashlib.sha256(program).hexdigest(),
                 'sources': {str(s): hashlib.sha256(s.read_bytes()).hexdigest() for s in sources},
                 'oracle': '100 exact additions of 1 to 2 produce extended 102 = 4005:cc000000:00000000; source/guards/stack/A0/A6 unchanged',
-                'pipeline': False, 'mmu': a.mmu}
+                'pipeline': False, 'mmu': a.mmu, 'stack': hex(a.stack)}
     (out/'identity.json').write_text(json.dumps(identity, indent=2)+'\n')
     if a.prepare_only:
         return

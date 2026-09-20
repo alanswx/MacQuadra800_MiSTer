@@ -1,3 +1,23 @@
+# P99 directed FPU faults and page crossing pass
+
+Added scripts/cpu/fpu_read_faults.py. Baseline/P99 eachpass9cases(all3phases):
+FMOVEpostinc/predec andFMOVEMpostinc faultoneachlongword. Checksformat7,
+PC/faultaddr,A0rollback,FP0preserved,nextinstructionnotexecuted. MMU/cacheoff
+busfaults, NOTtranslationfaults. Evidence scratch/{base,p99}_fpu_faults_20260920.
+Freshassembledexistingt_fpu.s onP99samebench passesall3phases107834/152622/152622,
+full_fpu.log/bin/hex. Shellsession92713 completedexit0 andlogALLTESTSPASSED.
+
+SANE32 --stack0xe088 --require-fpu-crossing withMMU4K/8K+remap passeslat3/8,
+100FPUcrossings each; exactarithmetic+negativecontrolsPASS. Evidence
+scratch/p99_sane_cross{4k,8k}_20260920. InitialmonitorcountedonlynormalMRDacks
+andfalselyfailedcoverage; fixedtoS_MRD_BentrywithFPUreturn+m_cross.
+P99patchstillUNAPPLIED; need broadCPUgates/translationfaultqualification and
+fit/hardware beforepromotion. Small2.6%localgain, nohardwareclaim.
+
+Bothfullmachinejobsverifiedactive. Snapshotlast1.91Bhalfcycles (scheduled
+ramdump8at2.4B); P97profilestillrunning, freshshotrequested, inspectlatest.
+MiSTer unchangedP96safehaltmedian1.211. Goal1.8unmet.
+
 # P99 survives remapped 4 KB and 8 KB MMU screen
 
 Extended SANE32fixture with realsharedRAMwalker and --mmu4k|8k --remap.

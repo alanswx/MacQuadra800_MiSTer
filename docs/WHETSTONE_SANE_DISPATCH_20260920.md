@@ -112,3 +112,30 @@ perform 18 walker reads/8 writes; 8 KB performs 15/7. Evidence directories:
 The gain survives real translation (~2.4–2.6%). These are successful
 within-page accesses, not fault injection or cross-page qualification;
 P99 remains isolated and unapplied pending those checks.
+
+## P99 fault and boundary checks
+
+`fpu_read_faults.py` runs nine directed cases: bus fault at each of the three
+longwords of an extended operand, for FMOVE postincrement, FMOVE predecrement
+and FMOVEM postincrement. The handler checks format-7 frame, instruction PC,
+fault address, unchanged A0 and FP0, and that the following instruction did
+not execute. Baseline and P99 both pass all nine cases in all three existing
+CPU-bench bus phases. These are bus-fault tests with caches/MMU disabled,
+not translation-fault or cross-page-fault injection.
+
+`profile_sane_add32.py --mmu 4k|8k --remap --stack 0xe088 --require-fpu-crossing`
+places a SANE temporary FPU operand at DFFE. P99 passes exact results,
+guards and the subtraction control at latencies 3/8 for both page sizes;
+the monitor requires entry into S_MRD_B with an FPU return state and the
+crossing condition. It records 100 split FPU reads in each run. An initial
+monitor looking only at normal S_MRD acknowledgements incorrectly reported
+zero; it was corrected to observe the actual byte-split path, not weakened.
+
+Evidence: scratch/{base,p99}_fpu_faults_20260920 and
+scratch/p99_sane_cross{4k,8k}_20260920. P99 remains unapplied. These gates do
+not establish full CPU-corpus correctness, fit/timing, or hardware performance.
+
+The existing `rtl/ap68040/tb/asm/t_fpu.s` battery was freshly assembled and
+run on the same P99 bench: all three phases pass (107834/152622/152622 total
+cycles). Logs and binary are in the P99 fault directory under `full_fpu.*`.
+This supplements the new directed tests; it is not the complete CPU suite.
