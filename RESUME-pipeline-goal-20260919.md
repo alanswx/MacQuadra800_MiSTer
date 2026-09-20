@@ -1800,3 +1800,24 @@ cycles per affected memoryMOVE, offset slightly by setup edges. Cache latencycla
 also rises63,080; do not assume fewer sequencer states implies lower totalcycles.
 P30 remains scratch-only, unqualified and not a candidate for promotion as-is.
 Source-fault/extension ordering remains a requirement for any follow-up experiment.
+
+### P30 stall attribution and P31/P32 guard controls
+
+Matched observation-only Bubble profiles underP30 all/ andbase_all/ preserve
+candidate4,140,222/baseline4,077,142 cycles and independent sorted-output checks.
+MemoryMOVE3193 itself always takes63,083ack cycles andzero extra wait/setup.
+Following registerstore3686 changes fromzero prefetch/setup stalls to126,166
+prefetchwait+63,083setup cycles. Cache response wait remainszero for bothstores.
+Launch trace(P30launch_detail/) sees63,083prefetches inS_PIPE_START20,IR3686,
+p_src1,p_dst2,rr_a11,rr_b6,p_sreg6,dstmode2,p_rmw0.
+P31scratch/p31_move_store_guard_20260919 adds simple-register-store S_PIPE_START
+withsettledRF selectors to ea_state onP30. P32sameguard onP26. Results:
+P31Bubble4,140,222unchanged;P32Bubble4,077,142unchanged;bothoutputsPASS.
+P31launch/ confirmsguardDOESremoveall3686prefetch/setupstalls andtargetprefetch
+launches, but S_MRD gains189,249cycles whileS_MWR loses189,249: wait merely
+moves to subsequentread. Thus initial no-total-change result didnotmean guard
+failedtoapply. NeitherP31norP32promoted/fullyqualified. Consider scheduling
+prefetch earlier in safe address-computation slots, not just deferring it.
+P26fit remainsactiveMainPID1640390; live sourceSHAcheckPASS. P18retry hasthree
+completed-run artifacts now; root viewedrun1 normal completionMix1.049,all10
+iteration1. No aggregate accepted yet. BestmedianremainsP13 1.050,goal1.8unmet.
