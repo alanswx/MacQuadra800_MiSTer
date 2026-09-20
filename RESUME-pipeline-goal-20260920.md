@@ -551,3 +551,10 @@ stillloading; no profileyet. Existing sim_speedometer README warns historic
 keyboardsequence previously openedPrinceofPersia and wasrejected. Use live
 screenshots/manualnavigation, notprefixreplay. Appendedwait33Mthen shot tolocal
 controlfile; simulatorremainslive, P70Quartusremainslive.
+
+Simulatornavigation update: screenshotf1685MacAtrium ready, PrinceofPersia
+selected. CmdQ thenEscape with10mssimulatedpress didnotexit or showpersistent
+menu; don'tassumeinputsuccessfromcontrol-log alone. MappingPS2LeftAlt11=Command,
+Q15,Escape76checked; inputps2clockinitial1 andportconnected. Latest appended
+Escapeheld3.3Mclocks(100ms),release,wait16.5M,shot; inspectlatestimage before
+nextinput. No benchmarkprofile started. P70fitter live; P73fullyqualified.
