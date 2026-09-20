@@ -488,3 +488,17 @@ queued post-completion waits; do not treat its total as pure benchmark time.
 Legacy opcode histogram is unsuitable for exact pipeline attribution.
 Timer observer stream still needs final flush/review; no all-ten timer-validity
 claim. Normal guest shutdown and final timer review remain to do.
+
+P89 post-run closure: simulator exited through its `quit` control with
+ExecMainStatus0. This was **not guest shutdown**: Speedometer's save dialog
+remained open; `n` did not activate No. The immutable headless runtime has
+keyboard controls but no mouse-control command; the GUI mouse path is not
+active. Only the disposable run.hda was mounted. Normal guest shutdown is
+not validated by this run and remains a hardware acceptance requirement.
+
+The flushed observer file contains **zero identities/records/start/stop**
+with242,934 contexts, uncapped. Therefore it supplies no independent timer
+validation for this P89 run, despite the visually verified full completion.
+Do not report all timers valid or infer the intended Queens/Sieve coverage
+actually occurred. The profile and screenshot remain usable within their
+reported scope; hardware five-run and timer-validation requirements remain open.

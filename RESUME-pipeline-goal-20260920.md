@@ -1,3 +1,15 @@
+# P89 simulation terminal; profile usable, timer observer captured no identities
+
+SimulatorunitinactiveMainPID0/ExecMainStatus0afterlocalcontrolquit. GuestNOT
+shutdown:Speedometersavepromptremained;headlesscontrolhasnomousecommand,
+'n'noop. Disposable run.hdaonly;donotcountasnormalguestshutdownregression.
+Timerfileflushed:META+SUMMARY records0 identities0 starts0 stops0
+contexts242934 capped0. Noindependenttimervalidation. Capturejsonupdated.
+FullMix1.236visual+profile899212537clocksretained,not hardwareacceptance.
+P94seed23fit3108048active,operatorlastfitter3116923;productionfrozen.
+NextuseprofiletoinvestigateMRD/PIPE_REGS/PIPE_STARTcostsinscratchwhilefitruns.
+HardwareexactP89approvalpending, no transfer. Goal1.8stillunmet.
+
 # P89 full Mix1.236 complete/profile captured; guest shutdown pending
 
 Rootreviewedf7116completiondialog. SimMix1.236vsP67verified1.187(+4.1%).
