@@ -600,3 +600,14 @@ Sent Command-O (11/44,100ms holds), thenwait33M andshot toopen selected disk.
 This command is IN FLIGHT; inspect new screenshot after its final wait before
 sending more keys. No Whetstone profile started. Do not replay old prefix.
 P70fit remains active; no artifactreview/deployment yet. P73qualifiedwaiting.
+
+
+P73 fit launched fromcommit2fa84af, userunitq800-p73devshared-fit-20260920.service,
+wrapperPID2621015. Verifiedlive synthesis, allsourcehashpreflightpassed.
+Freeze buildinputs through wholewrapper. Cheaperoperator running root-reviewed
+P70hardware trial and monitoringP73. P70sys→RAM-.054explicitlyexperimental.
+Simulator folder navigation: f2866 confirmed Applications with Speedometer4.02
+Folder visible. Sent typed'speedometer 4'+CmdO,wait33M,shot; sequenceINFLIGHT.
+Use its new screenshotbefore furtherinput. Target is4.02, notvisible3.23app.
+No actualworkloadprofile yet. Currentlocal simulatorstillP67snapshot/baseline
+ divider, independently of physicalP70/P73experiments.
