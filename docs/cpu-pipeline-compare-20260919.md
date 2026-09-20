@@ -1907,3 +1907,28 @@ or ready for a fit until qualification completes. P76 remains frozen in Quartus.
 P77 qualification completed: full integration exit0, all precise fault,
 interrupt/replay gates pass; first100corpus1900field groups match,0diffs.
 Prepared next-fit wrapper remains unlaunched while P76 occupies Quartus.
+
+
+### P78: extend the read shortcut to d16 sources
+
+Isolated P77 extension, SHA256
+`e2493f18064f04bae36e458d3ebf02af05bf148f1decca5a41f170596464c0d8`,
+unapplied `scripts/cpu/displacement_read_early.patch` relative to P77.
+Launch register-destination source reads from S_EA_D16 with matching hints;
+both d16(An) and d16(PC) use their original address calculation. The already
+inlined resident-extension path is unchanged. No production edit during P76 fit.
+
+Original Matrix MMU8Klat0/3/8:3989767/4021727/4095793, all1600results/inputs/
+guards pass. Compared with P76 this is3.08% fewerlat3cycles; versusP77 the
+increment is1.57%. QuickMMU8Klat3 improves179011→178573 (0.24%); Sieve289371
+unchanged. Evidence scratch/{matrix,quick,sieve}78_mmu8_20260920.
+
+Directed MULS/MULU/DIVS/DIVU faults pass for both address-register and PC-relative
+d16 forms, in three bus/CE phases each. `pipeline_compare_faults.py` accepts
+`--sequencer-read --displacement-read` and optionally `--pc-relative-read`.
+Its monitor withholds epf_ready_pc only during the target's operand dispatch,
+then releases it so S_IMMF consumes the real extension. This forces the
+fallback under test; direct S_MRD entry and architectural exception contents
+are checked. The initial unmodified fixture passed architectural checks but
+failed coverage because it used the pre-existing inline path; do not count
+that initial run as shortcut validation. Fullintegration and corpus pending.

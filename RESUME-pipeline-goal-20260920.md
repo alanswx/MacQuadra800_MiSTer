@@ -1,3 +1,23 @@
+# Latest: P78 displacement-read screen and directed faults pass
+
+Isolated P78 core SHAe2493f18064f04bae36e458d3ebf02af05bf148f1decca5a41f170596464c0d8,
+scratch/p78_displacement_read_20260920/ap040_core.v. PatchrelativeP77 at
+scripts/cpu/displacement_read_early.patch, unapplied. MatrixMMU8Klat0/3/8
+3989767/4021727/4095793 (3.08%fewerlat3cyclesvsP76); Quick178573(-0.24%);
+Sieve289371unchanged. AlloraclesPASS. DirectedAn/PC-relativeMULS/MULU/DIVS/DIVU
+busfaultsPASS3phaseseach, with extension-offer delay to force actual shortcut.
+Initialfaultfixture architecturalchecksPASSbutcoverage0; superseded by
+precise_delayed_extension andprecise_pc_relative results.
+
+Full integration session71144 currentlylive, candidate/full.log, outscratch/p78full.
+Note first command in session wasinitialcoverage-failingfixture; fullgate then
+launched separately on nextshellline. Terminal sessionexit reflects fullgate.
+Corpus session45496live, candidate/corpus.log. Collectbothbeforequalification.
+P77fullyqualified, preparedfitwrapperunlaunched; P76stillsoleliveQuartusflow,
+fitter2769012verified10minelapsed. ProductionP76frozen throughfullarchive.
+HardwareoperatorstillownsMiSTer, lastreviewedP75transferstatusunresolved;
+no newhardwaremeasurements. BesthardwareP70median1.133.
+
 # Latest: P77 full qualification complete; P78 screened next
 
 P77 full integration34258 collectedexit0, full.log endsPASS including all
