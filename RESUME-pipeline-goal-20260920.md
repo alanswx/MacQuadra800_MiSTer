@@ -1,3 +1,18 @@
+# Exact ROM SANE add microbenchmark passes
+
+Added scripts/cpu/profile_sane_add.py. ROM bytes408eaa4c..408eaa92 unchanged,
+100 exact additions 2+100*1=102; verifies all80 resultbits, source, guards,
+SP/A0/A6. FSUB substitution negative control correctly rejected. All3 existing
+CPUbench phases pass, bracket38548/53498/53498clocks. Evidence
+scratch/sane_add_baseline_20260920 includes identity/program/logs. This uses
+16-bit compatibility adapter, caches on, MMU/pipelineoff; NOT Quadra timing.
+Next port exactroutine/oracle to32bit wombat_cpu harness before pickingRTL.
+Phase0 wholefixture MRD/MWR24147/39394clocks; 904portwait. No speedgainclaim.
+LiveP97heartbeatduringWhet hitsROM408eaa74/408ead3e (FPU wrappers).
+LastP97~4.77Bhalfcycles, snapshotguest~970Mhalfcycles; both active. Snapshot
+scheduled2.4Bhalfcycles notyetready. P97alltenprofile started previously;
+no repeatedRunSet. MiSTer unchangedsafehalt, hardwarebestmedian1.211.
+
 # P97 measured Mix started; ROM SANE dispatch resolved
 
 P97 fullguest PID3190686 still active. Root reviewed screenshot_f5188.png:
