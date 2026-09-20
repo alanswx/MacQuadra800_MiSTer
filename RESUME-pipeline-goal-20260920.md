@@ -1,3 +1,30 @@
+# P96 hardware valid run1 STARTED by root; use uinput mouse
+
+Root owns all MiSTer input. Operator confirmed P96 remote artifact
+/media/fat/_Unstable/MacQuadra800_p96devmemread_cc81bea.rbf,4532460bytes,
+local/remote SHAed3b7cf19778e1e8c6c509d41ed9a19ab9daca3e45a73758a9667c93bfd89cf4;
+coreRunningMacQuadra800. Root read slot0 disposable and CFG40000000.
+IMPORTANT mrext mouseMove/mouseBtn returns INVALID. click.sh lock helps
+concurrency but its transport DOES NOT WORK here. Stopped root walker27725
+conclusively(exit143), no overlapping input remains. Existing /tmp/vmouse.py
+matches local scripts/guest/vmouse.py SHA c4d585ca22dd1a124b4a0985a498340d9cfe3ed9e3a62ec0a5c61f114cc37df1.
+SSH python3 /tmp/vmouse.py --step1 --pace.03 home m:300,300 moved pointer
+near490,478; next m:-45,-35 put tip415,418 onSpeedometer alias. dclick opened
+Speedometer; screenshot speedometer_open.png verified. Return28→registration,
+Escape1→NotYet, Linux Command56+B48→actual all-ten setup.
+Root reviewed valid_run1_setup.png: all10 checked, each iteration1.
+Sent Return28 at valid_run1_start_utc.txt (19:37UTC); RUN1 IN PROGRESS.
+Wait at least65wallsec without screenshots/input then grab valid_run1_complete.png,
+review completion+timers. Earlier run1_* are NOT benchmark evidence.
+No valid score yet. Complete5fresh setups/completions, save unique record, shutdown.
+
+P97fit terminal peroperator: source0/cross0/detailed0/build1timing.
+39614ALMs(+133vsP96),482RAM42DSP,CPU-.682/TNS-19.901,
+crosssysRAM+.529/RAMsys+.387; artifactMacQuadra800_p97devqueue4_72bb651.rbf
+SHA557567df22069d32241db2a78c8688816f90337a1c823baeec460e36fbf51947.
+Root still needs inspect archive; do not transfer P97 (no exactapproval yet).
+P97fullguest remains running, MacOS startup f732rootreviewed. Goal unmet.
+
 # Root owns MiSTer input; overlapping mouse walkers fixed
 
 Previous goal turn verified live jobs. Found FOUR live click.sh process trees
