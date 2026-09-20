@@ -1668,3 +1668,20 @@ already have pipeline semantics; current memory-entry policy deliberately
 avoids short register-only sequences. Any broader admission experiment must
 measure entry/drain cost, maintain precise retirement, and beat the current
 legacy lookahead path. No policy change was made or qualified here.
+
+
+## P68 screen: admit register MOVEA with a supported successor
+
+Scratch-only `scratch/p68_movea_entry_20260920/ap040_core.v`, based on P67.
+The memory-entry policy additionally permits `(ir & 16'hf1f0)==16'h2040`
+when pipe_next_supported. No datapath or instruction semantics change.
+Quick latency0/3/8 PASS166502/178273/201656cycles versus P67
+166651/178422/201792: only149/149/136cycles saved (0.084% atlat3).
+Bubblelat3 unchanged3270270, sorted/guardsPASS. Quick pipeline issues rise
+7285→13079 but increased entry/drain work absorbs almost all retirement savings.
+Atlat3 register-state occupancy falls33047→27253 while pipeline ownership grows;
+this illustrates why occupancy alone cannot predict performance gain.
+
+No promotion or FPGA build: gain is too small to prioritize over the current
+larger-refill fit. These kernel checks are a performance screen, not full CPU
+qualification. No full integration/corpus/hardware claim for P68.
