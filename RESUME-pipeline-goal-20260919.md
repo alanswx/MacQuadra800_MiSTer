@@ -2285,3 +2285,18 @@ refill variant remains scratch-only in scratch/p52_refill64_fastflags_20260919.
 Its full integration log ends PASS, prefix oracle passes 26386 patterns, Queens
 passes at 65832 cycles (latency 3). Other logs still need full review and the
 P52 corpus run was not launched. Do not promote/deploy it as qualified.
+
+## 2026-09-20 upstream performance evaluation completed
+
+User authorized running upstream comparisons, with individual imports only if
+worthwhile. New shared responder/oracle bench and three reproducible runners added.
+Original Mac fixture matrix PASS 12/12 at delays 0/3/8. Upstream fails setup;
+common adapted wrappers preserve all kernel bytes and reach original code, where
+all four trap on missing MOVEA forms. Current Mac passes all four final wrappers.
+No upstream kernel speed ratio is valid. Separately instrumented upstream dual
+bench: correctness 16/16 PASS, new pipeline takes 32.21% more cycles in aggregate
+than upstream FSM on its current 16-bit bus paths. Not our Mac baseline and not
+a Speedometer score. No RTL imported or hardware changed. Full findings, exact
+cycles, failure PCs, caveats and reproduction: docs/UPSTREAM_PIPELINE_BENCHMARKS_20260920.md.
+Keep existing CPU direction; upstream rewrite needs ISA/cache integration before
+it can earn a migration recommendation. P52 remains outstanding local work.
