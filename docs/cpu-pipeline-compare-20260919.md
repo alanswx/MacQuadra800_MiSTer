@@ -1704,3 +1704,10 @@ Full integration19078stillactive, through FPUPASS atlastcheck; complete it
 before promotion. Existing standalone24,567-case divider oracle qualification
 is unchanged; this run checks composition with the larger refill/MOVE core.
 No P69 FPGA fit or hardware result. P67production remains frozen during fit.
+
+
+P69 full integration subsequently completed PASS, session19078exit0;
+`scratch/p69full` includes integer/exception/MMU/cache/FPU/MOVEM and precise
+load/store/PEA interrupt/replay cases. Simulation qualification complete;
+FPGA area/timing and hardware benefit remain unmeasured. Prepared next-fit
+wrapper does not authorize overlapping the active P67 Quartus flow.

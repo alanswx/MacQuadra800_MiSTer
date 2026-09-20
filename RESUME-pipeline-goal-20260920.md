@@ -454,3 +454,13 @@ Fullguest simulator verifiedlive PID2547288, +ram default0 maps32MB. Bootshot
 scratch/p67_fullguest_20260920/tree/verilator/screenshot_f333.png shows gray
 startup framebuffer, not desktop; ~300Mhalfcycles after~5minwall. Do not call
 this a boot gate or Whetstone profile yet. Simulatorcontrol appendshot works.
+
+
+P69 final simulation qualification: integration19078collectedexit0, full.log
+endsPASSreal-corepipelineownershipincludinginterrupt/replay. Together with
+Quick/corpusresultsabove and unchangedP59divideroracle, candidate ready for
+separate fit when P67wholewrapperanddetailedSTAterminal. Prepared but NOT
+LAUNCHED scratch/p69devdivide_fit_20260920/run.sh; requires P67core plus
+P59dividerhash1f1df9410c86354d50dd46318d84395d67fc932ac9c1672cb40a9c5014a37a17.
+No productionmutation yet; P67stillactive. Fullguest simulator has advanced
+pastgrayROMscreen intoSCSIdiskactivity, notyetdesktop/profiledworkload.
