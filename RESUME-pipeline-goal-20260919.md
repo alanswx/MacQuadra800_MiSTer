@@ -1676,3 +1676,28 @@ and do not overwrite P18 prefetch change when merging this P13-based candidate.
 P18 fit remains live MainPID1564390, production source freeze unchanged.
 P13 hardware agent active, four completed run screenshots exist; aggregate and
 normal shutdown still pending. Best accepted hardware median1.043;1.8unmet.
+
+### P13 accepted hardware median1.050; P24 qualified and promoted
+
+P13 five validMix1.047/1.050/1.049/1.050/1.050,mean1.0492,median1.050.
+No timer-invalid results. Full table appended to PERFORMANCE_MEASUREMENTS.
+Root viewed run5 completion and final_halt_visible2 explicit safe-switch-off
+screen. Earlier final_halt_visible.png showed Finder and was not accepted as
+halt evidence. Normal quit/save(unique P13cross-record-20260920)/Finder/shutdown.
+Best accepted hardware median now1.050; target1.8 remains unmet.
+P18 fit7eef632 terminal:39,696ALMs,26,346registers,491RAM,43DSP; HDMI-.173ns,
+CPU+.612,SDRAM+.949,worsthold+.213,cross+1.614/+.612. Buildexit1 timingonly,
+sourcecheck/cross exits0; RAM inference retained. Archived RBF4,497,280bytes,
+SHA25606b58fcab57712e6d2bffeab7fcc897ed33bafad8875b525f3c5c5ff6ac931f7.
+Hardware operator assigned marginal P18 trial from verified P13 halt; no release
+claim. Build source freeze ended after terminal archive/cross extraction.
+P24 combines P18 refill guard with P21 BRA continuation. Fullintegration12621
+terminalPASS, silicon1001,900groups0diff(/tmp/cpu-corpus100-gate.b3TsCU), all
+BRA fault/backward/read/IRQ/trace/store tests PASS. Three original kernels:
+Permute1,439,538,Towers25,223,939,Bubble4,077,142,allindependentchecksPASS.
+Production core is semantically identical to qualified P24 scratch (comments and
+whitespace normalized); module byte-identical. Next single fit wrapper/archive
+scratch/p24stackbra_fit_20260919 and serviceq800-p24stackbra-fit-20260919.
+Check service live state before editing RTL. P25 scratch displacement-CMP support
+onP18 baseline gives Bubble4,079,134vs4,077,142(+1,992cycles),PASSvalues but
+no performance gain; not promoted or fully qualified.

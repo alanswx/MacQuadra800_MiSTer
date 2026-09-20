@@ -393,7 +393,7 @@ wire pipe_pea_wait = (state == S_DECODE) &&
     ((PIPE_PEA && (ir & 16'hfff8) == 16'h4870) || pipe_wait_indexed) &&
     !epf_ready_pc && epf_armed &&
     epf_next == pc && pc_i[11:0] != 12'hffe && !epf_err;
-wire pipe_claim = (state == S_DECODE) && pipe_supported && pipe_entry_ok;
+wire pipe_claim = (state == S_DECODE) && pipe_supported && pipe_entry_ok && !(ir[15:12] == 6 && (sr[15] || sr[14]));
 wire pipe_owner = state == S_EXPERIMENT_PIPE;
 wire [2:0] pipe_ext_head = epf_head + (pipe_rf_owner ? 3'd1 : 3'd0);
 // Pipeline fetch ownership spans the memory sequencer and return edge.
@@ -415,6 +415,8 @@ wire pipe_input = (pipe_claim && (!rf_we || PIPE_MEMORY_ENTRY) && !aux_we) ||
      !(pipe_load_active && d_ack && mem_write &&
        (mem_addr_q + 32'd3 >= epf_next) && (mem_addr_q < epf_ftail)) &&
      !irq_pend && !sr[15] && !sr[14]);
+wire pipe_branch_taken = pipe_owner && pipe_retire && pipe_opcode[15:12] == 6 &&
+    pipe_next_pc != pipe_pc + 32'd2;
 wire pipe_cancel = pipe_owner && pipe_retire &&
     (irq_pend || tr_t1 || (tr_t0 && t0_force));
 wire pipe_write = pipe_owner && pipe_retire && pipe_we;
@@ -422,10 +424,10 @@ wire pipe_load_launch = pipe_owner && pipe_load_req && !pipe_load_active;
 ap040_pipeline_integer #(
     .EXTERNAL_STATE(1), .ENABLE_LOADS(PIPE_LOADS), .ENABLE_STORES(PIPE_STORES),
     .ENABLE_PEA(PIPE_PEA), .ENABLE_INDEXLOAD(PIPE_P6), .ENABLE_SHIFTS(PIPE_P6),
-    .ENABLE_DISP_LEA(PIPE_P6), .ENABLE_COMPARE(PIPE_COMPARE)
+    .ENABLE_DISP_LEA(PIPE_P6), .ENABLE_COMPARE(PIPE_COMPARE), .ENABLE_BRANCH(1)
 ) integer_pipeline (
     .clk(clk), .nreset(nreset), .ce(ce), .flush(pipe_load_abort),
-    .kill_younger(pipe_cancel), .idle(pipe_idle), .empty_after_retire(pipe_empty_after_retire),
+    .kill_younger(pipe_cancel || pipe_branch_taken), .idle(pipe_idle), .empty_after_retire(pipe_empty_after_retire),
     .external_dst(pipe_old_dst), .read_old_dst(pipe_old_dst_reg), .external_a(pipe_rdata_a), .external_b(pipe_rdata_b), .external_sp(dbg_a7_wb), .external_ccr(sr[4:0]),
     .read_src(pipe_src), .read_dst(pipe_dst), .in_supported(pipe_supported),
     .next_opcode(epf_data[epf_head]), .next_extension(epf_data[(epf_head + 3'd1) & 3'd7]),
@@ -2400,6 +2402,9 @@ wire [31:0] rgo_dbcc_t    = br_base + sxw(imm[15:0]);
 wire [31:0] rgo_decode_t  = pc + sxb(ir[7:0]);
 wire        rgo_cond      = cond_true(ir[11:8]);
 wire [31:0] go_pc_t_early =
+`ifdef AP040_EXPERIMENTAL_PIPELINE
+    pipe_branch_taken ? pipe_next_pc :
+`endif
     (state == S_MRD && r_m_ret == S_RET2) ? mem_rdata :
 	(state == S_RET2 || state == S_RET3)     ? m_val :
 	(state == S_BCC_EXT)                     ? rgo_bcc_ext_t :
@@ -8104,6 +8109,8 @@ always @(posedge clk) begin
                     // first unexecuted instruction, not the advanced IF PC.
                     pc <= pipe_next_pc;
                     fetch_next;
+                end else if (pipe_branch_taken) begin
+                    go_pc(pipe_next_pc);
                 end else if (pipe_exit_ready && !pipe_input) begin
                     // The last WB may commit on this edge when early drain is
                     // enabled. The next legacy state sees its RF pending-write

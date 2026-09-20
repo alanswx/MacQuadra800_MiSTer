@@ -1564,3 +1564,34 @@ Completion screenshots: `run1_complete.png` through `run5_complete.png`; each sh
 After run 5, the completion dialog was dismissed and Speedometer was quit with `down:56 raw:16 up:56`. The Machine Record save flow created `P12span-record-20260919`; `finder_after_quit2.png` verifies Finder foreground. Finder was then shut down normally. The later `final_halt_visible2.png` visibly shows “It is now safe to switch off your Macintosh.” The HDA descriptor ended at position 50688. MiSTer host PID 20899 and remote service PID 763 remained running; no reload recovery was used.
 
 Root independently viewed run5_complete.png and final_halt_visible2.png. The five-run median1.043 is still below1.8. A/UX remains deferred to Dani; CD/audio regression remains outstanding.
+
+
+## P13 cross-line cache candidate — 2026-09-19
+
+Candidate: `MacQuadra800_p13cross_ef4f71d.rbf`  
+SHA256: `e97fc787dd8d4f6d81acdaf8f39b369de9a88d6cf428441b03104084500679e8`  
+Configuration: authentic 33 MHz, 32 MB, Ethernet on (`CFG 40 00 00 00`).  
+Disk: disposable `QuadSquad8-pipeline-test-20260919.hda`; original QuadSquad8 image remained unmounted and untouched.  
+Timing: CPU +0.757 ns, HDMI +0.135 ns, SDRAM +0.200 ns, hold minimum +0.238 ns; crossings +0.200/+0.757 ns.  
+
+All five runs completed all ten Iteration 1 tests and showed the normal completion screen. No timer-invalid outliers occurred.
+
+| Run | Whetstones/s | Dhrystones/s | Towers | Quick | Bubble | Queens | Puzzle | Permutations | Int Matrix | Sieve | Mix | Approx. wall time |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 830.322 | 12320.271 | .850 | .745 | .794 | .573 | 1.371 | 1.246 | .892 | 1.133 | 1.047 | ~54 s |
+| 2 | 836.069 | 12333.768 | .851 | .741 | .798 | .573 | 1.368 | 1.245 | .889 | 1.129 | 1.050 | ~61 s |
+| 3 | 834.891 | 12327.002 | .850 | .743 | .797 | .575 | 1.367 | 1.245 | .884 | 1.134 | 1.049 | ~60 s |
+| 4 | 836.091 | 12332.159 | .850 | .744 | .794 | .574 | 1.364 | 1.246 | .885 | 1.131 | 1.050 | ~60 s |
+| 5 | 836.079 | 12309.995 | .851 | .741 | .795 | .574 | 1.362 | 1.249 | .881 | 1.134 | 1.050 | ~60 s |
+
+Mix mean: 1.0492; median: 1.050; range: 1.047–1.050.
+
+Evidence screenshots: `run1_complete.png` through `run5_complete2.png` (run 5 refreshed capture; `run5_complete.png` is retained). No screenshots were taken during timed intervals.
+
+## Shutdown
+
+Speedometer was quit through Command-Q after dismissing the completion dialog. The Machine Record save flow was completed with unique record name `P13cross-record-20260920`, then Finder was verified. The first local vmouse path was unavailable; the documented remote command was then used successfully:
+
+`ssh root@mister.local 'python3 /media/fat/Scripts/q800tools/vmouse.py home m:111,-10 0.5 down 0.8 m:13,66 6 up'`
+
+`final_halt_visible2.png` visibly reads “It is now safe to switch off your Macintosh.” `shutdown_early2.png` and `final_halt_visible2.png` are the shutdown evidence. The MiSTer Main process and remote input service were left running; the guest is at the safe halt screen.

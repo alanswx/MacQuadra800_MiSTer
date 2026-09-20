@@ -327,6 +327,10 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # 2026-09-19 P13 cross-line cache admission (ef4f71d): timing met,
 # 39,772 ALMs; CPU +0.757, HDMI +0.135, SDRAM +0.200 ns;
 # worst hold +0.238, sys->ram +0.200 and ram->sys +0.757 ns.
+# 2026-09-19 P18 stack prefetch (7eef632), seed 21: 39,696 ALMs;
+# HDMI -0.173 ns (TNS -1.362), CPU +0.612, SDRAM +0.949 ns;
+# hold +0.213, sys->ram +1.614, ram->sys +0.612 ns. Marginal trial,
+# not release timing. Archived before next fit.
 set_global_assignment -name SEED 21
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #

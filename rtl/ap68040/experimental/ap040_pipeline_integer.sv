@@ -10,7 +10,8 @@ module ap040_pipeline_integer #(
     parameter ENABLE_INDEXLOAD = 0,
     parameter ENABLE_SHIFTS = 0,
     parameter ENABLE_DISP_LEA = 0,
-    parameter ENABLE_COMPARE = 0
+    parameter ENABLE_COMPARE = 0,
+    parameter ENABLE_BRANCH = 0
 ) (
     input wire clk, nreset, ce, flush,
     // Cancel ID/EX while allowing an accepting WB to commit. A blocked WB
@@ -89,6 +90,23 @@ module ap040_pipeline_integer #(
     assign load_opcode = load_pending ? load_opcode_r : ex_opcode;
     assign retire_fault = wb_fault;
     assign retire_fault_addr = wb_fault_addr;
+    function automatic is_short_branch(input [15:0] word);
+        is_short_branch = ENABLE_BRANCH && word[15:12] == 6 &&
+            word[11:8] == 0 && word[7:0] != 0 && !word[0];
+    endfunction
+    function automatic branch_condition(input [3:0] cc,input [4:0] f);
+        case(cc)
+        0:branch_condition=1; 1:branch_condition=0;
+        2:branch_condition=!f[0]&&!f[2]; 3:branch_condition=f[0]||f[2];
+        4:branch_condition=!f[0]; 5:branch_condition=f[0];
+        6:branch_condition=!f[2]; 7:branch_condition=f[2];
+        8:branch_condition=!f[1]; 9:branch_condition=f[1];
+        10:branch_condition=!f[3]; 11:branch_condition=f[3];
+        12:branch_condition=f[3]==f[1]; 13:branch_condition=f[3]!=f[1];
+        14:branch_condition=!f[2]&&(f[3]==f[1]);
+        default:branch_condition=f[2]||(f[3]!=f[1]);
+        endcase
+    endfunction
     function automatic is_disp_lea(input [15:0] word);
         is_disp_lea = ENABLE_DISP_LEA && (word & 16'hf1f8) == 16'h41e8;
     endfunction
@@ -147,7 +165,9 @@ module ap040_pipeline_integer #(
             operation = `AP040_ALU_MOVE; size = `AP040_SZ_L;
             source = {1'b0, word[2:0]}; destination = {1'b0, word[11:9]};
             literal = {{24{word[7]}}, word[7:0]};
-            if (is_indexcmp(word) || is_indextst(word)) begin
+            if (is_short_branch(word)) begin
+                legal = 1; writeback = 0; flags = 0;
+            end else if (is_indexcmp(word) || is_indextst(word)) begin
                 legal = 1; writeback = 0; flags = 1; size = word[7:6];
                 source = {1'b1, word[2:0]}; destination = {1'b0, word[11:9]};
                 operation = is_indexcmp(word) ? `AP040_ALU_CMP : `AP040_ALU_TST;
@@ -396,7 +416,10 @@ module ap040_pipeline_integer #(
                 if (wb_ready) begin
                     wb_v <= ex_v && ex_complete;
                     if (ex_v && ex_complete) begin
-                        wb_pc <= ex_pc; wb_next_pc <= ex_next_pc; wb_opcode <= ex_opcode;
+                        wb_pc <= ex_pc;
+                        wb_next_pc <= is_short_branch(ex_opcode) && branch_condition(ex_opcode[11:8],flags_in)
+                            ? ex_pc + 32'd2 + {{24{ex_opcode[7]}},ex_opcode[7:0]} : ex_next_pc;
+                        wb_opcode <= ex_opcode;
                         wb_fault <= ex_load && (load_done ? load_error : load_fault);
                         wb_fault_addr <= load_addr;
                         wb_dst <= ex_dst; wb_we <= ex_we; wb_data <= ex_store ? store_update : (ex_load && ex_dst[3]) ? ((ex_size == `AP040_SZ_W) ? {{16{src[15]}}, src[15:0]} : src) : merged;
