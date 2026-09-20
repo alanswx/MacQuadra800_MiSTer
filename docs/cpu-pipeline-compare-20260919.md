@@ -866,3 +866,19 @@ coverage. BaselineP36 passesvalues withzero fasttransitions. Signextensionmutati
 bad_sign.vfailsactualfixture42 inall3phases, provingarchitecturaloraclesensitivity.
 P37fullgateongoing session6589; unpromotedpendingcompletion+silicon100.
 P33fit stillactiveMainPID1680006; quartus_fit1689128 consumingCPU, sourcefreeze.
+
+
+P37 qualification complete in scratch: fullintegration terminalPASS; silicon100
+1900groups0diffs /tmp/cpu-corpus100-gate.1PdvSK. ExpandedrefillMOVEfixture now101
+cases including5DBRAupdates-to-MOVE-source cases; allpass across3busphases and
+everycasehitsfastpath (603directtransitions). BaselineP36passesextendedfixture
+with0directtransitions. Reusable read-completion IRQ gate alsoPASS3injections/
+3cancels onP37. P37readyforpromotionafterP33fit ends, subjectto finalsourceaudit;
+copy core,module and updatedhandoffmonitor fromscratch/P37. Core/module include
+P36changes; do not promote onlythecorewitholdmodule/monitor. No hardwareclaim.
+P38scratch/p38_refill_quick_20260919 addsregisterADDQ/SUBQresidenttargetdecode;
+Bubble3,887,632unchanged vsP37, outputPASS. Notpromoted/notfullyqualified.
+P33fit liveMainPID1680006; exactsourceSHAcheckPASS, archive/live_source_check.log.
+No RTL/QSF/QIP/SDC edits until terminalwrapperincludingcross/archive. P26accepted
+bestfive-runmedian1.078; goal1.8unmet. Hardwareoperator repairingP24/P18missing
+runs; P33hardwaretrial canqueueonceitsarchivefullyverified.

@@ -28,6 +28,13 @@ for size,bits in [('b',8),('w',16),('l',32)]:
    initdst='movea.l' if dst>=8 else 'move.l';initsrc='movea.l' if src>=8 else 'move.l'
    compare='cmpa.l' if dst>=8 else 'cmpi.l'
    asm+=f" move.w #{k},($f100).l\n {initdst} #$a5a55a5a,{reg(dst)}\n {initsrc} #${value:08x},{reg(src)}\n moveq #3,{reg(counter)}\n move.w #$271b,sr\n bra.w target{k}\n cnop 0,32\ntarget{k}:\n move.{size} {reg(src)},{reg(dst)}\n move.w sr,($c802).l\n nop\n nop\n dbra {reg(counter)},target{k}\n {compare} #${result:08x},{reg(dst)}\n bne failed\n cmpi.w #${0x2700|flags:04x},($c802).l\n bne failed\n"
+# DBRA updates D0 on the same edge that dispatches its resident target.
+# The target MOVE must observe that decrement through the pending-write bypass.
+for size,bits,dst in [('b',8,1),('w',16,1),('l',32,1),('w',16,8),('l',32,8)]:
+ k+=1;result=(0xa5a55a5a & ~((1<<bits)-1)) if dst<8 else 0
+ flags=0x14 if dst<8 else 0x1b
+ initdst='movea.l' if dst>=8 else 'move.l';compare='cmpa.l' if dst>=8 else 'cmpi.l'
+ asm+=f" move.w #{k},($f100).l\n {initdst} #$a5a55a5a,{reg(dst)}\n moveq #3,d0\n move.w #$271b,sr\n bra.w target{k}\n cnop 0,32\ntarget{k}:\n move.{size} d0,{reg(dst)}\n move.w sr,($c802).l\n nop\n nop\n dbra d0,target{k}\n {compare} #${result:08x},{reg(dst)}\n bne failed\n cmpi.w #${0x2700|flags:04x},($c802).l\n bne failed\n"
 asm+=' move.w #$600d,($f102).l\n stop #$2700\nfailed:\n move.w #$bad0,($f102).l\n stop #$2700\n'
 (d/'test.s').write_text(asm)
 run([args.vasm,'-Fbin','-m68040','-no-opt','-o',d/'test.bin',d/'test.s'],'asm.log')
