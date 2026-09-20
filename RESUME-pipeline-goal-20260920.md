@@ -1,3 +1,15 @@
+# P96 early memmove reads gain1.29%Quick; P94seed23timingworse
+
+P96scratchcore+unappliedscripts/cpu/memmove_early_read.patch;Quick176265
+vs178573,Matrix2872453/Bubble3394944unchanged,oraclesPASS.
+144memmovevaluefixtures×3phasesPASS432acks315directEA;faultsession48727
+collectterminal. Fullqualificationnotyetstarted;productionunchanged.
+P94wrapperterminalbuild1/source0/cross0;39543ALMCPU-2.117/TNS-158.712,
+HDMI+.289SDRAM+.178. OperatorassigneddetailedCPU STAandarchivereview.
+ProductionFROZENuntilterminal;thenrestoreseed22 (betterP90-.140).
+P89fullguestterminalMix1.236,profileavailable,timercapture0identities,
+guestshutdownunvalidated. Hardwareexactapprovalpending,nohardwaretransfer.
+
 # P95 startup bypass rejected after unchanged cycles
 
 P95scratchSK_REG/DK_REGEK_ALUearlyretirewhenbothreadportindicesmatch.

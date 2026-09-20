@@ -518,3 +518,22 @@ it is not solely pipeline setup or register-seeding overhead. Its12.71%
 share cannot be treated as removable startup cost. S_PIPE_START's7.04%
 includes source/destination memory address setup. Inspect actual transitions
 and measure each proposed bypass before attributing savings to these states.
+
+
+P96 extends indexed/d16 source early-read eligibility from register destinations
+to ordinary memory-to-memory MOVE (EK_ALU/MOVE, no RMW); destination register
+selection is changed only for register destinations. Existing source fault and
+destination sequencing remain. Unapplied patch `scripts/cpu/memmove_early_read.patch`
+is relative to P78 core; scratch `p96_memmove_early_read_20260920`.
+Quick8KB latency3:178573→176265 (-2308 cycles,1.29%); Matrix8KB2872453 and
+Bubble MMUoff3394944 unchanged. Independent results/guards pass. Directed
+144 memory-MOVE fixtures across3bus/CE phases pass:432 acknowledgements,
+315direct-EA transitions. Fault qualification started; full qualification,
+FPGA timing and hardware improvement remain unproven. Initial scratch-generation
+assertion failed on indentation before source creation; screening launched only
+successfully after correcting generation. No production change.
+
+P94 placement-only seed23 completed:39543ALMs94%,CPU-2.117/TNS-158.712,
+HDMI+.289,SDRAM+.178; build1/source0/cross0. Worse than identical P90 RTL
+seed22's-.140 CPU. Detailed STA/archive review pending; restore seed22 after
+it completes. No hardware deployment or timing improvement claim.
