@@ -1,3 +1,19 @@
+# P98 SDRAM and remapped Sieve qualification; P97 early boot reviewed
+
+Previous turn progressed P98 screening and received exact hardware approvals.
+This turn P98 memory gate37105exit0: currentP97 baseline and eagerP98 candidate
+both POSTED0/1 PASS64sequential+2048mixed operations, zero SDRAM errors.
+Evidence scratch/p98_memory_gate_20260920 (baseline is nowP97, NOT two-entry).
+RemappedSieve91270exit0: lat3/8 P98286813/375226 vsP97286818/375292;
+all independent prime/guard/remap oracles PASS. Gains negligible, Quick~.25%.
+Preserved unapplied scripts/cpu/store_queue_eager_drain.patch relativeP97;
+no production change during activeP97 fit. Not promoted/fullguest-qualified.
+P97 fullguest screenshot_f268.png visually reviewed: early gray Mac screen;
+heartbeat230Mcycles/PC4080A870, no desktop yet. Service3190686 confirmedactive.
+P97fit3193601 confirmedactive, sourcefrozen. Operator requested concrete hardware
+update; P96 prioritized, exactP75/P89/P96 approvals remain valid. No root hardware
+input and no new reviewed hardware scores. Goal remains unmet.
+
 # Exact P75/P89/P96 hardware approvals received; P96 prioritized
 
 User explicitly approved each quoted exact artifact/destination/testing request:

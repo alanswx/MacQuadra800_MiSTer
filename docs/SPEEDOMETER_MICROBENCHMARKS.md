@@ -608,3 +608,15 @@ All prime flags, guards and remap checks pass. No lower-latency gain; latency8
 saves1240cycles (0.329%). Full guest simulation launched in
 scratch/p97_fullguest_20260920 from b9cbe96 archive plus exact candidate queue;
 identity.json records core/MMU/pipeline/queue hashes. Results pending.
+
+
+P98 eager queue drain is an isolated one-condition change relative to P97:
+start an idle drain on the capture edge when push is true. Preserved unapplied
+as scripts/cpu/store_queue_eager_drain.patch. Quick latency3/8 cycles169885/189310
+versus P97170343/189778; Matrix2848462 versus2848468; remapped Sieve286813/375226
+versus286818/375292. All numerical oracles pass. Real SDRAM gate passes P97/P98
+with both acknowledgement modes, zero data or chip protocol errors. Directed
+queue checks pass; deterministic occupancy1..3 preamble was needed to cover all
+simultaneous enqueue/drain cases (random-only P98 lacked occupancy1 coverage).
+Scratch/p98_eager_queue_20260920/tb_posted_directed.sv passes1186writes.
+Not promoted, fitted, fullguest-qualified or hardware-tested.
