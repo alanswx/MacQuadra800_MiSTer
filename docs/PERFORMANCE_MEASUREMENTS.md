@@ -1676,3 +1676,24 @@ Mix mean 1.0822; median 1.083; range 1.078–1.085. Start screenshots: `run1_sta
 Normal Cmd-Q/save completed with unique record `P33move-record-20260920`. `final_halt2.png` visibly confirms “It is now safe to switch off your Macintosh.” Main and remote input services were left running; original disk remained untouched.
 
 Root visually verified all five completion screenshots, each with the completion dialog, and `final_halt2.png`. Median improves from P26 1.078 to 1.083 (0.46%). The 1.8 target remains unmet.
+
+
+## P39 64-byte refill: verified marginal hardware trial
+
+Artifact `MacQuadra800_p39refill64_26b644c.rbf`, SHA256 `b5c7c63cd425a4c4ff18b34705c0e43bce0ca0fbdf0d80217424dbde23bb8c92`. Authentic 33MHz/32MB/Ethernet (`CFG 40 00 00 00`); disposable disk only, original untouched. **Marginal/non-release timing:** CPU -3.701ns (TNS -655.169), HDMI +0.088ns, SDRAM +0.203ns, hold +0.247ns, crossings sys→ram +0.203ns / ram→sys +0.326ns.
+
+Despite the CPU timing miss, P39 booted responsively and completed five independently started Benchmark Mix Iteration 1 runs. Each run had a distinct captured Run Set dialog, Return start, and new “The tests are done!” completion screen. No timer anomalies, display instability, or guest correctness symptoms were observed.
+
+|Run|Whetstones/s|Dhrystones/s|Towers|Quick|Bubble|Queens|Puzzle|Permutations|Int Matrix|Sieve|Mix|
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+|1|858.835|12521.540|.823|.668|.767|.564|1.192|1.206|.797|1.117|1.102|
+|2|862.207|12530.985|.821|.667|.769|.565|1.190|1.209|.798|1.113|1.104|
+|3|865.016|12524.770|.821|.666|.768|.565|1.184|1.206|.794|1.116|1.106|
+|4|866.916|12498.678|.821|.666|.768|.564|1.191|1.208|.794|1.115|1.106|
+|5|866.947|12498.203|.821|.666|.768|.565|1.191|1.207|.794|1.119|1.105|
+
+Mix mean 1.1046; median 1.105; range 1.102–1.106. Start evidence: `run1_start.png`–`run5_start.png`; completion evidence: `run1_complete.png`–`run5_complete.png`.
+
+Normal Cmd-Q/save completed with unique record `P39refill64-record-20260920`. `final_halt2.png` visibly confirms “It is now safe to switch off your Macintosh.” Main and remote input services remained running; original disk remained untouched.
+
+Root reviewed all five completion images, run2_start.png and final_halt2.png. Median gain over P33 is 2.03%. Timing numbers above were corrected against the P39 archive; the operator report initially carried P18 hold/crossing values. This is an experimental result with failed CPU timing, not a release qualification.

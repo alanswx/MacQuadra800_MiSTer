@@ -2231,3 +2231,41 @@ P47fit launched oncommitted/pushed406a098. Service
 q800-p47fastflags-fit-20260919.service active/runningMainPID1852467.
 Archivewrapper scratch/p47fastflags_fit_20260919/run.sh. ProductionRTL/QSF/
 QIP/SDC frozen untilwrapperterminal includingcrossreports/archive. Oneflowonly.
+
+### P39 hardware accepted; branch experiments and broader profiling
+
+P39hardwaremedian1.105,mean1.1046,validMix1.102/1.104/1.106/1.106/1.105.
+Root viewed allfive completionimages(eachnewcompletionmodal), run2_start(all10
+iteration1), andfinal_halt2.png(explicitsafehalt). Report/evidencefolder
+scratch/hardware_p39refill64_20260919. FulltableinPERFORMANCE_MEASUREMENTS.
+Normalquit/saveuniqueP39refill64-record-20260920. No reportedtimeranomalies or
+instability. StillCPUtiming-3.701ns,NOTrelease-ready. Operatoridleatsafehalt.
+Report initiallycopiedP18hold/crossvalues; rootcorrectedtoactualP39hold+.247,
+sys->ram+.203,ram->sys+.326 andnotifiedoperator. Benchmarktablematchesimages.
+Bestexperimentalhardwaremediannow1.105; besttiming-cleanP33median1.083.
+
+P48 scratch/p48_word_branch_20260919 adds optional pipelineBcc.W/BRA.W(excludes
+BSR), requiresresident evenextension, four-bytefallthrough andcorrectwordtarget.
+Queensoutput/guardsPASSbut68677cycles vsP47 65775: regression4.41%, no promotion.
+P49 scratch/p49_branch_refill_20260919 routes its takenbranch throughfinish_bcc
+ratherthan go_pc so residenttargetdispatch is available. Queensstill68677PASS.
+Neithercandidate is correctness-qualified; do notpromote for extra pipeline
+activity (issues7862 vsP47 3004) without measuredspeedup.
+
+Located embeddedPascaldebugnames in originalCODE3: WStone name0837(entry0008),
+sp3 name092d(entry0840), spa name0b4f(entry0932); DStone name0dcb(entry0bca),
+Proc1 name0e5f(entry0dd4), Proc2 name0e8f(entry0e66), Proc3 name0ecd(entry0e96),
+Proc4 name0ef9(entry0ed4), Proc5 name0f13(entry0f00), Proc6 name0f85(entry0f1a),
+Proc7 name0fa7(entry0f8c), Proc8 name1041(entry0fae), Func1 name1063(entry1048),
+Func2 name10df(entry106a), Func3 name10ff(entry10e6).
+DStone timedloop0cb0..0da3; loopcontrol0da4..0db1. Its setupincludes Macmemory
+allocation andtimers, andloophelperscall externalstring routinesat40/48.
+WStone repeatedlycalls A9EBtrap plusexternalmathentry placeholders50/58/60/
+68/70/78 andlocalsp3/spa. Needresolveoriginal library/trapworkbefore a faithful
+whole-Whetstone profile; don't assumehardwareFPUinstruction cost is dominant.
+Rawresource CODE segments verified: CODE1offset55463,sizeb3b6; CODE2offset61255,
+size122e; CODE3offset6250f,size993c; CODE4offset6c687,size7bb8; CODE5offset7466b,
+size882; CODE6offset74f09,size1476. Offsetsare rawresource, notAppleDouble(+82).
+Use numericaddressfiltersonCODE3.dis: sedrange endingatnonexistentaddress once
+printedremainder; noartifactchangeorconclusionfromthat truncatedoutput.
+P47fit remainsactiveMainPID1852467; productionfreezecontinues.
