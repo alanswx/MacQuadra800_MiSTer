@@ -838,7 +838,7 @@ reg        epf_pend_seed;         // ... the outstanding fetch is a redirect's o
 reg        brf_seed_ok;           // the last acknowledged fetch was a redirect's
 reg  [3:0] brf_seed_n;            // words the last redirect seeded from the buffer
 reg        brf_seed_req;          // seed the queue from the buffer this cycle (one shared block)
-reg  [5:0] brf_seed_a;            // ... starting at this sector word
+reg  [4:0] brf_seed_a;            // ... starting at this sector word
 // The cache identifies its offered line physically; the queue and the
 // refill buffer are logical.  Record the logical line and context of every
 // acknowledged instruction fetch: the offer that follows is that line.
@@ -848,25 +848,25 @@ reg        iline_super;
 // Small instruction branch-refill buffer.  The main queue is forward-only:
 // a taken backwards branch otherwise discards its words and pays another
 // cache/MMU handshake even when a tight loop was fetched only moments ago.
-// One 128-byte sector retains recently completed instruction fetches and can
+// One 64-byte sector retains recently completed instruction fetches and can
 // seed up to four contiguous words at a redirect target.  A shared tag keeps
 // both the loop target and modest forward prefetch resident without the cost
 // of two independent tag comparators.  It is tagged by logical address and
 // supervisor context, and every
 // architectural queue flush (exception, CINV, PFLUSH, MOVEC, context change)
 // invalidates them.  Ordinary control-flow redirects deliberately do not.
-reg [31:0] brf_data [0:31];
-reg [24:0] brf_tag;
+reg [31:0] brf_data [0:15];
+reg [25:0] brf_tag;
 reg        brf_super;
-reg [63:0] brf_valid;
+reg [31:0] brf_valid;
 // The sector's valid-run lengths: from each word to the sector's end,
 // capped at the queue's eight, from the registered valid bits alone.
 // Every redirect site's refill test (four words from the target) and
-// seed count (up to eight) are then one 64-way mux on the target's
+// seed count (up to eight) are then one 32-way mux on the target's
 // sector word, where each site used to select and count the valid bits
 // in an eight-step chain from the target -- the tail of the
 // flags -> carrier -> refill seed -> epf_ftail path.  (2026-09-18)
-reg  [3:0] brf_run [0:63];
+reg  [3:0] brf_run [0:31];
 function [3:0] brf_prefix8;
     input [7:0] valid_words;
     begin
@@ -886,7 +886,7 @@ function [3:0] brf_prefix8;
 endfunction
 integer brf_ri;
 always @* begin
-    for (brf_ri = 0; brf_ri < 64; brf_ri = brf_ri + 1)
+    for (brf_ri = 0; brf_ri < 32; brf_ri = brf_ri + 1)
         brf_run[brf_ri] = brf_prefix8(brf_valid >> brf_ri);
 end
 
@@ -1737,8 +1737,8 @@ task issue_ifetch;
 	input        s;
 	reg line_hit, refill_hit;
 	begin
-		line_hit = brf_tag == a[31:7] && brf_super == s;
-		refill_hit = line_hit && (brf_run[a[6:1]] >= 4'd4);
+		line_hit = brf_tag == a[31:6] && brf_super == s;
+		refill_hit = line_hit && (brf_run[a[5:1]] >= 4'd4);
 		if (epf_armed && epf_next == a && epf_super == s) begin
 			// the stream already runs here: nothing to do
 			// A drained branch-refill stream reached its fall-through path;
@@ -1767,9 +1767,9 @@ task issue_ifetch;
 				// eight 16-way word muxes doubled the core's logic).  The
 				// count is the sector's valid run from the target (brf_run).
 				epf_brf <= 1;
-				brf_seed_n = brf_run[a[6:1]];
+				brf_seed_n = brf_run[a[5:1]];
 				brf_seed_req = 1;
-				brf_seed_a   = a[6:1];
+				brf_seed_a   = a[5:1];
 				epf_count <= brf_seed_n;
 				epf_fill  <= brf_seed_n[2:0];
 				epf_ftail <= a + {27'd0, brf_seed_n, 1'b0};
@@ -3051,8 +3051,8 @@ task decode_dbcc_brf_now;
 	input [31:0] a;
 	reg  [15:0] fw;
 	begin
-		fw = a[1] ? brf_data[a[6:2]][15:0]
-		          : brf_data[a[6:2]][31:16];
+		fw = a[1] ? brf_data[a[5:2]][15:0]
+		          : brf_data[a[5:2]][31:16];
 		issue_ifetch(a, sr_s);
 		epf_head  <= 3'd1;
 		epf_count <= brf_seed_n - 4'd1;
@@ -3232,8 +3232,8 @@ endtask
 function brf_refill_hit;
 	input [31:0] a;
 	begin
-		brf_refill_hit = (brf_tag == a[31:7]) && (brf_super == sr_s) &&
-		                 (brf_run[a[6:1]] >= 4'd4);
+		brf_refill_hit = (brf_tag == a[31:6]) && (brf_super == sr_s) &&
+		                 (brf_run[a[5:1]] >= 4'd4);
 	end
 endfunction
 
@@ -3297,8 +3297,9 @@ wire        hint_data = (state == S_MRD) && !m_issued;
 // acknowledge as before.  (2026-09-19)
 wire        hint_st_exec  = (state == S_EXEC) && (p_dst == DK_MEM);
 wire        hint_st_move_ea = (state == S_PIPE_DEA) && !p_rmw &&
-    exec_kind == EK_ALU && alu_op == `AP040_ALU_MOVE &&
-    p_dst == DK_MEM && !p_wbsup && p_src == SK_MEM;
+    exec_kind == EK_ALU && p_dst == DK_MEM && !p_wbsup &&
+    ((alu_op == `AP040_ALU_MOVE && p_src == SK_MEM) ||
+     alu_op == `AP040_ALU_CLR);
 wire        hint_st_pushf = ((state == S_DECODE) && (ir[15:8] == 8'h61) &&
                              (ir[7:0] != 8'h00) && (ir[7:0] != 8'hFF)) ||
                             ((state == S_BCC_EXT) && (ir[11:8] == 4'h1)) ||
@@ -4725,7 +4726,7 @@ always @(posedge clk) begin
 	mgo = 0; mgo_wr = 0; mgo_sz = 2'd0; mgo_ret = 8'd0; mgo_a = 32'd0; mgo_d = 32'd0;
 	brf_seed_n  = 4'd0;
 	brf_seed_req = 0;
-	brf_seed_a  = 6'd0;
+	brf_seed_a  = 5'd0;
 
 	if (!nreset) begin
 		state <= S_START;
@@ -4907,15 +4908,15 @@ always @(posedge clk) begin
 				epf_fillw = n;
 				epf_issue = 1;
 			end
-			if ((brf_tag == iline_log[31:7] && brf_super == epf_super) ||
+			if ((brf_tag == iline_log[31:6] && brf_super == epf_super) ||
 			    brf_seed_ok) begin
 				for (i = 0; i < 4; i = i + 1)
-					brf_data[{iline_log[6:4], i[1:0]}] <= mem_line_data[(127 - 32 * i) -: 32];
-				if (brf_tag == iline_log[31:7] && brf_super == epf_super)
-					brf_valid <= brf_valid | (64'h00000000000000FF << {iline_log[6:4], 3'd0});
+					brf_data[{iline_log[5:4], i[1:0]}] <= mem_line_data[(127 - 32 * i) -: 32];
+				if (brf_tag == iline_log[31:6] && brf_super == epf_super)
+					brf_valid <= brf_valid | (32'h000000FF << {iline_log[5:4], 3'd0});
 				else
-					brf_valid <= 64'h00000000000000FF << {iline_log[6:4], 3'd0};
-				brf_tag <= iline_log[31:7];
+					brf_valid <= 32'h000000FF << {iline_log[5:4], 3'd0};
+				brf_tag <= iline_log[31:6];
 				brf_super <= epf_super;
 			end
 		end
@@ -4937,7 +4938,7 @@ always @(posedge clk) begin
 		// redirect's sector), so a CPU write into that sector invalidates
 		// it directly: the same stale-prefetch hazard, one buffer further.
 		if (d_ack && mem_write &&
-		    ((mem_addr_q[31:7] == brf_tag) || ((mem_addr_q + 32'd3) >> 7 == brf_tag)))
+		    ((mem_addr_q[31:6] == brf_tag) || ((mem_addr_q + 32'd3) >> 6 == brf_tag)))
 			brf_valid <= 0;
 
 		case (state)
@@ -5627,10 +5628,11 @@ always @(posedge clk) begin
 			S_PIPE_DEA: begin
 				dst_addr <= ea_addr;
 				if (p_rmw) mrd(ea_addr, p_dsize, S_PIPE_DDONE);
-                else if (exec_kind == EK_ALU && alu_op == `AP040_ALU_MOVE &&
-                         p_dst == DK_MEM && !p_wbsup && p_src == SK_MEM) begin
-                    // The successful source read and destination EA are complete.
-                    // MOVE needs no destination operand; reuse the ordinary ALU
+                else if (exec_kind == EK_ALU && p_dst == DK_MEM && !p_wbsup &&
+                         ((alu_op == `AP040_ALU_MOVE && p_src == SK_MEM) ||
+                          alu_op == `AP040_ALU_CLR)) begin
+                    // Required source access and destination EA are complete.
+                    // MOVE and CLR need no destination operand; reuse the ordinary ALU
                     // flags and ordered write path one state earlier.
                     if (p_flags) sr[4:0] <= alu_fl;
                     mwr(ea_addr, p_dsize, alu_res, S_NEXT);
@@ -6279,8 +6281,8 @@ always @(posedge clk) begin
 				reg [15:0] w;
 				reg refill_hit;
 				tgt = br_base + sxw(imm[15:0]);
-				refill_hit = brf_tag == tgt[31:7] && brf_super == sr_s &&
-				             (brf_run[tgt[6:1]] >= 4'd4);
+				refill_hit = brf_tag == tgt[31:6] && brf_super == sr_s &&
+				             (brf_run[tgt[5:1]] >= 4'd4);
 				if (tgt[0]) go_pc(tgt);
 				else if (cond_true(ir[11:8])) fetch_next;
 				else begin
@@ -9489,23 +9491,23 @@ always @(posedge clk) begin
 				// the loop it will branch back into, and must not touch the
 				// buffer's data either, or stale valid bits would describe
 				// words from another sector.
-				if ((brf_tag == mem_addr_q[31:7] && brf_super == epf_super) ||
+				if ((brf_tag == mem_addr_q[31:6] && brf_super == epf_super) ||
 				    epf_pend_seed) begin
 					if (epf_pend_lw)
-						brf_data[mem_addr_q[6:2]] <= mem_rdata;
+						brf_data[mem_addr_q[5:2]] <= mem_rdata;
 					else if (mem_addr_q[1])
-						brf_data[mem_addr_q[6:2]][15:0] <= mem_rdata[15:0];
+						brf_data[mem_addr_q[5:2]][15:0] <= mem_rdata[15:0];
 					else
-						brf_data[mem_addr_q[6:2]][31:16] <= mem_rdata[15:0];
-					if (brf_tag == mem_addr_q[31:7] && brf_super == epf_super) begin
-						brf_valid[mem_addr_q[6:1]] <= 1;
-						if (epf_pend_lw) brf_valid[mem_addr_q[6:1] + 6'd1] <= 1;
+						brf_data[mem_addr_q[5:2]][31:16] <= mem_rdata[15:0];
+					if (brf_tag == mem_addr_q[31:6] && brf_super == epf_super) begin
+						brf_valid[mem_addr_q[5:1]] <= 1;
+						if (epf_pend_lw) brf_valid[mem_addr_q[5:1] + 5'd1] <= 1;
 					end
 					else begin
-						brf_valid <= (epf_pend_lw ? 64'd3
-						                          : 64'd1)
-						                  << mem_addr_q[6:1];
-						brf_tag <= mem_addr_q[31:7];
+						brf_valid <= (epf_pend_lw ? 32'd3
+						                          : 32'd1)
+						                  << mem_addr_q[5:1];
+						brf_tag <= mem_addr_q[31:6];
 						brf_super <= epf_super;
 					end
 				end
@@ -9594,22 +9596,15 @@ always @(posedge clk) begin
 		// words from the buffer land last, over any ring write earlier in
 		// this cycle (a killed fetch's append, a line offer).
 		if (brf_seed_req) begin : brf_seed_data
-            reg [255:0] seed_window, seed_aligned;
-            reg [2:0] seed_next_line;
-            integer si;
-            // Select two adjacent 16-byte lines once, then align their words.
-            // At a sector boundary the wrapped line is masked by brf_seed_n.
-            seed_next_line = brf_seed_a[5:3] + 3'd1;
-            for (si = 0; si < 4; si = si + 1) begin
-                seed_window[255 - 32*si -: 32] = brf_data[{brf_seed_a[5:3],si[1:0]}];
-                seed_window[127 - 32*si -: 32] = brf_data[{seed_next_line,si[1:0]}];
-            end
-            seed_aligned = seed_window << {brf_seed_a[2:0],4'b0000};
-            for (si = 0; si < 8; si = si + 1) begin
-                if (si[3:0] < brf_seed_n)
-                    epf_data[si] <= seed_aligned[255 - 16*si -: 16];
-            end
-        end
+			reg [5:0] sw;
+			integer   si;
+			for (si = 0; si < 8; si = si + 1) begin
+				sw = {1'b0, brf_seed_a} + si[5:0];
+				if (si[3:0] < brf_seed_n)
+					epf_data[si] <= sw[0] ? brf_data[sw[4:1]][15:0]
+					                      : brf_data[sw[4:1]][31:16];
+			end
+		end
 		// Queue bookkeeping in one place, so that a pop and an append in the
 		// same cycle cannot lose each other's update.  A flush has already
 		// written the whole set and wins.

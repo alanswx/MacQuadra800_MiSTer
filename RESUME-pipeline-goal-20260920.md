@@ -1,3 +1,15 @@
+# Latest: P73 failed; P75 promoted for next fit
+
+P73wrapperTERMINALexit3/sourcecheck0, routingfailure,39912ALMs95%, nofreshRBF
+orSTA. Archivescratch/p73devshared_fit_20260920. NoQuartusprocessesafterexit.
+Sharedselectorreducedareabutdidnotroute. DoNOTdeploystaleoutputbitstream.
+P75 nowpromoted core8e80f0136462d2619f8f6adb8fd6c8c15c412aeecc495b197dced29c03f9c7f0,
+P64base64byte+CLRdirectstore/matchinghint; baseline925bbeadivider.
+Simulationqualification documentedbelow. CD/Ethernetoffseed22unchanged.
+Nextwrapper scratch/p75devclear_fit_20260920/run.sh, userunit
+q800-p75devclear-fit-20260920. Committhenlaunch; freezeinputswhenlive.
+FullguestP67simulation exited0afterquit; workloadprofilepreserved.
+
 # Latest: P75 simulation-qualified; genuine full Mix profile captured
 
 P75core8e80f0136462d2619f8f6adb8fd6c8c15c412aeecc495b197dced29c03f9c7f0
