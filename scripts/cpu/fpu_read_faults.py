@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check precise bus faults during FPU extended operand and FMOVEM reads.
 
-Uses the existing CPU testbench's one-shot F140 bus fault in all bus phases.
+Uses the existing CPU bench: F140 bus fault, or an invalid MMU page at 2000.
 This is a fault-ordering gate, not a platform memory-performance benchmark.
 """
 import argparse
@@ -14,6 +14,7 @@ R = Path(__file__).resolve().parents[2]
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--core', type=Path, required=True)
 p.add_argument('--out', type=Path, required=True)
+p.add_argument('--mmu', choices=('off','4k','8k'), default='off')
 a = p.parse_args(); d = a.out.resolve(); d.mkdir(parents=True, exist_ok=True)
 rtl = R/'rtl/ap68040/rtl'
 units = ['ap040_tg68k_compat', 'ap040_bus16_adapter', 'ap040_bus_timeout',
@@ -24,7 +25,7 @@ sources = [R/'rtl/ap68040/tb/tb_ap040_program.v', a.core.resolve(),
            *(rtl/(u+'.v') for u in units)]
 flags = ['-DAP040_EXPERIMENTAL_'+x for x in ('XSTORE','LEA','PIPELINE','PIPELINE_LOADS','PIPELINE_STORES','PIPELINE_PEA','PIPELINE_P6')]
 flags += ['-DAP040_PIPELINE_COMPARE','-DAP040_PIPELINE_MEMORY_ENTRY','-DAP040_PIPELINE_EARLY_DRAIN']
-(d/'identity.json').write_text(json.dumps({'scope': __doc__, 'flags': flags,
+(d/'identity.json').write_text(json.dumps({'scope': __doc__, 'flags': flags, 'mmu': a.mmu,
     'sources': {str(x): hashlib.sha256(x.read_bytes()).hexdigest() for x in sources}}, indent=2)+'\n')
 
 def run(cmd, log):
@@ -37,7 +38,8 @@ def run(cmd, log):
 run(['iverilog','-g2012','-I',rtl,'-s','tb_ap040_program',*flags,'-o',d/'bench.vvp',*sources], 'compile.log')
 for mode in ('postinc', 'predec', 'movem'):
     for word in range(3):
-        base = 0xf140-4*word
+        fault_address = 0xf140 if a.mmu == 'off' else 0x2000
+        base = fault_address-4*word
         initial = base+12 if mode=='predec' else base
         op = 'fmovem.x (a0)+,fp0' if mode=='movem' else 'fmove.x '+('-(a0)' if mode=='predec' else '(a0)+')+',fp0'
         name = f'{mode}_word{word}'
@@ -63,7 +65,7 @@ handler:
  bne fail
  cmp.l #faulting,2(sp)
  bne fail
- cmp.l #$f140,20(sp)
+ cmp.l #${fault_address:x},20(sp)
  bne fail
  cmpa.l #${initial:x},a0
  bne fail
@@ -82,6 +84,17 @@ fail:
  move.w #$bad0,($f102).l
  stop #$2700
 '''
+        if a.mmu != 'off':
+            shift = 12 if a.mmu == '4k' else 13
+            setup = ' move.l #$4203,($4000).l\n move.l #$4403,($4200).l\n'
+            for page in range(65536 >> shift):
+                desc = 0 if page == (0x2000 >> shift) else (page << shift) | 3
+                setup += f' move.l #${desc:x},(${0x4400+4*page:x}).l\n'
+            setup += ' move.l #$4000,d0\n movec d0,urp\n movec d0,srp\n'
+            setup += ' move.l #$'+('8000' if shift == 12 else 'c000')+',d0\n movec d0,tc\n'
+            asm = asm.replace(' fmove.l #99,fp0', setup+' fmove.l #99,fp0')
+            # Prove translation remains enabled in the exception handler.
+            asm = asm.replace('handler:\n', 'handler:\n movec tc,d0\n btst #15,d0\n beq fail\n')
         (d/(name+'.s')).write_text(asm)
         run(['/home/alans/mister/MacQuadra800_fixtures/wombat-vasm/vasmm68k_mot','-Fbin','-m68040','-no-opt','-o',d/(name+'.bin'),d/(name+'.s')],name+'_asm.log')
         run(['python3',R/'rtl/ap68040/tb/bin2hex.py',d/(name+'.bin'),d/(name+'.hex')],name+'_hex.log')

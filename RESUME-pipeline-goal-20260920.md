@@ -1,3 +1,22 @@
+# P99 translation faults pass; broader gates live
+
+fpu_read_faults.py --mmu4k|8k invalidatespage2000 withrealMMU. Operandstart
+positions makeeachof3longwordsfaultfirst; postinc/predec/FMOVEM eachtested.
+Bothbaseline/P99 passall9cases x3busphases x2pagesizes; frame7PC/address,
+TCenabled,FP0/A0unchanged,nextinstructionnotexecuted. These doNOTtestRTEretry.
+Evidence scratch/{base,p99}_fpu_mmu_faults{4k,8k}_20260920.
+Frozen candidatecopy scratch/p99_fpu_read_20260920/tree, manifestgate_source_identity.json.
+Launchedbroadgates: q800-p99-integration-20260920 PID3357079 active;
+q800-p99-corpus-20260920 PID3357084 active. Logsfull.log/corpus.log in
+scratch/p99_fpu_read_20260920. Integration14720architecturalsnapshotsPASS,
+fullgatepending. Corpusfirst100onlypending. NoQuartus/noRTLpromotion.
+
+P97latestreviewedf6812 completedWhet3.237,Dhry.803,Towers.882,Quick1.187,
+Bubble1.189,Queens.792,Puzzle1.080,Permute.768; Matrixrunning, Sievepending.
+Displayed1.242isPARTIALaverage, NOTfinalMix. Fullprofilecontinues.
+Snapshotguest3301309last2.21Bhalfcycles, captureat2.4Bpending. Bothfullguests
+verifiedactive. MiSTerP96safehalt, hardwaremedian1.211; goal1.8unmet.
+
 # P99 directed FPU faults and page crossing pass
 
 Added scripts/cpu/fpu_read_faults.py. Baseline/P99 eachpass9cases(all3phases):

@@ -139,3 +139,22 @@ The existing `rtl/ap68040/tb/asm/t_fpu.s` battery was freshly assembled and
 run on the same P99 bench: all three phases pass (107834/152622/152622 total
 cycles). Logs and binary are in the P99 fault directory under `full_fpu.*`.
 This supplements the new directed tests; it is not the complete CPU suite.
+
+## Translation-fault qualification and broader gates
+
+`fpu_read_faults.py --mmu 4k|8k` now makes page 2000 invalid in real page
+tables and places an extended operand so each of its three longwords can
+be the first failing read. All nine addressing/word-position combinations
+pass on both baseline and P99, in all three bus phases, for both page sizes.
+Handlers check that TC remains enabled, format-7 PC/fault address, unchanged
+FP0 and A0, and absence of the following instruction's side effect.
+Evidence: scratch/{base,p99}_fpu_mmu_faults{4k,8k}_20260920.
+These tests validate exception entry and rollback, not RTE retry of those
+specific FPU faults.
+
+A frozen candidate tree and source manifest are under
+scratch/p99_fpu_read_20260920/{tree,gate_source_identity.json}.
+The established pipeline_handoff extended integration and immutable
+first-100 corpus gates were launched as user units
+q800-p99-integration-20260920 and q800-p99-corpus-20260920. Their results
+are pending; no promotion or fit has occurred.
