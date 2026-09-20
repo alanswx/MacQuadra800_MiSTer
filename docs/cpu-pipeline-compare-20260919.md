@@ -1112,3 +1112,47 @@ seconds, not ratings; Whetstone rating 2.947 contributes about 27% of the total.
 Profile its original SANE/math workload before assuming which CPU unit limits it.
 P52 remains live under the **user** systemd service; a system-scope query gives
 a misleading inactive result. Verify the wrapper/fitter PIDs before any restart.
+
+
+## Original Quick Sort coverage and P57 comparison (2026-09-20)
+
+Added `scripts/cpu/profile_quick.py`, derived from the existing Bubble harness.
+It executes the original recursive Quick Sort bytes at CODE3 `0x93ce..0x946d`
+(160 bytes, SHA256
+`aa491fa022a9e110e0d7cedcff343248705575adfd5bd1c0044f0cd8497967ef`).
+The original recursive calls and DIVS pivot calculation are unchanged. Wrapper
+passes low=1, high=500, and an array pointer; input is a deterministic shuffle
+of signed words -250..249. This excludes Speedometer's initializer, allocation,
+and original outer wrapper; it is not the complete timed Quick Sort test.
+
+The responder checks request stability, exact ascending output, and guards on
+both ends of the array. A negative control replacing the entry LINK with RTS
+fails the independent result oracle at element zero (`scratch/qk52/no_sort.log`).
+Production benchmark bytes remain unmodified. All six normal runs passed.
+
+| Controlled RAM latency | P52 cycles | P57 cycles | Cycle reduction |
+|---:|---:|---:|---:|
+| 0 | 173,979 | 170,504 | 2.00% |
+| 3 | 185,750 | 182,275 | 1.87% |
+| 8 | 208,812 | 205,645 | 1.52% |
+
+Reproduction from the repository root:
+
+```sh
+python3 scripts/cpu/profile_quick.py '/home/alans/mister/MacQuadra800_fixtures/Speedometer 4.02.rsrc' --out scratch/qk52 --early-drain --compare --profile --latencies 0 3 8
+python3 scripts/cpu/profile_quick.py '/home/alans/mister/MacQuadra800_fixtures/Speedometer 4.02.rsrc' --out scratch/qk57 --core scratch/p57_move_store_hint_20260920/ap040_core.v --early-drain --compare --profile --latencies 0 3 8
+```
+
+Each output directory records the exact CPU/module/resource identities and input
+in `current/identity.json`; results are `current/run_latency*.log`.
+The P57 core hash remains
+`660821496a34151ef80502437ebd59b8c35f66b0aa858ac11f0b6b6446ea5063`.
+P52 is still the production source while its Quartus wrapper is active.
+
+At latency 3, P52 legacy-state opcode occupancy includes MOVEM save 15,774
+cycles and restore 10,225, indexed-to-frame MOVE 15,348, frame-to-indexed MOVE
+9,667, and indexed-to-indexed MOVE 9,332. These are occupancy counters, not
+retired instruction latencies; do not sum them with pipeline counters as an
+independent timing measurement. The additional workload supports trying P57
+on hardware after fit, and exposes register-save/restore work for future
+profiling. No hardware Mix improvement is established by these results.
