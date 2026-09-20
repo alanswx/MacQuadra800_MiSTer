@@ -1,3 +1,23 @@
+# P99 promoted and fitting; SANE runtime rewrite identified
+
+PromotedEXACTqualifiedP99coreSHA624964c31225722fd8b2b6d68901c1d0490c8152caec2072060ec771a6641757,
+commit4cd5824pushed. P97queue4/P90MMU/P83pipeline unchanged,seed22,
+CDROM_OFF/ETHERNET_OFFdevelopmentomissions. CheckednoQuartusmachinewide;
+startedq800-p99devfpuread-fit-20260920unitPID3369109, verifiedactivesynthesis.
+Archive scratch/p99devfpuread_fit_20260920/run.sh sourcehashpreflightpassed,
+fullbuildthenarchive/crossSTA/detailedCPUreports. FREEZE RTL/QSF/QIP/SDC
+untilWHOLEwrapperends. Nohardwaretransferauthorizedforthisexactartifactyet.
+
+New scripts/cpu/resolve_sane_selectors.py pinsROM+dispatchbytes andresolves
+Whetselectors toROMtargets; outputwhetinventory/selector_targets.json.
+Crucial: FP68K408e9a80..9a9a conditionally rewritesimmediateselector+A9EB
+sixbytes toJSRabsolutehandler; cachemaintenance9ad2..9b3a. Statictrapsite
+countsARENOTrepeatedtrapcosts. Fullfixturemustpreservewritablecode/coherency
+orlabelcapturedpatchedstate. Slots0/2/4/6mapadd/sub/mul/divwrapperROMs.
+NeedextractoriginalWhetinputs+A5relocations andrunfullroutinewithrealhandlers.
+Snapshotguest3301309stillavailable32MBcapture2419752961. P97fullguestexited0,
+finalsim1.270 documented; nothardware. MiSTerP96safehaltmedian1.211,goalunmet.
+
 # P97 final sim1.270; P99 broad gates PASS; installed SANE resolved
 
 P97 alltenoneiterationcompletedMix1.270, f7231rootreviewed. Detailsnew

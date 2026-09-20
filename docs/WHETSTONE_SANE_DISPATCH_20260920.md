@@ -192,3 +192,42 @@ P99's broader integration unit subsequently completed with exit 0 and
 `PASS real-core pipeline ownership integration`, including IRQ/replay cases.
 The immutable first-100 corpus completed with 1900 field groups matching,
 zero differences (/tmp/cpu-corpus100-gate.Uc2U3f). No fit/hardware claim.
+
+## Selector targets and call-site rewriting
+
+`resolve_sane_selectors.py` pins the ROM identity and the dispatcher instruction
+bytes, then follows the actual rotate/shift/bitfield index calculation for
+FP68K and masked index for Elems68K. Output:
+scratch/whetstone_inventory_20260920/selector_targets.json.
+
+| Dispatcher | Selector | ROM target |
+|---|---|---|
+| FP68K | 0000 | 408EAA4C |
+| FP68K | 0002 | 408EABBE |
+| FP68K | 0004 | 408EAD30 |
+| FP68K | 0006 | 408EAEA2 |
+| FP68K | 0008 | 408EB1FA |
+| FP68K | 000D | 408EBCE6 |
+| FP68K | 0012 | 408EB850 |
+| FP68K | 200E | 408EB5BE |
+| Elems68K | 0000 | 408EE83C |
+| Elems68K | 0008 | 408EE042 |
+| Elems68K | 0018 | 408EEBC2 |
+| Elems68K | 001A | 408EEC52 |
+| Elems68K | 001E | 408EEA54 |
+
+FP68K at 408E9A80..408E9A9A recognizes a return address following
+`MOVE.W #selector,-(SP); A9EB` and rewrites that six-byte sequence to
+`JSR absolute` to the selected handler. 408E9AD2..408E9B3A handles cache
+maintenance. Whetstone's inventoried sites use that immediate-selector form.
+This is a conditional runtime rewrite, not evidence that every site has
+already executed. A faithful fixture must retain writable code and coherent
+instruction-cache behavior, or explicitly distinguish a captured patched
+state from first-call execution. Forcing repeated A-line dispatch at every
+original static trap site would misrepresent the repeated workload.
+
+P99 was promoted as the exact qualified core SHA256
+624964c31225722fd8b2b6d68901c1d0490c8152caec2072060ec771a6641757 in commit
+4cd5824. Its development fit is running as q800-p99devfpuread-fit-20260920,
+archive scratch/p99devfpuread_fit_20260920. All build inputs are frozen
+through archive and detailed CPU/cross-domain timing. No fit result yet.
