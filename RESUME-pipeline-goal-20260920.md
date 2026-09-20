@@ -1,3 +1,17 @@
+# P96 hardware run1=1.207 VALID; run2 STARTED (root owns input)
+
+Root reviewed valid_run1_complete.png: completiondialog +Mix1.207, positive
+plausible times all10 tests, no visible invalidtimer. Results in hardware_p96
+results.json. HardwareinfoMC68040/MC68040/32768K; CFG40000000 alreadyread.
+Run2 setup visually verified all10checked iteration1; Return28sent, starttime
+valid_run2_start_utc.txt. Wait>=65wallsec with no guestinput/screenshots then
+capture valid_run2_complete.png. Needtotal5valid runs, reportinvalids,unique
+recordsave and clean shutdown. Prior navigation screenshots excluded.
+Root owns hardware input; operator read-only. mrextmouse INVALID; use existing
+/tmp/vmouse.py for mouse, keyboardmister_ws Linux56Cmd/28Return/48B works.
+P96run1~6.5%aboveP70median1.133 but one run is NOT reproducibility proof.
+P97fit terminal timingmiss-.682; P97fullguest still running. Goal unmet.
+
 # P96 hardware valid run1 STARTED by root; use uinput mouse
 
 Root owns all MiSTer input. Operator confirmed P96 remote artifact
