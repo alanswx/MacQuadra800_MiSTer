@@ -7,6 +7,16 @@ on these observations. The 1.8 hardware goal remains unachieved and active.
 
 ## Current production and build
 
+**Latest authoritative state:** P57 is terminal routing FAILED. Production now
+contains qualified **P63** (P57 core + pipeline ALU subset), source commit
+`6fbe31353f03b19ad9ee2440c28847238fb9c852`. The sole ACTIVE user unit is
+`q800-p63subset-fit-20260920.service`, wrapper PID2388489, quartus_sh2388510,
+quartus_map2388607 at launch. Archive `scratch/p63subset_fit_20260920`.
+Preflight hashes passed and synthesis is live. Freeze RTL/QSF/QIP/SDC until
+this complete wrapper terminates; inspect the same unit before any action.
+The paragraphs below retain the P57 baseline and history.
+
+
 Prior build RTL was **P57**, core SHA256
 `660821496a34151ef80502437ebd59b8c35f66b0aa858ac11f0b6b6446ea5063`.
 Quartus seed22 build source commit `e5066a280169c7c93dfe171fd1e5674b72a96052`.
