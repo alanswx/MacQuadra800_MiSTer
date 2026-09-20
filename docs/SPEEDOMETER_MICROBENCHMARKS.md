@@ -308,3 +308,17 @@ P92 reuses P87's two-word prefetch threshold with P89MMU: Matrix2934837,
 starvation rises (pipe_ready_empty192000; baseline0). All oracles pass.
 Evidence scratch/matrix92_prefetch_mmu89_20260920. Both re-screens rejected;
 production remains P89 and no additional qualification/fit is warranted.
+
+P89 Matrix8KB latency robustness check (same P78core/P83pipeline):
+
+| RAM latency | Original MMU | P89 MMU | Cycles saved |
+|---|---:|---:|---:|
+|0|3607008|2838894|768114|
+|3|3638968|2870854|768114|
+|8|3713034|2944920|768114|
+
+All1600results/inputs/guards pass in allcases, with21walker reads/9writes.
+The benefit is insensitive to these RAM response delays (20.69–21.30% fewer
+cycles); this still does not establish a hardware Mix improvement. Evidence:
+scratch/matrix{83,89}_latency_sweep_20260920, originalMMU recovered from64af3ae
+and recorded ineach identity.json. Sessions37446/44420 bothcompletedexit0.

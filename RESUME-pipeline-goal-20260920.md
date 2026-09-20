@@ -1,3 +1,14 @@
+# Latest: fullguest welcome screen; P89 latency sweep passes
+
+P89 fullguestbuildexit0; sameunitMainPID2943117 nowVemu, liveboot.
+Rootviewed tree/verilator/screenshot_f500.png: Welcome to Macintosh, startup
+notdesktop. Noinputsent, initialwait1320000000risingedgesstillpending.
+Viewerbwrapfailed; use exec_command base64-w0 image thenfunctions.image for
+screenshots ifview_imagefails. Do notrepeatoldnavigationbeforevisibleguestready.
+QuartusP89stilllive. Matrixlat0/3/8 original3607008/3638968/3713034 versus
+P89 2838894/2870854/2944920: exactly768114saved each, alloraclesPASS.
+Sessions37446/44420terminal0, no live microbenchmarks.
+
 # Latest: P89 full-guest simulation build launched
 
 Immutable snapshot of794ade3 at scratch/p89_fullguest_20260920/tree, recorded
