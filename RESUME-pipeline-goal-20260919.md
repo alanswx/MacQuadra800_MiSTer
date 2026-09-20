@@ -2014,3 +2014,43 @@ q800-p39refill64-fit-20260919 active MainPID1759655. Exact-source archive wrappe
 scratch/p39refill64_fit_20260919/run.sh. Production RTL/QSF/QIP/SDC frozen until
 wrapper terminal including cross reports and archive. P33 archive hardware queue
 already sent to operator. No active second Quartus flow; build script serializes.
+
+
+### P40/P41: 128-byte refill window and bounded prefix logic
+
+P40 (`scratch/p40_refill128_20260919`) expands the qualified 64-byte buffer
+consistently to 128 bytes. Original kernels pass: Bubble 3,270,270 cycles
+(vs P39 3,456,612; 5.391% fewer), Permute 1,380,671 (vs 1,390,747),
+Towers 24,390,329 (vs 24,427,200). Geometry-aware coherence tests pass for
+upper-half target 0x840 and crossing store 0x87e->target0x880, all three phases.
+The updated fixture also passes on the 32-byte baseline with its own geometry.
+
+P41 (`scratch/p41_refill128_prefix_20260919`) replaces the 64-word recursive
+valid-run computation with an eight-bit prefix function for each position.
+`refill_run_lengths.py` extracts the actual RTL and checks an independent scan:
+42,770 patterns, exhausting every eight-bit window at every offset with both
+zero/one surroundings, plus random full-buffer patterns. P40 and final P41 pass.
+P41 Bubble remains 3,270,270 cycles, correct output/guards. Coherence passes;
+removing only the end-address overlap check keeps the upper-half case passing
+but fails the crossing-patch architectural result in all three phases.
+P41 silicon100 passes 1900 groups, zero differences; /tmp/cpu-corpus100-gate.9XJBXr.
+Full integration is still running (session22296); Permute/Towers rerun pending.
+P40 full_v2 integration session79768 is also running. Neither candidate promoted.
+
+IMPORTANT testbench follow-up after P39 fit freeze ends: new pipeline output
+ports retire_wb_valid/retire_branch_taken exposed a wildcard-port elaboration
+error in rtl/ap68040/experimental/tb_pipeline_integer.sv. Add explicit unused
+connections `.retire_wb_valid(), .retire_branch_taken()` to that DUT instance.
+This bench is not synthesis input, but all tracked SV sources are frozen/hash
+recorded during the fit; do not edit it now. Scratch P40/P41 prototype.py runners
+make an identified local bench copy with those connections and preserve all
+oracle/mutation checks. Production CPU reference snapshots pass; this failure
+was testbench wiring, not an architectural mismatch. Fix the tracked bench
+before the next promotion and rerun the standard prototype command.
+
+P18/P24 repaired five-run sets are now accepted after root reviewed all five
+valid completions and final safe halts. Full corrected tables are in
+PERFORMANCE_MEASUREMENTS.md: P18 median1.052, mean1.0514; P24 median1.051,
+mean1.0506. Original stale captures2/4 excluded from both. P26 remains best at
+1.078. P33 hardware measurement is active with correct start/completion captures.
+P39 fit remains active MainPID1759655; production source freeze continues.

@@ -41,7 +41,9 @@ units=('ap040_tg68k_compat','ap040_bus16_adapter','ap040_bus_timeout','ap040_alu
 sources=[r/'rtl/ap68040/tb/tb_ap040_program.v',d/'monitor.sv',a.core.resolve(),rtl/'ap040_regfile.v',a.pipeline_module.resolve(),*[rtl/(u+'.v') for u in units]]
 flags=['-DAP040_EXPERIMENTAL_'+x for x in ('XSTORE','LEA','PIPELINE','PIPELINE_LOADS','PIPELINE_STORES','PIPELINE_PEA','PIPELINE_P6')]+['-DAP040_PIPELINE_COMPARE','-DAP040_PIPELINE_MEMORY_ENTRY','-DAP040_PIPELINE_EARLY_DRAIN']
 run(['iverilog','-g2012','-I',rtl,'-s','tb_ap040_program','-s','coherence_monitor',*flags,'-o',d/'test.vvp',*sources],'compile.log')
-for name,target,patch,size,value in [('upper',0x820,0x820,'w',0x702a),('cross',0x840,0x83e,'l',0x4e71702a)]:
+sector_bytes=1<<sector_shift
+upper=0x800+sector_bytes//2;cross=0x800+sector_bytes
+for name,target,patch,size,value in [('upper',upper,upper,'w',0x702a),('cross',cross,cross-2,'l',0x4e71702a)]:
  asm=f''' org 0
  dc.l $7000,start
  rept 254

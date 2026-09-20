@@ -1621,3 +1621,37 @@ Mix mean 1.0778; median 1.078; range 1.075–1.079. Start-dialog evidence: `run1
 Normal Cmd-Q/save flow completed with unique record `P26unaligned-record-20260920`, Finder verified. `final_halt_visible.png` visibly reads “It is now safe to switch off your Macintosh.” Main PID 24086 and remote service PID 763 remained running; original disk stayed unmounted.
 
 Root independently viewed all five completion images, run2 start dialog and final safe halt. Accepted median1.078, mean1.0778; improvement2.667% overP13median1.050. Goal1.8 remains unmet. A/UX deferred toDani; CD/audio regression outstanding.
+
+
+## P18 stack prefetch — repaired five-run measurement
+
+SHA256 `06b58fcab57712e6d2bffeab7fcc897ed33bafad8875b525f3c5c5ff6ac931f7`. CPU +0.612 ns; HDMI -0.173 ns (experimental, not release-ready); SDRAM +0.949 ns.
+
+Authentic 33 MHz, 32 MB, Ethernet on; disposable test disk only. Original captures 2 and 4 were stale results, not new benchmark runs, and are excluded. Valid runs are 1, 3, 5, 6 and 7. No timer anomalies were observed in those five runs.
+
+| Run | Whetstones/s | Dhrystones/s | Towers | Quick | Bubble | Queens | Puzzle | Permutations | Int Matrix | Sieve | Mix |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 831.563 | 12366.895 | .843 | .748 | .795 | .572 | 1.371 | 1.234 | .889 | 1.133 | 1.049 |
+| 3 | 838.315 | 12393.180 | .844 | .746 | .795 | .572 | 1.371 | 1.230 | .887 | 1.129 | 1.052 |
+| 5 | 839.315 | 12383.815 | .845 | .747 | .794 | .572 | 1.369 | 1.232 | .884 | 1.128 | 1.053 |
+| 6 | 832.810 | 12401.827 | .844 | .747 | .794 | .572 | 1.376 | 1.230 | .887 | 1.132 | 1.050 |
+| 7 | 838.712 | 12405.534 | .844 | .745 | .795 | .572 | 1.362 | 1.230 | .884 | 1.129 | 1.053 |
+
+Median **1.052**; mean **1.0514**; range 1.049–1.053. Root independently reviewed all valid completion images and `final_halt_repair3.png` under `scratch/hardware_p18stack_20260919`. Normal quit/save and shutdown completed. These results do not exceed P26’s accepted median of 1.078.
+
+
+## P24 stack prefetch and BRA — repaired five-run measurement
+
+SHA256 `86f6cc7824c20c3320f774be04baa163d1eb64236f27e8220a69fc0c20e23604`. CPU +0.518 ns; HDMI +0.119 ns; SDRAM +0.804 ns.
+
+Authentic 33 MHz, 32 MB, Ethernet on; disposable test disk only. Original captures 2 and 4 were stale results, not new benchmark runs, and are excluded. Valid runs are 1, 3, 5, 6 and 7. No timer anomalies were observed in those five runs.
+
+| Run | Whetstones/s | Dhrystones/s | Towers | Quick | Bubble | Queens | Puzzle | Permutations | Int Matrix | Sieve | Mix |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 830.267 | 12379.482 | .843 | .749 | .798 | .573 | 1.372 | 1.233 | .891 | 1.133 | 1.047 |
+| 3 | 838.742 | 12382.315 | .843 | .751 | .795 | .573 | 1.368 | 1.233 | .887 | 1.129 | 1.052 |
+| 5 | 836.961 | 12373.775 | .845 | .750 | .795 | .572 | 1.365 | 1.233 | .887 | 1.133 | 1.051 |
+| 6 | 832.561 | 12375.753 | .844 | .748 | .793 | .571 | 1.375 | 1.230 | .889 | 1.131 | 1.049 |
+| 7 | 839.080 | 12404.587 | .840 | .748 | .793 | .572 | 1.361 | 1.234 | .883 | 1.129 | 1.054 |
+
+Median **1.051**; mean **1.0506**; range 1.047–1.054. Root independently reviewed all valid completion images and `final_halt_repair.png` under `scratch/hardware_p24stackbra_20260919`. Normal quit/save and shutdown completed. These results do not exceed P26’s accepted median of 1.078.
