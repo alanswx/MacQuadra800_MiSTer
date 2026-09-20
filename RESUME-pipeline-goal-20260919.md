@@ -1821,3 +1821,23 @@ prefetch earlier in safe address-computation slots, not just deferring it.
 P26fit remainsactiveMainPID1640390; live sourceSHAcheckPASS. P18retry hasthree
 completed-run artifacts now; root viewedrun1 normal completionMix1.049,all10
 iteration1. No aggregate accepted yet. BestmedianremainsP13 1.050,goal1.8unmet.
+
+
+### P26 fit completed with positive timing
+
+Candidate c8c58bf, archived under scratch/p26unaligned_fit_20260919.
+Build, source-check and cross-report exits all 0; wrapper terminal, source freeze
+ended. 39,730/41,910 ALMs (95%), 26,362 registers, 491 RAM blocks, 43 DSPs.
+CPU setup +0.775 ns, HDMI +0.113 ns, SDRAM +0.668 ns, minimum hold +0.205 ns.
+Cross sys->ram +1.186 ns; ram->sys +0.775 ns. Cache tags remain M10K;
+register bank E remains a 512-bit MLAB. Root verified archived bitstream hash:
+MacQuadra800_p26unaligned_c8c58bf.rbf, 4,497,876 bytes, SHA256
+2702dabbd7400e31aaf5953d24615bdb841507173f938b49c98a89bf6dfc5316.
+P26 hardware trial queued after P24, five valid runs each on disposable disk.
+P18 operator reports five scores with median1.052; root verified run5=1.053
+and visible safe shutdown, but exact duplicate pairs of subtest values warrant
+checking independent-run evidence before accepting the aggregate.
+P33 scratch experiment allows speculative fetch during brief indexed destination
+EA_EXTW2 for ordinary memory-to-memory MOVE on P30. No promotion; Bubble
+measurement pending under scratch/p33_move_early_fetch_20260919.
+Goal1.8 remains unmet; accepted P13 median1.050 unchanged pending P18 audit.
