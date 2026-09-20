@@ -1378,3 +1378,50 @@ to P57. It is **not applied** to production during the P57 seed22 fit.
 P61 is a small next fit candidate with measured gains in two workloads;
 P59/P60 remain separate divider experiments, not silently combined with it.
 No P61 fit, timing, Mac boot, or hardware score exists yet.
+
+
+## P62: request the displacement extension at source acknowledgment
+
+P62 refines P61 by selecting the d16 destination base and requesting its
+extension together, after the source succeeds. It uses the existing `immf`
+carrier and S_IMMF edge for register settling and precise extension faults,
+skipping the otherwise redundant S_EA_DISP cycle. No extra EA adder is used.
+The indexed destination path is unchanged. Core SHA256:
+`609b1687e27b5da1096d6b1c990027b46d27f00272ce1d96b45ef6ed97a2f980`.
+Candidate directory: `scratch/p62_move_dispext_20260920`.
+
+| Original kernel, RAM latency3 | P57 | P61 | P62 |
+|---|---:|---:|---:|
+| Quick Sort | 182,275 | 179,949 | 178,786 |
+| Towers | 23,887,160 | 23,592,098 | 23,444,567 |
+| Permute | 1,380,669 | 1,380,669 | 1,380,669 |
+| Bubble | 3,456,612 | 3,456,612 | 3,456,612 |
+| Queens | 65,720 | 65,720 | 65,720 |
+
+P62 Quick Sort also passes at latency0/8, 167,015 / 202,156 cycles. Independent
+outputs and guards pass on all five kernels. Relative to P57, standard-latency
+cycle reductions are 1.91% Quick and 1.85% Towers. Hardware benefit remains
+unproven; these are controlled-memory simulation results.
+
+Qualification is terminal PASS:
+
+- Full integration, including MMU/cache/FPU/MOVEM, exceptions and all precise
+  pipeline interrupt/replay cases (`full.log`, session98237).
+- First100 silicon reference: 1900 field-groups, zero differences; artifacts
+  `/tmp/cpu-corpus100-gate.OaHEoG`, candidate `corpus.log`.
+- Displacement source/destination/postinc/predec/extension-fault tests, IRQ/T1,
+  alias and split-source fallback all pass in the existing three phases.
+- All144 b/w/l value/flag/alias/byte-guard cases pass per phase:432 source
+  acknowledgments,429 observed direct destination entries. For displacement
+  fixtures the monitor now accepts S_EA_DISP (P61) or S_IMMF (P62), both
+  directly after S_MRD; indexed fixtures still require their original state.
+- A wrong-destination-base mutation fails the guest's actual value/guard checks
+  (test9, phase0). The baseline passes architectural values but fails the
+  required direct-entry assertion with zero entries, confirming path coverage.
+
+`scripts/cpu/move_displacement_extension.patch` reconstructs P62 relative to
+P57. It **includes P61** and is an alternative to
+`move_displacement_destination.patch`; do not apply both. P62 uses the baseline
+divider: P59/P60 remain separate. P62 supersedes P61 as the preferred next
+MOVE candidate, pending P57's terminal fit and subsequent area/timing checks.
+Production RTL remains frozen P57 while its wrapper is active.
