@@ -1735,3 +1735,13 @@ P72 scratch variant caps seed6/6ports, sameP67base/no shortdivider. Screening
 Quick30498 andBubble56969active; logs underp72_refill128_seed6_20260920. No fit.
 FullguestP67simulation remainslive independently of failedFPGAfit; snapshot
 sources immutable, useful for profiling only. Latestshotf847 notyetreviewed.
+
+
+P70 full integration completed PASS and collectedexit0; exact smaller
+64-byte MOVE/shortdivider candidate promoted for separate fit after confirming
+no Quartus flow remained. No hardware claim until artifact trial.
+P72 six-word seed screen PASSQuick166812/178583/201953, Bubble3454620; likeP71
+it loses the demonstrated Bubble benefit. Not promoted. P73 instead retains
+all8words and shares adjacent16-byte line selection plus alignment. Independent
+17,536-case seed oracle covers64offsets/legalcounts0..8,32randomizedbuffers and
+masked outputs PASS. Kernel screen active; area/timing benefit unmeasured.

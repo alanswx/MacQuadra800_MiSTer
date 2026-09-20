@@ -1,3 +1,18 @@
+# Latest: P70 qualified and promoted for the next fit
+
+P70 = P64 64-byte MOVE core plus P59 shortdivider. Fullintegration77746exit0,
+first1001900groups0diffs /tmp/cpu-corpus100-gate.WgStgM, Quick163503/175283/198660
+lat0/3/8 sorted/guardsPASS. Noother CPU change. NoQuartus beforepromotion.
+Build wrapper scratch/p70devdivide_fit_20260920/run.sh, planned userunit
+q800-p70devdivide-fit-20260920.service. Commit then launch; verifylive.
+P67failed routing, no freshRBF. MiSTer safehalt onP64median1.131. Cheapoperator
+must monitorP70 and awaitroot artifactreview beforedeploy. FullguestP67sim
+PID2547288 stillbootinglocaldisk; screenshotf847MacOSStartingup reviewed.
+P73scratch128-byte buffer/shared two-line selection retains8seedports; alloffset
+independent17,536-caseoraclePASS. Quick74121/Bubble2725pending. No P73fit yet.
+P72sixseedwordsscreenQuick166812/178583/201953, Bubble3454620; gainlost likeP71,
+sessions30498/56969exit0, not promoted. P73 uses P67 core/baseline divider.
+
 # Current status: P67 fit failed routing; P70/P72 isolated tests active
 
 P67 is no longer an active FPGA build. No fresh bitstream. See final entry.
