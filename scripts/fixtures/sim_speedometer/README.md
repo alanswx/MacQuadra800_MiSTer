@@ -78,3 +78,28 @@ The replacement monitor was `q800-pipeline-baseline-monitor-c2-20260919`, using
 `--profile-start-count 2`. A final screenshot review is still required before
 any number is accepted. Future automated launches should wait for a confirmed
 MacAtrium screen instead of assuming a 20-second boot.
+
+## P67 full-guest profiling attempt, 2026-09-20
+
+The isolated snapshot in `scratch/p67_fullguest_20260920/tree` has now
+visibly launched Speedometer 4.02: `screenshot_f3676.png` shows its startup
+splash and application menus. This is still navigation evidence, not a
+completed benchmark or an accepted performance result. The simulator uses
+P67, the baseline divider, the development fastboot ROM, and a disposable
+copy of the fixture disk. P67 failed FPGA routing, so this simulation cannot
+serve as hardware validation of that candidate.
+
+Navigation was checked at each step: Escape from MacAtrium, two Tabs to
+Exit to Finder, Return, then open Mac-7-5-5 → Applications → Speedometer
+4.02 Folder → Speedometer 4.02. The live control stream and screenshots
+are in that scratch directory; the old `prefix_control.txt` remains rejected.
+Allow application loading to finish before interpreting a screenshot taken
+immediately after Command-O.
+
+The current profiler's `OPCODE` histogram samples the legacy `ir` register.
+Pipeline dispatch can refer to a different opcode, so this histogram must
+not be used for exact pipeline opcode attribution or instruction-coverage
+claims. State-cycle and memory-path counters remain useful for locating
+bottlenecks. The timer observer recognizes Queens and Sieve; it does not
+establish validity of Whetstone or all ten benchmark timers. Any full Mix
+profile must be labelled with its actual bracket, including UI overhead.
