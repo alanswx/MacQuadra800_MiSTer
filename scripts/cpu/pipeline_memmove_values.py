@@ -7,6 +7,7 @@ r=Path(__file__).resolve().parents[2]
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--core',type=Path,required=True)
 parser.add_argument('--out',type=Path,required=True)
+parser.add_argument('--require-direct-ea',action='store_true',help='require coverage of source acknowledgement directly entering indexed destination calculation')
 parser.add_argument('--vasm',default='/home/alans/mister/MacQuadra800_fixtures/wombat-vasm/vasmm68k_mot')
 args=parser.parse_args()
 d=args.out.resolve();d.mkdir(parents=True,exist_ok=True)
@@ -60,13 +61,20 @@ run(['python3',r/'rtl/ap68040/tb/bin2hex.py',d/'test.bin',d/'test.hex'],'hex.log
 `include "ap040_defs.svh"
 `define C tb_ap040_program.dut.core
 module move_monitor;
-integer count=0;
+integer count=0, direct_ea=0, require_direct=0;
+reg [7:0] previous_state=0;
+initial if ($value$plusargs("require_direct=%d",require_direct)) begin end
+always @(negedge tb_ap040_program.clk) begin
+ if (tb_ap040_program.nreset && `C.ce && previous_state==`C.S_MRD && `C.state==`C.S_EA_EXTW2) direct_ea++;
+ previous_state=`C.state;
+end
 always @(posedge tb_ap040_program.clk) if(tb_ap040_program.nreset && `C.ce &&
  `C.state==`C.S_MRD && `C.m_issued && `C.d_ack && !`C.d_err &&
  `C.r_m_ret==`C.S_PIPE_SDONE && `C.p_src==`C.SK_MEM && `C.p_dst==`C.DK_MEM &&
  `C.exec_kind==`C.EK_ALU && `C.alu_op==`AP040_ALU_MOVE && !`C.p_rmw && `C.dst_mode_r==6) count++;
 final begin
- $display("MOVE_VALUES acknowledgements=%0d",count);
+ $display("MOVE_VALUES acknowledgements=%0d direct_ea=%0d",count,direct_ea);
+ if(require_direct && direct_ea==0) $fatal(1,"direct destination calculation was not exercised");
  if(count!=432) $fatal(1,"missing size/mode coverage");
 end
 endmodule
@@ -75,6 +83,6 @@ units=('ap040_tg68k_compat','ap040_bus16_adapter','ap040_bus_timeout','ap040_alu
 sources=[r/'rtl/ap68040/tb/tb_ap040_program.v',d/'monitor.sv',args.core.resolve(),rtl/'ap040_regfile.v',exp/'ap040_pipeline_integer.sv',*[rtl/(u+'.v') for u in units]]
 flags=['-DAP040_EXPERIMENTAL_'+x for x in ('XSTORE','LEA','PIPELINE','PIPELINE_LOADS','PIPELINE_STORES','PIPELINE_PEA','PIPELINE_P6')]+['-DAP040_PIPELINE_COMPARE','-DAP040_PIPELINE_MEMORY_ENTRY','-DAP040_PIPELINE_EARLY_DRAIN']
 run(['iverilog','-g2012','-I',rtl,'-s','tb_ap040_program','-s','move_monitor',*flags,'-o',d/'test.vvp',*sources],'compile.log')
-run(['vvp',d/'test.vvp','+prog='+str(d/'test.hex')],'run.log')
+run(['vvp',d/'test.vvp','+prog='+str(d/'test.hex'),'+require_direct='+str(int(args.require_direct_ea))],'run.log')
 s=(d/'run.log').read_text();assert 'ALL TESTS PASSED' in s and 'FAIL:' not in s,s[-2500:]
 print(k,'fixtures PASS',s[-500:])

@@ -753,3 +753,25 @@ P33 scratch experiment allows speculative fetch during brief indexed destination
 EA_EXTW2 for ordinary memory-to-memory MOVE on P30. No promotion; Bubble
 measurement pending under scratch/p33_move_early_fetch_20260919.
 Goal1.8 remains unmet; accepted P13 median1.050 unchanged pending P18 audit.
+
+
+### P33 early fetch restores benefit of MOVE destination overlap
+
+Scratch candidate scratch/p33_move_early_fetch_20260919 combines P30 source-read
+register-selector preparation/direct brief destination calculation with allowing
+background instruction fetch in that destination S_EA_EXTW2 slot. Ordinary
+memory-to-memory MOVE only; source success still precedes destination extension
+consumption; existing memory-port, page and fault guards remain.
+Original controlled kernels: Bubble4,014,059 vsP26 4,077,142 (-63,083;1.547%);
+Towers24,427,253 vs24,525,593 (-98,340;0.401%); Permute1,391,673 unchanged.
+All independent output/guard checks PASS. These are simulation cycle counts,
+not hardware Mix predictions.
+MOVE faults(source,destination,postinc,predec,extension) PASS; boundaries IRQ/T1,
+alias/full-extension/split PASS across three bus phases. Value suite144fixtures
+across three phases passes432acknowledgements with315direct-EA transitions.
+New --require-direct-ea coverage option rejects unchanged P26 (zero transitions)
+after its architectural checks pass, preventing a vacuous fast-path result.
+Silicon first100 rows:1900fieldgroups match,0diffs; artifacts
+/tmp/cpu-corpus100-gate.3xjC7s. Full integration still running; do not promote yet.
+Sessions: fullgate78655. P24/P26 hardware trials remain queued/active with operator;
+P18 duplicate-pair audit pending. Goal1.8 remains unmet.
