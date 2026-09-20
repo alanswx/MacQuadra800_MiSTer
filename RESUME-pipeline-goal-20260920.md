@@ -1,3 +1,20 @@
+# Latest: P89 full-guest simulation build launched
+
+Immutable snapshot of794ade3 at scratch/p89_fullguest_20260920/tree, recorded
+core/MMU/pipeline hashes inidentity.json. Fresh disposable90,224,128bytecopy of
+fixtures/MacQuadra800-Speedometer402-profile.hda; golden andMiSTer untouched.
+Userunitq800-p89-fullguest-profile-20260920.service MainPID2943117 verifiedactive
+compiling. start.sh builds thenexecutesrun.sh; build.log/build.exit thenrun.log.
+Sameflags/fastbootROM asP67, CD/Ethernetoff. This isdevelopmentfullmachine
+profiling, notoriginalROM/releasehardwareacceptance. No profilebracket yet.
+control.txt currentlyonly wait1320000000 risingedges then shot; automaticshots
+500/1500/3000/5000/7000frames. Use screenshots/manualnavigation (oldprefix
+openedPrinceofPersia and wasrejected). PriorP67navigation in itscontrolfile
+can guide keycodes only; do notblindlyreplay. Need launchSpeedometer, capture
+fullMix with realSANE/runtime, profile, then guestshutdown. No simbenchmarkyet.
+P89Quartus unitstillverifiedactive MainPID2933764; cheapoperator monitors.
+BothRTLtrees frozen through respectivebuilds; no active microbenchmarks.
+
 # Latest screens: P91/P92 rejected with P89 MMU
 
 P91P84CMPIbyte/wordmodule withP89MMU Matrix2875655 vs2870854 (+4801),
