@@ -2054,3 +2054,20 @@ PERFORMANCE_MEASUREMENTS.md: P18 median1.052, mean1.0514; P24 median1.051,
 mean1.0506. Original stale captures2/4 excluded from both. P26 remains best at
 1.078. P33 hardware measurement is active with correct start/completion captures.
 P39 fit remains active MainPID1759655; production source freeze continues.
+
+
+### Verified P33 hardware and completed P41 integration
+
+P33 now accepted after root visually reviewed all five completion screenshots
+and final_halt2.png. Mix 1.078, 1.080, 1.083, 1.085, 1.085; median 1.083,
+mean 1.0822. Full component table is in PERFORMANCE_MEASUREMENTS.md.
+Normal quit/save and clean shutdown completed on the disposable image.
+
+P41 full.log ends in PASS real-core pipeline ownership integration.
+The silicon100 result remains 1900 groups, zero differences. Candidate stays
+in scratch pending P39 fit completion and the documented standalone bench fix.
+P39 service remains active; tracked synthesis sources remain frozen.
+
+User explicitly authorizes committing and pushing progress to origin
+add-ethernet. Remote head was verified at f49535d before this checkpoint.
+Target 1.8 remains unmet; A/UX is deferred to Dani and CD/audio outstanding.

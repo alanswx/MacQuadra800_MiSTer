@@ -1655,3 +1655,24 @@ Authentic 33 MHz, 32 MB, Ethernet on; disposable test disk only. Original captur
 | 7 | 839.080 | 12404.587 | .840 | .748 | .793 | .572 | 1.361 | 1.234 | .883 | 1.129 | 1.054 |
 
 Median **1.051**; mean **1.0506**; range 1.047–1.054. Root independently reviewed all valid completion images and `final_halt_repair.png` under `scratch/hardware_p24stackbra_20260919`. Normal quit/save and shutdown completed. These results do not exceed P26’s accepted median of 1.078.
+
+
+## P33 MOVE destination overlap: verified hardware result
+
+Artifact `MacQuadra800_p33move_32fb678.rbf`, SHA256 `c9b2e3a57e98dfa98bdf9d34c6660c4f8f4bf5759fdd03c789b7087d36aa7e35`. Authentic 33MHz/32MB/Ethernet (`CFG 40 00 00 00`); disposable disk only, original untouched. Timing clean: CPU +0.546ns, HDMI +0.292ns, SDRAM +0.376ns, crossings +0.376/+0.546ns.
+
+Five valid Benchmark Mix Iteration 1 runs used the corrected protocol: each prior completion was dismissed, a new Run Set dialog was captured, Return started the run, and completion showed “The tests are done!”. No anomalies.
+
+|Run|Whetstones/s|Dhrystones/s|Towers|Quick|Bubble|Queens|Puzzle|Permutations|Int Matrix|Sieve|Mix|
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+|1|858.083|12524.905|.821|.721|.783|.565|1.307|1.204|.836|1.129|1.078|
+|2|866.388|12505.755|.819|.721|.782|.565|1.303|1.204|.833|1.147|1.080|
+|3|864.288|12521.204|.819|.721|.780|.565|1.297|1.209|.828|1.121|1.083|
+|4|864.998|12512.296|.820|.721|.782|.565|1.293|1.204|.818|1.121|1.085|
+|5|864.205|12513.279|.823|.720|.781|.564|1.291|1.204|.817|1.120|1.085|
+
+Mix mean 1.0822; median 1.083; range 1.078–1.085. Start screenshots: `run1_start.png`–`run5_start.png`; completion screenshots: `run1_complete.png`–`run5_complete.png`.
+
+Normal Cmd-Q/save completed with unique record `P33move-record-20260920`. `final_halt2.png` visibly confirms “It is now safe to switch off your Macintosh.” Main and remote input services were left running; original disk remained untouched.
+
+Root visually verified all five completion screenshots, each with the completion dialog, and `final_halt2.png`. Median improves from P26 1.078 to 1.083 (0.46%). The 1.8 target remains unmet.
