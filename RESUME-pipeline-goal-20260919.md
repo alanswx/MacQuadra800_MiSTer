@@ -1871,3 +1871,11 @@ production differs from qualified scratch only in whitespace/comments (normalize
 comparison PASS). QSF records completed P26 fit. Next fit will use P33 source;
 no hardware performance claim yet. Best accepted median remains1.050 pending
 P18 independent-run audit; goal1.8 unmet.
+
+P33 fit launched on committed/pushed32fb678, service
+q800-p33move-fit-20260919 active MainPID1680006. Archive wrapper
+scratch/p33move_fit_20260919/run.sh records exact source hashes and crosses.
+RTL/QSF/QIP/SDC frozen until wrapper terminal including cross/archive.
+P18 operator audit still pending exact duplicate result pairs (1/2 and3/4);
+root reviewed run5=1.053 and safehalt. Operator active on queued P24 thenP26.
+Do not accept P18 aggregate without checking independent reruns.
