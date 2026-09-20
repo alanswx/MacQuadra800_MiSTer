@@ -1,3 +1,23 @@
+# Latest transition: P67 promoted for development fit
+
+P64 complete: artifact `scratch/p64devmove_fit_20260920/MacQuadra800_p64devmove_7952a01.rbf`,
+SHA f2e82be0096b553150ef3bace8888f6a5454947a6d75f6ae954be6c69cec60cc,
+4512768 bytes. Root-reviewed fit39302ALMs94%, CPU-.068ns (TNS-.068), HDMI+.288,
+SDRAM+.278, holdminimum+.245; sys→RAM+1.892/RAM→sys+.421; healthy inferred
+cache tag and register RAM. source/cross/detailedSTA all0; wrapper terminal,
+no Quartus process before next source mutation. Cheap operator assigned P64
+experimental hardware trial, same33MHz32MB disposable, five fresh pairs.
+
+P67 full integration79688 collected exit0; all gates now passed. Promoted core
+SHA e2c0baba83bb7eb8ac1e9de1bab14ef2dbc49a4a9fe1dbd400c82498dab0a0ec:
+P64 MOVE plus128-byte refill, P63ALU/pipeline, baseline divider, noP66change.
+CD/Ethernet remain omitted, seed22 unchanged. Next sole flow wrapper
+`scratch/p67devrefill_fit_20260920/run.sh`, unit
+`q800-p67devrefill-fit-20260920.service`. Launch after this commit; verify live.
+No P67 FPGA or hardware performance result yet. Freeze inputs while active.
+P66 remains unapplied alternative timing patch. P63/full and P63dev records
+now reviewed including configuration and clean shutdown; medians1.129/1.122.
+
 # CPU performance continuation — 2026-09-20
 
 This is the current continuation index. The long historical log is

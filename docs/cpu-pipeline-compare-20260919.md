@@ -1631,3 +1631,21 @@ Validation on the isolated candidate:
 
 P64 development build remains active and its RTL is frozen. P66 is a saved,
 simulation-qualified patch only; no P66 FPGA or hardware result exists.
+
+
+## P67: qualified MOVE plus 128-byte refill candidate
+
+Combined P64's d16 MOVE extension overlap with P65's 128-byte refill. Diff
+against P65 contains exactly the MOVE change; no P66 timing patch or divider
+change. Core SHA `e2c0baba83bb7eb8ac1e9de1bab14ef2dbc49a4a9fe1dbd400c82498dab0a0ec`.
+Full integration PASS (`scratch/p67full`), immutable first-100 PASS1900groups
+zero differences (`/tmp/cpu-corpus100-gate.2VUHij`), independent refill prefix
+42,770 patterns/64words PASS, upper/crossing self-modifying code3patcheseachPASS.
+Original Quick kernel166651/178422/201792 cycles at latency0/3/8; Bubblelat3
+3270270. Sorted permutations and guards PASS. Gains retained when combined;
+these are controlled simulation cycles, not a predicted hardware Mix score.
+
+Promoted for a separate development fit after P64's complete archive and
+cross/detailed timing reports. P64 fits39302ALMs94%, CPU-.068ns, HDMI+.288,
+SDRAM+.278; source/cross/detailedSTA0. Its archived artifact is undergoing a
+separate hardware trial. No P67 timing, fit, or hardware score yet.

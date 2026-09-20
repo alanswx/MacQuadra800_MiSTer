@@ -1729,7 +1729,8 @@ Root reviewed `shutdown_attempt.png`: normal safe-shutdown message. Operator
 confirmed the remote RBF hash matches the archive and slot0 stayed on
 `games/MacQuadra800/QuadSquad8-pipeline-test-20260919.hda`; original untouched.
 Prior readiness was33MHz/32MB/Ethernet and completion screens show32768K.
-A persisted deployment/config record has been requested from the operator.
+The persisted deployment record was reviewed: authentic 33 MHz, 32 MB,
+CFG `40 00 00 00`, matching RBF hash, disposable slot-0 disk, original untouched.
 This full-feature trial is separate from the active CD/Ethernet-disabled
 build, whose hardware score is not yet measured.
 
@@ -1740,13 +1741,14 @@ Artifact `scratch/p63devnocdnet_fit_20260920/MacQuadra800_p63devnocdnet_29190fe.
 SHA256 `f877992fd51c01324393ccf36ead3d6c678e24b7e1c2f771a859106301a405ed`.
 Same CPU as full-feature P63; CD/audio and Ethernet omitted. This is a separate
 development baseline and is not release-qualified (CPU setup -0.862 ns,
-HDMI -0.268 ns). Deployment/configuration identity report and shutdown review
-remain pending at this entry; do not treat this as a complete hardware gate.
+HDMI -0.268 ns). Deployment/configuration identity record and `shutdown.png` subsequently
+reviewed: authentic 33 MHz, 32 MB, matching artifact identity, disposable slot-0
+disk, original untouched, and a clean safe-to-switch-off screen.
 
 Root visually reviewed all five independent start/completion pairs under
 `scratch/hardware_p63devnocdnet_20260920`: all ten tests selected, iteration one,
 32768K reported, fresh completion results. No apparent invalid timers and no
-runs excluded; operator confirmation remains part of the final trial record.
+runs excluded; the operator also reported five valid runs with no exclusions.
 
 | Run | Benchmark Mix |
 |---|---:|
