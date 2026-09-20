@@ -1,3 +1,13 @@
+# P97 fit running from72bb651; fullguest build also live
+
+Started q800-p97devqueue4-fit-20260920.service, wrapperPID3193601, exact commit
+72bb651 (pushed). build.log confirms Quartus synthesis/elaboration; operator
+assigned archive and detailedCPU STA. Freeze production HDL/QSF/QIP/SDC now.
+Independent q800-p97-fullguest-profile-20260920.service PID3190686 remains
+compiling generated C++; not booted or scored yet. Source tree is immutable.
+No hardware approval reply or transfer. Next collect fullguest build/boot and
+navigate visually; collect fit terminal/area/timing before further RTL changes.
+
 # P97 queue promoted for experimental fit; fullguest build live
 
 Previous turn made progress: remapped Sieve qualification and fullguest launch.
