@@ -1627,3 +1627,29 @@ Its branch profile:124,750 BLE.B retirements,61,667 taken,zero taken redirects
 with epf_pend/mem_req/mem_ack busy. Regression123,334cycles is exactly two per
 taken branch. Speculative fetch contention at redirect is not supported by this
 measurement. P19/P20 remain unpromoted. Best hardware median1.043,goal1.8unmet.
+
+### P21/P22/P23 branch and extension measurements
+
+Scratch P21 (`scratch/p21_bra_only_20260919`) restricts P19 branch support to
+short even BRA; conditional Bcc retains legacy lookahead. On P13 core/cache,
+Towers25,371,528 cycles PASS (98,295 fewer than P13, ~0.386%), Bubble4,077,142
+unchanged PASS. Not yet fully qualified or promoted. P19 full Bcc+BRA remains
+faster for Towers but regresses Bubble. All original kernel/output checks retained.
+P22 (`scratch/p22_ext_20260919`) independently adds optional EXT.W/EXT.L/EXTB.L/
+SWAP decode using existing ALU on P18 core/cache. Bubble4,077,142 unchanged:
+conditional Bcc already terminates the pipeline before its EXT.L boundary.
+New reusable `scripts/cpu/pipeline_extension_values.py` checks 4 operations,
+8 data registers,12 boundary values,2 X states,3 bus phases:2,304 pipeline
+extension retirements PASS. Independent result and SR checks cover word upper-half
+preservation, sign extension, SWAP, NZVC and preserved X, with immediate load-to-EX
+forwarding. Initial CMP-entry fixture passed architecture but had zero pipeline
+coverage and was rejected; indexed-load producer fixture achieves all2,304.
+Mutation changing EXT.W to longword size fails architectural checks in all phases
+(scratch/p22_ext_20260919/bad/run.log). No production pipeline edits.
+P23 combines P19 branch support and P22 extension decode on P13 core/cache.
+Bubble4,137,455 cycles PASS,still60,313 (~1.48%) slower than P13; do not promote.
+Next performance candidate to qualify is P21, or improve taken-branch resolution
+without its two-cycle penalty. Neither P22 nor P23 is a measured standalone gain.
+P18 build7eef632 remains active MainPID1564390; live source SHA check PASS.
+P13 hardware operator running, first completed screenshot exists but no aggregate
+accepted yet. Best verified hardware median remains1.043; goal1.8notachieved.
