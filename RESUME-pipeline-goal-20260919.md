@@ -2071,3 +2071,34 @@ P39 service remains active; tracked synthesis sources remain frozen.
 User explicitly authorizes committing and pushing progress to origin
 add-ethernet. Remote head was verified at f49535d before this checkpoint.
 Target 1.8 remains unmet; A/UX is deferred to Dani and CD/audio outstanding.
+
+### Queens profile and P42 indirect TST experiment
+
+Added scripts/cpu/profile_queens.py. It extracts unchanged CODE3 bytes
+0x91a4..0x9285 (recursive Try) from the SHA-verified Speedometer resource,
+initializes an empty eight-queen board, and checks column range, distinct
+columns, both diagonal directions, success status, and all array guards.
+Observed board is 1,5,8,6,3,7,2,4. This is one solve, excluding the original
+Queens 250-iteration wrapper/initializer; simulated cycles are not Mix scores.
+Source hashes, kernel hash and scope are recorded in each identity.json.
+
+P39 production: scratch/q39/current/run.log, 70034 cycles at latency3.
+P41: scratch/q41/compare/run.log, 69938 cycles, only 96 fewer.
+Only 706 cycles / 339 issues were in the pipeline. Leading legacy occupancy:
+TST.W (A2) 7188 cycles, indexed TST 7024, MOVEM save 5896, CLR.W (A2) 4110.
+This identifies memory tests and recursive-call overhead as useful targets.
+
+P42 scratch/p42_indirect_tst_20260919 builds on P41, adding TST (An) to the
+pipeline load/decode path and permitting single-word entry for that exact
+legal family. It preserves size, suppresses register writeback, and uses the
+existing TST ALU flags and ordered read machinery. Queens is 68209 cycles
+(2.472% fewer than P41), 6357 pipeline cycles / 1554 issues, valid board and
+guards. Additional latency0 and latency8 runs pass (63151 and 79147 cycles).
+These are exploratory kernel checks ONLY: decode oracle, directed flag/fault/
+IRQ cases, full integration and silicon corpus are NOT yet qualified for P42.
+Do not promote it on the strength of Queens alone. No tracked RTL changed.
+
+P39 Quartus remains active, MainPID1759655, quartus_fit PID1769571 last
+observed live in physical synthesis. Production source freeze continues.
+Next: finish P39 fit/archive and hardware gate; repair standalone wildcard
+bench ports when freeze ends; qualify P42 before considering promotion.

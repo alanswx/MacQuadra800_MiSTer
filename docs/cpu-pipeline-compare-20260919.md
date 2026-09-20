@@ -952,3 +952,14 @@ PERFORMANCE_MEASUREMENTS.md: P18 median1.052, mean1.0514; P24 median1.051,
 mean1.0506. Original stale captures2/4 excluded from both. P26 remains best at
 1.078. P33 hardware measurement is active with correct start/completion captures.
 P39 fit remains active MainPID1759655; production source freeze continues.
+
+## Original Queens kernel profile
+
+`profile_queens.py` extracts the original recursive solver unchanged and checks
+its output independently for column/diagonal conflicts and array bounds guards.
+At controlled bus latency 3, P39 uses 70,034 cycles and P41 uses 69,938.
+An isolated P42 extension for pipeline `TST (An)` uses 68,209 (2.47% fewer
+than P41), with 1,554 pipeline issues instead of 339. Latencies 0 and 8 also
+pass the board/guard checks. P42 remains unqualified pending the full CPU gates.
+The fixture runs one solve, excluding the original outer 250 iterations and
+initializer, and is not a prediction of hardware Benchmark Mix.
