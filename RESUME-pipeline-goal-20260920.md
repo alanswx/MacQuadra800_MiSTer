@@ -1,3 +1,15 @@
+# P89 simulated guest exited MacAtrium; Finder settling
+
+P89fullguest2943117stilllive. Rootreviewedf3000:MacAtriumready.
+Escape100msopenedQuickLaunchMenu(f3191);twoTabsconfirmedExittoFinder(f3273).
+Return100msthen33Mwaitproducedf3409:Findermenus,graydesktop,iconsnotready.
+Latest~2.88Bhalfcycles. Appendedwait66Mrisingedges+shot; INFLIGHT.
+Inspectnewshotbeforeopeningdisk. NoSpeedometerlaunch/profileyet; no resets.
+P90fitwrapper2986703/fitter2995454stilllive(lastfitter17:48elapsed).
+Operatorlastendedearlyatlive-status; rootnowmonitoring, donotassumearchivecomplete.
+P93simulation-qualified/preparedwrapper unchanged; productionfrozenP90.
+ExactP89hardwareapprovalstillpending; nohardwaretransfers.
+
 # P93 simulation-qualified; P90 fit and P89 guest remain live
 
 Fullintegration63505exit0 includingload/store/PEAfaults andIRQ/replay.
