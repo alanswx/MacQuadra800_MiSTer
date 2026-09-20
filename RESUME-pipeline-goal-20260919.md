@@ -2226,3 +2226,8 @@ P47fastreadflags. DoesNOTincludeP43CLR/P44/P45store-retirement experiments.
 Nextfitwrapper scratch/p47fastflags_fit_20260919/run.sh prepared. Commit/push
 beforelaunch, thenfreeze alltrackedRTL/QSF/QIP/SDC until fullwrapperterminal.
 P39hardwaretrial activeonexistingoperator. Goal remains1.8; bestaccepted1.083.
+
+P47fit launched oncommitted/pushed406a098. Service
+q800-p47fastflags-fit-20260919.service active/runningMainPID1852467.
+Archivewrapper scratch/p47fastflags_fit_20260919/run.sh. ProductionRTL/QSF/
+QIP/SDC frozen untilwrapperterminal includingcrossreports/archive. Oneflowonly.
