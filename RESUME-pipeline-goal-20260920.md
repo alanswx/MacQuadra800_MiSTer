@@ -1,3 +1,16 @@
+# Latest: P89 directed invalidation and corpus pass
+
+P89 four-copy remapping/flush/TC-disable fixture passes3phases. Monitor requires
+four simultaneous data copies, reports4765fullcycles/3populatedflushes/84clears.
+Final negative_flush_data mutation leavesdata2/3 onPFLUSH, fails stalecopy2
+after987fullcycles/1populatedflush. See guide for earlier rejectedcontrols.
+First10060860exit0,1900groups0diffs /tmp/cpu-corpus100-gate.J5cwrR.
+Fullintegration98466 LIVE, candidate/full.log, isolatedtree/scripts/cpu/pipeline_handoff.py
+--out scratch/p89full --extended --memory-entry --p6 --loads --stores --pea
+--xstore --lea --early-drain --compare. Candidate=scratch/p89_mmu_copies_20260920.
+Matching remapped Sievebaseline73131 LIVE, scratch/sieve83_remap8_20260920.
+P83fit verifiedactive MainPID2890999; production frozen untilfullarchive/STA.
+
 # P89 MMU gate completed
 
 Session62648exit0: t_mmu,t_bitfield_mmu,t_atcprobe,t_moves_fc,t_exceptions

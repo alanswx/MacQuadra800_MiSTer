@@ -235,3 +235,26 @@ t_bitfield_mmu,t_atcprobe,t_moves_fc,t_exceptions allPASS. This covers existing
 translation/protection/nonresident/PTEST/function-code exception cases, but
 is not yet evidence of complete multi-copy invalidation coverage. Targeted
 coverage plus full integration/corpus and FPGA fit remain before promotion.
+
+P89 focused invalidation gate: scripts/cpu/mmu_copy_invalidation.s warms four
+data translations, changes their page descriptors, verifies the old mappings
+remain until PFLUSHA, checks all four new mappings after flushing, then disables
+translation and checks original physical contents. All3 bus/CE phases pass.
+The accompanying mmu_copy_monitor.sv requires simultaneous validity of allfour
+data copies and a flush with allfour present, and checks all8 copies clear on
+reset/fill/sweep/PFLUSH/TC-change edges. Coverage:4765 full-copy cycles,
+3 populated flushes,84 clear checks. Correct source evidence:
+scratch/p89_mmu_copies_20260920/invalidation.
+
+Negative control negative_flush_data.v preserves reset and instruction-copy
+invalidation but wrongly retains data copies2/3 during flush. Monitor fails on
+stale copy2 after987 full-copy cycles and1 populated flush. Earlier broad
+mutations failed before allfour data copies were populated; these are not the
+final coverage evidence. The broad negative also passed guest-only remapping
+because later ATC fills mask the stale-copy window, so the explicit monitor is
+necessary and its scope must not be described as a guest-only negative proof.
+
+First100corpus session60860exit0:1900 field groups match, zero differences,
+/tmp/cpu-corpus100-gate.J5cwrR. Isolated full pipeline integration session98466
+still running under scratch/p89_mmu_copies_20260920/tree, logfull.log; no
+production source edits and no promotion yet.
