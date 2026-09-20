@@ -590,3 +590,13 @@ tb_posted), the candidate module, then vvp. The posted test passes 1177 writes,
 including simultaneous push/pop at occupancies1/2/3, full backpressure, CE stalls,
 and error drains. Deliberately flipping captured q2 data bit0 fails at write4.
 This is not platform memory-path, full-guest or hardware qualification.
+
+
+P97 SDRAM integration: `python3 scripts/cpu/check_store_queue_memory.py
+--candidate scratch/p97_store_queue4_20260920/wombat_store_buffer.sv
+--out scratch/p97_memory_gate_20260920` passes baseline and candidate with
+POSTED=0 and1. The bench inserts the queue ahead of real bus32, beat32, SDRAM
+controller and chip model, using the registered-first-miss configuration.
+Each run checks 64 sequential reads and 2048 mixed operations; zero data failures
+and zero chip protocol errors. Stimulus holds completion through the queue's
+sampling edge. This is RAM-path coverage, not full-machine qualification.

@@ -1,3 +1,23 @@
+# P97 SDRAM integration passes; P96 fit terminal with CPU timing met
+
+Progress: independent posted scoreboard followed by actual SDRAM integration.
+New scripts/cpu/check_store_queue_memory.py and tb_store_queue_memory.sv insert
+queue ahead of existing bus32/beat32/SDRAM/chip model, registered-first-miss profile.
+Both baseline two-entry and P97 four-entry pass POSTED=0 and1: 64 sequential
+reads +2048 mixed operations, zero data failures and zero chip protocol errors.
+Evidence scratch/p97_memory_gate_20260920. Initial adapted bench deadlocked
+because it withdrew a combinational read ack at negedge before queue sampling;
+fixed stimulus holds through posedge (both baseline and candidate now pass).
+This bench covers RAM only, not emu wiring, MMU faults or full guest performance.
+P96 wrapper terminal: build1 (HDMI timing), source_check0, cross0.
+39481 ALMs94%,25510 registers, CPU +.174ns, SDRAM +.458ns, HDMI -.450ns.
+RBF MacQuadra800_p96devmemread_cc81bea.rbf SHA256
+ed3b7cf19778e1e8c6c509d41ed9a19ab9daca3e45a73758a9667c93bfd89cf4.
+Operator assigned detailed CPU STA/archive review; keep source frozen until done.
+Async hardware approval updated to exact P96 artifact, replacing stale P89 request;
+no answer/no transfer yet. Best hardware remains P70 median1.133; goal unmet.
+Next: finish P96 timing review, qualify P97 full guest/remaining integration and fit.
+
 # P97 final screens and posted-write scoreboard verified
 
 Previous weighting clarification did not advance the goal. This turn verified
