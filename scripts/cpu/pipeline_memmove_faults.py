@@ -8,6 +8,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--core', type=Path, required=True, help='candidate ap040_core.v')
 parser.add_argument('--out', type=Path, required=True)
 parser.add_argument('--vasm', default='/home/alans/mister/MacQuadra800_fixtures/wombat-vasm/vasmm68k_mot')
+parser.add_argument('--displacement-destination',action='store_true',help='exercise d16(An) destinations instead of indexed destinations')
 args = parser.parse_args()
 d = args.out.resolve()
 d.mkdir(parents=True, exist_ok=True)
@@ -35,6 +36,9 @@ final begin
 end
 endmodule
 ''')
+if args.displacement_destination:
+ monitor=d/'monitor.sv'
+ monitor.write_text(monitor.read_text().replace('`C.dst_mode_r==6','`C.dst_mode_r==5').replace('`C.state==`C.S_EA_EXTW2','`C.state==`C.S_IMMF'))
 units=('ap040_tg68k_compat','ap040_bus16_adapter','ap040_bus_timeout','ap040_alu','ap040_muldiv','ap040_mmu','ap040_cache','ap040_fpu','ap040_walker_cdc','primitives/dpram')
 sources=[r/'rtl/ap68040/tb/tb_ap040_program.v',d/'monitor.sv',args.core.resolve(),rtl/'ap040_regfile.v',exp/'ap040_pipeline_integer.sv',*[rtl/(u+'.v') for u in units]]
 flags=['-DAP040_EXPERIMENTAL_'+x for x in ('XSTORE','LEA','PIPELINE','PIPELINE_LOADS','PIPELINE_STORES','PIPELINE_PEA','PIPELINE_P6')]+['-DAP040_PIPELINE_COMPARE','-DAP040_PIPELINE_MEMORY_ENTRY','-DAP040_PIPELINE_EARLY_DRAIN']
@@ -100,6 +104,7 @@ failed:
  if name=='extension':
   start=asm.index('handler:');handler=asm[start:];asm=asm[:start]
   i=asm.index(' org $1ffe');asm=asm[:i]+' bra failed\n'+handler+asm[i:]
+ if args.displacement_destination: asm=asm.replace('(0,a1,d1.l)','(0,a1)')
  (d/(name+'.s')).write_text(asm)
  run([args.vasm,'-Fbin','-m68040','-no-opt','-o',d/(name+'.bin'),d/(name+'.s')],name+'_asm.log')
  run(['python3',r/'rtl/ap68040/tb/bin2hex.py',d/(name+'.bin'),d/(name+'.hex')],name+'_hex.log')

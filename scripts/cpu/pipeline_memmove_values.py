@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check indexed memory MOVE values, CCRs, aliases and byte guards."""
+"""Check indexed or displacement memory MOVE values, CCRs, aliases and byte guards."""
 import argparse
 from pathlib import Path
 import subprocess
@@ -7,8 +7,9 @@ r=Path(__file__).resolve().parents[2]
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--core',type=Path,required=True)
 parser.add_argument('--out',type=Path,required=True)
-parser.add_argument('--require-direct-ea',action='store_true',help='require coverage of source acknowledgement directly entering indexed destination calculation')
+parser.add_argument('--require-direct-ea',action='store_true',help='require coverage of source acknowledgement directly entering destination calculation')
 parser.add_argument('--vasm',default='/home/alans/mister/MacQuadra800_fixtures/wombat-vasm/vasmm68k_mot')
+parser.add_argument('--displacement-destination',action='store_true',help='exercise d16(An) destinations instead of indexed destinations')
 args=parser.parse_args()
 d=args.out.resolve();d.mkdir(parents=True,exist_ok=True)
 rtl=r/'rtl/ap68040/rtl';exp=r/'rtl/ap68040/experimental'
@@ -26,6 +27,7 @@ for suffix,n in [('b',1),('w',2),('l',4)]:
     dest=(after if alias else 0xc100)+idx*scale+disp
     ccr=(0x10 if k%2 else 0)+(4 if value==0 else 8 if value&(1<<(n*8-1)) else 0)
     source={2:'(a0)',3:'(a0)+',4:'-(a0)',5:'(4,a0)'}[mode]
+    dest_operand=f"({idx*scale+disp},{'a0' if alias else 'a1'})" if args.displacement_destination else f"({disp},{'a0' if alias else 'a1'},d1.l*{scale})"
     asm+=f''' move.w #{k},($f100).l
  movea.l #${start:x},a0
  movea.l #$c100,a1
@@ -34,7 +36,7 @@ for suffix,n in [('b',1),('w',2),('l',4)]:
  move.b #$a5,(${dest-1:x}).l
  move.b #$5a,(${dest+n:x}).l
  move.w #${0x271f if k%2 else 0x270f:x},sr
- move.{suffix} {source},({disp},{'a0' if alias else 'a1'},d1.l*{scale})
+ move.{suffix} {source},{dest_operand}
  move.w sr,d6
  andi.w #$1f,d6
  cmpi.w #${ccr:x},d6
@@ -79,6 +81,9 @@ final begin
 end
 endmodule
 ''')
+if args.displacement_destination:
+ monitor=d/'monitor.sv'
+ monitor.write_text(monitor.read_text().replace('`C.dst_mode_r==6','`C.dst_mode_r==5').replace('`C.state==`C.S_EA_EXTW2','`C.state==`C.S_EA_DISP'))
 units=('ap040_tg68k_compat','ap040_bus16_adapter','ap040_bus_timeout','ap040_alu','ap040_muldiv','ap040_mmu','ap040_cache','ap040_fpu','ap040_walker_cdc','primitives/dpram')
 sources=[r/'rtl/ap68040/tb/tb_ap040_program.v',d/'monitor.sv',args.core.resolve(),rtl/'ap040_regfile.v',exp/'ap040_pipeline_integer.sv',*[rtl/(u+'.v') for u in units]]
 flags=['-DAP040_EXPERIMENTAL_'+x for x in ('XSTORE','LEA','PIPELINE','PIPELINE_LOADS','PIPELINE_STORES','PIPELINE_PEA','PIPELINE_P6')]+['-DAP040_PIPELINE_COMPARE','-DAP040_PIPELINE_MEMORY_ENTRY','-DAP040_PIPELINE_EARLY_DRAIN']

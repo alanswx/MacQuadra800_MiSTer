@@ -1316,3 +1316,65 @@ results favor investigating actual operand/retirement throughput over another
 unmeasured expansion of speculative fetch, while retaining hardware testing as
 the deciding evidence. They do not establish the bottleneck of Whetstone or the
 complete Mac workload.
+
+
+## P61: start a displacement MOVE destination at source acknowledgment
+
+Candidate `scratch/p61_move_dispdest_20260920/ap040_core.v`, SHA256
+`6defcec236235ea92a79065631c5c8b50eb7173d50f81740efcfea19ac201c92`; based on P57, baseline divider and unchanged pipeline module.
+Extend P33's successful memory-source acknowledgment handling to ordinary
+memory-to-memory MOVE with destination d16(An). Call the existing `ea_start`
+immediately after the successful read, skipping S_PIPE_SDONE and S_PIPE_DST.
+The d16 path enters S_EA_DISP; indexed-only extension decoding remains guarded
+by destination mode6. No destination memory access or extension consumption
+occurs before the source succeeds. Faults and split-source reads retain the
+existing paths. No cache RAM or arithmetic datapath is added.
+
+| Original kernel, RAM latency3 | P57 cycles | P61 cycles |
+|---|---:|---:|
+| Quick Sort | 182,275 | 179,949 |
+| Towers | 23,887,160 | 23,592,098 |
+| Permute | 1,380,669 | 1,380,669 |
+| Bubble | 3,456,612 | 3,456,612 |
+| Queens | 65,720 | 65,720 |
+
+Quick Sort saves 2,326 cycles at each controlled latency: P61 is 168,178 /
+179,949 / 203,319 at latency0/3/8. Output and independent guards pass on all
+kernels. Standard-latency cycle reductions are 1.28% Quick and 1.24% Towers;
+these are not hardware Mix predictions.
+
+Qualification complete:
+
+- Full integration PASS, including exceptions/MMU/cache/FPU/MOVEM and precise
+  pipeline load/store/PEA interrupt cancellation/replay (`full.log`).
+- First100 silicon comparison PASS, 1900 field-groups, zero differences;
+  artifacts `/tmp/cpu-corpus100-gate.xM4KcM` and candidate `corpus.log`.
+- Existing indexed MOVE fault and boundary suites remain passing.
+- New d16-destination modes in the existing test runners explicitly cover
+  source faults, destination faults, source postincrement/predecrement rollback,
+  destination extension faults, IRQ, T1 trace, register alias, and page-split
+  source fallback, in the existing three bus phases.
+- Values suite: all144 byte/word/long value/alias/guard cases pass in all three
+  phases, with432 qualified source acknowledgments and429 observed direct
+  S_MRD-to-S_EA_DISP transitions. The baseline produces correct values but
+  direct_ea=0, and is rejected when the new-path coverage is required.
+
+The first displacement coverage monitor incorrectly watched S_EA_D16 and then
+S_IMMF; the actual helper enters S_EA_DISP. Architectural values passed, but
+those early coverage assertions failed. The corrected tracked monitor passes
+and the baseline control fails specifically for missing new-path coverage.
+The initial scratch Bubble runner also selected an absent comparison module;
+its corrected current-module run above completed with the candidate core.
+
+Reproduce the new targeted coverage with the three
+`scripts/cpu/pipeline_memmove_{faults,boundaries,values}.py` runners, passing
+`--core scratch/p61_move_dispdest_20260920/ap040_core.v --out <short-output-path>
+--displacement-destination`; add `--require-direct-ea` to the values runner.
+The indexed full-extension fixture is intentionally excluded from the d16
+mode; it remains covered by the unchanged indexed suite.
+
+Saved exact diff: `scripts/cpu/move_displacement_destination.patch`, relative
+to P57. It is **not applied** to production during the P57 seed22 fit.
+P61 is a small next fit candidate with measured gains in two workloads;
+P59/P60 remain separate divider experiments, not silently combined with it.
+No P61 fit, timing, Mac boot, or hardware score exists yet.
