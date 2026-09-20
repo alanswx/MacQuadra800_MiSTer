@@ -2361,3 +2361,23 @@ P52serviceq800-p52refill64-fit-20260920 remainsactiveMainPID2240198 with
 quartus_fit2245832. Physical synthesis/fitting ongoing, notblocked. Prior
 output_filesfit.summary is staleP47 failure, notP52. RTLsourcefreezecontinues;
 usearchivefreshness/sourceidentity checks. Goal1.8remainsunmet.
+
+## 2026-09-20 P57 integration complete; hardware ready
+
+Previousgoalturn progress: measured P57 gains and launched remainingqualification.
+P57 fullintegration session89002 nowterminalexit0, finalPASSreal-coreownership
+andallIRQreplay. CoreSHA256660821496a34151ef80502437ebd59b8c35f66b0aa858ac11f0b6b6446ea5063;
+modulebyteidenticalproduction. Candidate readyforpromotion ONLY AFTER P52
+archivewrapperterminal. Preparedscratch/p57movestore_fit_20260920/run.sh, notlaunched.
+
+Operator performed read-only MiSTerreadinesscheck: MainPID26392/P39loaded,
+mrextPID763,CFG40000000, disposable slot0. Root independentlyviewed
+scratch/hardware_readiness_20260920/current.png: visible safehalt. Nohardware
+mutations. Operatoridleawaitsexplicitfreshartifact.
+
+P52stillactive: serviceMainPID2240198, fitter2245832observed11m14selapsed,
+33m07sCPUtime. No terminalfitreport yet; staleP47reports mustnotbemisread.
+Do notrestart the activeflow or changeRTL/QSF/QIP/SDC. Nextactionpollsame
+service, inspectfresharchive/cross/RAM/timing, then sendverifiedP52artifactto
+operatorfor5validhardwareMixruns. P57buildcanfollowsequentiallyafterP52archive
+whilehardwareoperatorrunsP52. Goalstill1.8unmet; noblockcondition.

@@ -1093,3 +1093,12 @@ Candidate scratch/source identity:
 Values runner/monitor: candidate values.py; faults/boundaries use the tracked
 pipeline_memmove_faults.py and pipeline_memmove_boundaries.py with --core.
 Full integration log: candidate full.log; kernel logs and corpus.log alongside.
+
+P57 follow-up: full integration is now terminal PASS (session89002 exit0),
+including integer/exceptions/MMU/FPU/cache/MOVEM and precise load/store/PEA
+interrupt/replay tests. The runner explicitly substitutes P57core and its paired
+module. Together with the targeted memory-MOVE tests, kernel oracles and
+first100corpus above, this completes the planned simulation qualification.
+No FPGA/hardware qualification yet. Prepared next-build archive wrapper:
+`scratch/p57movestore_fit_20260920/run.sh`; do not launch until P52's complete
+wrapper is terminal and the exact P57 candidate is promoted/committed.
