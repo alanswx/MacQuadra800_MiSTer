@@ -537,3 +537,20 @@ P94 placement-only seed23 completed:39543ALMs94%,CPU-2.117/TNS-158.712,
 HDMI+.289,SDRAM+.178; build1/source0/cross0. Worse than identical P90 RTL
 seed22's-.140 CPU. Detailed STA/archive review pending; restore seed22 after
 it completes. No hardware deployment or timing improvement claim.
+
+
+P96 qualification update: first-100 corpus1900groups/zero differences,
+`/tmp/cpu-corpus100-gate.jmwl24`, exit0. Existing fault cases pass. Extended
+`pipeline_memmove_faults.py --source-extension indexed|d16` now requires
+three actual early source reads for source-fault and destination-fault cases.
+The warm d16 test initially passed architectural checks with zero new-path
+coverage; placing the instruction at0x63e crosses the64-byte fetch boundary
+and produces3/3 required early reads. Both variants pass all fault cases.
+The unchanged production core is a negative control: architectural checks
+pass but early_reads0 vs expected3 causes the monitor to reject it.
+This does not claim every fault mode is covered; full integration remains live.
+P96Quick latency0/8=164413/199930; matching baseline sweep started.
+
+P94 final detailed STA exit0:ATC RAM write-enable→epf_data[1][8] criticalpath,
+holdminimum+.200ns,crossings+.178/+.617. Artifact hash verified. AllQuartus
+processes terminal before restoring QSFseed22. No new fit active.

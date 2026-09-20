@@ -9,6 +9,7 @@ parser.add_argument('--core', type=Path, required=True, help='candidate ap040_co
 parser.add_argument('--out', type=Path, required=True)
 parser.add_argument('--vasm', default='/home/alans/mister/MacQuadra800_fixtures/wombat-vasm/vasmm68k_mot')
 parser.add_argument('--displacement-destination',action='store_true',help='exercise d16(An) destinations instead of indexed destinations')
+parser.add_argument('--source-extension', choices=['d16','indexed'], help='exercise early source reads and require their coverage')
 args = parser.parse_args()
 d = args.out.resolve()
 d.mkdir(parents=True, exist_ok=True)
@@ -21,7 +22,10 @@ def run(cmd,name):
 `include "ap040_defs.svh"
 `define C tb_ap040_program.dut.core
 module fallback_monitor;
-integer shortcuts=0,expected=0;
+integer shortcuts=0,expected=0,early_reads=0,early_expected=0;
+initial if($value$plusargs("early=%d",early_expected)) begin end
+always @(posedge tb_ap040_program.clk) if(tb_ap040_program.nreset && `C.ce &&
+ `C.hint_early_read && `C.p_dst==`C.DK_MEM) early_reads++;
 integer persistent=0;
 initial if($value$plusargs("persistent=%d",persistent)) begin end
 always @(negedge tb_ap040_program.clk) if(persistent && tb_ap040_program.nreset) begin force tb_ap040_program.fberr_armed=1; force tb_ap040_program.fberr_addr=16'h2000; end
@@ -31,7 +35,8 @@ always @(posedge tb_ap040_program.clk) if(tb_ap040_program.nreset && `C.ce &&
  `C.r_m_ret==`C.S_PIPE_SDONE && `C.p_src==`C.SK_MEM && `C.p_dst==`C.DK_MEM &&
  `C.exec_kind==`C.EK_ALU && `C.alu_op==`AP040_ALU_MOVE && !`C.p_rmw && `C.dst_mode_r==6) shortcuts++;
 final begin
- $display("MOVE_ACK shortcuts=%0d expected=%0d",shortcuts,expected);
+ $display("MOVE_ACK shortcuts=%0d expected=%0d early_reads=%0d early_expected=%0d",shortcuts,expected,early_reads,early_expected);
+ if(early_reads!=early_expected) $fatal(1,"missing early source read coverage");
  if(shortcuts!=expected) $fatal(1,"missing MOVE acknowledgement coverage");
 end
 endmodule
@@ -50,6 +55,11 @@ for name,source,src_addr,dst_addr,loc,fa,sr,count in [
  ('predec_destination','-(a0)',0xc002,0xf140,0x600,0xf140,0x2718,3),
  ('extension','(a0)',0xc000,0xc100,0x1ffe,0x2000,0x271f,3),
 ]:
+ early_expected=0
+ if args.source_extension and source=='(a0)' and name!='extension':
+  source='(0,a0)' if args.source_extension=='d16' else '(0,a0,d1.l)'
+  early_expected=3
+  if args.source_extension=='d16': loc=0x63e
  asm=' org 0\n dc.l $7000,start,handler\n'+''.join(' dc.l failed\n' for _ in range(253))+f""" org $400
 start:
  move.w #$2700,sr
@@ -108,6 +118,6 @@ failed:
  (d/(name+'.s')).write_text(asm)
  run([args.vasm,'-Fbin','-m68040','-no-opt','-o',d/(name+'.bin'),d/(name+'.s')],name+'_asm.log')
  run(['python3',r/'rtl/ap68040/tb/bin2hex.py',d/(name+'.bin'),d/(name+'.hex')],name+'_hex.log')
- run(['vvp',d/'test.vvp','+prog='+str(d/(name+'.hex')),'+shortcuts='+str(count),'+persistent='+str(int(name=='extension'))],name+'.log')
+ run(['vvp',d/'test.vvp','+prog='+str(d/(name+'.hex')),'+shortcuts='+str(count),'+early='+str(early_expected),'+persistent='+str(int(name=='extension'))],name+'.log')
  log=(d/(name+'.log')).read_text();assert 'ALL TESTS PASSED' in log and 'FAIL:' not in log,log[-2400:]
  print(name,'PASS',next(l for l in log.splitlines() if l.startswith('MOVE_ACK')),flush=True)

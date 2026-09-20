@@ -334,7 +334,7 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # 2026-09-19 P24 stack prefetch + pipeline BRA (0177679), seed 21:
 # timing met; 39,716 ALMs; CPU +0.518, HDMI +0.119, SDRAM +0.804 ns;
 # hold +0.229, sys->ram +0.804 and ram->sys +0.518 ns.
-set_global_assignment -name SEED 23
+set_global_assignment -name SEED 22
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
@@ -712,3 +712,5 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram_beat32.sv
 # P90 qualified MMU at seed22:39465ALMs,CPU-.140,HDMI-.123,SDRAM+.380.
 # P93 parallel tags seed22:39432ALMs,CPU-1.612; rejected, P90 restored.
 # P94 uses identical P90 RTL at seed23 to test placement-only timing closure.
+
+# P94 seed23:39543ALMs,CPU-2.117,HDMI+.289,SDRAM+.178; restoreseed22.

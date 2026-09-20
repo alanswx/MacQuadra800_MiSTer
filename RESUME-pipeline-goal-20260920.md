@@ -1,3 +1,14 @@
+# P96 qualification live; seed22restored, noQuartusflow
+
+P94allarchive/STAterminal/rootverified;restoredQSFseed22,RTLstillP90.
+P96fullintegration90761LIVE(candidate/full.log,scratch/p96full).
+Corpus94981exit0:1900groups0diffs/tmp/cpu-corpus100-gate.jmwl24.
+Newfaulttestsource-extensionindexed/d16bothPASSactualearlyreads3percase.
+d16mustloc0x63eacross64bytefetchboundary;warmtestcorrectbutnocoverage.
+Baselinecore negative architecturalPASSbutcoverage0vs3rejectedasexpected.
+Latency48112exit0Quick164413/199930at0/8;matchingbaselinejustlaunched.
+NoP96promotionyet. Hardwareexactapprovalpending,goalunmet.
+
 # P96 early memmove reads gain1.29%Quick; P94seed23timingworse
 
 P96scratchcore+unappliedscripts/cpu/memmove_early_read.patch;Quick176265
