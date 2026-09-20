@@ -199,3 +199,16 @@ allow concurrent hardware input. Root reviewed fresh readiness screenshot
 33MHz/32MB, disposable disk selected. Agent must recheck before deployment.
 No P63 hardware artifact or score exists yet. Ask the monitoring agent for
 terminal evidence rather than duplicating its polling loop.
+
+
+## Latest user steering: temporary CD and Ethernet omission
+
+User proposed disabling Mac features temporarily and specifically Ethernet.
+Next planned development build keeps P63 CPU unchanged and sets CDROM_OFF=1
+and ETHERNET_OFF=1. Do not interrupt or modify current full-feature P63 fit.
+Prepared UNAPPLIED scripts/cpu/development_no_cd_ethernet.patch; NOT launched
+scratch/p63devnocdnet_fit_20260920/run.sh (exact P63 preflight and both feature
+flags required, DEVELOPMENT ONLY labeling). See
+`docs/CPU_DEVELOPMENT_FEATURES_20260920.md`. Both features must be restored
+and full hardware validation repeated before final acceptance. P64 stays a
+subsequent one-at-a-time CPU experiment. Cheap operator has been notified.
