@@ -688,3 +688,9 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram_beat32.sv
 # 3,740,942 memory bits. No fresh RBF. Source check PASS; archive
 # scratch/p52refill64_fit_20260920. P57 early MOVE store uses seed22
 # for a different placement; divider remains unchanged pending P59 gates.
+
+# 2026-09-20 P57 early MOVE store (e5066a2), seed22: placement passed,
+# routing FAILED congestion (16618/188026), 41,260 ALMs (98%), 26,039 regs,
+# 491 RAM blocks, 43 DSP. No fresh RBF; source manifest passed. Archive:
+# scratch/p57movestore_fit_20260920. P63 keeps seed22 and reduces only the
+# pipeline ALU operation set; full CPU/silicon100 qualification passed.

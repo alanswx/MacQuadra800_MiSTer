@@ -1494,3 +1494,11 @@ and P63 ALU/pipeline hashes before building. Do not launch until the complete
 P57 wrapper terminates and its reports/artifact have been inspected.
 Candidate ALU SHA256 f4edfdce37492609fc840c6e136946a90f273ef7e88dee9090d104132d22021f;
 pipeline SHA256 e53cadf233cd083cc56711b7c3a2eae227728f5162fe346348712bcd6d631ddc.
+
+
+P57 FPGA terminal result: seed22 placement PASS, routing FAIL congestion
+16618/188026/170143. 41,260 ALMs (98%),26,039registers,491RAMblocks,43DSP.
+Build exit3, source check0; no fresh RBF. No P57 hardware score exists.
+This follows P52 congestion, so P63's qualified ALU subset is promoted as the
+next isolated area experiment, retaining seed22 and P57 core/baseline divider.
+P62 remains unapplied. Archive scratch/p57movestore_fit_20260920.

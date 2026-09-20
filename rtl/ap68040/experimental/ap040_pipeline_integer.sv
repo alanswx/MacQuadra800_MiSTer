@@ -339,12 +339,18 @@ module ap040_pipeline_integer #(
     wire [31:0] alu_result;
     wire [4:0] alu_flags, alu_fast_flags;
     wire alu_fast_ok;
-    ap040_alu alu (
+    ap040_alu #(.PIPELINE_SUBSET(1)) alu (
         .op(ex_op), .size(ex_size), .shcnt(source_full[5:0]), .a(src), .b(is_indexcmp(ex_opcode) ? old_dst : dst),
         .flags_in(flags_in), .result(alu_result), .flags_out(alu_flags),
         .fast_flags(alu_fast_flags), .fast_ok(alu_fast_ok)
     );
     // synthesis translate_off
+    always @(posedge clk) if (nreset && ce && !flush && ex_v) begin
+        case (ex_op)
+            `AP040_ALU_MOVE, `AP040_ALU_TST, `AP040_ALU_ADD, `AP040_ALU_SUB, `AP040_ALU_CMP, `AP040_ALU_AND, `AP040_ALU_OR, `AP040_ALU_EOR, `AP040_ALU_ASL1, `AP040_ALU_ASR1, `AP040_ALU_LSL1, `AP040_ALU_LSR1, `AP040_ALU_ROL1, `AP040_ALU_ROR1, `AP040_ALU_ROXL1, `AP040_ALU_ROXR1: ;
+            default: $fatal(1,"pipeline decoder selected an omitted ALU operation");
+        endcase
+    end
     always @(posedge clk) if (fast_read_retire && ex_flags && !alu_fast_ok)
         $fatal(1,"fast read operation has no bounded flag path");
     // synthesis translate_on

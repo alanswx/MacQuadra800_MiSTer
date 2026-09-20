@@ -7,16 +7,15 @@ on these observations. The 1.8 hardware goal remains unachieved and active.
 
 ## Current production and build
 
-Production RTL is **P57**, core SHA256
+Prior build RTL was **P57**, core SHA256
 `660821496a34151ef80502437ebd59b8c35f66b0aa858ac11f0b6b6446ea5063`.
 Quartus seed22 build source commit `e5066a280169c7c93dfe171fd1e5674b72a96052`.
 Later commits contain tests, documentation, and unapplied patches only.
 
-The sole active flow is the **user** systemd unit
+The now-terminal P57 flow was the **user** systemd unit
 `q800-p57movestore-fit-20260920.service`, wrapper PID2292054,
 quartus_sh PID2292088, fitter PID2301048. Query with `systemctl --user`;
-a system-scope query misleadingly reports an inactive unit. Last verified
-fitter elapsed over20min, with CPU time advancing. No terminal result yet.
+a system-scope query misleadingly reports an inactive unit. Terminal FAILED routing congestion, build.exit3, source_check.exit0. No new RBF.
 Archive: `scratch/p57movestore_fit_20260920`.
 
 Keep RTL/QSF/QIP/SDC frozen until the wrapper finishes, including cross-domain
@@ -143,3 +142,17 @@ exact ALU/pipeline/core/divider preflight hashes. P57 synthesis pipeline ALU
 uses2182 combinational ALUTs; actual P63 savings unmeasured. P57 fitter still
 live at41m24s with CPU70m09s. Next action remains inspect terminal P57 result;
 P62 is the qualified cycle-reduction option, P63 the qualified area experiment.
+
+
+## P57 terminal; P63 promoted next
+
+P57 seed22 FAILED routing congestion (16618/188026/170143), placement passed:
+41,260ALMs98%,26,039registers,491RAMblocks,43DSP. Source check exit0, no fresh
+RBF. Wrapper MainPID0, unit failed, no Quartus processes before promotion.
+Output RBF remains stale P39 and must never be deployed as P57.
+
+P63 ALU subset promoted from the exact qualified patch, core unchanged P57,
+baseline divider unchanged, seed22 retained to isolate area change.
+Build wrapper: scratch/p63subset_fit_20260920/run.sh. Launch as sole user
+unit q800-p63subset-fit-20260920.service after commit. Freeze build sources
+until that wrapper completes. P62 stays unapplied pending routing evidence.
