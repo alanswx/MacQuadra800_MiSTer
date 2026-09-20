@@ -329,3 +329,15 @@ Validation on the isolated candidate:
 
 P64 development build remains active and its RTL is frozen. P66 is a saved,
 simulation-qualified patch only; no P66 FPGA or hardware result exists.
+
+
+Latest scratch work: P67 combines current P64 MOVE with the existing P65
+128-byte refill patch, applied with zero fuzz (three expected line offsets).
+No P66 timing change. `scratch/p67_move_refill128_20260920` contains core and
+logs; production remains frozen P64. Quick session71688, full integration79688,
+Bubble then coherence42693, first10078472. Quick log already reports all three
+PASS with counts166651/178422/201792 (364 cycles below P64 at each latency);
+collect process exit before final qualification. Other results pending.
+P63dev five benchmark start/completion pairs root-reviewed, median1.122;
+shutdown and persisted identity report pending with cheaper hardware operator.
+P66 commit2b4f4e6 pushed; all its simulation processes collected exit0.

@@ -1732,3 +1732,33 @@ Prior readiness was33MHz/32MB/Ethernet and completion screens show32768K.
 A persisted deployment/config record has been requested from the operator.
 This full-feature trial is separate from the active CD/Ethernet-disabled
 build, whose hardware score is not yet measured.
+
+
+## P63 development build without CD/Ethernet — five benchmark pairs reviewed
+
+Artifact `scratch/p63devnocdnet_fit_20260920/MacQuadra800_p63devnocdnet_29190fe.rbf`,
+SHA256 `f877992fd51c01324393ccf36ead3d6c678e24b7e1c2f771a859106301a405ed`.
+Same CPU as full-feature P63; CD/audio and Ethernet omitted. This is a separate
+development baseline and is not release-qualified (CPU setup -0.862 ns,
+HDMI -0.268 ns). Deployment/configuration identity report and shutdown review
+remain pending at this entry; do not treat this as a complete hardware gate.
+
+Root visually reviewed all five independent start/completion pairs under
+`scratch/hardware_p63devnocdnet_20260920`: all ten tests selected, iteration one,
+32768K reported, fresh completion results. No apparent invalid timers and no
+runs excluded; operator confirmation remains part of the final trial record.
+
+| Run | Benchmark Mix |
+|---|---:|
+| 1 | 1.118 |
+| 2 | 1.122 |
+| 3 | 1.123 |
+| 4 | 1.123 |
+| 5 | 1.122 |
+
+Median **1.122**, mean **1.1216**, range **1.118–1.123**. Full-feature P63's
+median was 1.129; this trial provides no evidence of a performance improvement
+from omitting the devices. The measured benefit is build time and available
+logic: 21m56 versus 24m54, and 39,411 versus 41,174 fitted ALMs. Neither a
+repeatable 12% build-time saving nor a causal explanation for the small score
+difference is established by this single pair of builds.
