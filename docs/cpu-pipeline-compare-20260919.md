@@ -678,3 +678,26 @@ memory-to-memory MOVE destination EA overlap with the source read, using real
 opcode/state evidence and preserving two-access fault order.
 P18 hardware operator stillactive; root requested status because no completed-run
 artifacts yet. No accepted P18 score. Best hardwaremedian1.050,goal1.8unmet.
+
+### P24 fit timing met; P26 promoted for next fit
+
+P24 0177679 terminal build/source/cross exits0.39,716ALMs,26,334registers,
+491RAM,43DSP. CPU+.518,HDMI+.119,SDRAM+.804,worsthold+.229ns;
+crosssys->ram+.804,ram->sys+.518. Root verified cachetagM10K/bankE512bitMLAB
+and archived4,506,028byteRBF SHA256
+86f6cc7824c20c3320f774be04baa163d1eb64236f27e8220a69fc0c20e23604.
+Hardware operator queued P24 after finishing P18 retry, five valid runs and normal
+shutdown per candidate; explicit archived artifacts only.
+P26 within-page unaligned early issue promoted after fullintegration, silicon100,
+RTS(default+wordaligned),memMOVEfault and3originalkernel gates PASS.
+Production core normalized-equal to qualified scratch; comments updated to explain
+4KB conservative guard for both MMU page sizes. Next fit wrapper/archive
+scratch/p26unaligned_fit_20260919; serviceq800-p26unaligned-fit-20260919.
+P29 scratch destination-register peek during S_MRD gives all3kernel totals
+identical toP26; notpromoted/notfullyqualified. P30 prepares selectors on source
+read issue, peeking past any source extension popped on that edge; only after
+source success may its brief destination extension be consumed and existing
+S_EA_EXTW2 used. P30 stillunqualified; Bubble session2725/log
+scratch/p30_move_issue_peek_20260919/bubble.log. Do not promote based on hypothesis.
+Best hardwaremedian1.050,goal1.8unmet. P18 retry active; earlier failure claim was
+not supported by root-reviewed normal registration/splash images.

@@ -1963,8 +1963,8 @@ task mem_issue;
 		m_addr_r <= mgo_a; m_size <= mgo_sz; m_wr <= mgo_wr; r_m_ret <= mgo_ret;
 		if (mgo_wr) m_wdat <= mgo_d;
 		state <= mgo_wr ? S_MWR : S_MRD;
-		// Normal aligned operand reads from on-board RAM (from the operand
-		// pipe) and aligned destination writes (from S_EXEC) claim the shared
+		// Normal within-page operand reads from on-board RAM (from the operand
+		// pipe) and within-page destination writes (from S_EXEC) claim the shared
 		// port while entering S_MRD/S_MWR, removing the request-setup cycle;
 		// MMIO, page-crossing transfers, exception frames and the system/FPU
 		// helpers keep it.  Completion, faults and retirement are unchanged.
@@ -1993,9 +1993,11 @@ task mem_issue;
 		                 state == S_JSR1 || state == S_PEA1 ||
 		                 state == S_LINK2 || pipe_load_launch))) &&
 		    mgo_a[31:28] == 4'h0 && !epf_pend && !mem_req && !mem_ack &&
+        // A transfer wholly inside 4KB cannot cross either supported MMU
+        // page size. Crossing accesses retain delayed issue and byte splitting.
 		    ((mgo_sz == `AP040_SZ_B) ||
-		     ((mgo_sz == `AP040_SZ_W) && !mgo_a[0]) ||
-		     ((mgo_sz == `AP040_SZ_L) && !(|mgo_a[1:0])))) begin
+		     ((mgo_sz == `AP040_SZ_W) && mgo_a[11:0] != 12'hfff) ||
+		     ((mgo_sz == `AP040_SZ_L) && mgo_a[11:0] <= 12'hffc))) begin
 			mem_req <= 1; mem_write <= mgo_wr; mem_instr_q <= 0;
 			mem_size <= mgo_sz; mem_addr_q <= mgo_a;
 			if (mgo_wr) mem_wdata <= mgo_d;
