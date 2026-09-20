@@ -11,7 +11,7 @@ always @(posedge tb_ap040_program.clk) begin
  clear_pending = !`M.nreset || `M.fill_we || `M.sweep_on || `M.pf_req || (`M.tc != `M.u_tc);
 end
 always @(negedge tb_ap040_program.clk) if(clear_pending) begin
- for(i=0;i<8;i=i+1) if(`M.u_valid[i] !== 1'b0) $fatal(1,"retained stale translation copy %0d",i);
+ for(i=0;i<$size(`M.u_valid);i=i+1) if(`M.u_valid[i] !== 1'b0) $fatal(1,"retained stale translation copy %0d",i);
  clear_checks++;
 end
 final begin

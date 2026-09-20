@@ -1,3 +1,16 @@
+# Latest: P90 fallback qualification in progress
+
+P90MMU2c445c90b1bbd7ea4b8452b6ff3e91bd4fa56e363d0beb9c430ae33f3c033abd.
+Candidate scratch/p90_mmu_data_copies_20260920, patchscripts/cpu/mmu_data_copies.patch
+relativeP89. 4data/1instructioncopies, Matrix8K2872453 (+1599versusP89),
+Quick178573/Sieveremapped286818 unchanged. FiveMMUprograms72958exit0;
+focusedcopyinvalidation4765fullcycles/3fullflushes/84clearsPASS. First10075079exit0
+1900groups0diffs /tmp/cpu-corpus100-gate.Sy8o6W. No promotionyet.
+Fullintegration35760LIVE (candidate/full.log, scratch/p90full, isolatedtree).
+Matrix4KB40699LIVE (scratch/matrix90_mmu4_20260920). Collectterminals.
+P89fullguest2943117 stillbooting, last~1.0Bhalfcycles, onlyf500Welcomeshot.
+P89hardwareexactartifactapprovalpending. NoQuartusjoblive.
+
 # Latest: P89 fully archived; exact hardware approval requested
 
 P89wrapper/archive/detailedSTAterminal androotreviewed. Artifact

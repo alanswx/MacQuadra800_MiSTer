@@ -322,3 +322,15 @@ The benefit is insensitive to these RAM response delays (20.69–21.30% fewer
 cycles); this still does not establish a hardware Mix improvement. Evidence:
 scratch/matrix{83,89}_latency_sweep_20260920, originalMMU recovered from64af3ae
 and recorded ineach identity.json. Sessions37446/44420 bothcompletedexit0.
+
+P90 fallback qualification begun after P89 fit missed CPU timing by1.538ns.
+Five-entry sourceSHA2c445c90b1bbd7ea4b8452b6ff3e91bd4fa56e363d0beb9c430ae33f3c033abd;
+unapplied scripts/cpu/mmu_data_copies.patch relativeP89. Retains the same four
+data translations but only one instruction translation, at index4.
+Quick8KB178573 and remappedSieve8KB286818 exactly match P89, all oracles pass.
+Existing five MMU/fault/ATC/function-code programs pass (session72958exit0).
+Focused remapping/invalidation test passes3phases with4765full-copy cycles,
+3populatedflushes/84clearchecks. The monitor now checks the actual array size.
+First100corpus1900groups/zero differences, session75079exit0,
+/tmp/cpu-corpus100-gate.Sy8o6W. Fullintegration and Matrix4KB stillrunning;
+no promotion/fit yet. This is an area/timing fallback, not an established gain.
