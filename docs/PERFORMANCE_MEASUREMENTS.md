@@ -1764,3 +1764,32 @@ from omitting the devices. The measured benefit is build time and available
 logic: 21m56 versus 24m54, and 39,411 versus 41,174 fitted ALMs. Neither a
 repeatable 12% build-time saving nor a causal explanation for the small score
 difference is established by this single pair of builds.
+
+
+## P64 MOVE overlap, development profile — five runs and clean shutdown reviewed
+
+Artifact `scratch/p64devmove_fit_20260920/MacQuadra800_p64devmove_7952a01.rbf`,
+SHA256 `f2e82be0096b553150ef3bace8888f6a5454947a6d75f6ae954be6c69cec60cc`,
+4,512,768 bytes. Authentic33MHz/32MB, CD/audio and Ethernet compiled out.
+Remote hash and disposable slot0 recorded by operator; original disk untouched.
+Root reviewed all five independent all-ten-test/iteration1 start/completion pairs,
+deployment record, and safe-shutdown screenshot in
+`scratch/hardware_p64devmove_20260920`. No invalid timers observed or reported;
+no runs excluded. Timing-failed experimental test, not release-qualified:
+CPU setup-0.068ns, HDMI+0.288, SDRAM+0.278, holdminimum+0.245;
+fitted39,302ALMs94%, source/cross/detailedSTA checks0.
+
+Integer test columns below are elapsed seconds, not normalized ratings.
+
+| Run | KWhet/s | Dhry/s | Towers | Quick | Bubble | Queens | Puzzle | Permute | Int.Matrix | Sieve | Mix |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 896.196 | 13188.450 | .794 | .650 | .767 | .539 | 1.175 | 1.255 | .800 | 1.114 | 1.127 |
+| 2 | 903.966 | 13187.855 | .793 | .649 | .767 | .539 | 1.168 | 1.255 | .795 | 1.111 | 1.131 |
+| 3 | 903.807 | 13188.095 | .793 | .649 | .767 | .539 | 1.166 | 1.255 | .792 | 1.110 | 1.132 |
+| 4 | 903.305 | 13188.554 | .794 | .649 | .767 | .539 | 1.167 | 1.255 | .792 | 1.111 | 1.131 |
+| 5 | 904.047 | 13187.410 | .794 | .649 | .767 | .539 | 1.167 | 1.255 | .793 | 1.112 | 1.131 |
+
+Median**1.131**, mean**1.1304**, range**1.127–1.132**. Versus same-feature
+P63dev median1.122, the observed median gain is about0.8%. Towers and Quick
+improve consistently; this remains far below1.8. Full-feature P63median1.129
+is a different feature configuration and cannot isolate the MOVE change.

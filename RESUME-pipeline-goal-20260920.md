@@ -417,3 +417,16 @@ maxcycles12G. Boot guest, launch original Speedometer, select genuine Whetstone
 workload including SANE/mathcalls, bracket it; never substitute math stubs.
 P64hardware root reviewed first3pairs1.127/1.131/1.132; remaining2/shutdown with
 cheap operator. P67FPGA remains live fitting. No new FPGA source changes.
+
+
+P64 hardware complete/root reviewed: all5pairs1.127/1.131/1.132/1.131/1.131,
+median1.131mean1.1304, noexcludedtimers,33MHz32MBdisposable,remotehashverified,
+shutdown.pngsafehalt. Measurements table committed. Cheap operator now monitors
+P67through wholewrapper and then detailedSTA, must waitrootreviewbeforedeploy.
+Fullguest sim build57503collectedexit0; simulator nowlive asuserunit
+q800-p67-fullguest-profile-20260920.service PID2547288. Bootlog progressed190M
+halfcycles atlastcheck, screenshots scheduled. Original profilingdisk preserved.
+P69scratch applies existingP59shortdivider atop P67(nootherchange):
+scratch/p69_refill_divshort_20260920. Quick33749counts163139/174919/198296PASS
+atlat0/3/8; fullintegration19078 and first10090842 running. Collectexit/results.
+NoP69FPGA source promotion or hardware result; productionstillfrozenP67.
