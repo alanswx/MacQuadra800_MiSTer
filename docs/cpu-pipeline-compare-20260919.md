@@ -990,3 +990,29 @@ Queens remains65,775cycles. The independent oracle checks25,526snapshots and
 5,360reads in8stall/delay combinations, explicitly proving fast-path execution
 on delayedreads. A corrupted Zflag fails the architecturaloracle. FPGA timing
 improvement remains unproven until the nextfit; no hardwareMix prediction.
+
+## P52: qualified 64-byte refill with fast read flags
+
+P47 failed placement: 4356 LABs required, 4191 available. No fresh RBF was
+produced. P52 reduces its refill sector from128 to64bytes consistently across
+data/tag/valid arrays, prefix selection, line fill and store invalidation. It
+retains bounded prefix computation, indirectTST, resident compare admission and
+fast read-retirement flags. The pipeline module is byte-identical to P47.
+
+Qualification: full integration PASS, prefix oracle26386patterns PASS, upper
+and crossing self-modifying-code checks PASS, silicon first100:1900fieldgroups
+match/zero differences (/tmp/cpu-corpus100-gate.WWT3sf). This is not full-corpus
+coverage. All four original kernel output oracles pass at controlled latency3:
+
+| Kernel | P47 128-byte cycles | P52 64-byte cycles |
+|---|---:|---:|
+| Queens | 65,775 | 65,832 |
+| Bubble | 3,270,270 | 3,456,612 |
+| Permute | 1,380,671 | 1,390,747 |
+| Towers | 24,096,159 | 24,133,030 |
+
+This trades some simulated speed for a chance to fit; it is not evidence of
+a hardware Mix improvement. Candidate core SHA256:
+`e1e1cb74622a13eeb5d29b458a24f4d4bc1a52696e1abad16acfb5d8940eb08e`.
+Logs/sources: scratch/p52_refill64_fastflags_20260919. Next: full FPGA fit and
+CPU/cross-domain timing checks before evaluating the fresh artifact on hardware.

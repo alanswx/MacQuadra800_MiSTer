@@ -2300,3 +2300,18 @@ a Speedometer score. No RTL imported or hardware changed. Full findings, exact
 cycles, failure PCs, caveats and reproduction: docs/UPSTREAM_PIPELINE_BENCHMARKS_20260920.md.
 Keep existing CPU direction; upstream rewrite needs ISA/cache integration before
 it can earn a migration recommendation. P52 remains outstanding local work.
+
+## 2026-09-20 P52 qualified and promoted for fit
+
+Previous goal turn classified as progress: upstream evaluation produced measured
+evidence against immediate migration and committed reusable comparison tools.
+Resumed local P52 area recovery. Revalidated P47 terminal failed/MainPID0 and
+no Quartus process. P52 fullintegration/prefix/coherence logs PASS; all four
+kernel output checks PASS. New first100corpus /tmp/cpu-corpus100-gate.WWT3sf
+passes1900fieldgroups0differences. P52 core SHA e1e1cb74622a13eeb5d29b458a24f4d4bc1a52696e1abad16acfb5d8940eb08e.
+Copied exact qualified core to production; module unchanged. QSF comment records
+P47 area failure. Full table and qualification scope added to compare doc.
+Prepared archivewrapper scratch/p52refill64_fit_20260920/run.sh. Next action:
+commit/push, launch detached q800-p52refill64-fit-20260920.service, then freeze
+RTL/QSF/QIP/SDC until complete archive wrapper is terminal. No hardware deployed.
+Goal still1.8; best measured experimental1.105, besttimingclean1.083.

@@ -678,3 +678,7 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram_beat32.sv
 # sys->ram +.203, ram->sys +.326. Source/cross checks PASS; marginal
 # hardware trial only. CPU worst path: pipeline ALU flags -> branch refill.
 # Archive scratch/p39refill64_fit_20260919; bounded read flags under test.
+
+# 2026-09-20 P47 fast read flags (406a098), seed21: placement FAILED.
+# Required4356LABs > available4191; no freshRBF. P52 returns refill to64bytes
+# while retaining bounded prefix logic, indirectTST, residentCMP and fastflags.
