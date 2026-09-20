@@ -2011,3 +2011,29 @@ full-product oracle with guest FAIL in every phase (candidate/negative_unsigned)
 QuickMMU8K178573 and BubbleMMUoff3394944 remain exactlyP78 atlat3.
 No area/timing or hardware claim: prepared nextfit wrapper remains unlaunched
 while P78build inputs are frozen. P82 is now simulation-qualified for a fit.
+
+
+### P83: memory ADD stays inside the pipeline
+
+Isolated extension relativeP82, pipelineSHA
+`152c494eabea6e8fe121de543b0af11fcde5174b8337dcee7ebfed1940cae360`;
+unapplied scripts/cpu/indirect_add_pipeline.patch. Admit byte/word/long
+ADD(An),Dn only while existing entry policy permits it. Reuse ordered load,
+existing ADD ALU/fast flags and partial-Dn merge. No new entry-policy broadening.
+
+MatrixMMU8Klat3 3638968cycles versusP82 3702562:1.72% further reduction,
+9.52% fewer thanP78. All1600results/inputs/guards pass. Quick178573 and
+Bubble3394944 atlat3 unchanged versusP82. No hardware-score claim.
+
+Independent semantic oracle --multiply --indirect-tst --indirect-add
+--fast-read-retire passes27998retirements/7536reads in8mode/delay combinations.
+Checks all65536opcodes, including192new ADD encodings, allbase/destination
+registers, partial-register preservation, carry/X/overflow/N/Z and forwarding.
+Byte/word/long source faults pass3phases each with pipeline load coverage;
+fixture uses test-only FORCE_DECODE to exercise the inside-pipeline operation.
+Initialcoldfixture passedarchitecture butcoverage0, correctly rejected.
+New targeted ADD interrupt tests passall3sizes ×3phases: completedresult6,
+stackedPC60a/SR2011, younger cancellations and32increments replayed once.
+First100corpus1900groups0diffs (/tmp/cpu-corpus100-gate.rcNF3h).
+Fullintegration stillrunning; no promotion or fit yet. Evidence under
+scratch/p83_indirect_add_20260920 and scratch/{matrix83_mmu8,bubble83,quick83_mmu8}_20260920.

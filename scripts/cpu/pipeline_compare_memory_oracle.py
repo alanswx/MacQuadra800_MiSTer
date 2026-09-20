@@ -10,6 +10,7 @@ parser.add_argument('--pipeline-module',type=Path,default=r/'rtl/ap68040/experim
 parser.add_argument('--indirect-tst',action='store_true',help='also qualify byte/word/long TST (An)')
 parser.add_argument('--fast-read-retire',action='store_true',help='also test acknowledgement-edge retirement')
 parser.add_argument('--multiply',action='store_true',help='qualify indexed word multiply semantics and opcode admission')
+parser.add_argument('--indirect-add',action='store_true',help='qualify byte/word/long ADD (An),Dn')
 args = parser.parse_args()
 root_out = args.out.resolve()
 root_out.mkdir(parents=True, exist_ok=True)
@@ -39,6 +40,17 @@ def emit(kind,*args):
   addr=regs[8+base];requests.append((at,addr,data,size))
   sign=1<<((8<<size)-1)
   ccr=(ccr&16)|(8 if data&sign else 4 if data==0 else 0)
+ elif kind=='memadd':
+  base,dest,size,data=args
+  bits=8<<size;mask=(1<<bits)-1;sign=1<<(bits-1)
+  word=0xd010+(dest<<9)+(size<<6)+base
+  requests.append((at,regs[8+base],data,size))
+  old=regs[dest]&mask;total=old+data;value=total&mask
+  left=old-(1<<bits) if old&sign else old
+  right=data-(1<<bits) if data&sign else data
+  overflow=not(-sign<=left+right<sign)
+  ccr=(17 if total>mask else 0)|(8 if value&sign else 4 if value==0 else 0)|(2 if overflow else 0)
+  regs[dest]=(regs[dest]&~mask)|value
  elif kind=='mul':
   base,index,long,scale,disp,dest,signed=args
   ext=(index<<12)+(long<<11)+(scale<<9)+(disp&255);pc+=2
@@ -115,6 +127,14 @@ if args.multiply:
     for long in (0,1):
      for scale in range(4):
       emit('mul',base,(base+dest)%16,long,scale,(-128,-1,0,127)[scale],dest,signed)
+if args.indirect_add:
+ for base in range(8):
+  emit('q',0,-1);emit('a',0,base)
+  for dest in range(8):
+   for size in range(3):
+    emit('q',dest,-1)
+    sign=1<<((8<<size)-1)
+    for data in (0,1,sign-1,sign,2*sign-1,2*sign-2):emit('memadd',base,dest,size,data)
 assert len(code)<32768
 (out/'instructions.hex').write_text('\n'.join(f'{at:08x}{op:04x}{ext:04x}' for at,op,ext in code)+'\n')
 (out/'requests.hex').write_text('\n'.join(f'{at:08x}{addr:08x}{data:08x}{sz:x}' for at,addr,data,sz in requests)+'\n')
@@ -152,6 +172,8 @@ if args.indirect_tst:
  supported.update(0x4a10+(size<<6)+base for size in range(3) for base in range(8))
 if args.multiply:
  supported.update(base+(dest<<9)+opcode for base in range(8) for dest in range(8) for opcode in (0xc0f0,0xc1f0))
+if args.indirect_add:
+ supported.update(0xd010+(dest<<9)+(size<<6)+base for base in range(8) for dest in range(8) for size in range(3))
 (out/'supported.hex').write_text('\n'.join(str(int(w in supported)) for w in range(65536))+'\n')
 s=(exp/'tb_pipeline_pea.sv').read_text().replace('.ENABLE_PEA(1))','.ENABLE_PEA(1), .ENABLE_INDEXLOAD(1), .ENABLE_COMPARE(1))')
 if args.fast_read_retire:s=s.replace('.ENABLE_COMPARE(1))', '.ENABLE_COMPARE(1), .ENABLE_FAST_READ_RETIRE(1))')

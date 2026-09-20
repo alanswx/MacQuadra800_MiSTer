@@ -1,3 +1,22 @@
+# Latest: P82 fit live; P83 ADD partial qualification passes
+
+P82 launched userunitq800-p82devindexmul-fit-20260920, wrapper2848075 verifiedactive,
+commit68ae0da. ProductioncoreP78e2493f18/pipelineP82d57480d0 frozen until whole
+wrapperarchive/STA ends. Cheaperoperator monitors; no hardwareapprovalyet.
+
+P83pipeline152c494eabea6e8fe121de543b0af11fcde5174b8337dcee7ebfed1940cae360
+scratch/p83_indirect_add_20260920/ap040_pipeline_integer.sv, patchrelativeP82
+scripts/cpu/indirect_add_pipeline.patch unapplied. Matrix3638968lat3 vsP82
+3702562(-1.72%); Quick178573/Bubble3394944unchanged. AlloraclesPASS.
+Semantic28143exit0:27998retirements/7536reads in8modes,65536opcodemap incl192ADDs.
+TargetedADDbyte/word/longbusfaultsPASS3phaseseach withforcedtestadmission;
+initialcoldfixturecoverage0 discarded. IRQ/replayall3sizesPASS3injections/
+3cancelseach, savedPC60a/SR2011, result6 andyounger32incrementscorrect.
+Corpus56303exit0,1900groups0diffs /tmp/cpu-corpus100-gate.rcNF3h.
+Fullintegration51751stilllive, logcandidate/full.log, outscratch/p83full.
+Firstcommandinthat sessionwas successfulIRQtests; thenfullintegrationstarted.
+Collectterminalexit andreviewbeforequalification. No P83promotionyet.
+
 # Latest: P78 archived; qualified P82 promoted for fit
 
 P78artifact scratch/p78devdispread_fit_20260920/MacQuadra800_p78devdispread_7fffdf4.rbf,
