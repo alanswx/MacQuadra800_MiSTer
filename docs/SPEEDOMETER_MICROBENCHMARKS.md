@@ -278,3 +278,19 @@ copy (five total versusP89's eight). Matrix8KB2872453 versusP89 2870854,
 Most P89 benefit is therefore from data translations. Scratch only, not fully
 qualified and not selected for the next fit. Evidence:
 scratch/p90_mmu_data_copies_20260920 and scratch/matrix90_mmu8_20260920.
+
+## Whetstone extraction dependency inventory
+
+Original CODE3 WStone entry is0x0008 (LINK A6,#-288), ending RTS at0x0834;
+Pascal debug name follows at0x0836. Bytes[0x8:0x836] SHA256
+0905989f3dc0a32d9c6e3b53fe006f3119a69c9b50236bf0b9f9258f7f7bd6c2.
+Static disassembly has36 A9EB SANE trap sites and15 JSR sites: local helpers
+0x840 and0x932, plus raw absolute targets0x50,0x58,0x60,0x68,0x70,0x78.
+These are resource-file addresses before loader relocation; they must not be
+called as physical low-memory addresses in a standalone fixture. The function
+also uses A5-relative global data (for example -0x2070 and -0x2066).
+A faithful Whetstone fixture therefore needs the actual relocated math/runtime
+and SANE trap implementation, stack/global setup and a numerical oracle.
+Counting trap/call sites does not establish dynamic frequency or cycle share.
+Do not replace those calls with stubs and report it as Whetstone performance.
+Source evidence: scratch/speedo_kernel_profile_20260919/CODE3.{bin,dis}.

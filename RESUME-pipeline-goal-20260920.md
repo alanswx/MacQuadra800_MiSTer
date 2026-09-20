@@ -1,3 +1,13 @@
+# Current live fit: P89
+
+P89 launchedfrom794ade3; unitq800-p89devmmucopies-fit-20260920.service,
+MainPID2933764 verifiedactive. Cheaperoperator monitors througharchive andSTA.
+Freeze RTL/QSF/QIP/SDC. No active regression sessions. ProductionMMU37075a31.
+WStone originalmain0008..0834 has36SANE trap sites,15JSRsites incl runtime
+rawtargets50/58/60/68/70/78 andlocal840/932. Needs loader relocation+A5globals
+and real runtime/traps forfaithfulfixture; staticcountsnotdynamicprofile.
+Added dependencyinventory to microbenchmarkguide. Hardwareexactapprovalpending.
+
 # Latest: P83 archived; P89 promoted for fit
 
 P83 terminal/archive/rootreview complete:39485ALM94%,25400regs,483RAM,42DSP.
