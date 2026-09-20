@@ -1600,3 +1600,24 @@ Speedometer was quit through Command-Q after dismissing the completion dialog. T
 `ssh root@mister.local 'python3 /media/fat/Scripts/q800tools/vmouse.py home m:111,-10 0.5 down 0.8 m:13,66 6 up'`
 
 `final_halt_visible2.png` visibly reads “It is now safe to switch off your Macintosh.” `shutdown_early2.png` and `final_halt_visible2.png` are the shutdown evidence. The MiSTer Main process and remote input service were left running; the guest is at the safe halt screen.
+
+
+## P26 within-page unaligned operands — 2026-09-19
+
+Artifact `MacQuadra800_p26unaligned_c8c58bf.rbf`, SHA256 `2702dabbd7400e31aaf5953d24615bdb841507173f938b49c98a89bf6dfc5316`. Authentic 33MHz/32MB/Ethernet (`CFG 40 00 00 00`); disposable QuadSquad8 pipeline disk only, original untouched. Timing: CPU +0.775ns, HDMI +0.113ns, SDRAM +0.668ns, hold +0.205ns, crossings +1.186/+0.775ns.
+
+Five valid Speedometer 4.02 Benchmark Mix Iteration 1 runs completed. Before each run, the previous completion screen was dismissed with Return, Benchmark Mix was reopened with Command-B, a distinct Run Set start dialog was captured, then Return started the timed run. Each completion showed “The tests are done!”. No timer anomalies or display instability.
+
+|Run|Whetstones/s|Dhrystones/s|Towers|Quick|Bubble|Queens|Puzzle|Permutations|Int Matrix|Sieve|Mix|
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+|1|858.691|12498.262|.823|.733|.791|.567|1.307|1.204|.833|1.130|1.075|
+|2|863.601|12500.993|.823|.731|.791|.564|1.304|1.206|.832|1.126|1.078|
+|3|865.328|12502.572|.824|.730|.792|.565|1.307|1.205|.830|1.127|1.079|
+|4|864.835|12494.280|.824|.732|.793|.564|1.303|1.205|.832|1.128|1.078|
+|5|865.283|12490.310|.824|.730|.791|.564|1.302|1.205|.828|1.128|1.079|
+
+Mix mean 1.0778; median 1.078; range 1.075–1.079. Start-dialog evidence: `run1_start.png` through `run5_start.png`. Completion evidence: `run1_complete.png` through `run5_complete.png`.
+
+Normal Cmd-Q/save flow completed with unique record `P26unaligned-record-20260920`, Finder verified. `final_halt_visible.png` visibly reads “It is now safe to switch off your Macintosh.” Main PID 24086 and remote service PID 763 remained running; original disk stayed unmounted.
+
+Root independently viewed all five completion images, run2 start dialog and final safe halt. Accepted median1.078, mean1.0778; improvement2.667% overP13median1.050. Goal1.8 remains unmet. A/UX deferred toDani; CD/audio regression outstanding.

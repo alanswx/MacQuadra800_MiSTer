@@ -1937,3 +1937,28 @@ during active P33fit; service stillactiveMainPID1680006, physicalsynthesisstage.
 Root reviewed P26run2_start.png: valid RunSet dialog withallten iteration1tests.
 P26operator now using explicit completiondismissal/startdialogverification;
 P18/P24stillneedtwoadditionalvalidruns each. No newacceptedfive-runmedian.
+
+
+### P26 accepted hardware; P37 resident register target decode
+
+P26c8c58bf fivevalidMix1.075,1.078,1.079,1.078,1.079; median1.078,
+mean1.0778,range1.075–1.079,zero timeranomalies. Root independently viewed all
+fivecompletionimages (allten iteration1), run2RunSet startdialog and explicit
+safehalt. Fulltable appended docs/PERFORMANCE_MEASUREMENTS.md. Unique saved
+recordP26unaligned-record-20260920; originaldisk preserved. Newacceptedbest1.078
+(+2.667%vsP13). Operator queued two missing actualruns eachP24/P18; earlier
+stale captures2/4 remainexcluded. Goal1.8unmet, A/UXdeferredtoDani,CD/audioopen.
+
+P37 scratch/p37_refill_regmove_20260919 adds ordinary register MOVE/MOVEA decode
+in decode_dbcc_brf_now on topof qualifiedP36. Settles RFselectors and enters
+S_PIPE_REGS while installing validatedresidenttarget; byteAninvalid remains
+legacydecode, MOVEA.Wsignextends andpreservesCCR. Bubble3,887,632 vsP36
+3,951,038 (-63,406;1.605%); Permute1,391,667(-6),Towers24,427,200(-53),
+allindependentoutputguardsPASS. New scripts/cpu/pipeline_refill_regmove.py has
+96fixtures (sizes,values,Dn/An inclA7,aliases), fourloopiterations×threebusphases.
+Everyfixtureexercisesnewpath;573observedDBCC1->PREGS transitions. Initialfixture
+onlypassedfallback(noidlebus); addedNOPs andfourthiteration to require actual
+coverage. BaselineP36 passesvalues withzero fasttransitions. Signextensionmutation
+bad_sign.vfailsactualfixture42 inall3phases, provingarchitecturaloraclesensitivity.
+P37fullgateongoing session6589; unpromotedpendingcompletion+silicon100.
+P33fit stillactiveMainPID1680006; quartus_fit1689128 consumingCPU, sourcefreeze.
