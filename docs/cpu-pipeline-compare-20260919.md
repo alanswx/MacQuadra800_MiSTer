@@ -1196,3 +1196,37 @@ accepts `--muldiv` and hashes that selected source. P59 full integration is
 running with explicit substitution of its divider and the P57 core/module;
 only the integer integration case has completed so far. Do not promote P59
 until the required gates finish. Production RTL contains P57 only.
+
+
+P59 qualification completed (2026-09-20): full integration terminal PASS,
+including integer, exceptions, MMU, cache, FPU, MOVEM restart, and precise
+load/store/PEA interrupt cancellation/replay. The runner explicitly selects
+the P57 core/module and P59 divider; source identity remains isolated from
+production. First100 silicon corpus PASS: 1900 field-groups, zero differences,
+artifacts `/tmp/cpu-corpus100-gate.VhGMfr` and candidate `corpus.log`.
+Queens PASS at 65,720 cycles, identical to P57, with independent nonattacking
+board and guard checks. This is a no-regression result, not an added speedup.
+
+Tracked `scripts/cpu/check_divider.py` reproduces the independent arithmetic
+oracle. Both baseline (24,300 full-length cases) and P59 (16,230 short plus
+8,070 full-length cases) pass. An intentionally mis-shifted candidate fails
+arithmetic vector1 (quotient and overflow), proving the oracle rejects wrong
+results rather than only checking latency. Zero-divisor exception behavior is
+covered by CPU integration; the standalone oracle deliberately excludes divide
+by zero. Multiply datapath code is unchanged.
+
+Candidate divider SHA256 `1f1df9410c86354d50dd46318d84395d67fc932ac9c1672cb40a9c5014a37a17`.
+The exact candidate diff is saved as `scripts/cpu/divider_short.patch`; it is
+**not applied** to production while P57 Quartus is active. After that wrapper
+is terminal, the patch can be reconstructed in scratch or applied to the
+unchanged baseline divider for the next candidate. Do not apply during a fit.
+
+```sh
+python3 scripts/cpu/check_divider.py --module rtl/ap68040/rtl/ap040_muldiv.v --out scratch/divcheck_base
+python3 scripts/cpu/check_divider.py --module scratch/p59_divskip_20260920/ap040_muldiv.v --out scratch/divcheck_p59 --short-dividend
+```
+
+No P59 area, timing, Mac boot, or Speedometer hardware result exists yet.
+P57 seed22 is the sole active Quartus flow, commit `e5066a2`, user unit
+`q800-p57movestore-fit-20260920.service`, archive
+`scratch/p57movestore_fit_20260920`. P52 failed routing and has no new RBF.
