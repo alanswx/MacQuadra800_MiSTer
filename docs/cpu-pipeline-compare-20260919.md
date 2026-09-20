@@ -701,3 +701,14 @@ S_EA_EXTW2 used. P30 stillunqualified; Bubble session2725/log
 scratch/p30_move_issue_peek_20260919/bubble.log. Do not promote based on hypothesis.
 Best hardwaremedian1.050,goal1.8unmet. P18 retry active; earlier failure claim was
 not supported by root-reviewed normal registration/splash images.
+
+
+P26 fit launched on c8c58bf, serviceq800-p26unaligned-fit-20260919 active
+MainPID1640390. Production RTL/QSF/QIP/SDC frozen through terminal archive/cross.
+P30 Bubble terminalPASS4,140,222vsP26 4,077,142(+63,080cycles,1.547%).
+State deltas: S_IMMF8 -63,083, S_EA_DISP11 -63,083, S_MWR10 +189,246;
+allotherstatesunchanged. Removing two address-setup cycles adds three write-state
+cycles per affected memoryMOVE, offset slightly by setup edges. Cache latencyclass0
+also rises63,080; do not assume fewer sequencer states implies lower totalcycles.
+P30 remains scratch-only, unqualified and not a candidate for promotion as-is.
+Source-fault/extension ordering remains a requirement for any follow-up experiment.
