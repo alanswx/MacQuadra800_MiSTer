@@ -161,8 +161,8 @@ module tb_cpu_quick;
 endmodule
 '''
 if args.profile:
- s=s.replace('integer states[0:255];', 'integer states[0:255]; integer opcycles[0:65535]; integer exits[0:65535]; integer pipe_cycles=0,pipe_issues=0; integer fetch_empty=0,decode_ext_wait=0,pipe_ready_empty=0,data_prefetch_wait=0,data_setup=0,data_ack_wait=0,regs_queue_ready=0,regs_queue_empty=0;')
- s=s.replace('for(i=0;i<256;i=i+1) states[i]=0;', 'for(i=0;i<256;i=i+1) states[i]=0; for(i=0;i<65536;i=i+1) begin opcycles[i]=0;exits[i]=0;end')
+ s=s.replace('integer states[0:255];', 'integer states[0:255]; integer opcycles[0:65535]; integer exits[0:65535]; integer regs_cycles[0:65535]; integer admission_denied[0:65535]; integer pipe_cycles=0,pipe_issues=0; integer fetch_empty=0,decode_ext_wait=0,pipe_ready_empty=0,data_prefetch_wait=0,data_setup=0,data_ack_wait=0,regs_queue_ready=0,regs_queue_empty=0;')
+ s=s.replace('for(i=0;i<256;i=i+1) states[i]=0;', 'for(i=0;i<256;i=i+1) states[i]=0; for(i=0;i<65536;i=i+1) begin opcycles[i]=0;exits[i]=0;regs_cycles[i]=0;admission_denied[i]=0;end')
  s=s.replace('cycles=cycles+1; states[dut.core.state]', """if(dut.core.state==dut.core.S_FETCH && !dut.core.epf_ready_pc) fetch_empty++;
   if(dut.core.pipe_pea_wait) decode_ext_wait++;
   if(dut.core.pipe_rf_owner && dut.core.pipe_ready && !dut.core.epf_ready_pc) pipe_ready_empty++;
@@ -171,14 +171,16 @@ if args.profile:
    else if(!dut.core.m_issued) data_setup++;
    else if(!dut.core.d_ack) data_ack_wait++;
   end
+  if(dut.core.state==dut.core.S_DECODE && dut.core.pipe_supported && !dut.core.pipe_entry_ok) admission_denied[dut.core.ir]++;
   if(dut.core.state==dut.core.S_PIPE_REGS) begin
+   regs_cycles[dut.core.ir]++;
    if(dut.core.epf_ready_pc) regs_queue_ready++;else regs_queue_empty++;
   end
   if(dut.core.pipe_rf_owner) pipe_cycles++; else opcycles[dut.core.ir]++;
   if(dut.core.pipe_input && dut.core.pipe_ready) pipe_issues++;
   if(dut.core.pipe_owner && dut.core.pipe_exit_ready && !dut.core.pipe_input && dut.core.epf_ready_pc) exits[dut.core.epf_data[dut.core.epf_head]]++;
   cycles=cycles+1; states[dut.core.state]""")
- s=s.replace('$display("BUFFER_UPPER_BOUND', 'for(j=0;j<65536;j=j+1) begin if(opcycles[j]) $display("ACTIVE_IR opcode=%04h cycles=%0d",j[15:0],opcycles[j]); if(exits[j]) $display("PIPE_EXIT opcode=%04h count=%0d",j[15:0],exits[j]); end $display("PIPELINE cycles=%0d issues=%0d",pipe_cycles,pipe_issues); $display("FETCH_PROFILE empty=%0d decode_extension_wait=%0d pipe_ready_empty=%0d data_prefetch_wait=%0d data_setup=%0d data_ack_wait=%0d regs_queue_ready=%0d regs_queue_empty=%0d",fetch_empty,decode_ext_wait,pipe_ready_empty,data_prefetch_wait,data_setup,data_ack_wait,regs_queue_ready,regs_queue_empty); $display("BUFFER_UPPER_BOUND')
+ s=s.replace('$display("BUFFER_UPPER_BOUND', 'for(j=0;j<65536;j=j+1) begin if(regs_cycles[j]) $display("REGS_IR opcode=%04h cycles=%0d",j[15:0],regs_cycles[j]); if(admission_denied[j]) $display("ENTRY_DENIED opcode=%04h cycles=%0d",j[15:0],admission_denied[j]); if(opcycles[j]) $display("ACTIVE_IR opcode=%04h cycles=%0d",j[15:0],opcycles[j]); if(exits[j]) $display("PIPE_EXIT opcode=%04h count=%0d",j[15:0],exits[j]); end $display("PIPELINE cycles=%0d issues=%0d",pipe_cycles,pipe_issues); $display("FETCH_PROFILE empty=%0d decode_extension_wait=%0d pipe_ready_empty=%0d data_prefetch_wait=%0d data_setup=%0d data_ack_wait=%0d regs_queue_ready=%0d regs_queue_empty=%0d",fetch_empty,decode_ext_wait,pipe_ready_empty,data_prefetch_wait,data_setup,data_ack_wait,regs_queue_ready,regs_queue_empty); $display("BUFFER_UPPER_BOUND')
 (d/'tb.sv').write_text(s)
 units=('ap040_core','ap040_bus_timeout','ap040_regfile','ap040_alu','ap040_muldiv','ap040_mmu','ap040_cache','ap040_fpu','primitives/dpram')
 flags=['-DAP040_EXPERIMENTAL_'+x for x in ('XSTORE','LEA','PIPELINE','PIPELINE_LOADS','PIPELINE_STORES','PIPELINE_PEA','PIPELINE_P6')]+['-DAP040_PIPELINE_MEMORY_ENTRY']

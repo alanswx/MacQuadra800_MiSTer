@@ -1649,3 +1649,22 @@ Promoted for a separate development fit after P64's complete archive and
 cross/detailed timing reports. P64 fits39302ALMs94%, CPU-.068ns, HDMI+.288,
 SDRAM+.278; source/cross/detailedSTA0. Its archived artifact is undergoing a
 separate hardware trial. No P67 timing, fit, or hardware score yet.
+
+
+## P67 register retirement occupancy
+
+Extended `profile_quick.py --profile` with opcode-specific `REGS_IR` and
+`ENTRY_DENIED` counters. These count enabled cycles in S_PIPE_REGS and
+S_DECODE with pipe_supported but !pipe_entry_ok, respectively; neither is an
+instruction-count or a promise of recoverable cycles. Instrumented run reproduces
+P67's178422cycles at latency3 with sorted/guardsPASS. Artifacts:
+`scratch/qk67occup/current/run_latency3.log` (session10974collectedexit0).
+
+S_PIPE_REGS total33047 remains30322queue-ready/2725empty. Top opcodes:
+204a(MOVEA.L A2,A0)9457cycles; d0c4(ADDA.W D4,A0)5265; d0c3(ADDA.W D3,A0)3753;
+5344(SUBQ.W #1,D4)2807; b644(CMP.W D4,D3)2590;5243(ADDQ.W #1,D3)2458.
+Entry-denied cycles:204a4192,53441644,b6441427,52431295. These integer ops
+already have pipeline semantics; current memory-entry policy deliberately
+avoids short register-only sequences. Any broader admission experiment must
+measure entry/drain cost, maintain precise retirement, and beat the current
+legacy lookahead path. No policy change was made or qualified here.

@@ -373,3 +373,13 @@ collect final result before considering promotion. Prefix log at
 scratch/p67_move_refill128_20260920/prefix.log. P64 build still fitting, source
 manifest unchanged; no candidate promotion or new Quartus flow launched.
 Prefix86843 collected exit0: 42,770 patterns across 64 words PASS.
+
+
+P67 sole fit launched successfully: unitq800-p67devrefill-fit-20260920.service,
+wrapperPID2526067,quartus_sh2526089,map2526182. Build commitc95dced. Confirmed
+live synthesis after launch; freeze production inputs until complete wrapper.
+Cheap operator running P64hardware; saved boot/desktop/Speedometer screenshots
+exist under scratch/hardware_p64devmove_20260920, not yet root-reviewed.
+Profiler-only change now gives register/admission counts; see comparison doc.
+P66 timing candidate not applied: P64's worst path shifted to MMU→epf_data,
+so its former state→branch-target path is not established as the current limit.
