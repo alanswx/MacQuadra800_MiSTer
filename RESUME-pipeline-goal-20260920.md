@@ -1,3 +1,15 @@
+# P103 screen: small gain, isolated; P102 fit still active
+
+P103 final ordinary FPU read launches FPU at successful ack, skips copying
+returnstate. UNAPPLIED scripts/cpu/fpu_final_read_ack.patch, basedP102.
+Whet31784029->31640386(-0.452%), capturesidentical, comparisonvalid.
+Busfault and4kMMUfault9casesx3phasesPASS. 8k/broadgates/fit/hardwareNOTdone.
+AllP103execsessions85023/24716/98129completedexit0. Detailsdocs/P103_FPU_FINAL_READ_20260920.md.
+Too small to change direction; retainisolatedcandidate.
+P102fitunitq800-p102devpayload-fit-20260920 activeMainPID3426490, map3426606;
+sourcehashcheckPASSduringflow. FREEZEremains throughwholewrapper/archive/STA.
+NoMiSTeractions. Goal1.8unmet, P96hardwaremedian1.211.
+
 # P102 Quartus active — build inputs frozen
 
 Launched q800-p102devpayload-fit-20260920.service; verified ActiveStateactive,
