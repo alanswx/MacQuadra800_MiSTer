@@ -1,3 +1,30 @@
+# Latest: genuine full Mix simulator profile started
+
+Local P67 simulator PID2547288 remains live under
+q800-p67-fullguest-profile-20260920.service. Root reviewed screenshots:
+f3676 actual Speedometer4.02 splash; f3807 registration reminder;
+Escape dismissed it, f3916 Hardware Information reports68040/32MB;
+CmdB opened f4037 Run Set with all ten checked, each iteration1.
+Root queued profile start + Return; run.log confirms start at
+simulator halfcycle3427598337. This is full Mix including original math,
+not an isolated Whetstone profile. No completed profile/result yet.
+
+Bounded local-only monitor q800-p67-fullguest-monitor-20260920.service
+runs scratch/p67_fullguest_20260920/monitor.py. It appends 33Mclock wait/shot,
+OCRs completion, stops profile and writes capture.json; leaves simulator
+running for visual review. Logs monitor.log. No MiSTer input. Actual image
+path tree/verilator/screenshot_f*.png, profile workload.tsv. Monitor starts
+at current log EOF (125MB log), incremental reads. Root must inspect final
+screenshot and profiler counters; opcode histogram is NOT trustworthy for
+pipeline attribution (samples legacy ir). Timer observer coversQueens/Sieve
+only. UI launch and completion polling are included in bracket.
+
+P73 fit still active (quartus_fit PID2630402); production inputs frozen.
+Cheap operator still owns P70 hardware. Root reviewed run1_start.png and
+found startup splash rather than Run Set; told operator to replace with
+actual all-ten/iteration-one setup evidence. No accepted P70 result yet.
+README profiling caveats committed/pushed bcc0248.
+
 # Latest: P73 shared refill selector promoted for fitting
 
 P70 complete and root-reviewed: archivedRBF9a76b04 SHA
