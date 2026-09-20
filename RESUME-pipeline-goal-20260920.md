@@ -1,3 +1,21 @@
+# Latest: user-requested CPU/RAM microbenchmarks extended with Sieve
+
+New scripts/cpu/profile_sieve.py shares profile_quick.py responder; docs in
+SPEEDOMETER_MICROBENCHMARKS.md. Original CODE3 b6a..bad bytes unchanged,
+one full Sieve pass, excludes allocation/disposal/outer100passes/timingUI.
+Independent trial division verifies8191flags,1899primes,buffer guards.
+P64/P73 both303820/309734/377576 at RAMlat0/3/8. Largerrefill noSievegain.
+Negative clear→NOP mutation rejected count8191. Quick regression178422lat3.
+Final harness artifacts scratch/sieve73_final_20260920; baseline
+scratch/sieve64_20260920, P64core extracted7952a01hash609b1687.
+Automatic --disassemble produceskernel.dis; manifest includes program/oraclehash.
+
+P70 allfive screenshotpairs now root-reviewed:1.129/1.133/1.133/1.133/1.133,
+no invalidtimers visible; median1.133,mean1.1322. Operator still owns hardware,
+saving record/shuttingdown; finaldeployment/config/shutdown review pending.
+P73 fit remainedlive lastcheck, no terminalresult. Fullguest profile running,
+f5037 showedWhet/Dhry/Towers/Quickdone andBubbleactive. Preservebothprocesses.
+
 # Latest: genuine full Mix simulator profile started
 
 Local P67 simulator PID2547288 remains live under
