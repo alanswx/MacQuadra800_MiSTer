@@ -1533,3 +1533,34 @@ completed after the quit/save flow. Root independently inspected
 `final_halt_visible2.png`, which displays "It is now safe to switch off
 your Macintosh". The operator reports no recovery reload.
 A/UX remains deferred to Dani and CD/audio regression is outstanding.
+
+
+## P12 spanning cache hardware measurements, 2026-09-19
+
+
+Date: 2026-09-19  
+Core: `/media/fat/_Unstable/MacQuadra800_p12span_1fb24fc.rbf`  
+RBF SHA256: `94b446a15e8edcba4bd0576efc5161842e2299f8613a1f415a71bbe33458689b`  
+Quartus: timing met; 39,897 ALMs (95%), 26,335 registers, 491 RAM, 43 DSP; CPU +0.366 ns, HDMI +0.093 ns, SDRAM +0.633 ns, hold +0.242 ns, crossings +0.670/+0.366 ns.  
+Main SHA256: `0ac8b44069a9201723dcdbc3bf3a84e1963d2bec347e5065c2625e71bd3986cd`  
+CFG: `40 00 00 00` (33 MHz, 32 MB, Ethernet on)  
+Disk: disposable `QuadSquad8-pipeline-test-20260919.hda`, pre-boot SHA256 `224c5be7d031c4c5448745d29ce9717c22bcc310361888bb0e20f2c521c83e2a`; original remained untouched and unmounted.  
+All runs used Speedometer 4.02 Benchmark Mix, all ten tests, Iteration 1.
+
+| Run | Wall interval | Whetstones/sec | Dhrystones/sec | Towers | Quick Sort | Bubble | Queens | Puzzle | Permutations | Int. Matrix | Sieve | Mix | Status |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| 1 | ~54 s (23:50:01–23:50:55Z) | 814.576 | 12332.214 | 0.854 | 0.743 | 0.795 | 0.576 | 1.392 | 1.256 | 0.907 | 1.135 | 1.038 | valid |
+| 2 | ~61 s (23:51:21–23:52:22Z) | 828.679 | 12313.915 | 0.854 | 0.746 | 0.796 | 0.575 | 1.387 | 1.253 | 0.903 | 1.130 | 1.043 | valid |
+| 3 | ~59 s (23:52:43–23:53:42Z) | 825.985 | 12324.098 | 0.853 | 0.744 | 0.795 | 0.576 | 1.377 | 1.258 | 0.897 | 1.130 | 1.043 | valid |
+| 4 | ~58 s (23:54:04–23:55:02Z) | 827.286 | 12323.764 | 0.853 | 0.743 | 0.794 | 0.576 | 1.388 | 1.257 | 0.897 | 1.130 | 1.044 | valid |
+| 5 | ~58 s (23:55:27–23:56:25Z) | 827.348 | 12318.040 | 0.854 | 0.742 | 0.796 | 0.575 | 1.387 | 1.254 | 0.902 | 1.130 | 1.043 | valid |
+
+Mix mean: **1.0422**; median: **1.043**; range: **1.038–1.044**. No invalid results, timer anomalies, or observed instability.
+
+Completion screenshots: `run1_complete.png` through `run5_complete.png`; each shows “The tests are done!” and all ten tests at Iteration 1.
+
+## Normal quit and shutdown
+
+After run 5, the completion dialog was dismissed and Speedometer was quit with `down:56 raw:16 up:56`. The Machine Record save flow created `P12span-record-20260919`; `finder_after_quit2.png` verifies Finder foreground. Finder was then shut down normally. The later `final_halt_visible2.png` visibly shows “It is now safe to switch off your Macintosh.” The HDA descriptor ended at position 50688. MiSTer host PID 20899 and remote service PID 763 remained running; no reload recovery was used.
+
+Root independently viewed run5_complete.png and final_halt_visible2.png. The five-run median1.043 is still below1.8. A/UX remains deferred to Dani; CD/audio regression remains outstanding.

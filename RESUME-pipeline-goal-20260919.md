@@ -1568,3 +1568,11 @@ ReusabletestterminalPASS (reusable_stores.log). Branchprototype still
 needsIRQ/trace/fault/wrongpathread coverage and silicon/otherkernels.
 Broadgate36346running (throughpipeline_load_faultPASS). P13fitactive
 MainPID1515481; noinputchanges. P12hardwareagentcontinuestrial.
+
+### P12 hardware completed, median1.043
+
+ValidMix1.038/1.043/1.043/1.044/1.043,mean1.0422,median1.043,noanomalies.
+Timingmet1fb24fc. Rootviewedrun5completion andfinal_halt_visible2; normal
+quit/save/Finder/shutdown,no recoveryreload. FullreporttrackedinPERFORMANCE.
+Hardwareagentidleatverifiedsafehalt, readyforP13whenfitterminal/checked.
+Goal1.8notmet. P13fitstillrunninglastcheckMainPID1515481.
