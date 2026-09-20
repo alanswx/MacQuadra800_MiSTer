@@ -1475,3 +1475,22 @@ python3 scripts/cpu/profile_quick.py '/home/alans/mister/MacQuadra800_fixtures/S
 The exhaustive subset differential bench is tracked as
 `scripts/cpu/tb_pipeline_subset_alu.sv`; compile top `tb` with the candidate
 ALU and the original module renamed `ap040_alu_reference`.
+
+
+P63 qualification completion: full ownership integration exited0, including
+integer, MMU/cache, bitfield restart, FPU frames/resume, pipeline fault/trace,
+and precise interrupt/replay tests. See `scratch/p63_subset_alu_20260920/full_gate.log`
+and `scratch/p63full`. First100 silicon-reference gate also exited0:
+1900 field-groups match, zero real differences; artifacts
+`/tmp/cpu-corpus100-gate.WhYoWi`, source snapshot under the P63 scratch directory.
+This remains first100 coverage, not the complete silicon corpus.
+Tracked compare oracle invocation also exited0 with all six modes passing.
+
+P57's fresh synthesis hierarchy reports the pipeline ALU at2182 combinational
+ALUTs (pipeline total3764). These are ALUTs, not fitted ALMs, and do not establish
+how much P63 will save. Prepared, NOT launched,
+`scratch/p63subset_fit_20260920/run.sh` verifies exact P57 core, baseline divider,
+and P63 ALU/pipeline hashes before building. Do not launch until the complete
+P57 wrapper terminates and its reports/artifact have been inspected.
+Candidate ALU SHA256 f4edfdce37492609fc840c6e136946a90f273ef7e88dee9090d104132d22021f;
+pipeline SHA256 e53cadf233cd083cc56711b7c3a2eae227728f5162fe346348712bcd6d631ddc.

@@ -131,7 +131,15 @@ operations; legacy ALU defaults unchanged. Scratch:
 Subset393216 and full2528416 comparisons PASS, six-mode independent P6 and
 compare oracles PASS, Quick cycles unchanged at all three latencies. Carry
 mutation fails. Area benefit is unmeasured; do not promote based on simulation.
-Full integration running as exec session47180, output in
+Full integration completed PASS (session47180 exit0), output in
 `scratch/p63_subset_alu_20260920/full_gate.log`, fixtures scratch/p63full.
-Tracked compare-runner verification session71977 may need final collection.
+Tracked compare-runner verification session71977 completed exit0, all six modes PASS.
 Do not confuse P63 with P62: it is a separate P57-based area experiment.
+
+P63 first100 silicon reference completed PASS, 1900 field-groups/zero differences,
+`/tmp/cpu-corpus100-gate.WhYoWi`; session49483 exit0, log in P63 scratch/corpus.log.
+Prepared NOT launched P63 wrapper `scratch/p63subset_fit_20260920/run.sh` with
+exact ALU/pipeline/core/divider preflight hashes. P57 synthesis pipeline ALU
+uses2182 combinational ALUTs; actual P63 savings unmeasured. P57 fitter still
+live at41m24s with CPU70m09s. Next action remains inspect terminal P57 result;
+P62 is the qualified cycle-reduction option, P63 the qualified area experiment.
