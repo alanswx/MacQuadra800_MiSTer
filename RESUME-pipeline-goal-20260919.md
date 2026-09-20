@@ -1597,3 +1597,13 @@ and wrong-path-read coverage still needed. Bubble run active session35165,
 `scratch/p19_branchpipe_20260919/bubble.log`; candidate uses matched core/module.
 P13 fit remains active, input freeze unchanged. Best hardware median1.043;
 1.8 goal remains unmet. Progress commits are authorized for push to add-ethernet.
+
+### P19 Bubble regression — do not promote as-is
+
+Matched P19 core/module Bubble run completed with independent sorted-permutation
+and guard checks PASS, but 4,200,476 cycles versus P13's 4,077,142: 3.025%
+more cycles. Pipeline occupancy1,562,064 cycles,1,185,833 issues. Together with
+Towers25,227,008 (~0.95% fewer) and unchanged Permute1,457,331, this is a mixed
+result, not an unqualified speed improvement. Do not promote P19 as-is. Diagnose
+branch redirect/admission cost or prioritize already-qualified P18 after P13 fit.
+Log: scratch/p19_branchpipe_20260919/bubble/compare/run.log.

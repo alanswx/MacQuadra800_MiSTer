@@ -525,3 +525,13 @@ P19Towers terminalPASS25,227,008 versusP13 25,469,823 (0.95%fewer),
 issues1,913,043vs1,376,616; noAP040redirectmismatch/FAILdiagnostics.
 Broadgate startedsession36346 in scratch/p19_branchpipe_20260919/gate.log.
 Stillunqualified, targetwrongpathmemory/IRQ/trace coverage required.
+
+### P19 Bubble regression — do not promote as-is
+
+Matched P19 core/module Bubble run completed with independent sorted-permutation
+and guard checks PASS, but 4,200,476 cycles versus P13's 4,077,142: 3.025%
+more cycles. Pipeline occupancy1,562,064 cycles,1,185,833 issues. Together with
+Towers25,227,008 (~0.95% fewer) and unchanged Permute1,457,331, this is a mixed
+result, not an unqualified speed improvement. Do not promote P19 as-is. Diagnose
+branch redirect/admission cost or prioritize already-qualified P18 after P13 fit.
+Log: scratch/p19_branchpipe_20260919/bubble/compare/run.log.
