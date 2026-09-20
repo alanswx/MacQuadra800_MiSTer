@@ -8,8 +8,14 @@ module handoff_monitor;
         if (tb_ap040_program.nreset) begin
             if (`C.pipe_rf_owner && (`C.rf_we || `C.aux_we))
                 $fatal(1, "sequencer write during pipeline ownership");
-            if (`C.pipe_retire && !`C.pipe_owner)
-                $fatal(1, "pipeline retirement without ownership");
+            if (`C.pipe_retire && !`C.pipe_owner) begin
+                if (!(`C.pipe_read_retire && `C.pipe_load_active && `C.state == `C.S_MRD &&
+                      `C.m_issued && `C.d_ack && !`C.d_err && !`C.irq_pend &&
+                      !`C.sr[15] && !`C.sr[14] && !`C.integer_pipeline.wb_v &&
+                      `C.integer_pipeline.ex_v && `C.integer_pipeline.ex_load &&
+                      !`C.integer_pipeline.ex_store))
+                    $fatal(1, "retirement outside normal ownership or successful read completion");
+            end
             if (`C.integer_pipeline.fallback_valid)
                 $fatal(1, "unsupported opcode admitted to P1");
             if (`C.pipe_owner && !`C.ce) paused = paused + 1;

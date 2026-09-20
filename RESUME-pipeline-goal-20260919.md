@@ -1978,3 +1978,33 @@ P33fit liveMainPID1680006; exactsourceSHAcheckPASS, archive/live_source_check.lo
 No RTL/QSF/QIP/SDC edits until terminalwrapperincludingcross/archive. P26accepted
 bestfive-runmedian1.078; goal1.8unmet. Hardwareoperator repairingP24/P18missing
 runs; P33hardwaretrial canqueueonceitsarchivefullyverified.
+
+
+### P33 clean fit; P39 64-byte refill candidate promoted
+
+P33build/source/cross exits0, wrapperterminal. 39,823ALMs95%,26,373registers,
+491RAM,43DSP. CPU+.546,HDMI+.292,SDRAM+.376,hold+.199ns;
+cross+.376/+.546. CachetagM10K andbankE512bitMLABverified. ArchivedRBF
+scratch/p33move_fit_20260919/MacQuadra800_p33move_32fb678.rbf,4544708bytes,
+SHA256c9b2e3a57e98dfa98bdf9d34c6660c4f8f4bf5759fdd03c789b7087d36aa7e35.
+Hardwareoperatorqueuedfiveverifiedruns afterP18/P24repairs.
+
+P39scratch/p39_refill64_20260919 enlargesBRF32->64bytes atopP37. Alltag/index,
+line-offer masks,per-wordvalidbits,runlength/seedindices andCPUstoreinvalidation
+updated consistently. Logical/supervisorcontext andarchitecturalflushrules same.
+Originalkernels Bubble3,456,612 vsP37 3,887,632 (-431,020;11.087%);
+Permute1,390,747 vs1,391,667(-920);Towers24,427,200unchanged. OutputsPASS.
+FullintegrationterminalPASS;silicon1001900groups0diffs,
+/tmp/cpu-corpus100-gate.0vkHLM. ReadcompletionIRQ3phasesPASS;101registertarget
+cases eachhitfastpath,603transitionsPASS. Newpipeline_refill_coherence.py checks
+CPUwrites to residentupper-half target outsidefetchqueue andlongwrite starting
+beforesector butendinginsideit. Both3phasesPASS onP39 andpreviousP37. Monitor
+initiallyusedhierarchical$bits inlocalparam;Icarusreturned0,sofixturegeometrynow
+parsedfromcandidateBRFtagdeclaration. NoRTLbugfromthatfixturefailure.
+DisablingBRFstoreinvalidation causesactualpatched-code resultchecktofailinall3
+phases; normalqueueflushcannotmasktest because monitorassertsqueueexclusion.
+P39 core,module,handoffmonitor promoted normalized-equal toqualifiedscratch;
+onlycommentchanges. QSF recordsP33result. Nextfit archive/servicep39refill64.
+P24repairedset1/3/5/6/7 reportsmedian1.051,rootviewed6/7completionandrepairhalt;
+fulltable/originalthreevisualreviewpending. BestacceptedP26median1.078;
+goal1.8unmet,A/UXdeferredtoDani,CD/audiooutstanding.

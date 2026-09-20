@@ -667,3 +667,8 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram_beat32.sv
 # MET 39,730 ALMs95%,26,362regs,491RAM,43DSP; CPU+.775,HDMI+.113,
 # SDRAM+.668,hold+.205ns; crossings sys->ram+1.186,ram->sys+.775ns.
 # Archived source-verified RBF in scratch/p26unaligned_fit_20260919.
+
+# 2026-09-19 P33 MOVE destination overlap (32fb678), seed21:
+# MET 39,823 ALMs95%,26,373regs,491RAM,43DSP; CPU+.546,HDMI+.292,
+# SDRAM+.376,hold+.199ns; crossings sys->ram+.376,ram->sys+.546ns.
+# Source/hash/cross verified archive scratch/p33move_fit_20260919.

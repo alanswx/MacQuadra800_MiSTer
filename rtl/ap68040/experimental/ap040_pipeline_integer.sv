@@ -11,7 +11,8 @@ module ap040_pipeline_integer #(
     parameter ENABLE_SHIFTS = 0,
     parameter ENABLE_DISP_LEA = 0,
     parameter ENABLE_COMPARE = 0,
-    parameter ENABLE_BRANCH = 0
+    parameter ENABLE_BRANCH = 0,
+    parameter ENABLE_FAST_READ_RETIRE = 0
 ) (
     input wire clk, nreset, ce, flush,
     // Cancel ID/EX while allowing an accepting WB to commit. A blocked WB
@@ -37,6 +38,7 @@ module ap040_pipeline_integer #(
     output wire [1:0] in_words,
     input wire retire_ready,
     output wire retire_valid,
+    output wire retire_wb_valid, retire_branch_taken,
     output wire [31:0] retire_pc, retire_next_pc,
     output wire [15:0] retire_opcode,
     output wire retire_we,
@@ -88,7 +90,7 @@ module ap040_pipeline_integer #(
     assign load_size = load_pending ? load_size_r : ex_size;
     assign load_pc = load_pending ? load_pc_r : ex_pc;
     assign load_opcode = load_pending ? load_opcode_r : ex_opcode;
-    assign retire_fault = wb_fault;
+    assign retire_fault = fast_read_retire ? 1'b0 : wb_fault;
     assign retire_fault_addr = wb_fault_addr;
     function automatic is_short_branch(input [15:0] word);
         is_short_branch = ENABLE_BRANCH && word[15:12] == 6 &&
@@ -280,17 +282,24 @@ module ap040_pipeline_integer #(
     wire id_advance = id_v && legal && ex_ready;
     assign idle = !id_v && !ex_v && !wb_v && !load_pending;
     assign in_ready = nreset && ce && !flush && !kill_younger && !load_discard && (!id_v || id_advance);
-    assign retire_valid = nreset && ce && !flush && wb_v;
+    // A successful head read can commit when its owner accepts the response.
+    // Registered WB signals remain separate to keep cancellation acyclic.
+    wire fast_read_retire = ENABLE_FAST_READ_RETIRE && nreset && ce && !flush &&
+        !wb_v && ex_v && ex_load && !ex_store && load_response && !load_fault && retire_ready;
+    assign retire_wb_valid = nreset && ce && !flush && wb_v;
+    assign retire_branch_taken = retire_wb_valid && wb_opcode[15:12] == 6 && wb_next_pc != wb_pc + 32'd2;
+    assign retire_valid = nreset && ce && !flush && (wb_v || fast_read_retire);
     wire commit = retire_valid && retire_ready;
-    assign empty_after_retire = !id_v && !ex_v && !load_pending &&
-                                (!wb_v || (commit && !wb_fault));
-    assign retire_pc = wb_pc;
-    assign retire_next_pc = wb_next_pc;
-    assign retire_opcode = wb_opcode;
-    assign retire_we = wb_we && !wb_fault;
-    assign retire_dst = wb_dst;
-    assign retire_data = wb_data;
-    assign retire_ccr = wb_ccr;
+    assign empty_after_retire = (!id_v && fast_read_retire) || (!id_v && !ex_v && !load_pending &&
+                                (!wb_v || (commit && !wb_fault)));
+    assign retire_pc = fast_read_retire ? ex_pc : wb_pc;
+    assign retire_next_pc = fast_read_retire ? ex_next_pc : wb_next_pc;
+    assign retire_opcode = fast_read_retire ? ex_opcode : wb_opcode;
+    assign retire_we = fast_read_retire ? ex_we : wb_we && !wb_fault;
+    assign retire_dst = fast_read_retire ? ex_dst : wb_dst;
+    assign retire_data = fast_read_retire ? (ex_dst[3] ?
+        ((ex_size == `AP040_SZ_W) ? {{16{src[15]}},src[15:0]} : src) : merged) : wb_data;
+    assign retire_ccr = fast_read_retire ? (ex_flags ? result_flags : flags_in) : wb_ccr;
     assign fallback_valid = nreset && ce && !flush && id_v && !legal && !ex_v && !wb_v;
     assign fallback_pc = id_pc;
     assign fallback_opcode = id_opcode;
@@ -307,7 +316,7 @@ module ap040_pipeline_integer #(
     end else begin : private_state
     ap040_regfile #(.EXTRA_READS(1)) regfile (
         .clk(clk), .nreset(nreset), .ce(ce), .sr_s(1'b1), .sr_m(1'b0),
-        .we(commit && wb_we && !wb_fault), .waddr(wb_dst), .wdata(wb_data),
+        .we(commit && retire_we && !retire_fault), .waddr(retire_dst), .wdata(retire_data),
         .raddr_a(ex_src), .raddr_b(read_dst),
         .rdata_a(rf_a), .rdata_b(rf_b),
         .raddr_c(4'd0), .rdata_c(), .raddr_d(4'd0), .rdata_d(),
@@ -407,14 +416,14 @@ module ap040_pipeline_integer #(
             if (flush) begin
                 id_v <= 0; ex_v <= 0; wb_v <= 0;
             end else begin
-                if (commit && !wb_fault) ccr <= wb_ccr;
+                if (commit && !retire_fault) ccr <= retire_ccr;
                 if (load_issue && ex_store) ccr <= store_flags;
                 if (kill_younger) begin
                     id_v <= 0; ex_v <= 0;
                     if (commit || wb_ready) wb_v <= 0;
                 end else begin
                 if (wb_ready) begin
-                    wb_v <= ex_v && ex_complete;
+                    wb_v <= ex_v && ex_complete && !fast_read_retire;
                     if (ex_v && ex_complete) begin
                         wb_pc <= ex_pc;
                         wb_next_pc <= is_short_branch(ex_opcode) && branch_condition(ex_opcode[11:8],flags_in)
