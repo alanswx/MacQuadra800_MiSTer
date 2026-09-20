@@ -640,3 +640,18 @@ full requests with `sbc == 2`, inherited from the two-entry queue. Its
 sb_full_request_samples therefore means requests at occupancy2, NOT full queue
 for P97. Exclude that counter from P97 attribution. This host-only counter does
 not affect guest execution, displayed scores or other state-cycle counters.
+
+
+Whetstone external-call resolution is now reproduced by
+`scripts/cpu/resolve_whetstone_calls.py raw.rsrc --out OUT`. CODE1's custom
+loader at0x284..0x2da applies three XREF groups (A5, CODE1 base, current segment).
+DATA0 supplies two length/offset/data blocks, including the A5 jump table.
+Each of the15 WStone absolute JSR operand fields belongs to exactly one XREF3
+group: two local CODE3 calls and13 A5 calls. A5slots0x50/58/60/68/70/78 resolve
+to CODE6 offsets0x12d2/130a/1342/137a/13b2/140c respectively. Six exact runtime
+wrappers are decoded and hashed; output retains all trap calls and selectors.
+The first five wrappers invoke A9EC selectors0x18/1a/1e/08/00; the last invokes
+A9EB0x12 after a comparison. Additional A9EB0x08 compares occur in the last two.
+These resource-relative destinations are established from the actual loader;
+live guest A9EB/A9EC handler addresses and their runtime costs remain unknown.
+Next resolve installed trap handlers in the running guest and profile that code.

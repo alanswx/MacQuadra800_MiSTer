@@ -1,3 +1,19 @@
+# All Whetstone external calls statically resolved from original loader
+
+Added scripts/cpu/resolve_whetstone_calls.py using existingmac_rsrc.Rsrc.
+OriginalCODE0onlystartupentry; CODE1customloaderusesXREF3groupsA5/CODE1/segment.
+DATA0length/offsetblocksinitializeA5slots. All15WStoneJSRfieldsclassifiedexactly
+once:2localCODE3,13externalA5. Slots50/58/60/68/70/78→CODE6 offsets
+12d2/130a/1342/137a/13b2/140c. Sixruntimewrappersdecoded+hashed; A9EC selectors
+18/1a/1e/08/00;lastwrapperA9EB12;lasttwoalsoA9EB08compare. No hostmathstub.
+Evidence scratch/whetstone_inventory_20260920/resolved_calls.json,
+runtime_helpers.dis,loader.dis,DATA0.bin,XREF3.bin,CODE0.bin,CODE1.bin.
+Needliveguesttrap-handleraddresses and dynamiccost next. SIMEMU->ram is visible
+in sim_main.cpp; debugger snapshot could expose trap table without rebuilding.
+P97sim3190686live; f3833Speedometer4.02Folderrootreviewed. Queued'spe'+CmdO,
+nextcaptureverifyappthenReturn/Escape/CmdB setup. No fullMix started yet.
+MiSter P96safehalt median1.211; nohardwareinputthisturn. Goal1.8unmet.
+
 # Whetstone reproducible inventory added; P97 Applications navigation
 
 Previous turn progressed5validP96hardware+shutdown+realQuadra comparison.
