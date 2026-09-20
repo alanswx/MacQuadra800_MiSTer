@@ -1,3 +1,16 @@
+# Whetstone ordinary operand reads dominate memory costs
+
+New consumer profile completedexit0(exec83220), exact31784029loop/capturesP102.
+S_PIPE_SDONEreads5389204=16.96%loop, S_NEXTwrites1942703=6.11%; FPU_RD2.58%.
+Fullconsumer sum11422774 matchesMRD/MWRstatecounts. See docs/WHETSTONE_MEMORY_CONSUMERS_20260920.md.
+Savedbench scratch/whetstone_consumers_20260920/tb_cpu_whetstone.sv;
+UNAPPLIEDscripts/cpu/whetstone_consumer_profile.patch. Trackedbenchrestored,
+fit sourcehashcheckPASS. New run_whetstone_image.py --bench supports scratchbenches.
+NEXT opcode breakdown LIVE exec37417, scratch/whetstone_operand_opcodes_20260920;
+recheckexit/captures then rank ordinary operand opcodes to target larger win.
+P102Quartusactivewrapper3426490, actualquartus_fit3435576 (mapcomplete).
+FREEZE until wholewrapper/archive/STAfinished. NoMiSTeractions, goal1.8unmet.
+
 # P103 screen: small gain, isolated; P102 fit still active
 
 P103 final ordinary FPU read launches FPU at successful ack, skips copying
