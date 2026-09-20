@@ -1,3 +1,25 @@
+# Latest: P76 promoted for fit; P75 hardware pending
+
+P75 fit completed; no Quartus processes remained before P76 promotion.
+Archived artifact: scratch/p75devclear_fit_20260920/MacQuadra800_p75devclear_d90c597.rbf,
+SHA256 16780ee2cd5d041fda4166349e5dfc63bb775c7227c1a57b19a830e1774a5c33,
+4,501,268 bytes. Source/cross/detailed-STA checks exit0. Fit39,328 ALMs (94%),
+CPU setup -.963ns, HDMI -.050ns, sys→RAM +.896ns, RAM→sys +1.184ns,
+minimum hold +.242ns. Experimental only; not release timing. Hardware copy
+was rejected by automatic approval review for unverified destination/payload.
+Operator subsequently verified mister.local resolves to10.3.89.233, hostname
+MiSTer, and slot points to the authorized disposable pipeline-test HDA.
+No P75 deployment or scores yet. Best reviewed hardware remains P70 median1.133.
+
+P76 production core now a3e649df27fb47da3685a09e937931c9418dd091352ded665962d06caa6cd7ce:
+P75 plus immediate MOVE in early destination store and matching hint.
+Full integration log ends PASS at scratch/p76_immediate_store_20260920/full.log;
+corpus and directed fault checks also passed as recorded below.
+Prepared wrapper scratch/p76devimmstore_fit_20260920/run.sh is next to launch
+as user unit q800-p76devimmstore-fit-20260920. Baseline divider,64-byte refill,
+seed22, CDROM_OFF and ETHERNET_OFF; development only.
+Freeze production build inputs from launch through full wrapper completion.
+
 # Latest: P76 full simulation qualification complete
 
 Fullintegration13131collectedexit0,allfault/IRQ/replayPASS. P76canbeconsidered

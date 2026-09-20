@@ -3298,7 +3298,7 @@ wire        hint_data = (state == S_MRD) && !m_issued;
 wire        hint_st_exec  = (state == S_EXEC) && (p_dst == DK_MEM);
 wire        hint_st_move_ea = (state == S_PIPE_DEA) && !p_rmw &&
     exec_kind == EK_ALU && p_dst == DK_MEM && !p_wbsup &&
-    ((alu_op == `AP040_ALU_MOVE && p_src == SK_MEM) ||
+    ((alu_op == `AP040_ALU_MOVE && (p_src == SK_MEM || p_src == SK_IMM)) ||
      alu_op == `AP040_ALU_CLR);
 wire        hint_st_pushf = ((state == S_DECODE) && (ir[15:8] == 8'h61) &&
                              (ir[7:0] != 8'h00) && (ir[7:0] != 8'hFF)) ||
@@ -5629,7 +5629,7 @@ always @(posedge clk) begin
 				dst_addr <= ea_addr;
 				if (p_rmw) mrd(ea_addr, p_dsize, S_PIPE_DDONE);
                 else if (exec_kind == EK_ALU && p_dst == DK_MEM && !p_wbsup &&
-                         ((alu_op == `AP040_ALU_MOVE && p_src == SK_MEM) ||
+                         ((alu_op == `AP040_ALU_MOVE && (p_src == SK_MEM || p_src == SK_IMM)) ||
                           alu_op == `AP040_ALU_CLR)) begin
                     // Required source access and destination EA are complete.
                     // MOVE and CLR need no destination operand; reuse the ordinary ALU
