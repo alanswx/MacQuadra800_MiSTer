@@ -1653,3 +1653,26 @@ without its two-cycle penalty. Neither P22 nor P23 is a measured standalone gain
 P18 build7eef632 remains active MainPID1564390; live source SHA check PASS.
 P13 hardware operator running, first completed screenshot exists but no aggregate
 accepted yet. Best verified hardware median remains1.043; goal1.8notachieved.
+
+### P21 BRA correctness qualification
+
+Candidate remains scratch/p21_bra_only_20260919 (P13 core/cache plus short-even
+unconditional BRA continuation; conditional branches stay legacy).
+Permute completed1,457,331cycles unchanged PASS; Towers25,371,528 and
+Bubble4,077,142 as recorded. First100 silicon reference passed1,900fieldgroups,
+zero real differences, `/tmp/cpu-corpus100-gate.jendKz`; not full corpus.
+New reusable scripts/cpu/pipeline_bra_boundaries.py tests wrong-path indirect
+read suppression, target-fetch bus-error frame SR/PC/format/faultaddress, and
+negative short displacement. Each requires3pipeline BRA retirements across
+three bus phases; all PASS. Disabling branch kill raises actual younger-load
+launch assertion (bad/wrong_read.log), proving the cancellation check is active.
+Retirement IRQ frame test with BRA passes3injections/3precedingCMPcommits.
+BRA odd target/T1/T0/predecessorIRQ checks pass3phases each; legacy not-taken odd
+Bcc case also passes. BRA younger-store oracle passes24taken/0untaken pipeline
+branches with independent memory checks across8predecessor-flag pairs×3phases.
+Fullintegration session56427 still running lastseen through pipeline_load_fault;
+log scratch/p21_bra_only_20260919/gate.log. Do not promote before terminalPASS,
+and do not overwrite P18 prefetch change when merging this P13-based candidate.
+P18 fit remains live MainPID1564390, production source freeze unchanged.
+P13 hardware agent active, four completed run screenshots exist; aggregate and
+normal shutdown still pending. Best accepted hardware median1.043;1.8unmet.
