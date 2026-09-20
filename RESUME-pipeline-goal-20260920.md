@@ -1,3 +1,14 @@
+# P104 timing fit active
+
+P104 production SHA00bb4ff7d713455995ac821b0c8e196f1d16ffa663dadb59efee9d9ba0a37528.
+P102 timing failed CPU-1.009ns and is rejected. P104 wrapper
+scratch/p104simple_fit_20260920/run.sh source hash corrected and launched as
+q800-p104simpleb-fit-20260920, MainPID3503248, quartus_map3503362 active.
+Freeze RTL/QSF/QIP/SDC through complete archive/cross/STA.
+P104 fullguest remains active disposable simulation, reached 1.2B checkpoint
+but no additional screenshot/benchmark observer output yet; do not infer score.
+No hardware action. Goal1.8unmet.
+
 # P102 fit failed CPU timing; P104 promoted for next fit
 
 P102 complete fit seed22:39,537ALM,CPU slack-1.009/TNS-31.989,HDMI+.177,
