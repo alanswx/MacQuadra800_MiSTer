@@ -16,7 +16,7 @@ module tb_pipeline_stores;
     ap040_pipeline_integer #(.ENABLE_STORES(1)) dut (.external_dst(32'd0), .read_old_dst(), .external_a(32'd0), .external_b(32'd0),
         .external_ccr(5'd0), .next_opcode(16'd0), .next_extension(16'd0), .next_valid(1'b0), .next_extension_valid(1'b0), .next_supported(), .external_sp(32'd0), .in_extension(16'd0), .in_extension_valid(1'b0), .in_words(), .retire_next_pc(), .read_src(), .read_dst(), .load_req(load_req), .load_write(load_write), .load_wdata(load_wdata), .load_ccr(), .load_addr(load_addr), .load_size(load_size), .load_pc(load_pc), .load_opcode(),
         .load_ack(load_ack), .load_fault(1'b0), .load_data(32'd0),
-        .retire_fault(), .retire_fault_addr(), .empty_after_retire(), .*);
+        .retire_fault(), .retire_fault_addr(), .empty_after_retire(), .retire_wb_valid(), .retire_branch_taken(), .*);
     wire load_req,load_write;
     wire [31:0] load_wdata,load_addr,load_pc;
     wire [1:0] load_size;

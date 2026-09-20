@@ -2170,3 +2170,41 @@ other checks. P42 remains the qualified next fit candidate.
 P39 fit service is still live MainPID1759655, child quartus_fit1769571 observed
 at32minutes, CPU171%; physical synthesis log is buffered. No restart or source
 changes. Wait for full wrapper/archive termination before any tracked RTL edit.
+
+### P39 terminal fit and P46/P47 follow-up
+
+P39 wrapper is terminal failed (MainPID0), timing-only build.exit1,
+source_check.exit0,cross.exit0. Archive exact26b644c RBF4586784bytes,
+SHA256b5c7c63cd425a4c4ff18b34705c0e43bce0ca0fbdf0d80217424dbde23bb8c92.
+41347ALMs99%,26531regs,491RAM43DSP. CPU-3.701ns(TNS-655.169),HDMI+.088,
+SDRAM+.203,hold+.247,crosssys->ram+.203,ram->sys+.326. Root verifiedRBFhash,
+cachetagM10K andbankE512bitMLAB. Worst-path reports archived under thatfolder:
+ISP/EX inputs through pipeline general ALU flag/shift mux -> rd_bcc_fl ->
+branch target/refill seed -> epf_data. This is not proof that BRFprefix alone
+fixes timing. User-authorized marginal trial delegated to existinghardware
+operator with exactartifact,explicitCPUmismatch,disposableimageonly.
+Not release-ready even if hardware trial passes. NoQuartusprocess remains.
+
+P46 scratch/p46_compare_admit_20260919 fixes resident lookahead bypassing
+pipeline admission for supported indexedCMP/TST andindirectTST. rd_queue_pop
+is suppressed only for those legal families, preserving late-extension wait
+and full-format fallback. Queens65775cycles vsP42 68209(-3.568%); Towers24096159
+vs24390329(-1.206%); Bubble3270270/Permute1380671 unchanged, alloraclesPASS.
+FullintegrationterminalPASS. Silicon1001900groups0diffs
+/tmp/cpu-corpus100-gate.I9tQ3E. Compareextensionfault/trace/IRQ all3phasesPASS;
+indexedCMP/TST andindirectTST b/w/l datafaultframes all3phasesPASS.
+
+After terminalP39 freeze, fixed unused newretirement outputs on all3wildcard
+standalonebenches: integer,pea,stores. Standard pipeline_prototype.py --extended
+nowterminalPASS including all6modes andboth forwardingmutations, artifacts
+scratch/standalone_ports_fixed. No production CPU changes yet.
+
+P47 scratch/p47_read_fastflags_20260919 uses the existing ALU fast_flags output
+for acknowledgement-edge read retirement (MOVE/TST/CMP allsupported), bypassing
+the general flagmux implicated by P39 timing. Simulationassertionrequires
+fast_ok whenever a fast read commits flags. Queens remains65775PASS. Expanded
+memoryoracle --fast-read-retire exercises the actual path and checks snapshots;
+first eight-mode runPASS25526retirements/5360reads. A rerun with explicit fast
+retirement coverage and bad-Zflag mutation is active session87209. Fullgate
+session13166 andsilicon100session57317 active. Do not callP47qualified orpromote
+until those complete; then commit production candidate before one newfit.

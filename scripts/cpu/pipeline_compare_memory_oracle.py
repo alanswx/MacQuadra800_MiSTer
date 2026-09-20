@@ -8,6 +8,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--out', type=Path, default=r/'scratch/pipeline_compare')
 parser.add_argument('--pipeline-module',type=Path,default=r/'rtl/ap68040/experimental/ap040_pipeline_integer.sv')
 parser.add_argument('--indirect-tst',action='store_true',help='also qualify byte/word/long TST (An)')
+parser.add_argument('--fast-read-retire',action='store_true',help='also test acknowledgement-edge retirement')
 args = parser.parse_args()
 root_out = args.out.resolve()
 root_out.mkdir(parents=True, exist_ok=True)
@@ -128,6 +129,7 @@ if args.indirect_tst:
  supported.update(0x4a10+(size<<6)+base for size in range(3) for base in range(8))
 (out/'supported.hex').write_text('\n'.join(str(int(w in supported)) for w in range(65536))+'\n')
 s=(exp/'tb_pipeline_pea.sv').read_text().replace('.ENABLE_PEA(1))','.ENABLE_PEA(1), .ENABLE_INDEXLOAD(1), .ENABLE_COMPARE(1))')
+if args.fast_read_retire:s=s.replace('.ENABLE_COMPARE(1))', '.ENABLE_COMPARE(1), .ENABLE_FAST_READ_RETIRE(1))')
 s=s.replace('.empty_after_retire(), .*', '.empty_after_retire(), .retire_wb_valid(), .retire_branch_taken(), .*')
 s=s.replace(".load_data(32'd0)", '.load_data(response_data)')
 s=s.replace('reg load_ack=0,pending=0;', "reg [31:0] response_data=0;\n    reg load_ack=0,pending=0;")
@@ -142,6 +144,8 @@ s=s.replace('        extension_valid=1;\n        fd =', '''        for(i=0;i<8;i
         end
         extension_valid=1;
         fd =''')
+if args.fast_read_retire:
+ s=s.replace('endmodule', '    integer fast_read_commits=0;\n    always @(posedge clk) if(dut.fast_read_retire) fast_read_commits++;\n    final begin\n        $display("FAST_READ commits=%0d",fast_read_commits);\n        if(fast_read_commits==0) $fatal(1,"fast read retirement was not exercised");\n    end\nendmodule')
 tb=out/'tb.sv';tb.write_text(s)
 with (out/'compile.log').open('w') as f:
  subprocess.run(['iverilog','-g2012','-I',str(rtl),'-s','tb_pipeline_pea','-o',str(out/'test.vvp'),str(tb),str(module),str(rtl/'ap040_regfile.v'),str(rtl/'ap040_alu.v')],stdout=f,stderr=subprocess.STDOUT,check=True)

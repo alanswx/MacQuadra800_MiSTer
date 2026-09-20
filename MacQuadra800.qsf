@@ -672,3 +672,9 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram_beat32.sv
 # MET 39,823 ALMs95%,26,373regs,491RAM,43DSP; CPU+.546,HDMI+.292,
 # SDRAM+.376,hold+.199ns; crossings sys->ram+.376,ram->sys+.546ns.
 # Source/hash/cross verified archive scratch/p33move_fit_20260919.
+# 2026-09-19 P39 64-byte refill/read retirement (26b644c), seed21:
+# 41,347 ALMs99%,26,531 registers,491 RAM,43 DSP. CPU -3.701ns
+# (TNS -655.169), HDMI +.088, SDRAM +.203, hold +.247ns.
+# sys->ram +.203, ram->sys +.326. Source/cross checks PASS; marginal
+# hardware trial only. CPU worst path: pipeline ALU flags -> branch refill.
+# Archive scratch/p39refill64_fit_20260919; bounded read flags under test.
