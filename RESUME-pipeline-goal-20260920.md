@@ -558,3 +558,12 @@ menu; don'tassumeinputsuccessfromcontrol-log alone. MappingPS2LeftAlt11=Command,
 Q15,Escape76checked; inputps2clockinitial1 andportconnected. Latest appended
 Escapeheld3.3Mclocks(100ms),release,wait16.5M,shot; inspectlatestimage before
 nextinput. No benchmarkprofile started. P70fitter live; P73fullyqualified.
+
+
+Simulator navigation verified: f2030 showed MacAtrium Quick-Launch Menu;
+f2125 confirmed focus on Exit to Finder after two Tab presses. Return sent,
+f2219 shows transitional launcher redraw, not confirmed Finder yet. Latest
+control appends wait66M rising edges then shot; inspect that new screenshot
+before further input. Current simulator unit/PID unchanged. No Whetstone
+bracket started. P70 fitter verified live2585604; cheaper operator reassigned
+to monitor through terminal rather than stop after a status-only report.
