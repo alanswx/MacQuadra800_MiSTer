@@ -6,6 +6,8 @@ import subprocess, sys
 r = Path(__file__).resolve().parents[2]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--out', type=Path, default=r/'scratch/pipeline_p6')
+parser.add_argument('--module', type=Path, help='isolated pipeline candidate')
+parser.add_argument('--alu', type=Path, help='isolated ALU candidate')
 args = parser.parse_args()
 root_out = args.out.resolve()
 root_out.mkdir(parents=True, exist_ok=True)
@@ -13,7 +15,7 @@ sys.path.insert(0, str(r/'scripts/cpu'))
 from pipeline_prototype import workload,encode
 import pipeline_address_oracle as address
 out=root_out/'alu_oracle';out.mkdir(exist_ok=True)
-rtl=r/'rtl/ap68040/rtl';exp=r/'rtl/ap68040/experimental';module=exp/'ap040_pipeline_integer.sv'
+rtl=r/'rtl/ap68040/rtl';exp=r/'rtl/ap68040/experimental';module=args.module.resolve() if args.module else exp/'ap040_pipeline_integer.sv'
 regs=[0]*16;ccr=0;pc=0x400;code=[];rows=[];requests=[]
 def emit(kind,*args):
  global pc,ccr
@@ -117,7 +119,7 @@ for base in range(8):
 s=(exp/'tb_pipeline_pea.sv').read_text().replace('.ENABLE_PEA(1))','.ENABLE_PEA(1), .ENABLE_SHIFTS(1), .ENABLE_DISP_LEA(1))')
 s=s.replace('code [0:32767]', 'code [0:131071]')
 tb=out/'tb.sv';tb.write_text(s)
-with (out/'compile.log').open('w') as f:subprocess.run(['iverilog','-g2012','-I',str(rtl),'-s','tb_pipeline_pea','-o',str(out/'test.vvp'),str(tb),str(module),str(rtl/'ap040_regfile.v'),str(rtl/'ap040_alu.v')],stdout=f,stderr=subprocess.STDOUT,check=True)
+with (out/'compile.log').open('w') as f:subprocess.run(['iverilog','-g2012','-I',str(rtl),'-s','tb_pipeline_pea','-o',str(out/'test.vvp'),str(tb),str(module),str(rtl/'ap040_regfile.v'),str(args.alu.resolve() if args.alu else rtl/'ap040_alu.v')],stdout=f,stderr=subprocess.STDOUT,check=True)
 for mode in (0,1,2,3,4,5):
  name=f'm{mode}'
  cmd=['vvp',str(out/'test.vvp'),'+program='+str(out/'instructions.hex'),'+trace='+str(out/(name+'.trace')),'+count='+str(len(code)),'+registers=16','+mode='+str(mode),'+delay=0','+stores='+str(out/'requests.hex'),'+requests=0','+supported='+str(out/'supported.hex'),f'+end_pc={pc:x}']

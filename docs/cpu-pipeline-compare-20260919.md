@@ -1425,3 +1425,53 @@ P57. It **includes P61** and is an alternative to
 divider: P59/P60 remain separate. P62 supersedes P61 as the preferred next
 MOVE candidate, pending P57's terminal fit and subsequent area/timing checks.
 Production RTL remains frozen P57 while its wrapper is active.
+
+
+## P63 pipeline-only ALU subset — 2026-09-20 (unapplied)
+
+P57's integer pipeline decodes only MOVE/TST, ADD/SUB/CMP, AND/OR/EOR,
+and all eight shift/rotate operations. It currently instantiates the complete
+ALU, including BCD, bit operations, extend arithmetic, and unary operations
+that this decoder never emits. P63 adds a default-off PIPELINE_SUBSET parameter
+to the shared ALU and selects it only in the pipeline. The legacy sequencer
+keeps the complete default ALU. A simulation assertion rejects any valid EX
+operation outside the subset. Whether Quartus already removes some of this
+logic, and the resulting area/timing benefit, remain unmeasured.
+
+The alternative is isolated in `scratch/p63_subset_alu_20260920`; reproducible
+unapplied diff: `scripts/cpu/pipeline_subset_alu.patch` against P57. This is an
+area/routing experiment, not a claimed cycle or hardware score improvement.
+It does not include P59/P60 dividers or P61/P62 MOVE changes.
+
+Completed qualification:
+- Default full ALU: 2,528,416 mathematical/differential comparisons PASS.
+- Subset: 393,216 comparisons of result, CCR, fast flags, and fast_ok against
+  the original ALU; all sixteen operations, three sizes, all 64 shift counts,
+  all 32 incoming CCRs, edge and fixed-seed random operands PASS.
+- Deliberately using X in ordinary ADD fails subset comparison (op1, byte,
+  incoming CCR10, a=b=0), confirming sensitivity to a real arithmetic error.
+- Independent P6 oracle: 61,424 retirements in each of six scheduling modes PASS.
+- Independent compare oracle: 63,576 retirements in each of six modes PASS
+  for candidate and unchanged pipeline. Its old admission map omitted
+  indirect TST opcode4a10; added that instruction family to match the existing
+  decoder. The initial stale-map failure preceded execution, not an ALU failure.
+- Original Quick Sort, sorted permutation and guards: identical current/candidate
+  cycles170504/182275/205645 at controlled RAM latency0/3/8.
+- `git apply --check` PASS; active P57 source manifest unchanged.
+
+Full integration is running separately (scratch/p63full, log
+scratch/p63_subset_alu_20260920/full_gate.log). No full-suite, silicon-corpus,
+fit, hardware, or Speedometer qualification is claimed yet.
+
+Existing oracle runners now accept --module and --alu; profile_quick accepts
+--alu for both compared variants and includes it in its source-hash manifest.
+Example after creating candidate files by applying the patch in scratch:
+
+```sh
+python3 scripts/cpu/pipeline_compare_alu_oracle.py --module scratch/p63_subset_alu_20260920/ap040_pipeline_integer.sv --alu scratch/p63_subset_alu_20260920/ap040_alu.v --out scratch/p63_subset_alu_20260920/tracked_compare
+python3 scripts/cpu/profile_quick.py '/home/alans/mister/MacQuadra800_fixtures/Speedometer 4.02.rsrc' --out scratch/qk63 --alu scratch/p63_subset_alu_20260920/ap040_alu.v --compare-module scratch/p63_subset_alu_20260920/ap040_pipeline_integer.sv --early-drain --compare --latencies 0 3 8
+```
+
+The exhaustive subset differential bench is tracked as
+`scripts/cpu/tb_pipeline_subset_alu.sv`; compile top `tb` with the candidate
+ALU and the original module renamed `ap040_alu_reference`.

@@ -115,3 +115,23 @@ an opcode. This is not a global Mac bottleneck measurement.
 Hardware table integer-kernel numbers are elapsed seconds, not ratings.
 Whetstone contributes about27% of the current rating sum; its original SANE
 and external math calls must be preserved in any future profiling.
+
+
+## P63 isolated area experiment (new, unapplied)
+
+P57 fitter PID2301048 last verified live at37m44s, CPU64m06s; same user unit
+active. Source manifest PASS. No fresh artifact yet. Prior goal work was a
+verified wait; this turn adds independent candidate qualification.
+
+P63 specializes only the duplicate pipeline ALU to its sixteen decoded
+operations; legacy ALU defaults unchanged. Scratch:
+`scratch/p63_subset_alu_20260920`; unapplied patch
+`scripts/cpu/pipeline_subset_alu.patch`. See latest section in
+`docs/cpu-pipeline-compare-20260919.md` for qualification and reproduction.
+Subset393216 and full2528416 comparisons PASS, six-mode independent P6 and
+compare oracles PASS, Quick cycles unchanged at all three latencies. Carry
+mutation fails. Area benefit is unmeasured; do not promote based on simulation.
+Full integration running as exec session47180, output in
+`scratch/p63_subset_alu_20260920/full_gate.log`, fixtures scratch/p63full.
+Tracked compare-runner verification session71977 may need final collection.
+Do not confuse P63 with P62: it is a separate P57-based area experiment.
