@@ -1,3 +1,18 @@
+# P97 queue promoted for experimental fit; fullguest build live
+
+Previous turn made progress: remapped Sieve qualification and fullguest launch.
+Verified P96 wrapper terminal, cpu_timing.exit0, and no Quartus processes.
+Applied exact screened scripts/cpu/store_queue4.patch to production queue:
+SHA19ef4a9313b4c73b11dbfbd475e1e84d57e5b5a9c52cbb754964aa3c0ecc457b.
+P96core/P90MMU/P83pipeline and seed22 unchanged. This is experimental fit
+promotion, not full-guest or hardware qualification. Unit+posted scoreboard,
+SDRAM baseline/candidate both ack modes, Quick/Matrix/Sieve oracles all pass.
+Prepared scratch/p97devqueue4_fit_20260920/run.sh with queue identity check.
+Commit then launch one flow; freeze tracked HDL/QSF/QIP/SDC through archive+STA.
+Fullguest service q800-p97-fullguest-profile-20260920 still compiling (3190686),
+immutable candidate tree already contains identical queue; no result yet.
+P96 exact hardware approval pending. No transfer. Goal remains unmet.
+
 # P97 fullguest missing dependency corrected; build verified live
 
 Initial fullguest build exited because the archive omitted scripts/fixtures/
