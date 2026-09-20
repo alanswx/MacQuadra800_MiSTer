@@ -1,3 +1,16 @@
+# Latest: P78 fully simulation-qualified; P79 MOVEA.W admission screen
+
+P78 fullintegration session71144 collectedexit0; final log allIRQ/load/store/PEA
+replayPASS. Corpus45496alreadyexit0/1900groups0diffs. DirectedAn/PC-relative
+faultsPASS. P78 ready to consider for nextfit after P76wholewrappercomplete;
+preparedscratch/p78devdispread_fit_20260920/run.sh stillunlaunched.
+
+P79 isolatedscratch/p79_moveaw_entry_20260920/ap040_core.v changes ONLY admission
+relativeP78: registerMOVEA.W ((ir&f1f0)==3040) withsupported successor may
+enter existingpipeline. ExistingwordMOVEAsemantics unchanged. Matrixsession72261
+and Quick/Sieve48357screensrunning. No correctness/fullqualification yet.
+P76stillsoleliveQuartusfit, productionfrozen. P75transferapprovalstillpending.
+
 # Latest: P78 corpus passed; P75 exact transfer approval pending
 
 P78corpus45496exit0: first100,1900fieldgroupsmatch,0diffs;

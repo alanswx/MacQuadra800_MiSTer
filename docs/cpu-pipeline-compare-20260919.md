@@ -1932,3 +1932,7 @@ fallback under test; direct S_MRD entry and architectural exception contents
 are checked. The initial unmodified fixture passed architectural checks but
 failed coverage because it used the pre-existing inline path; do not count
 that initial run as shortcut validation. Fullintegration and corpus pending.
+
+P78 qualification completed: full integration exit0 including precise
+fault/interrupt/replay checks; first100corpus1900field groups match,0diffs.
+Prepared fit wrapper remains unlaunched until P76 completes and is archived.
