@@ -251,3 +251,13 @@ run quartus_sta -t scripts/cpu/timequest_worst_paths.tcl
 scratch/p63devnocdnet_fit_20260920/cpu_timing. The script now accepts an output
 directory (default scratch/cpu_timing) and leaves unrelated root worst_paths.txt
 and worst_detail.txt untouched. Cheap operator notified to capture this then.
+
+
+P63 hardware update: root reviewed ALL five fresh all10/iteration1 start and
+completion pairs under scratch/hardware_p63subset_20260920. Mix1.126,1.129,
+1.130,1.129,1.130 =>median1.129,mean1.1288; no apparent timer anomalies.
+Table now in docs/PERFORMANCE_MEASUREMENTS.md, marked closure pending until
+operator supplies remote-copy/config/disposable identity and clean shutdown
+for root review. Do not call release-qualified: CPU/HDMI timing still fail.
+Do not attribute gain solely to ALU subset (P52/P57 changes also present).
+Devnocdnet remains a separate active build; no hardware score yet.

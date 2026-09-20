@@ -1697,3 +1697,36 @@ Mix mean 1.1046; median 1.105; range 1.102–1.106. Start evidence: `run1_start.
 Normal Cmd-Q/save completed with unique record `P39refill64-record-20260920`. `final_halt2.png` visibly confirms “It is now safe to switch off your Macintosh.” Main and remote input services remained running; original disk remained untouched.
 
 Root reviewed all five completion images, run2_start.png and final_halt2.png. Median gain over P33 is 2.03%. Timing numbers above were corrected against the P39 archive; the operator report initially carried P18 hold/crossing values. This is an experimental result with failed CPU timing, not a release qualification.
+
+
+## P63 pipeline ALU subset — five runs reviewed, closure pending
+
+Full-feature artifact `MacQuadra800_p63subset_6fbe313.rbf`, SHA256
+`5dafc05bb5a47a3c6cbb31ef5e0e7f826d8aa32a9ed110d1c3af27532b1cf587`.
+Root verified the fresh4555188-byte archive, source check0, fit success, and
+cross report0. Timing remains non-release: CPU-1.709ns (TNS-108.544),
+HDMI-.213ns (TNS-2.190), SDRAM+.478ns, minimum hold+.242ns,
+sys→RAM+2.325ns and RAM→sys+.827ns.
+
+Root independently reviewed all five fresh Run Set/completion pairs under
+`scratch/hardware_p63subset_20260920`; each has all ten tests, iteration1.
+No apparent timer anomalies in the five complete results; none excluded.
+The eight integer columns below are elapsed seconds, not normalized ratings.
+
+|Run|Whetstones/s|Dhrystones/s|Towers|Quick|Bubble|Queens|Puzzle|Permutations|Int Matrix|Sieve|Mix|
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+|1|886.444|13099.083|.808|.657|.767|.530|1.158|1.198|.796|1.116|1.126|
+|2|892.296|13115.146|.808|.661|.767|.530|1.152|1.198|.790|1.114|1.129|
+|3|892.790|13119.623|.806|.657|.768|.532|1.150|1.199|.788|1.114|1.130|
+|4|890.927|13122.870|.806|.657|.768|.531|1.152|1.201|.793|1.114|1.129|
+|5|894.604|13087.288|.806|.657|.768|.531|1.153|1.200|.786|1.116|1.130|
+
+Median1.129, mean1.1288, range1.126–1.130. Median gain over P39's1.105 is
+2.17%. This is below the1.8goal. No claim that ALU specialization alone caused
+the gain: P63 also includes the previously unmeasured P52/P57 CPU changes.
+
+Closure pending: operator's deployed-copy/config/disposable-disk record and
+root-reviewed clean-shutdown image. Prior readiness was33MHz/32MB/Ethernet,
+and completed screens show32768K; frequency needs the deployment record.
+This full-feature trial is separate from the active CD/Ethernet-disabled
+build, whose hardware score is not yet measured.
