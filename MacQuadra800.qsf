@@ -714,3 +714,7 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram_beat32.sv
 # P94 uses identical P90 RTL at seed23 to test placement-only timing closure.
 
 # P94 seed23:39543ALMs,CPU-2.117,HDMI+.289,SDRAM+.178; restoreseed22.
+
+# P97 queue4 seed22:39614ALMs,CPU-.682ns,crosssysram+.529/ramsys+.387.
+# P99 adds qualified FPU operand-read hints/early issue; seed22, development
+# CD-ROM/audio and Ethernet omissions retained. Fit result pending.
