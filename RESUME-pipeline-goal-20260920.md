@@ -1,3 +1,19 @@
+# P89 full Mix1.236 complete/profile captured; guest shutdown pending
+
+Rootreviewedf7116completiondialog. SimMix1.236vsP67verified1.187(+4.1%).
+IMPORTANT correction:P67Quick.638/Bubble.621/Queens.529/Towers.797/Puzzle1.083
+areSECONDSnotratings. Earlierconversationalnear-doublingclaimswrong;corrected
+explicitlytouser+guide. P89times.616/.639/.526/.771/1.023respectively.
+P89ratings3.124,.785,.829,1.157,1.189,.767,1.068,.690,1.178,1.576.
+Watcher3070167normalexit,soleinputownershipbacktoroot. Profilecaptured
+899212537clocks/260165724oploads;report.mdgeneratedmatchingimmutablecore.
+S_MRD23.03%,PIPE_REGS12.71%,MWR11.85%,DECODE11.01%,FETCH8.45%,
+EXPERIMENT_PIPE7.40%,PIPE_START7.04%. IncludesUI/pollingoverhead.
+Simulator2943117stilllive,completiondialogvisible; needdismiss,normalguest
+shutdown,thenquitsimulatorforbufferedtimerobserverflush/review. Donotreset.
+P94fitunitq800-p94devdataseed23-fit-20260920.service3108048live;productionfrozen.
+HardwareexactP89approvalstillpending;nohardwaretransfer. Goalunmet.
+
 # P94 placement-only seed23 prepared on restored P90 RTL
 
 P90-.140CPU/-.123HDMI warrantsoneplacementcomparisonwithoutCPUchanges.

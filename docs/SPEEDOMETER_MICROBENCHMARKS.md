@@ -461,3 +461,30 @@ extra register-bank E MLAB512bits. All flows terminal before restoring
 production to the exact previously qualified P90 MMU SHA2c445c90.
 No new correctness test is required for this byte-identical restoration;
 P90's existing qualification evidence remains the applicable evidence.
+
+
+P89 full-guest Mix completed: root reviewed `screenshot_f7116.png`, explicit
+"The tests are done" dialog, final simulated Mix **1.236**. All ten tests ran
+once. Ratings: Whet3.124,Dhry.785,Towers.829,Quick1.157,Bubble1.189,
+Queens.767,Puzzle1.068,Permute.690,Matrix1.178,Sieve1.576. This is simulation,
+not five-run MiSTer acceptance. Prior P67 final Mix1.187 was independently
+rechecked against its original f6222 screenshot: overall gain about4.1%.
+
+Correction to interim conversation comparisons: P67's Towers.797,Quick.638,
+Bubble.621,Queens.529,Puzzle1.083 are **elapsed seconds**, not normalized
+ratings (their rating column is hidden by its completion dialog). Do not claim
+Quick/Bubble nearly doubled or Queens rose from.529 to.767. Corresponding P89
+elapsed times are.771,.616,.639,.526,1.023 seconds. Quick elapsed improved
+about3.4%; Bubble elapsed regressed about2.9%. Matrix ratings.981→1.178 and
+Sieve1.441→1.576 are visible valid rating comparisons. Multiple RTL changes
+separate P67/P89, so none isolates a single optimization.
+
+P89 profile stop completed; watcher exited normally, guest remains running.
+`workload.tsv`:899,212,537 CPU clocks,260,165,724 observed opcode loads,
+3.456 clocks/load (not retirement CPI). Matching snapshot report:
+S_MRD23.03%,S_PIPE_REGS12.71%,S_MWR11.85%,S_DECODE11.01%,S_FETCH8.45%,
+S_EXPERIMENT_PIPE7.40%,S_PIPE_START7.04%. Bracket includes UI launch and
+queued post-completion waits; do not treat its total as pure benchmark time.
+Legacy opcode histogram is unsuitable for exact pipeline attribution.
+Timer observer stream still needs final flush/review; no all-ten timer-validity
+claim. Normal guest shutdown and final timer review remain to do.
