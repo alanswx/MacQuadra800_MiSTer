@@ -7,6 +7,9 @@ r = Path(__file__).resolve().parents[2]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--out', type=Path, default=r/'scratch/pipeline_compare')
 parser.add_argument("--vasm", default="/home/alans/mister/MacQuadra800_fixtures/wombat-vasm/vasmm68k_mot")
+parser.add_argument('--core',type=Path,default=r/'rtl/ap68040/rtl/ap040_core.v')
+parser.add_argument('--pipeline-module',type=Path,default=r/'rtl/ap68040/experimental/ap040_pipeline_integer.sv')
+parser.add_argument('--indirect-tst',action='store_true')
 args = parser.parse_args()
 root_out = args.out.resolve()
 root_out.mkdir(parents=True, exist_ok=True)
@@ -25,10 +28,14 @@ end
 endmodule
 ''')
 units=('ap040_tg68k_compat','ap040_bus16_adapter','ap040_bus_timeout','ap040_alu','ap040_muldiv','ap040_mmu','ap040_cache','ap040_fpu','ap040_walker_cdc','primitives/dpram')
-sources=[r/'rtl/ap68040/tb/tb_ap040_program.v',d/'monitor.sv',exp/'handoff_monitor.sv',rtl/'ap040_core.v',rtl/'ap040_regfile.v',exp/'ap040_pipeline_integer.sv',*[rtl/(u+'.v') for u in units]]
+sources=[r/'rtl/ap68040/tb/tb_ap040_program.v',d/'monitor.sv',exp/'handoff_monitor.sv',args.core.resolve(),rtl/'ap040_regfile.v',args.pipeline_module.resolve(),*[rtl/(u+'.v') for u in units]]
 flags=['-DAP040_EXPERIMENTAL_'+x for x in ('XSTORE','LEA','PIPELINE','PIPELINE_LOADS','PIPELINE_STORES','PIPELINE_PEA','PIPELINE_P6')]+['-DAP040_PIPELINE_COMPARE','-DAP040_PIPELINE_MEMORY_ENTRY','-DAP040_PIPELINE_EARLY_DRAIN']
 with (d/'compile.log').open('w') as f:subprocess.run(['iverilog','-g2012','-I',str(rtl),'-s','tb_ap040_program','-s','handoff_monitor','-s','indexed_fault_monitor',*flags,'-o',str(d/'test.vvp'),*map(str,sources)],stdout=f,stderr=subprocess.STDOUT,check=True)
-for name,opcode,sr in [('cmp_word',0xb670,0x271f),('tst_word',0x4a70,0x271f)]:
+cases=[('cmp_word',0xb670,0x271f),('tst_word',0x4a70,0x271f)]
+if args.indirect_tst:cases += [(f'indirect_tst_{size}',0x4a10+(size<<6),0x271f) for size in range(3)]
+for name,opcode,sr in cases:
+ baseaddr=0xf140 if name.startswith('indirect') else 0xf100
+ words=f'${opcode:04x}' if name.startswith('indirect') else f'${opcode:04x},$1800'
  asm=f'''    org 0
     dc.l $7000,start
     dc.l handler
@@ -44,7 +51,7 @@ start:
     move.w #$2700,sr
     move.l #$80008000,d0
     movec d0,cacr
-    movea.l #$f100,a0
+    movea.l #${baseaddr:x},a0
     movea.l #$deadbeef,a3
     move.l #$fedcba98,d3
     moveq #$40,d1
@@ -53,7 +60,7 @@ start:
     trap #0
     org $600
 faulting:
-    dc.w ${opcode:04x},$1800
+    dc.w {words}
     moveq #7,d2
     bra failed
 handler:
@@ -63,7 +70,7 @@ handler:
     bne failed
     cmpi.l #$f140,20(a7)
     bne failed
-    cmpa.l #$f100,a0
+    cmpa.l #${baseaddr:x},a0
     bne failed
     cmpa.l #$deadbeef,a3
     bne failed

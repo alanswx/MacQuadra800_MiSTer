@@ -6,6 +6,8 @@ import subprocess, sys
 r = Path(__file__).resolve().parents[2]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--out', type=Path, default=r/'scratch/pipeline_compare')
+parser.add_argument('--pipeline-module',type=Path,default=r/'rtl/ap68040/experimental/ap040_pipeline_integer.sv')
+parser.add_argument('--indirect-tst',action='store_true',help='also qualify byte/word/long TST (An)')
 args = parser.parse_args()
 root_out = args.out.resolve()
 root_out.mkdir(parents=True, exist_ok=True)
@@ -13,7 +15,7 @@ sys.path.insert(0, str(r/'scripts/cpu'))
 from pipeline_prototype import workload,encode
 import pipeline_address_oracle as address
 out=root_out/'load_oracle';out.mkdir(exist_ok=True)
-rtl=r/'rtl/ap68040/rtl';exp=r/'rtl/ap68040/experimental';module=exp/'ap040_pipeline_integer.sv'
+rtl=r/'rtl/ap68040/rtl';exp=r/'rtl/ap68040/experimental';module=args.pipeline_module.resolve()
 regs=[0]*16;ccr=0;pc=0x400;code=[];rows=[];requests=[]
 def emit(kind,*args):
  global pc,ccr
@@ -29,6 +31,12 @@ def emit(kind,*args):
   full=old+v;result=full&0xffffffff;regs[dest]=result
   ccr=(17 if full>0xffffffff else 0)|(8 if result&0x80000000 else 4 if result==0 else 0)
   if (~(old^v)&(result^old))&0x80000000:ccr|=2
+ elif kind=='tst':
+  base,size,data=args
+  word=0x4a10+(size<<6)+base
+  addr=regs[8+base];requests.append((at,addr,data,size))
+  sign=1<<((8<<size)-1)
+  ccr=(ccr&16)|(8 if data&sign else 4 if data==0 else 0)
  elif kind=='load':
   base,index,long,scale,disp,dest,size=args
   which=(base+index+scale+long)%4
@@ -73,6 +81,16 @@ for base in range(8):
      if index>=8:emit('a',(index+scale)%8,index-8)
      dest=(base+index+scale)%8+(8 if kind in (1,2) else 0)
      emit('load',base,index,long,scale,(-128,-1,0,127)[(base+index+scale+long)%4],dest,2 if kind in (0,1) else 1 if kind in (2,3) else 0)
+if args.indirect_tst:
+ for base in range(8):
+  for size in range(3):
+   sign=1<<((8<<size)-1)
+   for value in (0,1,sign-1,sign,2*sign-1):
+    for extend in (False,True):
+     constant(0,0xffffffff if extend else 0)
+     if extend:emit('double',0)
+     emit('a',0,base)
+     emit('tst',base,size,value)
 assert len(code)<32768
 (out/'instructions.hex').write_text('\n'.join(f'{at:08x}{op:04x}{ext:04x}' for at,op,ext in code)+'\n')
 (out/'requests.hex').write_text('\n'.join(f'{at:08x}{addr:08x}{data:08x}{sz:x}' for at,addr,data,sz in requests)+'\n')
@@ -106,8 +124,11 @@ for src in range(16):
  for dest in range(8):
   for size in ((1,2,3) if src<8 else (2,3)):
    supported.discard((size<<12)+(dest<<9)+(5<<6)+src)
+if args.indirect_tst:
+ supported.update(0x4a10+(size<<6)+base for size in range(3) for base in range(8))
 (out/'supported.hex').write_text('\n'.join(str(int(w in supported)) for w in range(65536))+'\n')
 s=(exp/'tb_pipeline_pea.sv').read_text().replace('.ENABLE_PEA(1))','.ENABLE_PEA(1), .ENABLE_INDEXLOAD(1), .ENABLE_COMPARE(1))')
+s=s.replace('.empty_after_retire(), .*', '.empty_after_retire(), .retire_wb_valid(), .retire_branch_taken(), .*')
 s=s.replace(".load_data(32'd0)", '.load_data(response_data)')
 s=s.replace('reg load_ack=0,pending=0;', "reg [31:0] response_data=0;\n    reg load_ack=0,pending=0;")
 s=s.replace('if(!load_write) $fatal(1,"unexpected read");', 'if(load_write) $fatal(1,"unexpected write");')
@@ -131,4 +152,4 @@ for mode in (0,1):
   with (out/(name+'.log')).open('w') as f:subprocess.run(cmd,stdout=f,stderr=subprocess.STDOUT,check=True)
   got=(out/(name+'.trace')).read_text().splitlines()
   assert got==rows,next(((i,x,y) for i,(x,y) in enumerate(zip(got,rows)) if x!=y),(len(got),len(rows)))
-  print(name,len(code),'retirements',len(requests),'indexed loads PASS',flush=True)
+  print(name,len(code),'retirements',len(requests),'memory reads PASS',flush=True)

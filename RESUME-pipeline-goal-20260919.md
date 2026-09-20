@@ -2102,3 +2102,38 @@ P39 Quartus remains active, MainPID1759655, quartus_fit PID1769571 last
 observed live in physical synthesis. Production source freeze continues.
 Next: finish P39 fit/archive and hardware gate; repair standalone wildcard
 bench ports when freeze ends; qualify P42 before considering promotion.
+
+### P42 qualification checkpoint
+
+P42 full integration is terminal PASS in full.log (session52961 exit0).
+Silicon first-100 corpus: 1900 field groups, zero differences,
+/tmp/cpu-corpus100-gate.Newrh0 (session22642 exit0). This is not the full corpus.
+Original kernels: Bubble3270270, Permute1380671, Towers24390329, all independent
+output/guard checks PASS, unchanged from P41. Queens remains68209 vsP41 69938.
+Bubble's first invocation lacked the scratch runner's required compare-module
+argument and failed before compilation; rerun with the candidate module passes.
+
+Extended pipeline_compare_memory_oracle.py with optional --pipeline-module and
+--indirect-tst. Added240 cases over all8 address registers,3sizes,zero/one/
+positive-limit/negative-limit/all-one values, Xclear/set. FullRF+CCR snapshots
+and request addresses/sizes are checked. Candidate passes25526 retirements,
+5360reads in all8 stall/delay combinations. Production default remains passing:
+13166retirements,5120reads,all8combinations. Exhaustive opcode-map check retained.
+The generated bench explicitly leaves new retirement outputs unused to avoid
+wildcard elaboration errors; tracked bench files remain frozen for active fit.
+Mutation bad_tst_writeback.sv intentionally enables RFwrite onTST and fails the
+architectural oracle at retirement13200 (D5corruption). Oracle is not vacuous.
+
+pipeline_compare_faults.py now takes isolated core/module and --indirect-tst:
+indexedCMP/TST plus indirectbyte/word/long all pass3busphases each, checking
+faultPC600,addressf140,format7frame,priorSR and unchanged registers.
+pipeline_read_completion_irq.py --tst-size b/w/l each passes3exact read-ack IRQ
+injections/cancels, savedSR2010 (Xpreserved,NZVCcorrect), savedPC602, no D1write
+or youngerD2commit, and resume. All checks use P42 exact scratch core/module.
+
+No P42 production promotion or fit yet. P39service still activeMainPID1759655;
+last quartus_fitPID1769571 was live at26min CPU186%. Do not edit trackedRTL until
+fullwrapperterminal. Then repair standalone wildcardbenchports, consider
+promoting qualified P42 (which includesP41BRF128prefix), commit, and launch one
+newfit. P39 hardware trial still needs its completed/source-verified artifact.
+Besthardwaremedian1.083; target1.8unmet; A/UXdeferred andCD/audiooutstanding.

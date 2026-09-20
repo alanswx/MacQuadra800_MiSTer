@@ -963,3 +963,12 @@ than P41), with 1,554 pipeline issues instead of 339. Latencies 0 and 8 also
 pass the board/guard checks. P42 remains unqualified pending the full CPU gates.
 The fixture runs one solve, excluding the original outer 250 iterations and
 initializer, and is not a prediction of hardware Benchmark Mix.
+
+P42 follow-up qualification passes full core integration and the first100
+silicon corpus (1900 field groups, zero differences). Bubble3270270,
+Permute1380671 andTowers24390329 cycles remain unchanged from P41 with correct
+outputs. The expanded independent memory oracle checks25526 architectural
+snapshots and5360 requests in eight delay/stall combinations, including240
+indirectTST cases. Fault-frame tests and acknowledgement-edge IRQ tests pass
+for all three sizes in three bus phases. A deliberately enabled TST register
+writeback is rejected by the oracle. P42 remains scratch-only while P39 fits.

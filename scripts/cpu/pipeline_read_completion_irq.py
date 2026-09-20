@@ -9,6 +9,7 @@ parser.add_argument('--core', type=Path, required=True, help='candidate ap040_co
 parser.add_argument('--out', type=Path, required=True)
 parser.add_argument('--pipeline-module', type=Path, default=r/'rtl/ap68040/experimental/ap040_pipeline_integer.sv')
 parser.add_argument('--vasm', default='/home/alans/mister/MacQuadra800_fixtures/wombat-vasm/vasmm68k_mot')
+parser.add_argument('--tst-size',choices=('b','w','l'),help='exercise TST (An) instead of MOVE.L')
 args = parser.parse_args()
 d = args.out.resolve()
 d.mkdir(parents=True, exist_ok=True)
@@ -45,7 +46,18 @@ units=('ap040_tg68k_compat','ap040_bus16_adapter','ap040_bus_timeout','ap040_alu
 sources=[r/'rtl/ap68040/tb/tb_ap040_program.v',d/'monitor.sv',args.core.resolve(),rtl/'ap040_regfile.v',args.pipeline_module.resolve(),*[rtl/(u+'.v') for u in units]]
 flags=['-DAP040_EXPERIMENTAL_'+x for x in ('XSTORE','LEA','PIPELINE','PIPELINE_LOADS','PIPELINE_STORES','PIPELINE_PEA','PIPELINE_P6')]+['-DAP040_PIPELINE_COMPARE','-DAP040_PIPELINE_MEMORY_ENTRY','-DAP040_PIPELINE_EARLY_DRAIN','-DAP040_PIPELINE_FORCE_DECODE']
 run(['iverilog','-g2012','-I',rtl,'-s','tb_ap040_program','-s','boundary_monitor',*flags,'-o',d/'test.vvp',*sources],'compile.log')
-run([args.vasm,'-Fbin','-m68040','-no-opt','-o',d/'test.bin',exp/'irq_load.s'],'asm.log')
+assembly=exp/'irq_load.s'
+if args.tst_size:
+ assembly=d/'irq_tst.s'
+ source=(exp/'irq_load.s').read_text()
+ source=source.replace('    jmp ($600).l', '    move.w #$201f,sr\n    jmp ($600).l')
+ source=source.replace('    move.l (a0),d1',f'    tst.{args.tst_size} (a0)')
+ # Use the same positive, nonzero operand for every width (big endian).
+ source=source.replace('move.l #$55,($c000).l',f'move.{args.tst_size} #$55,($c000).l')
+ source=source.replace('    cmpi.l #$55,d1','    cmpi.l #0,d1')
+ source=source.replace('handler:\n','handler:\n    cmpi.w #$2010,(a7)\n    bne failed\n')
+ assembly.write_text(source)
+run([args.vasm,'-Fbin','-m68040','-no-opt','-o',d/'test.bin',assembly],'asm.log')
 run(['python3',r/'rtl/ap68040/tb/bin2hex.py',d/'test.bin',d/'test.hex'],'hex.log')
 run(['vvp',d/'test.vvp','+prog='+str(d/'test.hex')],'run.log')
 log=(d/'run.log').read_text(); assert 'ALL TESTS PASSED' in log,log[-2000:]
