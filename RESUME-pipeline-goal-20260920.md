@@ -508,3 +508,34 @@ P72 scratch variant caps seed6/6ports, sameP67base/no shortdivider. Screening
 Quick30498 andBubble56969active; logs underp72_refill128_seed6_20260920. No fit.
 FullguestP67simulation remainslive independently of failedFPGAfit; snapshot
 sources immutable, useful for profiling only. Latestshotf847 notyetreviewed.
+
+
+## P73: share adjacent-line selection, retain all eight refill words
+
+Unapplied `scripts/cpu/refill_shared_seed.patch` is relative to P67's128-byte
+core, NOT currentP70's64-bytecore. P73coreSHA
+`a4875880f4ddc1d66e55187763019a0f3d64cf23b6bbd45430b69bcd050ac3e2`.
+It selects two adjacent16-byte lines into256bits, aligns at the target word,
+and writes the same eight queue positions under the unchanged valid-count mask.
+The wrapped line at the128-byte boundary is not consumed beyond that mask.
+Baseline divider925bbea... remains paired; Quick/Bubbleidentity files checked
+beforeproductionchangedtoP70shortdivider. This is an area/routing experiment;
+no savings claim exists without Quartus evidence.
+
+Quick lat0/3/8 exactly166651/178422/201792 andBubblelat3exactly3270270: identical
+toP67 and preserving its5.4%Bubble gain. Sorted/guardsPASS; sessions74121/2725exit0.
+New reusable `refill_seed_alignment.py` extracts the candidate seed block and
+compares with independently indexed16-bit words across64offsets,alllegalcounts
+0..8,32random buffers, and unchanged masked queue positions:17,536casesPASS.
+OriginalP67alsoPASS; intentionally reversed shift fails atoffset1,n1,word0.
+Upper/crossing instruction-coherence3patcheseachPASS. First10029767exit0:
+1900groups0diffs `/tmp/cpu-corpus100-gate.EOuMAA`. Fullintegration4418active;
+finish beforepromotion. Sources/logs under scratch/p73_refill_shared_seed_20260920.
+
+P70launched userunitq800-p70devdivide-fit-20260920.service,wrapper2576384,
+buildcommit9a76b04,verifiedactive. FreezeproductionRTLthroughwholewrapper.
+Cheapoperatorassignedmonitoring. P67fullguestlocal simprogressed1.09Ghalfcycles;
+MacOSstartupscreenreviewed, notyetdesktop. Existing timerobserverQueens/Sieve
+only. Profiler totaldispatch toggle/state/cachecounts usable; opcodehistogram
+reads legacyir even duringpipeline dispatch and must NOT be treated as exact
+pipeline opcode attribution. No workload profile has been collected yet.
