@@ -1051,3 +1051,45 @@ EXT/SWAP decoder/entry changes onto P52. Exact scratch sources and logs:
 - `scratch/p55_ext64_20260920`
   ap040_core.v SHA256 `d2974c1e1885fcc5b7f13b2a12b6aacee5777b6d93a96960a498305d55f1a142`.
   ap040_pipeline_integer.sv SHA256 `f11c40e87918df680eeccbc888866bee1463959f779d5c0bed2e5828309028a0`.
+
+## P56–P58: early memory-MOVE store issue
+
+P56 moves ordinary memory-to-memory MOVE's flag update and ordered mwr carrier
+from S_EXEC to S_PIPE_DEA after the source read and destination EA complete.
+It leaves RMW, suppressed-write and non-MOVE instructions unchanged. This alone
+saves no total cycles: Bubble3456612 andTowers24133030 equalP52, with output
+oraclesPASS. The missing issue-state whitelist/address hint turns the removed
+execution cycle into a memory wait.
+
+P57 retains P56 and adds S_PIPE_DEA to the existing early-write issue whitelist,
+plus an exactly matching registered-state/address hint for that MOVE. The
+existing RAM-range, within-page, no-pending-fetch/bus guards remain. It reuses
+the existing mwr, flags and fault path rather than adding pipeline admission.
+
+| Kernel, controlled latency3 | P52 | P57 |
+|---|---:|---:|
+| Bubble | 3,456,612 | 3,456,612 |
+| Queens | 65,832 | 65,720 |
+| Permute | 1,390,747 | 1,380,669 |
+| Towers | 24,133,030 | 23,887,160 |
+
+All independent output/guard checks PASS. P58 additionally removes P33's
+speculative-fetch allowance during brief memory-MOVE destination EA; Bubble
+regresses to3519692 (PASSoutput), so retain the fetch allowance. P58 rejected.
+
+P57 qualification completed so far: source/destination/postinc/predec/extension
+faults PASS; IRQ/T1/alias/full-format/split-source boundaries PASS; value/CCR/
+byte-guard fixture PASS with432acknowledgements,315directEA transitions and
+**432early-store executions**. A scratch monitor explicitly counts the new path.
+A deliberate Z-flag flip reports guest test1failure in the independent fixture
+(the final coverage assertions also fail because it stops early). First100
+corpus:1900fieldgroupsmatch/zero differences, /tmp/cpu-corpus100-gate.tqVCYP.
+Full integration remains running; no fit/hardware evidence forP57 and it is
+NOT promoted. Existing tests use the unchanged production pipeline module,
+byte-identical to the candidate module. Production RTL remains P52/frozen.
+
+Candidate scratch/source identity:
+`scratch/p57_move_store_hint_20260920` core SHA256 `660821496a34151ef80502437ebd59b8c35f66b0aa858ac11f0b6b6446ea5063`.
+Values runner/monitor: candidate values.py; faults/boundaries use the tracked
+pipeline_memmove_faults.py and pipeline_memmove_boundaries.py with --core.
+Full integration log: candidate full.log; kernel logs and corpus.log alongside.

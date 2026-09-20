@@ -2342,3 +2342,22 @@ P52 synthesis now COMPLETE; registers26609 (P47had27151), memory3740942bits,
 quartus_fit2245832. Archive/sourcecheck stillPASS. No fit or timing verdict yet.
 Continue exactbuildhandle; do notrestart. Freeze remains until wrapper terminal.
 Next: fit/timing/RAMinspection then freshRBFhardwaregate if artifactavailable.
+
+## 2026-09-20 P57 promising; build still live
+
+Prior turn progress: rejectedP53/P54/P55 admission regressions. Current turn
+revalidated fitter and RAM inference: ctag44032bitsM10K, bankE512bitsMLAB.
+P56earlymemMOVEstore alone no cyclesgain; P57matchinghint/earlyissue improves
+Towers24133030->23887160,Permute1390747->1380669,Queens65832->65720,
+Bubble3456612unchanged. P58fetchholdregressesBubble3519692; reject.
+P57scratchpath scratch/p57_move_store_hint_20260920. Targeted faults/boundaries
+PASS, values432early-storeexecutionsPASS, Zflipmutation guesttest1FAIL,
+first100corpus1900groups0diffs /tmp/cpu-corpus100-gate.tqVCYP. FULL INTEGRATION
+STILL RUNNING execsession89002, candidatefull.log (lastobservedbitfield_mmuPASS).
+DO NOTPROMOTE untilremaininggatesreviewed and P52wrapperterminal. P57 nofit
+orhardwareevidence. Exact changes/measurements/hashes in compare doc.
+
+P52serviceq800-p52refill64-fit-20260920 remainsactiveMainPID2240198 with
+quartus_fit2245832. Physical synthesis/fitting ongoing, notblocked. Prior
+output_filesfit.summary is staleP47 failure, notP52. RTLsourcefreezecontinues;
+usearchivefreshness/sourceidentity checks. Goal1.8remainsunmet.
