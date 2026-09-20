@@ -972,3 +972,21 @@ snapshots and5360 requests in eight delay/stall combinations, including240
 indirectTST cases. Fault-frame tests and acknowledgement-edge IRQ tests pass
 for all three sizes in three bus phases. A deliberately enabled TST register
 writeback is rejected by the oracle. P42 remains scratch-only while P39 fits.
+
+## Resident compare admission and read-retirement timing
+
+P46 routes supported resident CMP/TST memory instructions through the existing
+pipeline admission policy instead of retirement lookahead selecting legacy EA.
+Queens improves from68,209 to65,775 cycles; Towers24,390,329 to24,096,159.
+Bubble3,270,270 andPermute1,380,671 are unchanged. Outputs/guards pass.
+Fullintegration, silicon100, extension faults, trace, IRQ and read faults pass.
+
+P39's completed fit used41,347ALMs and missed CPU setup by3.701ns. Its worst
+path crosses the pipeline general ALU flags into branch/refill dispatch.
+P47 uses the ALU's existing bounded fast_flags for successful read retirement;
+all such flag-writing operations are MOVE/TST/CMP. The other retirement paths
+are unchanged. P47 passes fullintegration, silicon100(1900groups0diffs), and
+Queens remains65,775cycles. The independent oracle checks25,526snapshots and
+5,360reads in8stall/delay combinations, explicitly proving fast-path execution
+on delayedreads. A corrupted Zflag fails the architecturaloracle. FPGA timing
+improvement remains unproven until the nextfit; no hardwareMix prediction.

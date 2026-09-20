@@ -2208,3 +2208,21 @@ first eight-mode runPASS25526retirements/5360reads. A rerun with explicit fast
 retirement coverage and bad-Zflag mutation is active session87209. Fullgate
 session13166 andsilicon100session57317 active. Do not callP47qualified orpromote
 until those complete; then commit production candidate before one newfit.
+
+P47 qualification terminal: fullintegrationPASS; silicon1001900groups0diffs
+/tmp/cpu-corpus100-gate.2oA8ec; Queens65775cyclesPASS. The revised independent
+memoryoracle passes all8modes25526retirements5360reads, with actual fastretire
+counts5360 in each mode0 delayedrun,371 in mode1delay0,3985 inmode1delay1.
+Initial coverageassertion incorrectlyrequiredfastretirement in mode0delay0,
+where olderWB remains occupied and all reads correctly take normalWB. Fixed
+assertion torequirefastpath on delayedreads; mode0delay0 remains a fallback
+check. The initialbadflagfailure was that samefixtureassertion, NOT evidence
+of architecturalmutation detection. Final rerun bad_flags.sv failsactualCCR
+comparison at retirement367 CMP.L (got05,expected01), provingZcorruptioncaught.
+
+P47 core/module promoted byte-identical to qualifiedscratch after allchecks.
+IncludesP41BRF128boundedprefix,P42indirectTST,P46residentcompareadmission and
+P47fastreadflags. DoesNOTincludeP43CLR/P44/P45store-retirement experiments.
+Nextfitwrapper scratch/p47fastflags_fit_20260919/run.sh prepared. Commit/push
+beforelaunch, thenfreeze alltrackedRTL/QSF/QIP/SDC until fullwrapperterminal.
+P39hardwaretrial activeonexistingoperator. Goal remains1.8; bestaccepted1.083.

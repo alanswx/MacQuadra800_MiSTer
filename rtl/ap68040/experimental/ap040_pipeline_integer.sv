@@ -132,8 +132,11 @@ module ap040_pipeline_integer #(
     function automatic is_indexread(input [15:0] word);
         is_indexread = is_indexload(word) || is_indexcmp(word) || is_indextst(word);
     endfunction
+    function automatic is_indirecttst(input [15:0] word);
+        is_indirecttst = ENABLE_COMPARE && (word & 16'hff38) == 16'h4a10 && word[7:6] != 3;
+    endfunction
     function automatic is_load(input [15:0] word);
-        is_load = is_indexread(word) || ENABLE_LOADS && word[15:14] == 0 && word[13:12] != 0 &&
+        is_load = is_indirecttst(word) || is_indexread(word) || ENABLE_LOADS && word[15:14] == 0 && word[13:12] != 0 &&
                   word[8:6] == 0 && word[5:3] == 3'b010;
     endfunction
     function automatic is_store(input [15:0] word);
@@ -169,7 +172,7 @@ module ap040_pipeline_integer #(
             literal = {{24{word[7]}}, word[7:0]};
             if (is_short_branch(word)) begin
                 legal = 1; writeback = 0; flags = 0;
-            end else if (is_indexcmp(word) || is_indextst(word)) begin
+            end else if (is_indexcmp(word) || is_indextst(word) || is_indirecttst(word)) begin
                 legal = 1; writeback = 0; flags = 1; size = word[7:6];
                 source = {1'b1, word[2:0]}; destination = {1'b0, word[11:9]};
                 operation = is_indexcmp(word) ? `AP040_ALU_CMP : `AP040_ALU_TST;
@@ -282,8 +285,6 @@ module ap040_pipeline_integer #(
     wire id_advance = id_v && legal && ex_ready;
     assign idle = !id_v && !ex_v && !wb_v && !load_pending;
     assign in_ready = nreset && ce && !flush && !kill_younger && !load_discard && (!id_v || id_advance);
-    // A successful head read can commit when its owner accepts the response.
-    // Registered WB signals remain separate to keep cancellation acyclic.
     wire fast_read_retire = ENABLE_FAST_READ_RETIRE && nreset && ce && !flush &&
         !wb_v && ex_v && ex_load && !ex_store && load_response && !load_fault && retire_ready;
     assign retire_wb_valid = nreset && ce && !flush && wb_v;
@@ -299,7 +300,7 @@ module ap040_pipeline_integer #(
     assign retire_dst = fast_read_retire ? ex_dst : wb_dst;
     assign retire_data = fast_read_retire ? (ex_dst[3] ?
         ((ex_size == `AP040_SZ_W) ? {{16{src[15]}},src[15:0]} : src) : merged) : wb_data;
-    assign retire_ccr = fast_read_retire ? (ex_flags ? result_flags : flags_in) : wb_ccr;
+    assign retire_ccr = fast_read_retire ? (ex_flags ? alu_fast_flags : flags_in) : wb_ccr;
     assign fallback_valid = nreset && ce && !flush && id_v && !legal && !ex_v && !wb_v;
     assign fallback_pc = id_pc;
     assign fallback_opcode = id_opcode;
@@ -336,12 +337,17 @@ module ap040_pipeline_integer #(
     wire [31:0] merge_dst = is_indexload(ex_opcode) ? old_dst : dst;
     wire [4:0] flags_in = wb_v ? wb_ccr : (EXTERNAL_STATE ? external_ccr : ccr);
     wire [31:0] alu_result;
-    wire [4:0] alu_flags;
+    wire [4:0] alu_flags, alu_fast_flags;
+    wire alu_fast_ok;
     ap040_alu alu (
         .op(ex_op), .size(ex_size), .shcnt(source_full[5:0]), .a(src), .b(is_indexcmp(ex_opcode) ? old_dst : dst),
         .flags_in(flags_in), .result(alu_result), .flags_out(alu_flags),
-        .fast_flags(), .fast_ok()
+        .fast_flags(alu_fast_flags), .fast_ok(alu_fast_ok)
     );
+    // synthesis translate_off
+    always @(posedge clk) if (fast_read_retire && ex_flags && !alu_fast_ok)
+        $fatal(1,"fast read operation has no bounded flag path");
+    // synthesis translate_on
     wire zero_shift = ENABLE_SHIFTS && ex_opcode[15:12] == 4'he && source_full[5:0] == 0;
     wire [31:0] shift_masked = ex_size == `AP040_SZ_B ? {24'd0, dst[7:0]} :
                               ex_size == `AP040_SZ_W ? {16'd0, dst[15:0]} : dst;

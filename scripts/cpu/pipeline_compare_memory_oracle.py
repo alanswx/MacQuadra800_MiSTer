@@ -145,7 +145,7 @@ s=s.replace('        extension_valid=1;\n        fd =', '''        for(i=0;i<8;i
         extension_valid=1;
         fd =''')
 if args.fast_read_retire:
- s=s.replace('endmodule', '    integer fast_read_commits=0;\n    always @(posedge clk) if(dut.fast_read_retire) fast_read_commits++;\n    final begin\n        $display("FAST_READ commits=%0d",fast_read_commits);\n        if(fast_read_commits==0) $fatal(1,"fast read retirement was not exercised");\n    end\nendmodule')
+ s=s.replace('endmodule', '    integer fast_read_commits=0;\n    always @(posedge clk) if(dut.fast_read_retire) fast_read_commits++;\n    final begin\n        $display("FAST_READ commits=%0d",fast_read_commits);\n        if(delay>0 && fast_read_commits==0) $fatal(1,"fast read retirement was not exercised");\n    end\nendmodule')
 tb=out/'tb.sv';tb.write_text(s)
 with (out/'compile.log').open('w') as f:
  subprocess.run(['iverilog','-g2012','-I',str(rtl),'-s','tb_pipeline_pea','-o',str(out/'test.vvp'),str(tb),str(module),str(rtl/'ap040_regfile.v'),str(rtl/'ap040_alu.v')],stdout=f,stderr=subprocess.STDOUT,check=True)
