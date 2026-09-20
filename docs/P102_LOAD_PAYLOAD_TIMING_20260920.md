@@ -46,3 +46,16 @@ Build launched from commit 2c31be6 under user service
 q800-p102devpayload-fit-20260920.service. Verified active wrapper PID 3426490
 and Quartus synthesis PID 3426606. Build inputs are frozen until the whole
 wrapper completes. Final fit/timing results remain pending.
+
+## Quartus result
+
+The complete P102 development fit finished successfully at seed 22, but CPU
+setup timing remains violated: CPU slack -1.009 ns, TNS -31.989 ns. HDMI
+slack is +0.177 ns and SDRAM is positive. Fit area is 39,537 ALMs (94%),
+25,656 registers, 482 RAM blocks, 42 DSP blocks. Cross-domain slacks are
+sys->RAM +1.238 ns and RAM->sys +0.759 ns. The RBF is archived as
+scratch/p102devpayload_fit_20260920/MacQuadra800_p102devpayload_2c31be6.rbf
+(SHA256 38cee0c6f14e66152d3a6c2dec2c85c285c2324b7c713b6cb4e6f2cd28a9653c).
+It was not loaded on hardware. The timing path moved to cache tag RAM write
+through the refill queue into epf_data; P102 is rejected for deployment.
+The source freeze ended after all reports and hashes completed.
