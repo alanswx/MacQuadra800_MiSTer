@@ -1,3 +1,8 @@
+# Remapped Sieve baseline completed
+
+Session73131exit0: original289371 versusP89 286818cycles (-0.88%), allguards
+and remapping PASS. Only fullintegration98466 and P83fit remain live.
+
 # Latest: P89 directed invalidation and corpus pass
 
 P89 four-copy remapping/flush/TC-disable fixture passes3phases. Monitor requires

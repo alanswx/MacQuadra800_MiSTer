@@ -258,3 +258,7 @@ First100corpus session60860exit0:1900 field groups match, zero differences,
 /tmp/cpu-corpus100-gate.J5cwrR. Isolated full pipeline integration session98466
 still running under scratch/p89_mmu_copies_20260920/tree, logfull.log; no
 production source edits and no promotion yet.
+
+Matching remapped Sieve8KB baseline completed (session73131exit0):289371
+cycles versusP89 286818,0.88% fewer. Both use15walker reads/7writes and pass
+allprime/guard/remapping checks. Evidence scratch/sieve83_remap8_20260920.
