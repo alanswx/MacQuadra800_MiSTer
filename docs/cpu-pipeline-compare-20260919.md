@@ -1230,3 +1230,47 @@ No P59 area, timing, Mac boot, or Speedometer hardware result exists yet.
 P57 seed22 is the sole active Quartus flow, commit `e5066a2`, user unit
 `q800-p57movestore-fit-20260920.service`, archive
 `scratch/p57movestore_fit_20260920`. P52 failed routing and has no new RBF.
+
+
+## P60: seed the restoring remainder for more 64-bit divisions
+
+Isolated candidate `scratch/p60_divseed_20260920/ap040_muldiv.v`, SHA256
+`12266c27c429a12bf66e5927b6a3cd26f4ef12746f06155de128724e6b27d256`.
+P59 skips the upper 32 dividend bits only when they are zero. P60 instead
+checks whether the upper dividend magnitude is below the divisor magnitude.
+If so, those 32 restoring steps emit only zero quotient bits, leaving the
+upper dividend as the remainder. It initializes that exact state and runs
+eight remaining rounds. Zero divisors fail the comparison and retain the old
+path. All magnitude comparisons are unsigned; existing signed result and
+overflow handling is unchanged. This reasoning applies to generic operands,
+without recognizing benchmark addresses or opcodes.
+
+Expanded `check_divider.py` with explicit upper-dividend = divisor-1,
+divisor, divisor+1 boundaries and low-word carry extremes. All 24,567 vectors
+pass on baseline, P59, and P60 with clock-enable stalls. P59 takes the short
+path on 16,245; P60 on 20,406. These counts describe the synthetic test set,
+not the distribution of instructions in Mac OS or Speedometer. A mutation
+that discards P60's seeded remainder fails arithmetic vector26 (incorrect
+quotient), proving coverage of the newly accelerated nonzero-upper case.
+
+P60 Quick Sort output and guards PASS, with exactly the same cycles as P59:
+166,992 / 178,772 / 202,149 at RAM latency0/3/8. First100 silicon corpus
+PASS, 1900 field-groups and zero differences; artifacts
+`/tmp/cpu-corpus100-gate.C077e9` and candidate `corpus.log`.
+Full integration is still running, passed integer/exceptions/MMU/MOVEM restart
+so far. The integer program includes a 64-bit dividend divided by a 32-bit
+operand, word and long divides, and overflow cases. Do not treat that subset
+as a completed integration gate.
+
+Reproduce standalone arithmetic with:
+
+```sh
+python3 scripts/cpu/check_divider.py --module scratch/p60_divseed_20260920/ap040_muldiv.v --out scratch/divcheck_p60_boundary --bounded-high
+```
+
+`scripts/cpu/divider_seeded.patch` reconstructs P60 against the unchanged
+baseline divider. It is an alternative to `divider_short.patch`, not a patch
+to apply on top of it. Neither is applied while P57's FPGA flow runs. P60
+adds a magnitude comparison and remainder selection; its area/timing costs
+are unknown. Prefer the smaller P59 if the broader path has no measured
+workload benefit or prevents fitting. No hardware result exists for either.

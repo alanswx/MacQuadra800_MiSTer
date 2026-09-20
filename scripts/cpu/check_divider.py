@@ -3,11 +3,13 @@ import argparse,hashlib,json,random,subprocess
 parser=argparse.ArgumentParser(description="Check division against Python integer arithmetic, including signed overflow and CE stalls.")
 parser.add_argument('--module',type=Path,required=True)
 parser.add_argument('--out',type=Path,required=True)
-parser.add_argument('--short-dividend',action='store_true',help='expect eight skipped rounds for dividend magnitudes below 2**32')
+mode=parser.add_mutually_exclusive_group()
+mode.add_argument('--bounded-high',action='store_true',help='expect eight skipped rounds when upper dividend magnitude is below divisor magnitude')
+mode.add_argument('--short-dividend',action='store_true',help='expect eight skipped rounds for dividend magnitudes below 2**32')
 args=parser.parse_args()
 out=args.out.resolve();out.mkdir(parents=True,exist_ok=True)
 module=args.module.resolve()
-(out/'identity.json').write_text(json.dumps({'module':str(module),'sha256':hashlib.sha256(module.read_bytes()).hexdigest(),'short_dividend':args.short_dividend,'seed':20260920},indent=2))
+(out/'identity.json').write_text(json.dumps({'module':str(module),'sha256':hashlib.sha256(module.read_bytes()).hexdigest(),'short_dividend':args.short_dividend,'bounded_high':args.bounded_high,'seed':20260920},indent=2))
 rng=random.Random(20260920)
 cases=[]
 edge=[0,1,2,3,0x7fff,0x8000,0xffff,0x10000,0x7fffffff,0x80000000,0xffffffff,0x100000000,0x7fffffffffffffff,0x8000000000000000,0xffffffffffffffff]
@@ -20,6 +22,17 @@ for sign in [0,1]:
   d=rng.getrandbits([16,32,64][i%3])
   if sign and i%2: d=(-d)&((1<<64)-1)
   cases.append((sign,a,d))
+# Exercise the short/full boundary explicitly, including nonzero seeded
+# remainders and low words at both carry extremes.
+for sign in [0,1]:
+ for a in edge[1:11]:
+  aa=a-(1<<32) if sign and a>>31 else a
+  for upper in [abs(aa)-1,abs(aa),abs(aa)+1]:
+   if upper >= (1<<32): continue
+   for lower in [0,1,0xffffffff]:
+    d=(upper<<32)|lower
+    cases.append((sign,a,d))
+    if sign: cases.append((sign,a,(-d)&((1<<64)-1)))
 lines=[]
 for sign,a,d in cases:
  aa=a-(1<<32) if sign and a>>31 else a
@@ -28,7 +41,7 @@ for sign,a,d in cases:
  if (aa<0)!=(dd<0):q=-q
  rem=dd-q*aa
  ov=not (-(1<<31)<=q<(1<<31)) if sign else not (0<=q<(1<<32))
- fast=args.short_dividend and abs(dd)<(1<<32)
+ fast=(args.short_dividend and abs(dd)<(1<<32)) or (args.bounded_high and (abs(dd)>>32)<abs(aa))
  lines.append(f'{sign:x}{a:08x}{d:016x}{q&0xffffffff:08x}{rem&0xffffffff:08x}{int(ov):x}{int(fast):x}')
 (out/'vectors.hex').write_text('\n'.join(lines)+'\n')
 tb='''`timescale 1ns/1ps
