@@ -1,3 +1,21 @@
+# Full Whetstone fixture image prepared, execution pending
+
+Added scripts/cpu/build_whetstone_image.py; output
+scratch/whetstone_full_fixture_20260920/ram.bin32MB +identity.json.
+OriginalCODE3[0,b4e),CODE6[0,1476),DATA0,15CODE3XREFrelocations,6A5JMPslots.
+NoCODE6relocswithinusedhelpers. WhetSANEtrapbytesunchanged(runtimepatching).
+LayoutCODE3=600000,CODE6=610000,A5=620000,stub630000,SP640000;
+private600000..640000clearedinnewfileonly. Capturedpagewalkverifiedidentity
+through642000. Stubrestoreoriginalresetwords,SRP1ff6c00/TCc000,cachesenabled,
+callWStone,markf108/f102. Buildpasses; NOTEXECUTED,numericaloraclepending.
+NotresumableMaccheckpoint; unusedCODE6prefixnotrelocationqualified.
+NextbuildCPU+ROM+32MBRAMharnessaroundartifact, verifyexecutionandoutputs.
+
+P99fitunit3369109stillactive; RTL/QSF/QIP/SDC FROZEN throughwrapper+archive+
+crossSTA+detailedCPU. Productioncommit4cd5824,docsnewer. NoMiSTeractions.
+Snapshotguest3301309remainslive, notneededforimagebutavailableforreference.
+BesthardwareP96median1.211; finalP97sim1.270; goal1.8unmet.
+
 # P99 promoted and fitting; SANE runtime rewrite identified
 
 PromotedEXACTqualifiedP99coreSHA624964c31225722fd8b2b6d68901c1d0490c8152caec2072060ec771a6641757,

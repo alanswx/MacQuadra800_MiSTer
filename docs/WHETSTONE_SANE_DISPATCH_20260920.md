@@ -231,3 +231,28 @@ P99 was promoted as the exact qualified core SHA256
 4cd5824. Its development fit is running as q800-p99devfpuread-fit-20260920,
 archive scratch/p99devfpuread_fit_20260920. All build inputs are frozen
 through archive and detailed CPU/cross-domain timing. No fit result yet.
+
+## Full Whetstone image preparation (execution pending)
+
+`build_whetstone_image.py` constructs a 32 MB binary RAM fixture from the
+captured booted guest plus original resource fork. It uses CODE3 through
+0B4E, including WStone and both local helpers, CODE6 through 1476, DATA0
+initialization, all 15 relevant CODE3 XREF relocations, and the six original
+A5 jump slots materialized with the loader's JMP form. Whetstone's trap
+bytes remain intact for the original ROM's conditional runtime rewriting.
+Unused CODE6 prefix routines are not relocation-qualified and must not be
+considered supported fixture entry points.
+
+Private fixture layout: CODE3=600000, CODE6=610000, A5=620000, entry=630000,
+stack=640000. The original snapshot's supervisor tables are checked for
+identity mapping over the whole range. The arena is explicitly replaced in
+a new file, never in the live guest. The entry restores original low-memory
+reset words, enables the captured SRP/8 KB mapping, enables caches, calls
+WStone and emits completion markers. This is a constructed CPU fixture,
+not a resumable guest checkpoint. Other inherited guest state may still
+prove necessary or unsuitable during execution.
+
+Generated artifact: scratch/whetstone_full_fixture_20260920/ram.bin;
+identity.json records input/output hashes, relocations and slot targets.
+Generation passes, but **execution, output oracle and performance validation
+remain pending**. Do not use this image's existence as a benchmark result.
