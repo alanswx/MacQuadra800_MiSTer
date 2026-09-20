@@ -1,3 +1,15 @@
+# Latest: P76 immediate-store candidate screened; full gate pending
+
+P76=P75+early immediateMOVE store andmatchinghint, scratch/p76_immediate_store_20260920.
+Corea3e649df27fb47da3685a09e937931c9418dd091352ded665962d06caa6cd7ce.
+SieveMMU8K283361/289371/378634lat0/3/8, alloraclesPASS; -2.75%vsP75lat3,
+-7.40%vsP64. QuickMMU8K179011unchanged; Bubble3456611(onecyclesaved).
+Corpus18427exit0,1900groups0diffs /tmp/cpu-corpus100-gate.zHbI2u.
+Fullintegration13131live, scratch/p76full/full logcandidate/full.log; collectexit.
+Directedimmediatefaultsnegative/zero/positive,baselinecontrols,andCLRallPASS.
+Patchscripts/cpu/immediate_store.patchrelativeP75. NOTpromoted.
+P75 remainsproduction/liveQuartusflow q800-p75devclear-fit-20260920; frozen.
+
 # Latest: CPU/RAM microbenchmarks now support real MMU translation
 
 profile_quick.py/sharedSieve supports--mmu off/4k/8k and Sieve-only

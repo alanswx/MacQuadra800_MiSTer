@@ -1847,3 +1847,28 @@ UI launch and approximatelytwo guestseconds AFTER firstobservedcompletion;
 no per-state subtraction attempted. Legacyir opcodehistogramnotreliable for
 pipelineattribution. TimerobserverQueens/Sieveonly, notproofalltimeraccuracy.
 Quitqueued after capture to flush/dispose local sim; verifyunitexit subsequently.
+
+## P76 immediate MOVE stores — screen and fault checks pass
+
+Isolated P75 plus immediate-MOVE eligibility in both S_PIPE_DEA early issue
+and its matching store hint. Immediate src_val is already captured before
+EA execution. SourceSHAa3e649df27fb47da3685a09e937931c9418dd091352ded665962d06caa6cd7ce.
+Patch scripts/cpu/immediate_store.patch is relative toP75, not P64.
+Production remains P75/frozen during its fit; P76 not promoted.
+
+Translated8K Sieve output/guardsPASS, cycles283361/289371/378634 atlat0/3/8.
+VersusP75 291552/297561/378635:2.81%/2.75%/negligible savings. VersusP64
+312515 atlat3, combinedCLR+immediate store saves7.40%. No hardware gain claimed.
+Quick8Klat3 unchanged179011; Bubblelat3 3456611 versus3456612 (onecycle, not
+material). Corpusfirst1001900groups0diffs, /tmp/cpu-corpus100-gate.zHbI2u,
+session18427exit0. Fullintegration session13131 remains pending; do not claim
+complete qualification until terminal. scratch/p76_immediate_store_20260920.
+
+Directed clear_store_faults.py now supports --immediate-move and value classes
+negative/zero/positive. Allthreebus/CEphases PASS for each class: byte/word/long
+indexed destination errors, absolute errors, rollback controls, immediate-word
+fetch fault, and destination-extension fetch fault after the immediate word.
+P75 baseline negative cases alsoPASS; defaultCLRcases stillPASS. The monitor
+counts only the target PC, excluding fixture setup stores. Simplepre/post modes
+bypass S_PIPE_DEA and are rollback controls. Flags/framePC/address, memory and
+younger register checks remain explicit. No production source changes.
