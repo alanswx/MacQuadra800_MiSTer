@@ -2269,3 +2269,19 @@ size882; CODE6offset74f09,size1476. Offsetsare rawresource, notAppleDouble(+82).
 Use numericaddressfiltersonCODE3.dis: sedrange endingatnonexistentaddress once
 printedremainder; noartifactchangeorconclusionfromthat truncatedoutput.
 P47fit remainsactiveMainPID1852467; productionfreezecontinues.
+
+## 2026-09-20 upstream pipeline review
+
+User requested review of apolkosnik/Minimig-AGA_MiSTer ap040-pipelined before
+changing direction. Pinned 62b1dc864f5fd2975d6ceaf7084221fbc5b52dde; isolated
+scratch snapshot, no production RTL/hardware changes. Upstream bus, bus16 and
+dual tests pass 3/3. Recommend isolated kernel comparison first; missing reset
+vector loading, external interrupts, bus faults, MMU/cache/FPU integration mean
+this is not a drop-in Mac CPU. Details/reproduction: docs/UPSTREAM_PIPELINE_REVIEW_20260920.md.
+
+Prior work preservation: P47 Quartus terminal area failure (4356 LABs required,
+4191 available); no new RBF, output_files RBF remains stale P39. P52 64-byte
+refill variant remains scratch-only in scratch/p52_refill64_fastflags_20260919.
+Its full integration log ends PASS, prefix oracle passes 26386 patterns, Queens
+passes at 65832 cycles (latency 3). Other logs still need full review and the
+P52 corpus run was not launched. Do not promote/deploy it as qualified.
