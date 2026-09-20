@@ -815,3 +815,29 @@ claiming deterministic repeated values is superseded. Operator instructed to
 verify startdialog before timing and completionmodal after; P26trialactive.
 P33Quartusservice activeMainPID1680006, sourcefreeze remains. Goal1.8unmet;
 bestacceptedfive-runmedian remainsP13 1.050.
+
+
+P36 qualification update: full_v2 terminalPASS, including MMU/MOVEMrestart/FPU,
+load/store/PEA faults and preciseIRQreplay. Silicon100 terminalPASS1900groups,
+0diffs; /tmp/cpu-corpus100-gate.okLiIn. Permute/Towers remainP33cyclecounts.
+Reusable scripts/cpu/pipeline_read_completion_irq.py passes all3busphases
+with injections3/cancels3; caller supplies P36core andmodule. Mutation bad_irq.v
+removes IRQguard. First mutation harness held forcedIRQ too long, causing
+secondary artificial mask errors; corrected irq_completion_oracle.py releases
+on ANY cancellation. irq_bad2 then fails actual assembly checks exactly once
+perphase (test8609), with ownership/read-suppression assertions removed, proving
+architectural oracle sensitivity. Do not cite the earlier noisy mutation result.
+
+P36 remains scratch-only pending P33fit completion. To promote later, copy
+qualified core/module and adapt rtl/ap68040/experimental/handoff_monitor.sv
+from scratch monitor: retain old assertions but permit successful read retirement
+only with activeS_MRD,issued/ack/noerror,noIRQ/trace,emptyWB and readEX. Newmodule
+exports retire_wb_valid and retire_branch_taken so cancellation does not form a
+combinational loop through fast_read_retire. Fast read retirement optional
+ENABLE_FAST_READ_RETIRE=0 bydefault; core enables it. Buffered/split returns,
+faults,stores,trace andpendingIRQ keep normalWBretirement. No production edits
+during active P33fit; service stillactiveMainPID1680006, physicalsynthesisstage.
+
+Root reviewed P26run2_start.png: valid RunSet dialog withallten iteration1tests.
+P26operator now using explicit completiondismissal/startdialogverification;
+P18/P24stillneedtwoadditionalvalidruns each. No newacceptedfive-runmedian.
