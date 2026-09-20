@@ -1,3 +1,10 @@
+# P89 MMU gate completed
+
+Session62648exit0: t_mmu,t_bitfield_mmu,t_atcprobe,t_moves_fc,t_exceptions
+allPASS with candidateMMU and productionP83pipeline. No live MMUtest session.
+Further qualification required: targeted multi-copy invalidation coverage,
+full integration/corpus, then area/timing fit afterP83 archive. Do not promote yet.
+
 # Latest: P89 translation-copy candidate has substantial simulation gain
 
 P89 isolated MMU scratch/p89_mmu_copies_20260920/ap040_mmu.v, unapplied

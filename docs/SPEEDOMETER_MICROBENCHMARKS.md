@@ -229,3 +229,9 @@ Evidence scratch/{matrix89_mmu8,matrix83_mmu4,matrix89_mmu4,quick89_mmu8,
 sieve89_mmu8}_20260920. Existing real-core MMU/protection/ATC/function-code/
 exception programs launched via scripts/cpu/mmu_candidate_gate.py; qualification
 is pending. No production RTL change, fit or hardware score for P89 yet.
+
+P89 existing real-core MMU gate completed (session62648exit0): t_mmu,
+t_bitfield_mmu,t_atcprobe,t_moves_fc,t_exceptions allPASS. This covers existing
+translation/protection/nonresident/PTEST/function-code exception cases, but
+is not yet evidence of complete multi-copy invalidation coverage. Targeted
+coverage plus full integration/corpus and FPGA fit remain before promotion.
