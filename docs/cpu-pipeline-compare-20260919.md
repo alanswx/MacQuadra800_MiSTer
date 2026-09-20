@@ -1016,3 +1016,38 @@ a hardware Mix improvement. Candidate core SHA256:
 `e1e1cb74622a13eeb5d29b458a24f4d4bc1a52696e1abad16acfb5d8940eb08e`.
 Logs/sources: scratch/p52_refill64_fastflags_20260919. Next: full FPGA fit and
 CPU/cross-domain timing checks before evaluating the fresh artifact on hardware.
+
+## P53–P55: admission experiments rejected on kernel performance
+
+While the exact P52 build remained frozen, three scratch-only experiments tested
+whether broader pipeline coverage would reduce the unchanged Bubble loop's
+execution time. Controlled latency3, same input/output oracle as P52:
+
+| Candidate | Change | Bubble cycles | Queens cycles |
+|---|---|---:|---:|
+| P52 baseline | Qualified 64-byte refill | 3,456,612 | 65,832 |
+| P53 | d16 CMP/TST and resident admission | 3,521,110 (+1.87%) | 65,832 |
+| P54 | P53 plus short conditional branches except BSR | 4,266,633 (+23.43%) | Not run |
+| P55 | P52 plus EXT/SWAP support and admission from P50 | 3,582,654 (+3.65%) | 65,261 (-0.87%) |
+
+All listed kernel outputs pass their independent result/guard checks. This is
+only performance screening, not CPU qualification: no corpus/fault/IRQ/trace
+gates were run for these rejected candidates. None was promoted or built.
+Broader opcode support by itself is not a speed improvement; the measured exit
+and admission costs still matter. No hardware score follows from these cycles.
+
+P53 adds signed16-bit displacement reads to the existing CMP/TST pipeline path,
+requires the extension word without applying the brief-index format-bit test,
+and routes resident forms through admission. P54 uses the already-present branch
+condition evaluator for short Bcc as well as BRA. P55 transplants only the earlier
+EXT/SWAP decoder/entry changes onto P52. Exact scratch sources and logs:
+
+- `scratch/p53_displacement_compare_20260920`
+  ap040_core.v SHA256 `28204e467d551e415f8a95b7afc5e3872ec45e939a83f6e1437454b2cb4f9fc3`.
+  ap040_pipeline_integer.sv SHA256 `67835370d35c3537de559a1eef48aec0b3ecf74e8739260ea917584ad1271334`.
+- `scratch/p54_disp_compare_branch_20260920`
+  ap040_core.v SHA256 `28204e467d551e415f8a95b7afc5e3872ec45e939a83f6e1437454b2cb4f9fc3`.
+  ap040_pipeline_integer.sv SHA256 `98cb83e8e332ecf0dd538d32c851f689a59dd6d8752a37f2a73c1cbb15c89cf3`.
+- `scratch/p55_ext64_20260920`
+  ap040_core.v SHA256 `d2974c1e1885fcc5b7f13b2a12b6aacee5777b6d93a96960a498305d55f1a142`.
+  ap040_pipeline_integer.sv SHA256 `f11c40e87918df680eeccbc888866bee1463959f779d5c0bed2e5828309028a0`.

@@ -2326,3 +2326,19 @@ unusable as P52 until a fresh artifact is verified. Next: inspect terminal fit,
 RAM inference, CPU and cross-domain timing; if fresh candidate exists, hardware
 five-run gate on disposable disk. Hardware lastknownP39 safehalt; reobserve
 beforedeploy. Existing operator available, userauthorized cheaper-model use.
+
+## 2026-09-20 P53–P55 screened while P52 fits
+
+Prior goal turn progress: qualified/promotedP52 and started its exact-sourcefit.
+Current turn revalidated live service and sourcehashes, then tested independent
+scratch candidates without touching build RTL. P53d16CMP/TST Bubble3521110
+(+1.87%), Queens65832 unchanged. P54plusshortconditionalbranches Bubble4266633
+(+23.43%). P55EXT/SWAP64 Bubble3582654(+3.65%), Queens65261(-0.87%).
+All listed output oraclesPASS; NONEqualified/promoted. Full details/sourcehashes
+added to compare doc. These candidates do not justify a hardware trial.
+
+P52 synthesis now COMPLETE; registers26609 (P47had27151), memory3740942bits,
+43DSP. Fitter LIVE: serviceMainPID2240198 active/running, quartus_sh2240218,
+quartus_fit2245832. Archive/sourcecheck stillPASS. No fit or timing verdict yet.
+Continue exactbuildhandle; do notrestart. Freeze remains until wrapper terminal.
+Next: fit/timing/RAMinspection then freshRBFhardwaregate if artifactavailable.
