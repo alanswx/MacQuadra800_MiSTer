@@ -3,8 +3,9 @@
 These tests execute extracted, unchanged Speedometer 4.02 machine code at
 its original CODE-relative addresses. They instantiate `wombat_cpu`, including
 its actual cache and store buffer, with a 64 KB byte-addressable RAM responder.
-They do not boot Mac OS or implement the Toolbox. Interrupts are masked;
-MMU translation is not enabled. RAM acknowledgment latency is controlled.
+They do not boot Mac OS or implement the Toolbox. Interrupts are masked.
+MMU translation defaults off; optional real page-table modes are described
+below. RAM acknowledgment latency is controlled.
 The platform SDRAM controller, device contention and real guest scheduling
 are absent, so cycle counts compare CPU variants, not Speedometer scores.
 
@@ -65,3 +66,38 @@ and fault/interrupt regressions before fitting. Hardware still decides whether
 a candidate improves the complete benchmark. Whetstone extraction must retain
 its SANE/math dependencies; replacing those calls with stubs would invalidate
 that workload.
+
+## Real MMU mode
+
+Add `--mmu 8k` (guest-like TC=0xc000) or `--mmu 4k` (TC=0x8000).
+The harness supplies resident page tables at physical0x4000/0x4200/0x4400,
+sets SRP/URP through guest MOVEC instructions, and serves actual descriptor
+reads/writes through the wrapper's walker port. Walker and CPU traffic share
+one physical RAM responder and the configured acknowledgment delay. At least
+one walk read/write and root/pointer used-bit updates are required to pass.
+Kernel bytes and result oracles remain unchanged. Setup and cold translations
+are included in cycle counts; these are not isolated steady-state timings.
+
+For Sieve, `--mmu-remap-buffer` maps one buffer page to a different physical
+page. Output checks follow that mapping, and the original physical page is
+filled with a poison value and checked for unwanted writes. Both4KB and8KB
+modes pass. A negative control disabling TC fails the prime-flag oracle,
+showing the test cannot pass by silently bypassing translation.
+
+Measured8KB identity-map Sieve cycles, latency0/3/8:
+
+| CPU | latency0 | latency3 | latency8 |
+|---|---:|---:|---:|
+| P64 | 306,551 | 312,515 | 380,103 |
+| P75 CLR plus hint | 291,552 | 297,561 | 378,635 |
+
+Each run performs15walker reads and7writes. P75's middle-latency benefit is
+4.79%; translation adds roughly0.94% to its translation-disabled count.
+This compact working set does not reproduce the guest's page/ATC/cache
+pressure or device scheduling. Evidence: `scratch/sieve64_mmu8_20260920`,
+`scratch/sieve75_mmu8_20260920`, and `scratch/sieve75_mmu{4,8}_remap_20260920`.
+The remapped runs also yield297,561cycles atlatency3 and preserve both
+translated buffer guards and poisoned physical pages.
+
+Quick Sort also passes with8KB translation:179,011cycles atlatency3,
+12walker reads/6writes; evidence `scratch/quick75_mmu8_20260920`.

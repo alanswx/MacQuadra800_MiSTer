@@ -6,6 +6,8 @@ parser=argparse.ArgumentParser(description="Profile original Speedometer integer
 parser.add_argument('resource',type=Path)
 parser.add_argument('--kernel',choices=('quick','sieve'),default='quick',help='original integer kernel; sieve runs one full pass without Mac allocation')
 parser.add_argument('--out',type=Path,required=True)
+parser.add_argument('--mmu-remap-buffer',action='store_true',help='Sieve translation control: move one virtual buffer page to different physical RAM')
+parser.add_argument('--mmu',choices=('off','4k','8k'),default='off',help='real MMU with identity page tables and shared physical RAM walker')
 parser.add_argument('--latencies',type=int,nargs='+',default=[3],help='controlled RAM latency values, default 3')
 parser.add_argument('--alu',type=Path,help='optional isolated ALU; applies to both compared pipeline modules')
 parser.add_argument('--muldiv',type=Path,help='optional isolated multiply/divide unit')
@@ -16,6 +18,7 @@ parser.add_argument('--compare',action='store_true',help='enable indexed CMP/TST
 parser.add_argument('--disassemble',action='store_true',help='write kernel.dis using Python capstone')
 parser.add_argument('--profile',action='store_true',help='report legacy opcode occupancy and pipeline exits')
 args=parser.parse_args()
+if args.mmu_remap_buffer and (args.mmu=='off' or args.kernel!='sieve'): parser.error('--mmu-remap-buffer requires Sieve and enabled MMU')
 if any(n<0 for n in args.latencies): parser.error('latencies must be nonnegative')
 d=args.out.resolve();d.mkdir(parents=True,exist_ok=True);rtl=r/'rtl/ap68040/rtl' 
 resource=args.resource.read_bytes()
@@ -90,6 +93,8 @@ unexpected:
  org $afff
  dc.b $5a,$a5
 '''
+if args.mmu!='off':
+ asm=asm.replace(' lea ($8000).l,a5', ' move.l #$4000,d0\n movec d0,urp\n movec d0,srp\n move.l #$'+('8000' if args.mmu=='4k' else 'c000')+',d0\n movec d0,tc\n lea ($8000).l,a5')
 (d/(args.kernel+'.s')).write_text(asm)
 def run(cmd,path):
  with path.open('w') as f:subprocess.run(list(map(str,cmd)),stdout=f,stderr=subprocess.STDOUT,check=True)
@@ -214,6 +219,53 @@ if args.kernel=='sieve':
      $display("BUFFER_UPPER_BOUND hits=%0d saved_cycles=%0d",buffer_hits,buffer_saving);
      $display("SIEVE8191 PASS cycles=%0d latency=%0d prime_flags=PASS guards=PASS",cycles,latency);
 '''+s[finish:]
+if args.mmu!='off':
+ s=s.replace('reg ack=0;', '''reg ack=0;
+ wire walker_we; wire [31:0] walker_addr,walker_wdat;
+ reg walker_ack=0; reg [31:0] walker_data=0;
+ reg saved_walker=0;
+ integer walk_reads=0,walk_writes=0;
+ wire ram_walker=pending?saved_walker:walker_req;
+ wire ram_req=ram_walker?walker_req:req;
+ wire ram_wr=ram_walker?walker_we:wr;
+ wire [31:0] ram_addr=ram_walker?walker_addr:addr;
+ wire [31:0] ram_wdata=ram_walker?walker_wdat:wdata;
+ wire [1:0] ram_size=ram_walker?2'd2:size;
+ wire ram_ack=ram_walker?walker_ack:ack;''')
+ s=s.replace('.walker_we(),', '.walker_we(walker_we),').replace('.walker_addr(),.walker_wdat(),.walker_ack(1\'b0),.walker_data(32\'d0),', '.walker_addr(walker_addr),.walker_wdat(walker_wdat),.walker_ack(walker_ack),.walker_data(walker_data),')
+ s=s.replace('walker_req || fault || halted','fault || halted')
+ # Initialize resident identity tables physically, before releasing reset.
+ shift=12 if args.mmu=='4k' else 13
+ tables="  mem['h4000>>1]=0; mem['h4002>>1]='h4203;\n  mem['h4200>>1]=0; mem['h4202>>1]='h4403;\n"
+ for page in range(65536>>shift):
+  desc=(page<<shift)|3
+  if args.mmu_remap_buffer and page==(0x9000>>shift): desc=(0x5000 if shift==12 else 0x6000)|3
+  tables+=f"  mem[{(0x4400+4*page)//2}]=16'h{desc>>16:04x}; mem[{(0x4402+4*page)//2}]=16'h{desc&65535:04x};\n"
+ if args.mmu_remap_buffer:
+  virtual_base=0x9000 if shift==12 else 0x8000
+  physical_base=0x5000 if shift==12 else 0x6000
+  tables+=f"  for(i=0;i<{(1<<shift)//2};i=i+1) begin mem[{physical_base//2}+i]=mem[{virtual_base//2}+i]; mem[{virtual_base//2}+i]=16'hdead; end\n"
+  # Only oracle reads translate; bus and walker always access physical RAM.
+  function=f''' function [7:0] readguestbyte(input integer a);
+  readguestbyte=readbyte((a>={virtual_base} && a<{virtual_base+(1<<shift)}) ? a-{virtual_base}+{physical_base} : a);
+ endfunction
+'''
+  s=s.replace(' initial begin',function+' initial begin',1)
+  s=s.replace("if(readbyte('h8ffe)","if(readguestbyte('h8ffe)").replace("readbyte('h8fff)","readguestbyte('h8fff)").replace("readbyte('hafff)","readguestbyte('hafff)").replace("readbyte('hb000)","readguestbyte('hb000)").replace("readbyte('h9000+i)","readguestbyte('h9000+i)")
+  s=s.replace('     $finish;',f'''     for(i=0;i<{(1<<shift)//2};i=i+1) if(mem[{virtual_base//2}+i]!==16'hdead) $fatal(1,"MMU bypass wrote unmapped physical page");
+     $display("MMU_REMAP PASS virtual=%h physical=%h",32'd{virtual_base},32'd{physical_base});
+     $finish;''')
+ s=s.replace('  repeat(20)',tables+'  repeat(20)')
+ s=s.replace('  ack<=0;', '  ack<=0; walker_ack<=0;')
+ s=s.replace('if(!req || addr!==saved_addr || (saved_wr && wdata!==saved_data) || wr!==saved_wr || size!==saved_size)', 'if(!ram_req || ram_addr!==saved_addr || (saved_wr && ram_wdata!==saved_data) || ram_wr!==saved_wr || ram_size!==saved_size)')
+ s=s.replace('pending<=0;ack<=1;', 'pending<=0; if(saved_walker) begin walker_ack<=1; if(saved_wr) walk_writes++; else walk_reads++; end else ack<=1;')
+ s=s.replace("    if(saved_wr && saved_addr==32'hf102)", "    if(saved_walker) walker_data<=rdata;\n    if(!saved_walker && saved_wr && saved_addr==32'hf102)")
+ s=s.replace('     $finish;', '''     if(!dut.core.tc[15] || walk_reads==0 || walk_writes==0) $fatal(1,"missing real MMU walk coverage");
+     if((mem['h4002>>1]&16'h8)==0 || (mem['h4202>>1]&16'h8)==0) $fatal(1,"descriptor used bits missing");
+     $display("MMU_WALKS reads=%0d writes=%0d tc=%h",walk_reads,walk_writes,dut.core.tc);
+     $finish;''')
+ s=s.replace('end else if(req && !ack) begin', 'end else if(ram_req && !ram_ack) begin')
+ s=s.replace('saved_addr<=addr;saved_data<=wdata;saved_wr<=wr;saved_size<=size;', 'saved_addr<=ram_addr;saved_data<=ram_wdata;saved_wr<=ram_wr;saved_size<=ram_size;saved_walker<=ram_walker;')
 if args.profile:
  s=s.replace('integer states[0:255];', 'integer states[0:255]; integer opcycles[0:65535]; integer exits[0:65535]; integer regs_cycles[0:65535]; integer admission_denied[0:65535]; integer pipe_cycles=0,pipe_issues=0; integer fetch_empty=0,decode_ext_wait=0,pipe_ready_empty=0,data_prefetch_wait=0,data_setup=0,data_ack_wait=0,regs_queue_ready=0,regs_queue_empty=0;')
  s=s.replace('for(i=0;i<256;i=i+1) states[i]=0;', 'for(i=0;i<256;i=i+1) states[i]=0; for(i=0;i<65536;i=i+1) begin opcycles[i]=0;exits[i]=0;regs_cycles[i]=0;admission_denied[i]=0;end')
@@ -247,10 +299,10 @@ for variant in (('current','compare') if args.compare_module else ('current',)):
  sources=[args.core.resolve() if args.core and p==rtl/'ap040_core.v' else p for p in sources]
  sources=[args.alu.resolve() if args.alu and p==rtl/'ap040_alu.v' else p for p in sources]
  sources=[args.muldiv.resolve() if args.muldiv and p==rtl/'ap040_muldiv.v' else p for p in sources]
- (out/'identity.json').write_text(json.dumps({'sources':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in sources},'kernel_sha256':hashlib.sha256(kernel).hexdigest(),'resource_sha256':hashlib.sha256(resource).hexdigest(),'input':values,'latencies':args.latencies,'early_drain':args.early_drain,'compare':args.compare,'scope':('unchanged 0x93ce..0x946d recursive sort; fixed shuffled input; excludes initializer, allocation and original wrapper' if args.kernel=='quick' else 'unchanged 0xb6a..0xbad Sieve inner pass including initialization; original addresses; excludes allocation, disposal, outer 100-pass repetition and timing/UI'), 'kernel':args.kernel, 'program_sha256':hashlib.sha256((d/'program.bin').read_bytes()).hexdigest(), 'oracle_sha256':hashlib.sha256((d/'expected.hex').read_bytes()).hexdigest() if args.kernel=='sieve' else None},indent=2))
+ (out/'identity.json').write_text(json.dumps({'sources':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in sources},'kernel_sha256':hashlib.sha256(kernel).hexdigest(),'resource_sha256':hashlib.sha256(resource).hexdigest(),'input':values,'latencies':args.latencies,'early_drain':args.early_drain,'compare':args.compare,'scope':('unchanged 0x93ce..0x946d recursive sort; fixed shuffled input; excludes initializer, allocation and original wrapper' if args.kernel=='quick' else 'unchanged 0xb6a..0xbad Sieve inner pass including initialization; original addresses; excludes allocation, disposal, outer 100-pass repetition and timing/UI'), 'kernel':args.kernel, 'mmu':args.mmu, 'mmu_remap_buffer':args.mmu_remap_buffer, 'memory_model':'shared physical RAM responder and walker; see mmu and mmu_remap_buffer for mapping', 'program_sha256':hashlib.sha256((d/'program.bin').read_bytes()).hexdigest(), 'oracle_sha256':hashlib.sha256((d/'expected.hex').read_bytes()).hexdigest() if args.kernel=='sieve' else None},indent=2))
  run(['/home/alans/verilator5/bin/verilator','--binary','--timing','-Wno-fatal','-Wno-BLKLOOPINIT','-j','8','--top-module','tb_cpu_quick','--Mdir',out/'obj','-I'+str(rtl),*flags,*sources],out/'compile.log')
  for latency in args.latencies:
   logfile=out/f'run_latency{latency}.log'
   run([out/'obj/Vtb_cpu_quick','+prog='+str(d/'program.hex'),f'+latency={latency}'],logfile)
   log=logfile.read_text();assert ('QUICK500 PASS' if args.kernel=='quick' else 'SIEVE8191 PASS') in log,log[-2000:]
-  print(variant,'\n'.join(l for l in log.splitlines() if l.startswith(('QUICK500','SIEVE8191','LATENCY','PIPELINE','PIPE_EXIT','FETCH_PROFILE'))),flush=True)
+  print(variant,'\n'.join(l for l in log.splitlines() if l.startswith(('QUICK500','SIEVE8191','MMU_WALKS','MMU_REMAP','LATENCY','PIPELINE','PIPE_EXIT','FETCH_PROFILE'))),flush=True)

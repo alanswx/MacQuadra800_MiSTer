@@ -1,3 +1,14 @@
+# Latest: CPU/RAM microbenchmarks now support real MMU translation
+
+profile_quick.py/sharedSieve supports--mmu off/4k/8k and Sieve-only
+--mmu-remap-buffer. WalkerandCPUshareoneRAMresponder; actualdescriptorU/M
+updates exercised. Nonidentity4Kand8KmappingsPASS; disablingTCmutation fails
+primeflagoracle. P75SieveMMU8K291552/297561/378635lat0/3/8; P64baseline
+306551/312515/380103. AlloutputoraclesPASS,15walkreads/7writes each.
+Detailedscope/evidencein docs/SPEEDOMETER_MICROBENCHMARKS.md.
+QuickMMU8Klat3 session89505exit0:179011cycles,sorted/guardsPASS,12walkreads/6writes.
+P75FPGA fit remainsactive, rootproductioninputs frozen. Operator monitors.
+
 # Latest: P73 failed; P75 promoted for next fit
 
 P73wrapperTERMINALexit3/sourcecheck0, routingfailure,39912ALMs95%, nofreshRBF
