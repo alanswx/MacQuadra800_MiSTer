@@ -1,3 +1,24 @@
+# Latest: P82 simulation-qualified for fit; P78 still building
+
+P82corepairedP78 e2493f18..., pipelined57480d0...; no production changes.
+Fullintegration55662exit0, candidate/full.log endsPASS preciseIRQ/replay.
+Corpus28578exit0:1900groups0diffs /tmp/cpu-corpus100-gate.7ftTeS.
+Semanticoracle29358exit0:26638retirements/6384reads in8modes,65536opcode map,
+all128multiply full/missing-extension rejection checks. Newopcode semantic
+traces cover allbase/destregs and forwarding; decoderchecks independentset.
+New multiplyIRQscript passesMULS/MULU3phases/injections/cancellations each,
+correctstackedPC60c/SR/fullproduct andyounger replay. Initialcoldfixture killed0
+so prefilledwith4NOPs, then demanded>=3kills (no relaxedassertion).
+Negativeunsigned-only mutation failsactualguest arithmetic inall3phases.
+Quick178573/Bubble3394944 unchanged; Matrix3702562 vsP78 4021727 (-7.94%).
+PreparedUNLAUNCHED scratch/p82devindexmul_fit_20260920/run.sh guardsP78core
+andP82pipeline. Canconsiderpromotion ONLYafterP78wholewrapper/archiveends.
+P78fitter2818748 verifiedlive9m44elapsed; userunitq800-p78devdispread-fit-20260920.
+No newhardwarepermission; P75 exacttransferapprovalstillpending. Operatoronly
+monitorsfit. Besthardware remains1.133P70. Nextbroadpotential: pipelineindirect
+ADD.W afterMatrixmultiply is now64000next-exits(opcoded452); reuseorderedload
+plus existingALU ifscreened, notyetimplemented.
+
 # Latest: P82 indexed multiply screen saves7.94% Matrix; partial gates only
 
 P78 fit live q800-p78devdispread-fit-20260920, wrapper2808540, commit7fffdf4.

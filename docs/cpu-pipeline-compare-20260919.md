@@ -1990,3 +1990,24 @@ younger registers, with3pipeline load launches and canceled operations.
 Still UNQUALIFIED: decoder independent support map, complete corpus/integration,
 interrupt/replay and broader workload screens remain; area/timing unmeasured.
 No production edit or fit. CurrentP78fit remains frozen.
+
+
+P82 simulation qualification update: full-core integration exit0 with all
+fault/interrupt/replay gates; first100hardware corpus1900field groups match,
+0diffs (/tmp/cpu-corpus100-gate.7ftTeS). Independent memory semantic oracle
+with --multiply --indirect-tst --fast-read-retire passes26638retirements and
+6384reads per configuration, modes0/1 × delays0/1/3/8. Full65536opcode support
+map includes exactly128brief-indexed multiply opcodes; missing/full-format
+extensions rejected for all128. This checks full register/CCR traces, forwarding,
+scaled indices and all base/destination registers. Evidence candidate/semantic.
+
+New pipeline_multiply_irq.py injects an interrupt during signed/unsigned
+indexed multiply. After four NOPs prefill younger work, each passes3phases
+with3injections/3younger cancellations, correct fullproduct, stackedPC60c/SR,
+and32subsequent increments exactlyonce after RTE. Initial unprefilled fixture
+passed architecture but killed0youngers, so was rejected as replay coverage.
+Evidence candidate/irq_prefilled. Unsigned-only mutation is rejected by the
+full-product oracle with guest FAIL in every phase (candidate/negative_unsigned).
+QuickMMU8K178573 and BubbleMMUoff3394944 remain exactlyP78 atlat3.
+No area/timing or hardware claim: prepared nextfit wrapper remains unlaunched
+while P78build inputs are frozen. P82 is now simulation-qualified for a fit.

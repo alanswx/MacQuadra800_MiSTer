@@ -9,6 +9,7 @@ parser.add_argument('--out', type=Path, default=r/'scratch/pipeline_compare')
 parser.add_argument('--pipeline-module',type=Path,default=r/'rtl/ap68040/experimental/ap040_pipeline_integer.sv')
 parser.add_argument('--indirect-tst',action='store_true',help='also qualify byte/word/long TST (An)')
 parser.add_argument('--fast-read-retire',action='store_true',help='also test acknowledgement-edge retirement')
+parser.add_argument('--multiply',action='store_true',help='qualify indexed word multiply semantics and opcode admission')
 args = parser.parse_args()
 root_out = args.out.resolve()
 root_out.mkdir(parents=True, exist_ok=True)
@@ -38,6 +39,19 @@ def emit(kind,*args):
   addr=regs[8+base];requests.append((at,addr,data,size))
   sign=1<<((8<<size)-1)
   ccr=(ccr&16)|(8 if data&sign else 4 if data==0 else 0)
+ elif kind=='mul':
+  base,index,long,scale,disp,dest,signed=args
+  ext=(index<<12)+(long<<11)+(scale<<9)+(disp&255);pc+=2
+  word=(0xc1f0 if signed else 0xc0f0)+(dest<<9)+base
+  ix=regs[index] if long else ((regs[index]&65535)^32768)-32768
+  addr=(regs[8+base]+ix*(1<<scale)+disp)&0xffffffff
+  data=((addr^0x8123a5c7)*0x9e3779b1)&65535
+  requests.append((at,addr,data,1))
+  left=((data^32768)-32768) if signed else data
+  right=regs[dest]&65535
+  if signed:right=(right^32768)-32768
+  result=(left*right)&0xffffffff;regs[dest]=result
+  ccr=(ccr&16)|(8 if result&0x80000000 else 4 if result==0 else 0)
  elif kind=='load':
   base,index,long,scale,disp,dest,size=args
   which=(base+index+scale+long)%4
@@ -92,6 +106,15 @@ if args.indirect_tst:
      if extend:emit('double',0)
      emit('a',0,base)
      emit('tst',base,size,value)
+if args.multiply:
+ for base in range(8):
+  emit('q',0,-1);emit('double',0);emit('a',0,base)
+  for dest in range(8):
+   emit('q',dest,-3)
+   for signed in (False,True):
+    for long in (0,1):
+     for scale in range(4):
+      emit('mul',base,(base+dest)%16,long,scale,(-128,-1,0,127)[scale],dest,signed)
 assert len(code)<32768
 (out/'instructions.hex').write_text('\n'.join(f'{at:08x}{op:04x}{ext:04x}' for at,op,ext in code)+'\n')
 (out/'requests.hex').write_text('\n'.join(f'{at:08x}{addr:08x}{data:08x}{sz:x}' for at,addr,data,sz in requests)+'\n')
@@ -127,6 +150,8 @@ for src in range(16):
    supported.discard((size<<12)+(dest<<9)+(5<<6)+src)
 if args.indirect_tst:
  supported.update(0x4a10+(size<<6)+base for size in range(3) for base in range(8))
+if args.multiply:
+ supported.update(base+(dest<<9)+opcode for base in range(8) for dest in range(8) for opcode in (0xc0f0,0xc1f0))
 (out/'supported.hex').write_text('\n'.join(str(int(w in supported)) for w in range(65536))+'\n')
 s=(exp/'tb_pipeline_pea.sv').read_text().replace('.ENABLE_PEA(1))','.ENABLE_PEA(1), .ENABLE_INDEXLOAD(1), .ENABLE_COMPARE(1))')
 if args.fast_read_retire:s=s.replace('.ENABLE_COMPARE(1))', '.ENABLE_COMPARE(1), .ENABLE_FAST_READ_RETIRE(1))')
@@ -144,6 +169,16 @@ s=s.replace('        extension_valid=1;\n        fd =', '''        for(i=0;i<8;i
         end
         extension_valid=1;
         fd =''')
+if args.multiply:
+ s=s.replace('        extension_valid=1;\n        fd =', """        for(i=0;i<128;i=i+1) begin
+            in_opcode=16'hc0f0+((i/16)<<9)+((i%16)/8)*256+(i%8);
+            extension=16'h0100; extension_valid=1;
+            #1;if(in_supported) $fatal(1,"full multiply extension admitted");
+            extension=0; extension_valid=0;
+            #1;if(in_supported) $fatal(1,"missing multiply extension admitted");
+        end
+        extension_valid=1;
+        fd =""")
 if args.fast_read_retire:
  s=s.replace('endmodule', '    integer fast_read_commits=0;\n    always @(posedge clk) if(dut.fast_read_retire) fast_read_commits++;\n    final begin\n        $display("FAST_READ commits=%0d",fast_read_commits);\n        if(delay>0 && fast_read_commits==0) $fatal(1,"fast read retirement was not exercised");\n    end\nendmodule')
 tb=out/'tb.sv';tb.write_text(s)
