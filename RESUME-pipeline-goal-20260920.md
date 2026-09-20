@@ -1,3 +1,13 @@
+# P96 qualified/promoted; next launch seed22fit
+
+Fullintegration90761exit0includesfault/IRQ/replay;baseline92995exit0.
+Quicklat0/3/8baseline166721/178573/202074vsP96164413/176265/199930.
+P96coreSHAc4d167c694ad384c5ff3f4109f9e8b5dded91c71d991985a16deebef69160db9;promotedunchangedwithP90MMU/P83pipeline.
+NoQuartusprocessactivebeforepromotion. Preparedscratch/p96devmemread_fit_20260920/run.sh.
+Committhenlaunch;freezeproductionthrougharchive+detailedSTA.
+Hardwareexactapprovalpending,nohardwaretransfer;fullMixbestSIM1.236,
+actualhardwarebestP70median1.133;goal1.8unmet.
+
 # P96 qualification live; seed22restored, noQuartusflow
 
 P94allarchive/STAterminal/rootverified;restoredQSFseed22,RTLstillP90.

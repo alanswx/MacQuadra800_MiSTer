@@ -554,3 +554,13 @@ P96Quick latency0/8=164413/199930; matching baseline sweep started.
 P94 final detailed STA exit0:ATC RAM write-enable→epf_data[1][8] criticalpath,
 holdminimum+.200ns,crossings+.178/+.617. Artifact hash verified. AllQuartus
 processes terminal before restoring QSFseed22. No new fit active.
+
+
+P96 full integration completed exit0: precise faults, IRQ/replay and existing
+CPU/MMU/cache/FPU programs pass (`scratch/p96full`). Quick8KB baseline/candidate
+cycles at latency0:166721/164413, latency3:178573/176265, latency8:202074/199930.
+Savings1.38%,1.29%,1.06%; all independent sorting/permutation/guards pass.
+Combined with first100 and directed early-source fault coverage, promoted
+qualified core SHA256 `c4d167c694ad384c5ff3f4109f9e8b5dded91c71d991985a16deebef69160db9` unchanged, with P90 MMU/P83 pipeline and seed22.
+Prepared `scratch/p96devmemread_fit_20260920/run.sh` checks exact source hashes
+and seed. No FPGA timing/area or full Mix improvement claim until measured.
