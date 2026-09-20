@@ -1,3 +1,15 @@
+# P104 full-machine build active alongside P102 fit
+
+New isolated scratch/p104_fullguest_20260920/tree from5331351+qualifiedP104core,
+freshdisposable90MBprofiledisk, allsource/seedhashesidentity.json.
+Unitq800-p104-fullguest-20260920 activeMainPID3466299, C++compiling atlastcheck.
+start.sh builds then runsVemu, max12Bhalfcycles. Initialcontrol onlywait1.2B
+risingedges+shot. NEXTreviewboot screenshot then navigateSpeedometer; NOkeysqueued.
+NoMix/timer/shutdownresultsyet. DevfastbootROM/CDaudio/Ethernetomitted.
+P102fitunitstillactiveMainPID3426490/sourcehashcheckPASS; FREEZEthroughwhole
+wrapper/archive/STA. Nohardwareactions. P104 remainsisolated, plannedCPUgatesPASS.
+Goal1.8unmet; P96hardwaremedian1.211, P104Whetfixture-4.868%cycles.
+
 # P104 planned simulation qualification complete, still isolated
 
 New move_simple_restart.py real4kMMU invalidpage repair+PFLUSH+RTE.

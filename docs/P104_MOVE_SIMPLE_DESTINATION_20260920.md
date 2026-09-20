@@ -98,3 +98,25 @@ The planned simulation qualification is complete. P104 remains isolated
 while P102's fit wrapper is active. Next inspect P102 timing/archive, then
 choose the next hardware build without mixing candidates mid-flow.
 No P104 hardware speed or timing claim is made.
+
+## Full-machine simulation launched
+
+Isolated tree: scratch/p104_fullguest_20260920/tree, archived from 5331351
+with only ap040_core.v replaced by the qualified P104 candidate. Untracked
+Mac CD helper sources are copied and hashed too. identity.json records all
+simulation source hashes and the original/disposable seed disk hashes.
+The disk is a fresh copy of MacQuadra800-Speedometer402-profile.hda.
+
+User service q800-p104-fullguest-20260920 is active, MainPID 3466299, building
+with the same development flags as P97 (CD/audio and Ethernet omitted).
+After build it runs the full quadra800 simulator with the fastboot ROM,
+which skips the ROM RAM test. This does not exercise MiSTer's emu top wiring.
+The initial control stream waits 1,200,000,000 CPU rising edges and takes a
+screenshot. No keyboard or benchmark commands have been queued. Review the
+boot screenshot before navigating; do not assume the old replay still matches.
+Build, run and control files are all in that isolated run directory.
+
+Boot, Benchmark Mix, timer validity and normal guest shutdown remain pending.
+The observer must be inspected for actual coverage; an empty log cannot
+establish timer validity. No full-machine score is available yet.
+P102 Quartus remains active and its source hash verification passes.
