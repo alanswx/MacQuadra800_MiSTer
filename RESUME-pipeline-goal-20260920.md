@@ -1,3 +1,26 @@
+# P97 final sim1.270; P99 broad gates PASS; installed SANE resolved
+
+P97 alltenoneiterationcompletedMix1.270, f7231rootreviewed. Detailsnew
+ docs/P97_SIMULATION_20260920.md and scratch/p97_fullguest_20260920/results.json.
++2.75%vsP89sim1.236, NOTqueueonly(core/MMUalsodiffer), NOhardwareclaim.
+Profilestopped839319552cycles257051623dispatches3.265clocks/dispatchNOTCPI;
+UI/completiontailincluded, sb_fullinvalid(old2entrycounter), timerobserverempty.
+Hostquitrequestedauthorizeddisposabledisk; unitinactivePID0exit0. NOTguestshutdown.
+
+P99integrationunitinactiveexit0 full.log finalPASSreal-coreownership inclIRQreplay.
+Corpusinactiveexit0 /tmp/cpu-corpus100-gate.Uc2U3f1900fieldgroups0diffs(first100only).
+Candidatepatchstillunapplied, frozenqualifiedtree scratch/p99_fpu_read_20260920/tree.
+NextcanpreparefitwhiledevelopingcompleteWhetfixture. NoQuartusactive/launched.
+
+Snapshotguest3301309alive. Initial8MBdumpmissedSRP01ff6c00; requested32MBsameguest.
+Capture2419752961.bin32MBsuccessTCc000URP0SRP01ff6c00PC4080b444. Newtool
+scripts/cpu/inspect_sane_snapshot.py writeslive_traps.json inwhetinventory.
+Supervisorpagewalklowmemidentity: Aline28=408099b0; FP68Kslot15ac=408e9a2c,
+hookac8=244c->408e9a20(branchsameentry); Elemsslot15b0=408edcac,
+hookacc=2444->408edca0. ActualruntimeimplementationsROM. Snapshotguestatbooted
+idle, NOTWhetcallboundary. Needselectorhandlers andfaithfulWhetinputs/relocation.
+MiSTerP96safehalt unchangedmedian1.211; goal1.8unmet.
+
 # P99 translation faults pass; broader gates live
 
 fpu_read_faults.py --mmu4k|8k invalidatespage2000 withrealMMU. Operandstart

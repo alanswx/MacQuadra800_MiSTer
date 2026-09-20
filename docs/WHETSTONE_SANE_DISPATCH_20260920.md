@@ -158,3 +158,37 @@ The established pipeline_handoff extended integration and immutable
 first-100 corpus gates were launched as user units
 q800-p99-integration-20260920 and q800-p99-corpus-20260920. Their results
 are pending; no promotion or fit has occurred.
+
+## Installed guest handler snapshot
+
+The initial 8 MB capture was insufficient: logged SRP=01FF6C00 lies near
+32 MB. A second, 32 MB capture from the same live guest succeeded at halfcycle
+2419752961, PC4080B444, TC=C000, URP=0, SRP=01FF6C00. File:
+scratch/whet_snapshot_host_20260920/tree/verilator/ram_snapshot_2419752961.bin.
+
+`inspect_sane_snapshot.py` follows the captured supervisor page tables using
+the same indexing as ap040_mmu.v and records every descriptor plus RAM hash
+in scratch/whetstone_inventory_20260920/live_traps.json. Low-memory slots
+and handle cells translate identically, consistent with transparent mappings
+as well; this reader does not emulate ATC or transparent registers. The
+physical snapshot still is not an architectural checkpoint.
+
+| Item | Installed value |
+|---|---|
+| A-line vector 28 | 408099B0 |
+| FP68K slot 15AC | 408E9A2C |
+| FP68K hook 0AC8 | handle 244C, contents 408E9A20 |
+| Elems68K slot 15B0 | 408EDCAC |
+| Elems68K hook 0ACC | handle 2444, contents 408EDCA0 |
+
+ROM 408E9A20 branches to 408E9A2C; the live FP68K table directly selects the
+same dispatcher. Both installed implementations are in the ROM. This is the
+booted inspection guest's state, not a capture at a Whetstone call boundary.
+Next resolve selector dispatch and capture the original Whetstone inputs and
+relocated state for a complete fixture; the current add test is only one
+synthetic subroutine workload.
+
+P99's broader integration unit subsequently completed with exit 0 and
+`PASS real-core pipeline ownership integration`, including IRQ/replay cases.
+The immutable first-100 corpus completed with 1900 field groups matching,
+zero differences (/tmp/cpu-corpus100-gate.Uc2U3f). No fit/hardware claim.
