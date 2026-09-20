@@ -1,3 +1,22 @@
+# P99 fit complete, CPU timing worse; Whet memory attribution collected
+
+P99wholewrapperterminalMainPID0ExecMainStatus1(timingfailure), source/cross/
+detailedSTAall0. Archive scratch/p99devfpuread_fit_20260920;39643ALMs95%,
+25627regs482RAM42DSP. CPU-1.531/TNS-122.983,HDMI-.143,SDRAM+.266.
+WorstCPU mem_instr_q->epf_data data31.129ns. RBF4cd5824 SHA
+274c71db1bdd4dbf742d88018ab4cf94a7f2ebfe167aaea9097ee049ddf4f129.
+NOHARDWAREdeploy. FREEZEENDED(allarchive/STAcomplete);QSFhistoryupdated.
+Needtimingpathworkbeforechoosinghardwarecandidate;P97alsoCPU-.682.
+
+New Whet memorypartition in simulationbench. Run
+scratch/whetstone_memory_profile_20260920 completedexit0,same31784029loop,
+samecapturedstack/globals/code. MRD/MWRsetup1124678,prefetch383413,
+issued9914683. IssuedcacheC_IDLE7004449,C_LOOK2156772,C_PASS492141,
+fill+tag54212(0.171%totalCPUcycles,inmemoryCPUstatesONLY). Idleincludesacks,
+notallcachewait. ExternalRAMmissesdonotlooklikemainWhetbottleneck.
+Nexttargethit/transfersequencingwithactualcachetiming, notblindRAMlatency.
+HardwarebestP96median1.211,P97sim1.270;goal1.8unmet;MiSTerunchangedsafehalt.
+
 # P100 tiny gain; P101 admission slower; no production changes
 
 Ran2isolatedP99-derivedcores throughcompleteWhetfixture. P100earlyFPUresultstore

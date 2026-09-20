@@ -26,6 +26,9 @@ module tb_cpu_whetstone;
  reg [7:0] mem[0:33554431]; reg [7:0] rom[0:1048575];
  integer fd, count, patch_writes=0; reg [1023:0] rompath;
  integer pc_cycles[0:65535];
+ integer mem_setup=0, mem_prefetch=0, mem_issued=0, read_shape;
+ integer read_cache[0:2][0:15];
+ integer write_cache[0:15];
  integer latency=1, waitleft=0, cycles=0, i, j, bytes, done=0;
  integer states[0:255]; integer fpu_crossings=0, require_cross=0, fpu_reads=0; reg [7:0] previous_state=0;
  integer lat_count[0:2], lat_total[0:2], lat_start=-1, lat_class;
@@ -60,6 +63,10 @@ module tb_cpu_whetstone;
   if(!$value$plusargs("prog=%s",path) || !$value$plusargs("rom=%s",rompath)) $fatal(1,"missing image/ROM");
   if($value$plusargs("latency=%d",latency)) begin end
   for(i=0;i<256;i++) states[i]=0;
+  for(i=0;i<16;i++) begin
+   write_cache[i]=0;
+   for(j=0;j<3;j++) read_cache[j][i]=0;
+  end
   for(i=0;i<65536;i++) pc_cycles[i]=0;
   for(i=0;i<3;i++) begin lat_count[i]=0;lat_total[i]=0;end
   fd=$fopen(path,"rb");if(!fd) $fatal(1,"RAM open failed");
@@ -72,6 +79,21 @@ module tb_cpu_whetstone;
   nreset=1;
  end
  always @(posedge clk) if(nreset) begin
+  if(dut.core.state==dut.core.S_MRD || dut.core.state==dut.core.S_MWR) begin
+   if(!dut.core.m_issued) begin
+    if(dut.core.epf_pend) mem_prefetch++; else mem_setup++;
+   end else begin
+    mem_issued++;
+    if(dut.core.state==dut.core.S_MWR) write_cache[dut.g_cache.cache.cst]++;
+    else begin
+     read_shape=0;
+     if((dut.core.m_size==2 && dut.core.m_addr_r[1:0]!=0) ||
+        (dut.core.m_size==1 && dut.core.m_addr_r[1:0]==3))
+      read_shape=(dut.core.m_addr_r[3:2]==3)?2:1;
+     read_cache[read_shape][dut.g_cache.cache.cst]++;
+    end
+   end
+  end
   pc_cycles[dut.core.pc_i[23:8]]++;
   if(cycles%1000000==0) $display("HEARTBEAT cycle=%0d pc=%h state=%0d",cycles,dut.core.pc_i,dut.core.state);
   cycles=cycles+1; states[dut.core.state]=states[dut.core.state]+1;
@@ -117,6 +139,12 @@ module tb_cpu_whetstone;
      if(saved_data[15:0]!=16'h600d) $fatal(1,"guest failure marker");
      $display("WHETSTONE RETURNED cycles=%0d latency=%0d code_patch_bytes=%0d walk_reads=%0d walk_writes=%0d",cycles,latency,patch_writes,walk_reads,walk_writes);
      $display("NUMERICAL_ORACLE_PENDING: return is not a correctness verdict");
+     if(mem_setup+mem_prefetch+mem_issued!=states[dut.core.S_MRD]+states[dut.core.S_MWR]) $fatal(1,"memory attribution accounting mismatch");
+     $display("MEMORY_PHASE setup=%0d prefetch_wait=%0d issued=%0d",mem_setup,mem_prefetch,mem_issued);
+     for(i=0;i<16;i++) begin
+      if(write_cache[i]) $display("WRITE_CACHE state=%0d cycles=%0d",i,write_cache[i]);
+      for(j=0;j<3;j++) if(read_cache[j][i]) $display("READ_CACHE shape=%0d state=%0d cycles=%0d",j,i,read_cache[j][i]);
+     end
      for(j=0;j<256;j++) if(states[j]) $display("STATE %0d cycles=%0d",j,states[j]);
      for(j=0;j<65536;j++) if(pc_cycles[j]) $display("PC_BUCKET %06h cycles=%0d",j*256,pc_cycles[j]);
      $writememh("whet_stack.hex",mem,'h63fc00,'h63ffff);

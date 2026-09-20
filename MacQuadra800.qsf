@@ -718,3 +718,6 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram_beat32.sv
 # P97 queue4 seed22:39614ALMs,CPU-.682ns,crosssysram+.529/ramsys+.387.
 # P99 adds qualified FPU operand-read hints/early issue; seed22, development
 # CD-ROM/audio and Ethernet omissions retained. Fit result pending.
+# P99 seed22 (4cd5824):39643ALMs,25627regs,482RAM,42DSP; CPU-1.531ns,
+# HDMI-.143ns,SDRAM+.266ns. Archive p99devfpuread_fit_20260920; source and
+# cross/detailed STA checks completed. Timing-failed development core, not released.

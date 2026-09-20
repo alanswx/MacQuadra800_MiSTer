@@ -317,3 +317,31 @@ numerical validation. P99 Quartus fitting remained live throughout; no frozen
 production RTL was edited. The cache already implements within-line and
 cross-line spanning reads: stale comments suggesting all unaligned accesses
 bypass do not describe the current implementation.
+
+## Memory attribution and P99 fit outcome
+
+The simulation-only harness now partitions S_MRD/S_MWR cycles into setup,
+waiting for prefetch ownership, and issued transfers. Issued reads are grouped
+by aligned/same-line spanning/cross-line shape and concurrent cache state.
+The partition must sum exactly to the two CPU-state totals. Instrumented P99
+retains exactly 31,784,029 loop clocks and identical captured outputs.
+Evidence: scratch/whetstone_memory_profile_20260920.
+
+CPU memory-state totals: setup 1,124,678; prefetch wait 383,413; issued
+9,914,683. Within issued transfers, cache C_IDLE accounts for 7,004,449
+cycles, C_LOOK 2,156,772, C_PASS 492,141, and fill/tag-write 54,212.
+The latter is only 0.171% of whole-fixture clocks, **counted while the CPU
+is in these memory states**, not a count of all instruction-cache misses.
+C_IDLE includes completed acknowledgements/CPU sequencing; it must not all
+be described as waiting for cache RAM. This points toward hit handling and
+CPU transfer sequencing rather than assuming external RAM misses dominate.
+
+P99 fit/archive is complete. Build exit 1 reflects timing failure; source
+integrity, cross STA and detailed CPU STA all exit 0. 39,643 ALMs (95%),
+25,627 registers, 482 RAM blocks, 42 DSPs. CPU slack -1.531 ns/TNS -122.983;
+HDMI -0.143; SDRAM +0.266. Worst CPU path starts at mem_instr_q and ends
+at epf_data, with 31.129 ns data delay. Compared with P97 CPU -0.682, this
+placement is worse and is not release-qualified. No MiSTer deployment.
+Artifact MacQuadra800_p99devfpuread_4cd5824.rbf, SHA256
+274c71db1bdd4dbf742d88018ab4cf94a7f2ebfe167aaea9097ee049ddf4f129.
+Build-input freeze ended after the complete archive and timing wrapper exited.
