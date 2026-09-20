@@ -577,3 +577,16 @@ queue bench passes, including fifth-store backpressure, five ordered drains,
 and existing read/crossing checks; it ties s_posted low, so posted-write and
 simultaneous push/pop coverage must be added before qualification. No
 production change, FPGA area/timing result, or hardware performance claim.
+
+
+P97 final reset-complete four-entry store queue screens reproduce Quick latency3/8
+170343/189778 and Matrix latency3 2848468 with all independent oracles passing.
+The unapplied `scripts/cpu/store_queue4.patch` preserves the count==1 read-pass
+rule. `scripts/cpu/tb_store_queue4.sv` adapts the registered-ack directed bench
+for four entries. `scripts/cpu/tb_store_queue4_posted.sv` independently checks
+ordered downstream address/data/size/FC/instruction attributes against accepted
+posted writes. Run each with iverilog -g2012 (top tb_wombat_store_buffer or
+tb_posted), the candidate module, then vvp. The posted test passes 1177 writes,
+including simultaneous push/pop at occupancies1/2/3, full backpressure, CE stalls,
+and error drains. Deliberately flipping captured q2 data bit0 fails at write4.
+This is not platform memory-path, full-guest or hardware qualification.

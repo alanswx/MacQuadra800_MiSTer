@@ -1,3 +1,22 @@
+# P97 final screens and posted-write scoreboard verified
+
+Previous weighting clarification did not advance the goal. This turn verified
+origin already contains c271fa7, collected final reset-complete P97 screens,
+and added independent posted-write ordering verification and a negative control.
+Quick latency3/8: 170343/189778 cycles; Matrix latency3: 2848468.
+All sorted-permutation/matrix/input/guard oracles pass.
+Posted scoreboard: 1177 writes, simultaneous push/pop at counts1/2/3 = 1/2/8,
+3682 full stalls, 762 CE-frozen cycles, 168 error drains. All attributes checked.
+Mutating q2 data bit0 fails at downstream write4, as expected.
+Reproducible candidate patch and both benches are under scripts/cpu/store_queue4.patch,
+tb_store_queue4.sv and tb_store_queue4_posted.sv. Patch is NOT applied.
+P97 SHA256: 19ef4a9313b4c73b11dbfbd475e1e84d57e5b5a9c52cbb754964aa3c0ecc457b
+P96 fit service remains active MainPID3155988; production source remains frozen.
+Still need platform memory-path regression and full guest performance, then fit.
+Posted scoreboard covers only qualified buffered writes; existing directed bench
+covers registered acknowledgements, read passing/crossing, VRAM and direct writes.
+Hardware approval remains pending; no deployment. Goal remains unmet.
+
 # P97 four-entry queue screening; P96 fit live
 
 Scratchp97_store_queue4_20260920/wombat_store_buffer.sv expandsorderedqueue
