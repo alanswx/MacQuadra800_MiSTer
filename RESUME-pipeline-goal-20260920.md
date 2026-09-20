@@ -1,3 +1,20 @@
+# RAM snapshot host command implemented/tested; live P97 unchanged
+
+Previous turn resolvedWhetstaticruntimecalls. Read-only gdb attach to local
+Vemu3190686 failed ptraceInappropriateioctl; no targetstop/change. No workaround
+aroundkerneldebugrestriction attempted. Added supported simulator ramdumpN
+command(1..128MiBphysicalRAM, guestbigendian) with cycle/PC/TC/URP/SRPmetadata.
+Controlparser/serializerunitsPASS; realP97generatedmodelhostsyntaxPASS; isolated
+clonehost rebuilt successfully at scratch/whet_snapshot_host_20260920/tree/
+verilator/obj_dir/Vemu. Integration /tmp/q800-profile-integration-msri4qr2 PASS
+actual1MiBdump,keyinput,profile20002cycles,quit,timersummary. GuestRTLunchanged.
+Fixedfuturehostsbfullpredicate to buffer_req&&!push&&!accept_ack (capacityblocked,
+not heldrequestguard), removinghardcodedoccupancy2. ExistingP97runninghoststillold.
+Updatedsendergrammar/docs. Need launch NEWdisposablediskrun with updatedhost
+forinstalledSANEhandlersnapshot; haveNOTlaunchedit yet. Do notsendramdumpoldP97.
+LiveP97f4192showsSpeedometerlaunchtransition; queuedwait33M+shot tosettle.
+P96MiSter safehaltmedian1.211; goal1.8unmet. Rootownsinput, nohardwarethisturn.
+
 # All Whetstone external calls statically resolved from original loader
 
 Added scripts/cpu/resolve_whetstone_calls.py using existingmac_rsrc.Rsrc.

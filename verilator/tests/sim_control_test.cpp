@@ -9,6 +9,14 @@ static void feed(SimControl& control, const std::string& text) {
 
 int main() {
     {
+        SimControl dumps; SimControlCommand cmd{};
+        feed(dumps,"ramdump 0\nramdump 129\nramdump -1\nramdump 8 extra\nramdump 8\n");
+        assert(dumps.rejected()==4);
+        assert(dumps.step(false,true,cmd));
+        assert(cmd.kind==SimControlCommand::RamDump && cmd.value==8);
+    }
+
+    {
         SimControl quit_control;
         SimControlCommand quit_command{};
         feed(quit_control, "quit extra\nquit\n");

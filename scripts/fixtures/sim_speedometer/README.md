@@ -113,3 +113,27 @@ claims. State-cycle and memory-path counters remain useful for locating
 bottlenecks. The timer observer recognizes Queens and Sieve; it does not
 establish validity of Whetstone or all ten benchmark timers. Any full Mix
 profile must be labelled with its actual bracket, including UI overhead.
+
+
+## Physical RAM inspection
+
+New host builds accept `ramdump N` through the optional control stream, where
+N is1..128MiB from physical address0. This writes guest-order bytes to
+`ram_snapshot_<simulator-cycle>.bin` in the simulator working directory and
+logs the cycle, PC, TC, URP and SRP. It reads RAM without advancing guest clocks
+or injecting input; host wall time pauses while writing. This is physical RAM,
+not an MMU-translated virtual view or an architectural checkpoint. Pending
+writes/registers/cache state are not included. Do not treat it as a restartable
+snapshot. A failed write is logged FAILED and may leave a partial file.
+
+Example: `python3 scripts/guest/sim_control_send.py RUN/control.txt 'ramdump 8'`.
+The current immutable P97 running executable predates this command; do not send
+it there. Its full-queue profile counter also predates the queue-depth fix.
+New host builds count buffer requests blocked by capacity while excluding the
+registered acknowledgement guard, so both two- and four-entry queues work.
+
+Validation: control parser rejects invalid sizes; RAM serialization unit checks
+big-endian bytes, chunk boundaries and unchanged inputs. The real simulator
+integration check requires a1MiB snapshot, normal key input/profile counts and
+normal quit. All passed on the isolated P97-model host build in
+scratch/whet_snapshot_host_20260920; production RTL is unchanged.

@@ -20,13 +20,17 @@ def main():
     (out / "rom.hex").write_text("\n".join(image[i:i+4].hex() for i in range(0, len(image), 4)) + "\n")
     (out / "control.txt").write_text(
         "wait 1000\ndown 1c\nwait 1000\nup 1c\nwait 1000\n"
-        "profile start\nwait 20000\nprofile stop\nquit\n")
+        "ramdump 1\nprofile start\nwait 20000\nprofile stop\nquit\n")
     command = [str(args.simulator.resolve()), "--headless", "--no-cpu-trace", "+rom=rom.hex",
                "--control", "control.txt", "--cpu-profile", "profile.tsv",
                "--speedometer-observe", "timer.log", "--max-cycles", "500000"]
     with (out / "run.log").open("w") as log:
         subprocess.run(command, cwd=out, stdout=log, stderr=subprocess.STDOUT, check=True, timeout=60)
     log = (out / "run.log").read_text()
+    snapshots = list(out.glob("ram_snapshot_*.bin"))
+    assert len(snapshots) == 1 and snapshots[0].stat().st_size == 1048576
+    assert "[RAM-SNAPSHOT] wrote" in log
+
     assert "[SIM-CONTROL] down 1C" in log and "[SIM-CONTROL] up 1C" in log
     assert "Reached 500000 cycles" not in log, "quit failed; only cycle limit stopped simulation"
     assert "[CPU-PROFILE] started" in log and "[CPU-PROFILE] wrote" in log

@@ -186,6 +186,7 @@ static CpuDispatchObserver dispatch_observer;
 static bool dispatched = false;
 
 #include "../scripts/fixtures/speedometer_timing_observer/adapter.inc"
+#include "sim_ram_snapshot.h"
 
 // Simulation-only exact-workload profiler. SIGUSR1 resets/starts the
 // bracket; SIGUSR2 stops it and writes the report.
@@ -317,7 +318,8 @@ static void bracket_step(bool dispatch) {
 		if (state == 9) { bracket_mrd_cst[cst&7]++; if (sbc) bracket_mrd_sbpend++; }
 		if (state == 10) { bracket_mwr_cst[cst&7]++; if (sbc) bracket_mwr_sbpend++; }
 		if ((cst&7) == 5 && bracket_prev_cst != 5) { if (rbank) bracket_fill_i++; else bracket_fill_d++; }
-		if (sbreq && sbc == 2) bracket_sb_full++;
+		if (sbreq && !SIMEMU->__PVT__machine__DOT__cpu__DOT__store_buffer__DOT__push &&
+            !SIMEMU->__PVT__machine__DOT__cpu__DOT__store_buffer__DOT__accept_ack) bracket_sb_full++;
 		if (busreq && !buswr && sbc) bracket_read_behind_store++;
 		if ((cst&7) == 6) { if (buswr) bracket_pass_write++; else bracket_pass_read++; }
 		if (SIMEMU->__PVT__machine__DOT__cpu__DOT__store_buffer__DOT__push) bracket_sb_pushes++;
@@ -370,6 +372,21 @@ static void control_before_eval() {
 		case SimControlCommand::Shot:
 			control_shot_pending = true; // block following commands until frame capture
 			break;
+        case SimControlCommand::RamDump: {
+            char path[96];
+            snprintf(path, sizeof(path), "ram_snapshot_%llu.bin", (unsigned long long)main_time);
+            FILE* snapshot = fopen(path, "wb");
+            bool ok = write_guest_ram(snapshot, SIMEMU->ram, size_t(command.value) << 20);
+            if (snapshot && fclose(snapshot) != 0) ok = false;
+            printf("[RAM-SNAPSHOT] %s %s bytes=%llu cycle=%llu pc=%08X tc=%08X urp=%08X srp=%08X\n",
+                ok ? "wrote" : "FAILED", path, (unsigned long long)(command.value << 20),
+                (unsigned long long)main_time,
+                SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__pc_i,
+                SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__tc,
+                SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__urp,
+                SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__srp);
+            break;
+        }
 		case SimControlCommand::Quit:
 			run_enable = false;
 			Verilated::gotFinish(true);

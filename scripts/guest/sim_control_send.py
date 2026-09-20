@@ -15,9 +15,9 @@ def main():
     parser.add_argument("stream")
     parser.add_argument("commands", nargs="+")
     args = parser.parse_args()
-    grammar = re.compile(r"(?:shot|quit|profile (?:start|stop)|wait [0-9]+|(?:down|up) (?:0x)?[0-9a-fA-F]{1,2}(?: ext)?)")
+    grammar = re.compile(r"(?:shot|quit|profile (?:start|stop)|wait [0-9]+|ramdump [0-9]+|(?:down|up) (?:0x)?[0-9a-fA-F]{1,2}(?: ext)?)")
     for command in args.commands:
-        if not grammar.fullmatch(command):
+        if not grammar.fullmatch(command) or (command.startswith("ramdump ") and not 1 <= int(command.split()[1]) <= 128):
             parser.error(f"invalid control command: {command!r}")
     payload = ("\n".join(args.commands) + "\n").encode("ascii")
     # O_NONBLOCK avoids hanging on a FIFO without a simulator reader.
