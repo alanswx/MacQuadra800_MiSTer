@@ -1,6 +1,10 @@
 # Simulator Speedometer capture tooling
 
-**Status: the 2026-09-19 capture was rejected and stopped.** Frame5311
+**Current status:** P67 completed a visually reviewed full Mix in simulation
+(see below). P89 is booting in an isolated snapshot with a fresh disposable
+disk. Neither is a hardware acceptance result.
+
+**Historical rejected attempt, 2026-09-19:** Frame5311
 showed Prince of Persia, not Speedometer. No baseline number is accepted.
 The historical keyboard replay is not reliable for this startup state; use
 screenshot-driven navigation before enabling a future profile bracket.
@@ -79,15 +83,21 @@ The replacement monitor was `q800-pipeline-baseline-monitor-c2-20260919`, using
 any number is accepted. Future automated launches should wait for a confirmed
 MacAtrium screen instead of assuming a 20-second boot.
 
-## P67 full-guest profiling attempt, 2026-09-20
+## P67 completed full-guest profile, 2026-09-20
 
-The isolated snapshot in `scratch/p67_fullguest_20260920/tree` has now
-visibly launched Speedometer 4.02: `screenshot_f3676.png` shows its startup
-splash and application menus. This is still navigation evidence, not a
-completed benchmark or an accepted performance result. The simulator uses
-P67, the baseline divider, the development fastboot ROM, and a disposable
-copy of the fixture disk. P67 failed FPGA routing, so this simulation cannot
-serve as hardware validation of that candidate.
+The isolated snapshot in `scratch/p67_fullguest_20260920/tree` completed
+all ten tests once. Root visually reviewed `screenshot_f6222.png`; the displayed
+simulated Mix was1.187. `capture.json`, `workload.tsv` and `report.md` record
+965772857 CPU clocks and257445279 opcode-load events. The bracket includes
+launch/UI work and approximately two guest seconds after observed completion;
+that delay was not subtracted. The simulator exited after queued profile-stop
+and quit commands. Its completion monitor had timed out, so the screenshot and
+processed profile-stop were reviewed directly rather than treating monitor exit
+as proof of success.
+
+This uses P67, the baseline divider, the development fastboot ROM and a
+disposable fixture disk. P67 failed FPGA routing; this is not a hardware score,
+an original-ROM release gate, or a controlled single-change P89 baseline.
 
 Navigation was checked at each step: Escape from MacAtrium, two Tabs to
 Exit to Finder, Return, then open Mac-7-5-5 → Applications → Speedometer
