@@ -1817,3 +1817,59 @@ Compared with same-feature P64median1.131, the observed median difference is
 about0.18%; this is a small effect and far below the1.8goal. Not a release:
 CPU+.158ns, HDMI+.022ns, sys→RAM−.054ns, RAM→sys+1.225ns, holdminimum+.248ns.
 Evidence: `scratch/hardware_p70devdivide_20260920/deployment_record.md` and images.
+
+## P120 and P124 on hardware, and where the remaining time is (2026-09-21, evening)
+
+Both are CD-less, Ethernet-less development builds (`CDROM_OFF`, `ETHERNET_OFF`), 33 MHz, 32 MB,
+`QuadSquad8-pipeline-test-20260919.hda`, Speedometer 4.02 Benchmark Mix, all ten tests, one iteration.
+
+| build | tree | fit | five Mix runs | median |
+|---|---|---|---|---|
+| P120 (empty-pipeline admission) | `a102f76`, seed 25 | 39,814 ALMs, CPU clock +0.273 ns, HDMI -0.335 | five valid, mean 1.3124 (`scratch/hardware_p120_20260921/`; run 3 re-read for this note: KWhetstones 1060.4, Dhrystones 15,710) | **1.313** |
+| P124 (spanning-read acknowledge in the cache) on P120 | `88466cc`, seed 23 | 39,795 ALMs, CPU clock **-0.188 ns**, clk_ram +0.483 | 1.335, 1.340, 1.340, 1.341, 1.341; no invalid timer (`scratch/hardware_p124_20260921b/`) | **1.340** |
+
+P124 run 5: KWhetstones 1090.98 (3.709), Dhrystones 15,802.9 (0.914), Towers 0.690 s, Quick 0.581,
+Bubble 0.666, Queens 0.462, Puzzle 0.915, Permutations 1.063 (0.765), Int. Matrix 0.609 (1.322), Sieve 1.026 (1.337).
+Its simulation screen had promised -2.8 % Whetstone and -4.2 % Dhrystone clocks; hardware gave +2.9 % and +0.6 %.
+
+### Against the real Quadra 800 (`docs/perf/real_quadra800.jpg`, Mix 1.897)
+
+Ratings (the Mix is their arithmetic mean), P120 run 3:
+
+| test | real | P120 | P120 / real | Mix points missing |
+|---|---:|---:|---:|---:|
+| Whetstone | 6.727 | 3.605 | 54 % | 0.312 |
+| Permutations | 1.315 | 0.744 | 57 % | 0.057 |
+| Dhrystone | 1.447 | 0.909 | 63 % | 0.054 |
+| Towers | 1.364 | 0.912 | 67 % | 0.045 |
+| Queens | 1.315 | 0.864 | 66 % | 0.045 |
+| Puzzle | 1.367 | 1.152 | 84 % | 0.021 |
+| Bubble | 1.343 | 1.139 | 85 % | 0.020 |
+| Quick Sort | 1.340 | 1.209 | 90 % | 0.013 |
+| Int. Matrix | 1.344 | 1.261 | 94 % | 0.008 |
+| Sieve | 1.409 | 1.335 | 95 % | 0.007 |
+
+Whetstone alone is 53 % of the gap (matching it gives 1.63; matching everything else gives 1.59), so ~1.9 needs
+Whetstone at about 1.9x and the call-heavy integer tests at about 1.5x. Loop-and-array code is within 10 %.
+
+### The Permutations kernel, P162 core + P124 cache, in `profile_permute.py`
+
+One Permute(7) (8,660 calls): **1,303,949 clocks at memory latency 0, 1,315,902 at 3, 1,631,486 at 8**; the real
+machine needs about 817,000 (0.619 s / 25 x 33 MHz); hardware P124 about 1,403,000. So the caches and the posted
+store already hide nearly all memory latency for this code, and the cost is the sequencer's own structure. At latency 0:
+
+| state | clocks | share |
+|---|---:|---:|
+| S_MWR | 281,310 | 21.6 % |
+| S_MRD | 212,364 | 16.3 % |
+| S_EXPERIMENT_PIPE | 202,209 | 15.5 % |
+| S_DECODE | 134,516 | 10.3 % |
+| S_FETCH | 129,260 | 9.9 % |
+| S_PIPE_START | 83,644 | 6.4 % |
+| S_MOVEM_LOOP | 69,280 | 5.3 % |
+
+Split of the two memory states (`scratch/permute_p165_phases_20260921/`, a scratch copy of the bench with four
+counters per state): of S_MWR's 281k, **130k are the clock that only observes `d_ack`**, 59k an issue clock, **68k
+waiting because a fetch-queue read owns the single memory port**, 25k waiting for the acknowledge. Of S_MRD's 212k,
+130k are the acknowledge clock and 78k waiting. The two acknowledge clocks are 20 % of the kernel and the port
+contention another 5 %: those, not RAM latency, are what separates the call-heavy tests from the real machine.
