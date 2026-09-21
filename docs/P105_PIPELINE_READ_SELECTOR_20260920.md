@@ -67,3 +67,14 @@ Seed23 changes placement only; CPU/module sources retain the tested identities.
 A small placement retry is justified by the remaining 69ps miss; no instruction
 cycles or architectural behavior change. Luna owns its single Quartus flow
 once this commit lands. Hardware readiness inspection is read-only meanwhile.
+
+## Seed 23 complete
+
+Whole wrapper, source integrity, cross and detailed STA all exit 0.
+39,549 ALMs, 25,656 registers, 482 RAM blocks, 42 DSPs.
+CPU +0.293 ns, HDMI +0.196 ns, RAM +0.227 ns; cross +0.227/+0.541 ns.
+All timing met. Artifact MacQuadra800_p105readselector_seed23_cd3fffc.rbf,
+SHA256 bb5267c5a71c5ea3203fceb91760a2d1b33e348afbdd5a235b20811461f1532b.
+Archive scratch/p105readselector_seed23_fit_20260921.
+Luna assigned deployment and five-run hardware benchmark; results pending.
+CD-ROM/audio and Ethernet remain omitted in this development build.

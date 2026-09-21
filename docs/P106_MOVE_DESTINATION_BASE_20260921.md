@@ -57,3 +57,10 @@ it is not the source identity of the candidate integration executable.
 Candidate is ready for promotion after the active P105 build wrapper finishes.
 A P106 build wrapper is prepared under scratch/p106destbase_fit_20260921/run.sh
 but has NOT been launched. Production build inputs remain unchanged.
+
+## Promotion
+
+After P105 seed23 completed all archive/STA steps, the exact qualified P106
+core above was applied to production. move_destination_base_early.patch is
+now historical/APPLIED. Pipeline and supporting RTL are unchanged. The next
+fit retains seed23 and the development CD-ROM/Ethernet omissions.

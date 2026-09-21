@@ -727,3 +727,7 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram_beat32.sv
 # P105 read selector seed22 (1e398ef):39464ALMs,CPU-.069ns,TNS-.069,
 # HDMI+.212ns,RAM+.386ns. Entire archive/cross/STA complete; no hardware test.
 # Retry same qualified P105 logic with seed23 to resolve marginal setup miss.
+
+# P105 seed23 (cd3fffc):39549ALMs,CPU+.293ns,HDMI+.196ns,RAM+.227ns;
+# cross sys-to-ram+.227ns/ram-to-sys+.541ns. All timing met.
+# P106 settled MOVE destination base qualified; retain seed23, dev features.
