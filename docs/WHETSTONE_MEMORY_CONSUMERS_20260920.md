@@ -38,3 +38,19 @@ before further work because the fit wrapper hashes all tracked Verilog files,
 even testbenches; the Quartus source hash check passes. Neither bench is a
 Quartus project input. Use --bench for further scratch profiling during the fit.
 P102 Quartus remains active and all build inputs remain frozen.
+
+## P106 read-line reuse screen
+
+A scratch bench only prints the existing transfer/shadow counters; it leaves
+P106 at 29,454,150 loop clocks and all three captures identical. Root verified
+all RTL, fixture, ROM, flags and latency match, with only the bench differing.
+Evidence: scratch/whetstone_full_p106_readline_20260921/instrumentation_check.json.
+
+The shadow remembers the last data-read line and invalidates on every store.
+587,712 subsequent reads fit that line, but only 264,130 observed wait clocks
+lie in those reads: under 0.90% of the loop even if all could be removed.
+This is an opportunity estimate, not a implemented buffer or predicted gain;
+it does not model filling a whole line, physical tags or coherence overhead.
+Do not prioritize this conservative last-read buffer over reducing operand
+sequencing. Transfer totals: instruction 1,543,478 / 4,086,801 clocks; data read
+2,767,871 / 6,968,936; data write 2,399,252 / 2,741,966.
