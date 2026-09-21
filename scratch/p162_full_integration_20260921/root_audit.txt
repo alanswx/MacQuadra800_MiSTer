@@ -1,0 +1,10 @@
+ROOT PASS: P162/P120/P151 full integration.
+
+All 22 CPU programs and four IRQ/replay programs have clean runtime logs with
+ALL TESTS PASSED and no TEST FAILED, FATAL, or ERROR markers. Handoff counts
+balance commits plus cancellations in the pipeline cases. The candidate
+handoff trace exactly matches prototype_extended/oracle.trace, and every source
+hash in identity.json was revalidated against the current filesystem.
+
+This qualifies the P162 simulation integration scope. It does not claim FPGA
+timing, fit, boot, or hardware Speedometer performance.
