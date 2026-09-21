@@ -46,3 +46,10 @@ Its original wrapper mislabeled the bitstream P109 although source identity
 is P112: MacQuadra800_p109_quick_rmw_ack_8539160.rbf, SHA256
 fa8ac3b35a823aabcf72103cca54bc83d6dfc736b247598dde1db37da5bc9772.
 A correctly named copy is being archived without changing those bytes.
+
+Root preserved a correctly named byte-identical
+MacQuadra800_p112cachehint_8539160.rbf in the archive, plus cross_sys2ram.txt
+and cross_ram2sys.txt. The cross reports' timestamps match P112's STA run;
+the original P109-named files are retained. Detailed path inspection shows
+sr[13] -> banked A7 -> pipeline pea_index -> ALU flags -> branch/refill,
+motivating the separate P117 unused-PEA-ALU-input experiment.

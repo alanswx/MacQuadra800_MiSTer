@@ -23,3 +23,13 @@ source/destination aliases, partial Dn values, MOVEA sign/CCR, extension and
 operand faults with RTE repair, IRQ/trace/CE pauses, page-crossing accesses,
 integration/corpus checks and eventual hardware evidence. No production
 promotion, timing or hardware claim is made by this prototype.
+
+## Initial screen: parked
+
+Original Whetstone regresses from28,747,437 to28,972,102 loop clocks
+(+224,665,0.7815%); return28,972,752. Root verified all three captures and
+all non-core/non-pipeline identities against P113b. Evidence:
+scratch/whetstone_full_p116_20260921. Pipeline support alone does not make
+these loads faster under the current admission/ownership overhead. This
+candidate is parked before further qualification; no Dhrystone or hardware
+benefit is claimed, and production is unchanged.
