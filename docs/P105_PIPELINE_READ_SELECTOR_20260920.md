@@ -49,3 +49,21 @@ No hardware performance or timing improvement is yet claimed.
 First retry of fullguest was invalid: the operator used too-short boot waits
 and incorrect navigation. Root has constrained the next retry to ONLY
 wait 1200000000 and shot, no keys/quit, awaiting root screenshot review.
+
+## Seed 22 timing result and seed 23 retry
+
+P105 seed22 fits in 39,464 ALMs (94%). CPU setup slack -0.069 ns,
+TNS -0.069; HDMI +0.212; 99MHz RAM clock +0.386. The HPS user
+clock's +4.163 is a different domain and must not be called the SDRAM clock.
+Source/cross/detailed-STA steps all passed. Worst path now starts at a cache
+tag RAM write-enable register and ends at epf_data[6][1], 28.722 ns data delay
+and -1.500 ns skew. Previous ex_opcode critical path is no longer the worst.
+This is an improvement from P104's -1.019 ns, but still a timing miss.
+RBF: MacQuadra800_p105readselector_1e398ef.rbf, SHA256
+2bcde0b8c45ddaadf14a10506f6a923021bad890c01afbc03b7c9b57592e3405.
+No deployment occurred. Archive scratch/p105readselector_fit_20260920.
+
+Seed23 changes placement only; CPU/module sources retain the tested identities.
+A small placement retry is justified by the remaining 69ps miss; no instruction
+cycles or architectural behavior change. Luna owns its single Quartus flow
+once this commit lands. Hardware readiness inspection is read-only meanwhile.

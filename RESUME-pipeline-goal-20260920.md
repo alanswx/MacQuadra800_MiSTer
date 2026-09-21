@@ -1,3 +1,12 @@
+# P105 seed22 complete, seed23 placement retry prepared
+
+P105seed22CPU-.069/TNS-.069,HDMI+.212,RAM+.386,39464ALMs,allarchivechecksPASS.
+Worstcachetagwe->epf_data,data28.722ns,skew-1.500. P104was-1.019.
+NoP105hardware. QSFnowseed23 samequalifiedRTL; committhenLunalaunchsinglefit.
+Agentluna_monitor owns READONLY MiSTer readiness/screenshot onmister.local.
+NoCPU/simulatorchangeplannedforthisplacementretry; previousfullguestendedwithoutMix.
+Goal1.8unmet,bestP96hardwaremedian1.211. Noactivefreezeuntilnextfitlaunch.
+
 # P105 qualification passed and exact module promoted
 
 Whet P104/P105 same30236820loop/captures. ExtendedintegrationPASS; first100
