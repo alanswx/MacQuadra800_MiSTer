@@ -26,3 +26,13 @@ cache behavior and needs directed same-row/different-row store-read, snoop,
 invalidate, reset, CE-pause, MMU protection and error checks, plus integration
 and boot evidence before qualification. Synthesis must also confirm the tag
 memory remains a dual-port M10K with the expected latency and resource usage.
+
+## Initial workload evidence
+
+P112 -> P113 original Whetstone loop clocks29,048,277 ->28,747,437
+(1.0357% fewer). Root verified byte-identical captured stack/globals/code,
+fixture, ROM, flags, latency and all non-cache source hashes. Evidence:
+scratch/whetstone_full_p113_20260921. This is a controlled-latency simulation,
+not a hardware score, and the Whetstone independent numerical oracle remains
+pending. Dhrystone and directed posted-store/coherence checks are assigned to
+Luna. Candidate is not promoted; P112's whole FPGA wrapper remains active.
