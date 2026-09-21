@@ -1,0 +1,9 @@
+# P124 spanning-read acknowledgement
+
+UNQUALIFIED isolated cache candidate over P113b, using P109 core and P105 pipeline. It does not include P120 or P122. Source scratch/p124_spanning_read_ack_20260921/ap040_cache.v SHA256 e50de9fea12d116ffba6edcf3b0b01ff17f8f8e1a1cb7032e0073f2c2cb38465; unapplied patch scripts/cpu/spanning_read_ack.patch.
+
+P121 profiles the original 50,000-iteration Dhrystone fixture. Root verified unchanged 120,954,440 loop clocks, all five captures and all supporting source identities except the instrumented bench. Slot 0 (PC 0x6112a2, MOVEA.L 12(A6),A0) spends 1,550,031 C_IDLE cycles with hint match, settled data, tag validity and a tag hit, followed by another 1,550,031 C_LOOK cycles. P123 samples confirm a longword stack address 0x63ff96, which fails fast_lane because it spans two words. Early samples include cold/instruction traffic and do not establish steady-state distributions by themselves. Logs: scratch/dhrystone_full_p12{1,3}_profile_20260921/run.log.
+
+The existing spanning-read path already reads the whole cache line into RAM outputs. In C_LOOK with look2 set, P124 returns the assembled pair immediately and suppresses the duplicate registered acknowledgement. It retains request/type, snoop and error guards and does not add cache storage. This targets a measured latency instead of changing instruction semantics. Original Whetstone/Dhrystone screens are pending.
+
+Before promotion: spanning read data and acknowledgement checks, snoop/admission/CE interactions, posted/crossing writes, cache coherence, full CPU fault and IRQ replay integration, and timing/area qualification. The longer RAM-output-to-core path may affect FPGA timing. No hardware speedup is claimed.
