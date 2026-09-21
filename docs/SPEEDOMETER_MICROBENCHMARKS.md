@@ -677,3 +677,15 @@ still needs original helper relocations and DATA0 globals, deterministic
 record storage, an explicit entry/exit outside the original 50,000-iteration
 loop, and an independent result oracle. No Dhrystone execution or performance
 claim follows from this static resolution.
+
+Dhrystone fixture preparation: scratch/dhrystone_full_fixture_20260921
+contains an isolated RAM image, entry stub, bench and runner. It reuses the
+validated private MMU arena from the Whetstone fixture. Original CODE3
+[0xbca,0x10fe) helpers and CODE6 string routines receive their resource XREF
+relocations; original DATA0 supplies globals. The stub supplies two 40-byte
+records at 0x638000/0x638100 and the original stack-frame shape, then enters
+original initialization at CODE3+0xc62. Original loop bytes and 50,000-iteration
+count remain unchanged. A jump at +0xdb2 exits before DisposePtr; timer and
+allocation wrappers are omitted. Captures cover registers, stack, globals,
+records and relocated code. Execution and independent numerical validation
+are pending; this is not a hardware Dhrystone score.
