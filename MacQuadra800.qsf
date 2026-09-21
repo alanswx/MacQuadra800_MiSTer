@@ -731,3 +731,6 @@ set_global_assignment -name SYSTEMVERILOG_FILE rtl/sdram_beat32.sv
 # P105 seed23 (cd3fffc):39549ALMs,CPU+.293ns,HDMI+.196ns,RAM+.227ns;
 # cross sys-to-ram+.227ns/ram-to-sys+.541ns. All timing met.
 # P106 settled MOVE destination base qualified; retain seed23, dev features.
+
+# P106 seed23 (70debea):39617ALMs,CPU+.117ns,HDMI+.029ns,RAM+.371ns;
+# alltimingmet. P108b qualified d16 destination acknowledgement; retainseed23.

@@ -64,3 +64,13 @@ After P105 seed23 completed all archive/STA steps, the exact qualified P106
 core above was applied to production. move_destination_base_early.patch is
 now historical/APPLIED. Pipeline and supporting RTL are unchanged. The next
 fit retains seed23 and the development CD-ROM/Ethernet omissions.
+
+## Fit complete
+
+Seed23 70debea: whole wrapper/build/sourcecheck/cross/detailed STA exit0.
+39,617 ALMs,25,651 registers,482 RAM,42 DSP; CPU +0.117ns, HDMI +0.029ns,
+RAM +0.371ns. Build 16m06s; all timing met. Artifact
+MacQuadra800_p106destbase_70debea.rbf SHA256
+fc6527b4722500c3967a8faaae2e8978f84327454673a03ccfbdbf446e9b554b.
+Archive scratch/p106destbase_fit_20260921. Hardware test pending completion
+of P105's current series. Development CD-ROM/Ethernet omissions remain.
