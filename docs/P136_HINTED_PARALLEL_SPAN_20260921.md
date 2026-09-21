@@ -14,3 +14,9 @@ Original workload screens completed with explicit P109 core/P120 pipeline and la
 Whetstone saves 138,642 clocks (0.526%); Dhrystone adds 29 clocks. Root independently matched all eight captures and every non-cache source/fixture/ROM/flag/latency identity to P135. The independent 50,000-iteration Dhrystone end-state checker passes. Evidence: `scratch/{whetstone,dhrystone}_full_p136_20260921`. No hardware speed or timing improvement is claimed.
 
 Full CPU/IRQ integration is root-verified: all 22 programs and 4 interrupt cases pass; accounting balances; each IRQ has 3 injections with at least 3 killed entries; store/PEA cases make exactly 3 stores; handoff/reference traces match; every source hash matches. Evidence: `scratch/p136_full_integration_20260921/root_audit.txt`. Hint rejection/fault/snoop/CE tests, mirror-array correctness, RAM inference, timing and hardware validation remain required. Production sources remain frozen for P130 seed 24.
+
+## Directed qualification
+
+Root inspected the final hint bench and accepted logs: actual qualified idle8/lookup2 acknowledgements, two rejected hint/lane cases, an external bus fault, a real snoop, three paused C_LOOK clocks, and a four-way fast-hit mask0xF. Explicit pair reads after byte/word writes include the changed bytes and require actual hinted-path acceptance. The external model now merges big-endian partial stores. Final bench SHA256105faaf92c803afcc6cfbde2bf79b1ecec6165cdf33cdaaeabdd96330acfdd65. Root also checked passing P135-aware exact-span/no-gap, snoop, XSTORE100 and posted216 terminal logs.
+
+Reproduction is preserved in `scripts/cpu/hinted_parallel_span_checks.patch` and `.md`; patches remain unapplied during the live fit. Together with the independently verified original workload outputs and full CPU/IRQ integration, this qualifies P136 for FPGA evaluation. RAM inference, area, timing and hardware speed remain unverified.
