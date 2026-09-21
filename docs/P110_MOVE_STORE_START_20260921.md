@@ -38,3 +38,7 @@ small gain; candidate stays isolated while instruction-dispatch and
 memory-to-memory MOVE profiling looks for a larger opportunity. Production
 remains P109. This screen does not qualify IRQ/trace boundaries, A7, split
 writes, MMIO side effects, all source values, or timing closure.
+
+Extended integration subsequently passed, including the existing load/store/PEA,
+fault, trace, interrupt, replay and ownership gates. It remains an isolated
+small-gain candidate; no FPGA build or promotion was requested.

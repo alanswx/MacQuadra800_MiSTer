@@ -721,3 +721,30 @@ verified all five captures byte-identical and all fixture/ROM/flags/latency
 and non-core source identities equal. Evidence
 scratch/dhrystone_full_fixture_20260921_500m/comparison_p105_p106_p108b.json.
 These are controlled CPU fixture cycles, not hardware rates.
+
+## P109 string-copy instruction profile (2026-09-21)
+
+Nonintrusive scratch instrumentation attributes clocks by current instruction
+PC and sequencer state. Root checked all supporting identities except the
+instrumented bench, all five output captures and unchanged 121,404,444 loop
+clocks against the original P109 run. Evidence:
+scratch/dhrystone_strcpy_profile_p109_20260921/run.log; bench under
+scratch/dhrystone_strcpy_profile_20260921.
+
+The copy loop executes its three data instructions 1,550,062 times:
+
+| Instruction | Attributed states and cycles |
+|---|---|
+| MOVEA.L 12(A6),A0 at 6112a2 | FETCH 100,002; DECODE 1,500,060; START 1,550,062; MRD 4,750,260 |
+| ADDQ.L #1,12(A6) at 6112a6 | START 1,550,062; MRD 4,650,186; MWR 3,100,124 |
+| MOVE.B (A0),(A1)+ at 6112aa | START 1,550,062; MRD 6,200,372; DEA 1,550,062; MWR 4,650,235 |
+| BNE at 6112ac | DECODE 50,001 |
+
+The memory-to-memory MOVE averages almost exactly nine attributed clocks:
+one START, four MRD, one DEA and three MWR. Most BNEs already fold into the
+preceding store; adding pipeline conditional-branch admission is not an obvious
+win (earlier P54 also regressed Bubble). Two-stage pipeline memory MOVE would
+have to beat the existing owner handoff cost, not merely support the opcode.
+Next instrumentation splits the MOVE's memory clocks into prefetch/setup/issued
+and cache states to locate an actual removable delay. Current-PC attribution
+is not a complete retirement trace and can include predecessor/successor edges.
