@@ -15,6 +15,7 @@ p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--core', type=Path, required=True)
 p.add_argument('--out', type=Path, required=True)
 p.add_argument('--mmu', choices=('off','4k','8k'), default='off')
+p.add_argument('--cache', type=Path, help='explicit cache snapshot override')
 a = p.parse_args(); d = a.out.resolve(); d.mkdir(parents=True, exist_ok=True)
 rtl = R/'rtl/ap68040/rtl'
 units = ['ap040_tg68k_compat', 'ap040_bus16_adapter', 'ap040_bus_timeout',
@@ -22,7 +23,7 @@ units = ['ap040_tg68k_compat', 'ap040_bus16_adapter', 'ap040_bus_timeout',
          'ap040_cache', 'ap040_fpu', 'ap040_walker_cdc', 'primitives/dpram']
 sources = [R/'rtl/ap68040/tb/tb_ap040_program.v', a.core.resolve(),
            R/'rtl/ap68040/experimental/ap040_pipeline_integer.sv',
-           *(rtl/(u+'.v') for u in units)]
+           *((a.cache.resolve(),) if a.cache else (rtl/'ap040_cache.v',)), *(rtl/(u+'.v') for u in units if u != 'ap040_cache')]
 flags = ['-DAP040_EXPERIMENTAL_'+x for x in ('XSTORE','LEA','PIPELINE','PIPELINE_LOADS','PIPELINE_STORES','PIPELINE_PEA','PIPELINE_P6')]
 flags += ['-DAP040_PIPELINE_COMPARE','-DAP040_PIPELINE_MEMORY_ENTRY','-DAP040_PIPELINE_EARLY_DRAIN']
 (d/'identity.json').write_text(json.dumps({'scope': __doc__, 'flags': flags, 'mmu': a.mmu,
