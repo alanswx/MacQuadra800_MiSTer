@@ -340,7 +340,9 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # P136 hinted parallel spanning reads: seed24 development evaluation follows.
 # P136 seed24 fit: 40228 ALMs/502 RAM, CPU -5.481 ns; HDMI -0.373 ns.
 # P147 state-based cache response data selector: same seed, timing evaluation.
-set_global_assignment -name SEED 24
+# P147 P109/P120/P147 cache seed24: placement passed, routing congestion failed after40m10s; no fresh RBF or STA.
+# P150 retries identical qualified HDL at seed25; aggressive routability was already ALWAYS.
+set_global_assignment -name SEED 25
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
