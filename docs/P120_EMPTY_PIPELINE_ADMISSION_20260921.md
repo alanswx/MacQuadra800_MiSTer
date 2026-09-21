@@ -50,3 +50,7 @@ Five valid P120 hardware runs completed; root visually inspected all result fram
 | 3 | 1.313 | 1060.411 | 15709.867 | .701 | .590 | .667 | .467 | .948 | 1.093 | .638 | 1.028 |
 | 4 | 1.314 | 1061.344 | 15709.650 | .701 | .590 | .667 | .467 | .946 | 1.093 | .636 | 1.030 |
 | 5 | 1.314 | 1060.581 | 15708.120 | .701 | .590 | .667 | .467 | .943 | 1.093 | .635 | 1.029 |
+
+## Verified clean shutdown
+
+After the five valid hardware runs, root quit Speedometer (discarding its optional unsaved machine record after preserving all benchmark screenshots), verified Finder, selected the highlighted Special → Shut Down command, released the mouse, and inspected the fresh frame `scratch/hardware_p120_20260921/root_safeoff_wait.png` (2026-09-21 15:13:39 UTC). It explicitly reads “It is now safe to switch off your Macintosh.” P120 clean shutdown is therefore verified. Earlier agent frames named `shut_down.png`/`dialog_cleared.png` still showed an open application dialog and are not shutdown evidence. MiSTer remains on the verified safe-off screen; no reload occurred.
