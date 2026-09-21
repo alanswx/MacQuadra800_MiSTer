@@ -7,3 +7,5 @@ P142's observation-only P137 profile reports 241,440 setup cycles returning to S
 Whetstone/Dhrystone screens, full integration, directed FPU store faults/partial writes and hardware evaluation remain pending. No performance or correctness improvement is claimed yet.
 
 Initial Whetstone screen: 25,984,144 loop / 25,984,772 returned clocks, saving 259,627 loop clocks (0.989%) versus P137. Root verified all three captures and all non-core identities match. Dhrystone, full integration and directed store qualification remain pending; this is not a hardware Mix measurement.
+
+Dhrystone completed at 106,054,250 loop / 106,055,140 returned clocks, exactly P137. Root verified all five captures and every non-core identity. Full integration and dedicated FPU store fault tests remain pending.
