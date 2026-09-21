@@ -1,0 +1,7 @@
+# P132 bounded register-chain entry screen
+
+Unqualified isolated experiment over P109 core with P120 pipeline and P124 cache. Core SHA256 5d10852c671b3a86d8dbc5aeb54fe8bdb85797aebea761d7d7e95ed91da64ffd; source `scratch/p132_register_chain_entry_20260921/ap040_core.v`, unapplied patch `scripts/cpu/register_chain_entry.patch`.
+
+The current memory-entry policy excludes independent register sequences from pipeline admission. P120 reduced empty-pipeline admission overhead, so the earlier entry tradeoff merits measurement. P132 adds an entry only when three consecutive already-resident one-word register instructions belong to a bounded subset of the existing pipeline decoder: NOP, MOVEQ, register MOVE/MOVEA, quick arithmetic and supported register arithmetic/logical forms. It adds no execution opcode. The ordinary memory entry policy remains in place. Resident lookahead routes such a triple through the existing S_DECODE admission; that admission rechecks the next two words and their PC validity.
+
+Original Whetstone/Dhrystone screens are queued with explicit P124 cache, rather than the current P130 timing candidate. No gain or correctness result is claimed. Any useful result still needs exhaustive classification comparison, register/CCR forwarding, short fragments, queue boundaries, interrupts/trace, full integration and fit before hardware use. The production RTL remains frozen for the independent P130 build.
