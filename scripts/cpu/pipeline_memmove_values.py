@@ -11,7 +11,9 @@ parser.add_argument('--require-direct-ea',action='store_true',help='require cove
 parser.add_argument('--vasm',default='/home/alans/mister/MacQuadra800_fixtures/wombat-vasm/vasmm68k_mot')
 parser.add_argument('--displacement-destination',action='store_true',help='exercise d16(An) destinations instead of indexed destinations')
 parser.add_argument('--simple-destination',type=int,choices=(2,3,4),help='test (An), (An)+ or -(An) destinations')
+parser.add_argument('--stack-register',choices=('source','destination'),help='use A7 for one base, including byte adjustment by two')
 args=parser.parse_args()
+if args.stack_register and not args.simple_destination: parser.error('stack-register requires simple-destination')
 if args.simple_destination and args.displacement_destination: parser.error('choose one destination kind')
 d=args.out.resolve();d.mkdir(parents=True,exist_ok=True)
 rtl=r/'rtl/ap68040/rtl';exp=r/'rtl/ap68040/experimental'
@@ -24,7 +26,8 @@ for suffix,n in [('b',1),('w',2),('l',4)]:
  for value in [0,1,(1<<(n*8-1))-1,1<<(n*8-1),(1<<(n*8))-1,0x55555555&((1<<(n*8))-1)]:
   for mode in (2,3,4,5):
    for alias in (False,True):
-    k+=1;start=0xb040+(n if mode==4 else (-4 if mode==5 else 0));after=start+(n if mode==3 else (-n if mode==4 else 0))
+    source_step=2 if n==1 and args.stack_register=='source' else n
+    k+=1;start=0xb040+(source_step if mode==4 else (-4 if mode==5 else 0));after=start+(source_step if mode==3 else (-source_step if mode==4 else 0))
     idx=32 if k%2 else -32;scale=1<<(k%4);disp=7 if k%3 else -7
     dest=(after if alias else 0xc100)+idx*scale+disp
     ccr=(0x10 if k%2 else 0)+(4 if value==0 else 8 if value&(1<<(n*8-1)) else 0)
@@ -33,8 +36,10 @@ for suffix,n in [('b',1),('w',2),('l',4)]:
     after_a0=after;after_a1=0xc100;guard_lo=0xa5;guard_hi=0x5a
     if args.simple_destination:
      dm=args.simple_destination;base=after if alias else 0xc100
-     dest=base-(n if dm==4 else 0)
-     final=base+(n if dm==3 else -n if dm==4 else 0)
+     dest_is_sp=(alias and args.stack_register=='source') or (not alias and args.stack_register=='destination')
+     dest_step=2 if n==1 and dest_is_sp else n
+     dest=base-(dest_step if dm==4 else 0)
+     final=base+(dest_step if dm==3 else -dest_step if dm==4 else 0)
      if alias:after_a0=final
      else:after_a1=final
      reg='a0' if alias else 'a1'
@@ -70,6 +75,7 @@ for suffix,n in [('b',1),('w',2),('l',4)]:
  bne failed
 '''
 asm+=' move.w #$600d,($f102).l\n stop #$2700\nfailed:\n move.w #$bad0,($f102).l\n stop #$2700\n'
+if args.stack_register: asm=asm.replace('a0' if args.stack_register=='source' else 'a1','a7')
 (d/'test.s').write_text(asm)
 run([args.vasm,'-Fbin','-m68040','-no-opt','-o',d/'test.bin',d/'test.s'],'asm.log')
 assert (d/'test.bin').stat().st_size<0x7000

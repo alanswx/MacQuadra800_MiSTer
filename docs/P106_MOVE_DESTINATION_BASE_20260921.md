@@ -19,8 +19,12 @@ Initial Luna screen passed: full Whetstone 30,236,820 -> 29,454,150 loop
 clocks (2.588% fewer), with identical stack/global/code captures. This is
 differential correctness, not an independent numerical oracle. Simple
 destination modes 2/3/4 passed value, boundary and fault gates; the 4K MMU
-restart gate passed. Broader CPU integration/corpus and additional A7 byte
-adjustment tests are now assigned to Luna; results pending.
+restart gate passed. Additional A7 source/destination gates pass for both P105 and P106: each
+of the 12 invocations covers 144 value/CCR/address/guard fixtures across
+three bus phases, including byte adjustment by two and aliased A7. Generated
+assembly and completed run logs were inspected. These are successful-access
+checks; they do not extend the existing fault/RTE gate to A7. Broader CPU
+integration/corpus is running under Luna; results pending.
 The existing value monitor's direct-EA coverage expects MRD->EA_DISP; do not
 use --require-direct-ea to claim this new MRD->PIPE_DEA transition is covered.
 Existing value/CCR/alias/guard checks and acknowledgement counts remain enabled.
