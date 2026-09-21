@@ -1,0 +1,7 @@
+# P159 ALU address-result forwarding into MOVE read
+
+Unqualified scratch CPU over P154; no P157 changes. Source `scratch/p159_alu_address_read_20260921/ap040_core.v`, SHA256 `f9aeebae7983501022b7d0c57b4d257cca436d5b8882184415433b586c9792a6`; patch `scripts/cpu/alu_address_move_read.patch`.
+
+P158 places nearly all hot indirect memory-MOVE preparation immediately after S_PIPE_REGS. P159 restricts forwarding to an ALU operation actually writing An, where that exact An is the following memory-to-memory MOVE's non-updating mode2 source. The following opcode and required prefetch must be valid. Actual mrd is called only from apply_record after fetch_next accepts the retirement boundary, preserving its IRQ/trace/flush checks. Source address comes from alu_res, not the old register-file value. The same context adds a data-address hint and permits ordinary early read issue through existing RAM/page/port guards. Destination preparation, flags and writes remain after read completion.
+
+This changes retirement-to-request scheduling and adds an ALU-to-hint path; correctness and timing are unproven. First original Whetstone against P154 with explicitP120/P136, then Dhrystone if useful. Need exact producer dependency, source/destination faults, A7/alias, trace/IRQ, split and full integration checks before promotion. Production HDL remains frozen for P150; no measured gain or hardware claim yet.
