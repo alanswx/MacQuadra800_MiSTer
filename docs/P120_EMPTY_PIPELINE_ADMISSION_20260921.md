@@ -40,3 +40,13 @@ Fit launched from commit a102f76 as q800-p120-empty-pipeline-admit-fit-20260921.
 Fit complete and root-audited. Artifact MacQuadra800_p120_empty_pipeline_admit_a102f76.rbf SHA256 6110c00f3d31e3db801eb23dc9c46eae5813d4fd440d131f58d865105f9b27d1. Flow took 908.3 seconds (15.14 minutes); fitter succeeded; build exit1 is the HDMI timing miss. Source snapshot/recheck, crossing and CPU report commands each exit0. Setup slack: CPU +0.273 ns, RAM +0.643 ns, HDMI -0.335 ns. Crossings sys-to-RAM +1.581 ns, RAM-to-sys +0.387 ns. 39,814 ALMs (95%), 25,699 registers, 482 RAM blocks, 42 DSPs. Root verified four 2048x32 simple-dual-port cache data banks and 512x86 true-dual-port M10K tag RAM. Complete reports and crossings are archived under scratch/p120_empty_pipeline_admit_fit_20260921. Ready for development hardware testing after P113b completes; release timing/feature bar remains unmet. No full-flow source freeze remains.
 
 First hardware run on P120 RBF SHA256 6110c00f3d31e3db801eb23dc9c46eae5813d4fd440d131f58d865105f9b27d1: root visually verified `scratch/hardware_p120_20260921/root_bench_setup.png` (all ten, one iteration) and `r1_up.png` (complete). Mix 1.308; Whetstones/sec 1050.456; Dhrystones/sec 15710.988; seconds Towers .701, Quick .590, Bubble .667, Queens .467, Puzzle .950, Permutations 1.093, Matrix .641, Sieve 1.032. No invalid timer evident. Remaining four runs, configuration evidence and clean shutdown are pending. This single result does not establish a five-run median.
+
+Five valid P120 hardware runs completed; root visually inspected all result frames (`r1_up.png`, `run2_complete.png` through `run5_complete.png`). Median Mix **1.313**, mean **1.3124**, versus P113b median 1.289. No invalid timer results observed or excluded. Root read CFG `40 00 00 00` (remaining bytes zero) and disposable slot0 `games/MacQuadra800/QuadSquad8-pipeline-test-20260919.hda`; screenshots report 32768K physical RAM. All-ten one-iteration setup verified. Clean save/quit/shutdown remains pending, so hardware qualification is incomplete.
+
+| Run | Mix | Whet/sec | Dhry/sec | Towers | Quick | Bubble | Queens | Puzzle | Permutations | Matrix | Sieve |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 1.308 | 1050.456 | 15710.988 | .701 | .590 | .667 | .467 | .950 | 1.093 | .641 | 1.032 |
+| 2 | 1.313 | 1060.327 | 15709.635 | .701 | .590 | .667 | .467 | .945 | 1.093 | .639 | 1.029 |
+| 3 | 1.313 | 1060.411 | 15709.867 | .701 | .590 | .667 | .467 | .948 | 1.093 | .638 | 1.028 |
+| 4 | 1.314 | 1061.344 | 15709.650 | .701 | .590 | .667 | .467 | .946 | 1.093 | .636 | 1.030 |
+| 5 | 1.314 | 1060.581 | 15708.120 | .701 | .590 | .667 | .467 | .943 | 1.093 | .635 | 1.029 |
