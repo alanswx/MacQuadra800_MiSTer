@@ -101,8 +101,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, default=ROOT / "scratch/pipeline_prototype")
     parser.add_argument("--extended", action="store_true")
+    parser.add_argument("--pipeline-module", type=Path, default=EXP / "ap040_pipeline_integer.sv")
     args = parser.parse_args()
     out = args.out.resolve()
+    pipeline = args.pipeline_module.resolve()
     out.mkdir(parents=True, exist_ok=True)
     import pipeline_address_oracle as address
     ops = workload() + (address.workload() if args.extended else [])
@@ -135,7 +137,7 @@ def main():
     compare(out / "reference.trace", oracle)
     print(f"Current CPU: {len(words)} architectural snapshots match independent oracle", flush=True)
     run(["iverilog", "-g2012", "-I", RTL, "-s", "tb_pipeline_integer", "-o", out / "pipeline.vvp",
-         EXP / "tb_pipeline_integer.sv", EXP / "ap040_pipeline_integer.sv",
+         EXP / "tb_pipeline_integer.sv", pipeline,
          RTL / "ap040_regfile.v", RTL / "ap040_alu.v"], out / "compile_pipeline.log")
     results = []
     for mode in range(6):
@@ -149,7 +151,7 @@ def main():
     # Mutation control: disabling the WB data bypass must break the oracle
     # comparison. This proves the dependency workload exercises forwarding.
     poisoned = out / "no_forward.sv"
-    poisoned.write_text((EXP / "ap040_pipeline_integer.sv").read_text().replace(
+    poisoned.write_text(pipeline.read_text().replace(
         "wb_v && wb_we && wb_dst", "1'b0 && wb_we && wb_dst"))
     run(["iverilog", "-g2012", "-I", RTL, "-s", "tb_pipeline_integer", "-o", out / "no_forward.vvp",
          EXP / "tb_pipeline_integer.sv", poisoned, RTL / "ap040_regfile.v", RTL / "ap040_alu.v"],
@@ -167,7 +169,7 @@ def main():
         raise AssertionError("Forwarding control unexpectedly passed")
     if args.extended:
         poisoned = out / "no_address_forward.sv"
-        poisoned.write_text((EXP / "ap040_pipeline_integer.sv").read_text().replace(
+        poisoned.write_text(pipeline.read_text().replace(
             "wb_v && wb_we && wb_dst", "wb_v && wb_we && !wb_dst[3] && wb_dst"))
         run(["iverilog", "-g2012", "-I", RTL, "-s", "tb_pipeline_integer", "-o", out / "no_address_forward.vvp",
              EXP / "tb_pipeline_integer.sv", poisoned, RTL / "ap040_regfile.v", RTL / "ap040_alu.v"],
@@ -185,7 +187,7 @@ def main():
             raise AssertionError("Address forwarding control unexpectedly passed")
     identities = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
                   for path in [RTL / "ap040_core.v", RTL / "ap040_regfile.v", RTL / "ap040_alu.v",
-                               EXP / "ap040_pipeline_integer.sv"]}
+                               pipeline]}
     (out / "results.json").write_text(json.dumps({"instructions": len(words), "results": results,
                                                 "sha256": identities}, indent=2) + "\n")
     print(f"PASS: prototype and current CPU agree with oracle; artifacts: {out}")
