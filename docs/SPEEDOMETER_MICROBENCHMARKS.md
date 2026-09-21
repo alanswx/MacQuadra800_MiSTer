@@ -774,3 +774,16 @@ state30/family2:200,000, state30/family9:50,000. Broadening this retirement
 whitelist is therefore not the next optimization. P116 instead explores
 pipeline admission of d16 MOVE/MOVEA loads, including the original strcpy's
 frequent stack-based pointer loads. Performance screening remains pending.
+
+## P118 fetch/decode attribution
+
+An isolated P109 core in scratch/p118_fetch_decode_profile_20260921 adds
+simulation-only counters for every S_FETCH and S_DECODE clock. Unapplied
+scripts/cpu/fetch_decode_profile.patch preserves the instrumentation; it must
+not be synthesized. FETCH_PROFILE splits ROM (pc high byte0x40) and RAM,
+then flags bit3=epf_armed, bit2=mem_req, bit1=epf_pend, bit0=ready or forwarded
+opcode. DECODE_PROFILE counts opcode families in ROM/RAM. This distinguishes
+waiting for an instruction from spending a ready dispatch clock; the previous
+P115 profile covered only missed register-descriptor opportunities. Original
+Whetstone/Dhrystone runs with P113b cache and P105 pipeline are pending, and
+must retain exact cycle counts/captures before interpreting these counters.
