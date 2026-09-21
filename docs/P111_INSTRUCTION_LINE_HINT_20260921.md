@@ -28,3 +28,12 @@ records that file's hash in its existing source manifest. The scratch Dhrystone
 runner has the same override. Comparisons must hold the core and all other
 sources fixed; the core-only Whetstone comparator intentionally rejects this
 cache difference and has not been weakened.
+
+## Small-gain screen, not promoted
+
+P109 -> P111 loop clocks: Whetstone29,048,277 ->29,017,344 (0.1065% fewer),
+Dhrystone121,404,444 ->121,354,444 (0.0412% fewer). Candidate remains isolated;
+these gains do not justify the additional instruction-acknowledgement timing
+and correctness qualification ahead of the measured data-cache bottleneck.
+No FPGA build is scheduled for P111. Workload outputs still need final root
+comparison before treating this as more than a performance screen.
