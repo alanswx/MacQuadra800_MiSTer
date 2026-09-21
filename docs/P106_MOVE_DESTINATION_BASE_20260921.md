@@ -27,7 +27,11 @@ checks; they do not extend the existing fault/RTE gate to A7. Extended CPU integ
 including 14,720 architectural snapshots and fault/replay/ownership checks.
 The corpus launch initially used system Verilator 4.204, which lacks --binary;
 it is being rerun with established /home/alans/verilator5/bin/verilator.
-Corpus results remain pending.
+The first Verilator 5 rerun passed 1,900 field groups but used a stale
+experimental pipeline file (152c494e...), not production P105 (9b0e3e00...).
+That run is NOT qualification of the intended combination. Root caught the
+identity mismatch and requested a corrected experimental/ copy and rerun;
+valid corpus results remain pending.
 The existing value monitor's direct-EA coverage expects MRD->EA_DISP; do not
 use --require-direct-ea to claim this new MRD->PIPE_DEA transition is covered.
 Existing value/CCR/alias/guard checks and acknowledgement counts remain enabled.
