@@ -11,3 +11,9 @@ Hypothesis: skip one S_DECODE cycle at eligible resident branch targets. Measure
 A minimal DBRA loop targeting `MOVEA.W (A0),A1` from a negative `$FFF0` word passes all three memory timing phases on P109 and P137 with P120/P136. Root inspected the observation-only instrumented core diff and actual log: 18 entries execute the modified arm with opcode3250. Architectural dumps match byte-for-byte (SHA2563494c4da137b935b133879f9a27ea3ff36904393858b0dd262d0e19f084f8237), including A1=FFFFFFF0 and A0=00002000. Evidence: `scratch/p137_movea_refill_focus_20260921/{baseline_instrumented,p137_instrumented}.log` and matching `.dump.hex` files.
 
 This proves the new path is reached for one word-indirect form, not the whole admitted mode matrix. The program stored MOVE.L values before recording SR, so it does not establish original CCR preservation. A corrected CCR capture and additional modes/alias/A7 cases are assigned. Earlier invalid-hex logs are rejected evidence.
+
+## Root-authored mode matrix
+
+The final 11-case matrix adds explicit expected-value assertions, immediate CCR capture/check, all four admitted source modes in W/L sizes, A7 source postincrement/predecrement, and same-register source/destination aliasing. Root verified all three timing phases pass for P109/P137, identical architectural dumps (SHA2569cf8dc4e3680cf31d000f575b7e5f576b9939331c2c03639eca8bf7c3cca79c5), and actual logged candidate entries for every one of the eight mode/size combinations. Compiled VVP paths confirm the P136 cache. The focused run exercises the ordinary sequencer; the separate full CPU suite covers enabled P120 pipeline integration.
+
+Program and observation-only instrumentation are preserved in `scripts/cpu/refill_movea_matrix.s`, `refill_movea_coverage.patch` and `refill_movea_matrix.md`. Dedicated trace/fault injection at the new branch target is not claimed; existing full regression tests pass. FPGA and hardware evaluation remain pending.
