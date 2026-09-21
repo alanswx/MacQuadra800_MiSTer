@@ -528,7 +528,24 @@ reg         p_dst_mem_bit;    // bit op destination is memory (modulo 8)
 wire        regs_alu_fire = (state == S_PIPE_REGS || state == S_PIPE_SDONE ||
                             state == S_MRD) &&
                             (exec_kind == EK_ALU) && (p_dst == DK_REG);
-wire [31:0] alu_src = (regs_alu_fire && state == S_MRD) ? mem_rdata :
+// Only the successful-read arm consumes this value. Keep acknowledgement
+// out of the data select; it qualifies the ordered read-to-write handoff below.
+wire move_store_read_context = state == S_MRD && r_m_ret == S_PIPE_SDONE &&
+    p_src == SK_MEM && p_dst == DK_MEM && exec_kind == EK_ALU &&
+    alu_op == `AP040_ALU_MOVE && !p_rmw && !p_wbsup;
+wire move_store_read_ready = move_store_read_context &&
+    (dst_mode_r == 3'b010 || dst_mode_r == 3'b011 || dst_mode_r == 3'b100) &&
+    rr_a == {1'b1,dst_rn_r} && !rf_we && !aux_we;
+wire [31:0] move_store_read_addr = dst_mode_r == 3'b100 ?
+    rf_rdata_a - an_adj(dst_rn_r,p_dsize) : rf_rdata_a;
+wire move_store_read_handoff = move_store_read_ready && m_issued && d_ack && !d_err;
+// Settled register MOVE store; require the following instruction prefetched.
+wire reg_move_store_prepare = state == S_PIPE_START && exec_kind == EK_ALU &&
+    alu_op == `AP040_ALU_MOVE && p_src == SK_REG && p_dst == DK_MEM &&
+    !p_rmw && !p_wbsup && !p_dst_mem_bit && rr_b == p_sreg && epf_ready_pc2;
+wire [31:0] alu_src = reg_move_store_prepare ? rf_capture_b :
+                     move_store_read_context ? mem_rdata :
+                     (regs_alu_fire && state == S_MRD) ? mem_rdata :
                      (regs_alu_fire && state == S_PIPE_SDONE) ? m_val :
                      (regs_alu_fire && p_src == SK_REG) ? rf_capture_a : src_val;
 // A register shift with a nonzero count retires in S_PIPE_REGS as well:
@@ -2021,15 +2038,16 @@ task mem_issue;
 		if (((!mgo_wr && (state == S_PIPE_START || state == S_PIPE_SRD ||
 		                  state == S_PIPE_DEA || state == S_DECODE ||
 		                  state == S_RET1 || state == S_UNLK1 ||
-		                  state == S_MOVEM_LOOP || hint_early_read || hint_fpu_read || pipe_load_launch)) ||
-		     (mgo_wr && (state == S_EXEC || state == S_PIPE_DEA || state == S_MOVEM_LOOP ||
+		                  state == S_MOVEM_LOOP || retire_move_read || hint_early_read || hint_fpu_read || pipe_load_launch)) ||
+		     (mgo_wr && (reg_move_store_prepare || move_store_read_handoff || state == S_EXEC || state == S_PIPE_DEA || state == S_MOVEM_LOOP ||
 		                 // the pushes: BSR.B from decode, BSR.W, JSR, PEA,
 		                 // LINK -- registered data (pc, ea_addr, port A
 		                 // selected a state earlier) at dbg_a7 - 4
 		                 state == S_DECODE || state == S_BCC_EXT ||
 		                 state == S_JSR1 || state == S_PEA1 ||
-		                 state == S_LINK2 || pipe_load_launch))) &&
-		    mgo_a[31:28] == 4'h0 && !epf_pend && !mem_req && !mem_ack &&
+		                 state == S_LINK2 || hint_st_fpu || hint_st_fmovem || pipe_load_launch))) &&
+		    mgo_a[31:28] == 4'h0 && !epf_pend &&
+            ((!mem_req && !mem_ack) || (mgo_wr && move_store_read_handoff)) &&
         // A transfer wholly inside 4KB cannot cross either supported MMU
         // page size. Crossing accesses retain delayed issue and byte splitting.
 		    ((mgo_sz == `AP040_SZ_B) ||
@@ -2173,6 +2191,10 @@ task ea_operand_start;
 		// the one read issue of this task: every direct path above lands here
 		if (direct) begin
 			if (drd) mrd(da, size, dret);
+            else if (reg_move_store_prepare) begin
+                if (p_flags) sr[4:0] <= alu_fl;
+                mwr(da, size, alu_res, S_NEXT);
+            end
 			else state <= S_EXEC;
 		end
 	end
@@ -2698,6 +2720,14 @@ wire        sys_retire = (state == S_HALT) ||
                           (state == S_POST_EXC_F4);
 wire        n_apply_ok = !rd_valid && !n_inplace && (n_next != NX_NONE) && n_words_ok &&
                         (state != S_DECODE) && !aux_we;
+// Forward an address-register ALU result into the following indirect MOVE.
+// Actual issue remains gated by apply_record after fetch_next accepts retirement.
+wire retire_move_read = state == S_PIPE_REGS && regs_alu_fire && !p_wbsup &&
+    p_dreg[3] && n_apply_ok && epf_ready_pc2 &&
+    n_p_src_v && n_p_src == SK_MEM && n_p_dst_v && n_p_dst == DK_MEM &&
+    n_alu_op_v && n_alu_op == `AP040_ALU_MOVE &&
+    n_src_mode_r_v && n_src_mode_r == 3'b010 && n_src_rn_r_v && n_p_ssize_v &&
+    p_dreg == {1'b1,n_src_rn_r};
 // the descriptor classes dispatch at every ordinary retire as well
 // dovi: the descriptor dispatch bounded to the ALU/shift/store producers
 // again (step C); the record handover stays at every retire.
@@ -2881,7 +2911,16 @@ task apply_record;
 		if (n_md_sign_v) md_sign <= n_md_sign;
 		if (n_lk_cyc_v) lk_cyc <= n_lk_cyc;
 		case (n_next)
-			NX_PSTART: state <= S_PIPE_START;
+			NX_PSTART: begin
+                if (retire_move_read) begin
+                    x_ext <= imm;
+                    mrd(alu_res,n_p_ssize,S_PIPE_SDONE);
+                    // Lookahead runs after the common mgo dispatcher.
+                    // Consume this new request here; do not leave it queued.
+                    mem_issue;
+                    mgo = 0;
+                end else state <= S_PIPE_START;
+            end
 			NX_PREGS:  state <= S_PIPE_REGS;
 			NX_IMMF_PSTART: begin
 				imm <= n_immv;
@@ -3105,9 +3144,32 @@ task decode_dbcc_brf_now;
         // installing it, so S_PIPE_START receives settled RF read addresses
         // without an intervening S_DECODE cycle. No access issues here:
         // S_PIPE_START retains memory arbitration, An undo and fault handling.
-        // MOVEA and extension/indexed modes outside d16(An) stay on decode.
+        // Include MOVEA.W/L with full-width, flag-preserving retirement.
+        // Extension/indexed modes outside d16(An) stay on decode.
         if (fw[15:14] == 2'b00 && fw[13:12] != 2'b00 &&
-            fw[8:6] == 3'b000 &&
+            fw[8:7] == 2'b00 && !(fw[6] && fw[13:12] == 2'b01) &&
+            (fw[5:3] == 3'b010 || fw[5:3] == 3'b011 ||
+             fw[5:3] == 3'b100 || fw[5:3] == 3'b101)) begin
+            alu_op <= `AP040_ALU_MOVE;
+            op_size <= fw[6] ? `AP040_SZ_L : fw[13:12] == 2'b01 ? `AP040_SZ_B :
+                       fw[13:12] == 2'b10 ? `AP040_SZ_L : `AP040_SZ_W;
+            p_ssize <= fw[13:12] == 2'b01 ? `AP040_SZ_B :
+                       fw[13:12] == 2'b10 ? `AP040_SZ_L : `AP040_SZ_W;
+            p_dsize <= fw[13:12] == 2'b01 ? `AP040_SZ_B :
+                       fw[13:12] == 2'b10 ? `AP040_SZ_L : `AP040_SZ_W;
+            p_src <= SK_MEM; p_dst <= DK_REG;
+            p_dreg <= {fw[6], fw[11:9]};
+            p_flags <= !fw[6];
+            p_sextw <= fw[6] && fw[13:12] == 2'b11;
+            src_mode_r <= fw[5:3]; src_rn_r <= fw[2:0];
+            rr_a <= {1'b1, fw[2:0]}; rr_b <= {fw[6], fw[11:9]};
+            state <= S_PIPE_START;
+        end
+        // Decode a resident memory-to-memory MOVE target without consuming
+        // either operand. The normal operand path retains address updates,
+        // source-fault priority and destination issue ordering.
+        if (fw[15:14] == 2'b00 && fw[13:12] != 2'b00 &&
+            (fw[8:6] == 3'b010 || fw[8:6] == 3'b011 || fw[8:6] == 3'b100) &&
             (fw[5:3] == 3'b010 || fw[5:3] == 3'b011 ||
              fw[5:3] == 3'b100 || fw[5:3] == 3'b101)) begin
             alu_op <= `AP040_ALU_MOVE;
@@ -3117,10 +3179,10 @@ task decode_dbcc_brf_now;
                        fw[13:12] == 2'b10 ? `AP040_SZ_L : `AP040_SZ_W;
             p_dsize <= fw[13:12] == 2'b01 ? `AP040_SZ_B :
                        fw[13:12] == 2'b10 ? `AP040_SZ_L : `AP040_SZ_W;
-            p_src <= SK_MEM; p_dst <= DK_REG;
-            p_dreg <= {1'b0, fw[11:9]};
+            p_src <= SK_MEM; p_dst <= DK_MEM;
             src_mode_r <= fw[5:3]; src_rn_r <= fw[2:0];
-            rr_a <= {1'b1, fw[2:0]}; rr_b <= {1'b0, fw[11:9]};
+            dst_mode_r <= fw[8:6]; dst_rn_r <= fw[11:9];
+            rr_a <= {1'b1,fw[2:0]};
             state <= S_PIPE_START;
         end
 `endif
@@ -3304,6 +3366,10 @@ wire        hint_data = (state == S_MRD) && !m_issued;
 // and the cache acknowledges a posted store in its request cycle
 // (fast_store).  A store that was not hinted takes the registered
 // acknowledge as before.  (2026-09-19)
+wire hint_st_reg_move = reg_move_store_prepare &&
+    rr_a == {1'b1, dst_rn_r} && !base_landing && !aux_we &&
+    ((dst_mode_r == 3'b101 && epf_ready_pc) || dst_mode_r == 3'b010 ||
+     dst_mode_r == 3'b011 || dst_mode_r == 3'b100);
 wire        hint_st_exec  = (state == S_EXEC) && (p_dst == DK_MEM);
 wire        hint_st_move_ea = (state == S_PIPE_DEA) && !p_rmw &&
     exec_kind == EK_ALU && p_dst == DK_MEM && !p_wbsup &&
@@ -3316,11 +3382,22 @@ wire        hint_st_pushf = ((state == S_DECODE) && (ir[15:8] == 8'h61) &&
 wire        hint_st_push  = (state == S_PEA1) || (state == S_LINK2);
 wire        hint_st_movem = (state == S_MOVEM_LOOP) && !mm_dir;
 wire        hint_st_mwr   = (state == S_MWR) && !m_issued;
-wire        hint_store    = hint_st_move_ea || hint_st_exec || hint_st_pushf || hint_st_push ||
-                            hint_st_movem || hint_st_mwr;
-wire [31:0] hint_store_addr = hint_st_move_ea ? ea_addr :
+// FPU result data and transfer index are registered before these states.
+// Hints do not issue stores; ordinary mwr ordering/fault handling still owns them.
+wire hint_st_fpu = state == S_FPU_WR &&
+    !((fp_nb <= 4'd4 && fp_n != 4'd0) ||
+      (fp_nb == 4'd8 && fp_n == 4'd2) ||
+      (fp_nb == 4'd12 && fp_n == 4'd3));
+wire hint_st_fmovem = state == S_FPU_MVM2 && fp_st && fp_n != 4'd3;
+wire [31:0] hint_st_fpu_addr = t_a +
+    ((hint_st_fpu && fp_nb <= 4'd2) ? 32'd0 : {26'd0, fp_n, 2'b00});
+wire        hint_store    = hint_st_reg_move || hint_st_move_ea || hint_st_exec || hint_st_pushf || hint_st_push ||
+                            hint_st_movem || hint_st_mwr || hint_st_fpu || hint_st_fmovem;
+wire [31:0] hint_store_addr = hint_st_reg_move ? hint_dst_addr :
+                              hint_st_move_ea ? ea_addr :
                               hint_st_exec  ? dst_addr :
                               hint_st_mwr   ? m_addr_r :
+                              (hint_st_fpu || hint_st_fmovem) ? hint_st_fpu_addr :
                               hint_st_movem ? mm_addr :
                               hint_st_pushf ? (dbg_a7_wb - 32'd4) :
                                               (dbg_a7 - 32'd4);
@@ -3444,6 +3521,7 @@ wire [31:0] hint_p2_addr = 32'd0;
 `endif
 wire        hint_bd  = bd_ok && !epf_pend && !mem_req && !sr[15];
 wire [31:0] hint_addr = hint_data  ? m_addr_r :
+                        retire_move_read ? alu_res :
                         hint_p2    ? hint_p2_addr :
                         hint_store ? hint_store_addr :
                         hint_bcc   ? (pc + sxb(ir[7:0])) :
@@ -3466,7 +3544,7 @@ wire [31:0] hint_addr = hint_data  ? m_addr_r :
 assign mem_addr  = mem_addr_q;
 assign mem_instr = mem_instr_q;
 assign mem_hint_addr  = mem_req ? mem_addr_q  : hint_addr;
-assign mem_hint_instr = mem_req ? mem_instr_q : !(hint_data || hint_store || hint_pipe || hint_ea || hint_early_read || hint_fpu_read || hint_pop || hint_p2);
+assign mem_hint_instr = mem_req ? mem_instr_q : !(retire_move_read || hint_data || hint_store || hint_pipe || hint_ea || hint_early_read || hint_fpu_read || hint_pop || hint_p2);
 
 //---------------------------------------------------------------------------
 // main state machine
@@ -5300,6 +5378,22 @@ always @(posedge clk) begin
                         if (p_flags) sr[4:0] <= alu_fl;
                         mwr(dst_addr, p_dsize, alu_res, S_NEXT);
                     end
+                    // The source read has succeeded and the simple destination
+                    // base is settled. Keep its undo/update order, then replace
+                    // the completed read with the ordered destination write.
+                    else if (move_store_read_ready) begin
+                        src_val <= mem_rdata;
+                        dst_addr <= move_store_read_addr;
+                        if (dst_mode_r == 3'b011) begin
+                            rfw({1'b1,dst_rn_r},rf_rdata_a + an_adj(dst_rn_r,p_dsize));
+                            u_rec({1'b1,dst_rn_r},rf_rdata_a);
+                        end else if (dst_mode_r == 3'b100) begin
+                            rfw({1'b1,dst_rn_r},move_store_read_addr);
+                            u_rec({1'b1,dst_rn_r},rf_rdata_a);
+                        end
+                        if (p_flags) sr[4:0] <= alu_fl;
+                        mwr(move_store_read_addr,p_dsize,alu_res,S_NEXT);
+                    end
                     // Begin the destination EA once the source read succeeds.
                     // Faulting or page-split reads retain their original path.
                     else if (r_m_ret == S_PIPE_SDONE && p_src == SK_MEM &&
@@ -5366,6 +5460,44 @@ always @(posedge clk) begin
                         rfw(4'd15, dbg_a7 + 32'd4);
                         go_pc(mem_rdata);
                     end
+                    // Final ordinary FPU operand beat can launch at ack.
+                    // Split transfers still return through S_FPU_RD.
+                    else if (r_m_ret == S_FPU_RD &&
+                             ((fp_nb <= 4'd4 && fp_n != 4'd0) ||
+                              (fp_nb == 4'd8 && fp_n == 4'd2) ||
+                              (fp_nb == 4'd12 && fp_n == 4'd3))) begin
+                        if (fp_nb == 4'd1) fpb[95:88] <= mem_rdata[7:0];
+                        else if (fp_nb == 4'd2) fpb[95:80] <= mem_rdata[15:0];
+                        else case (fp_n)
+                            4'd1: fpb[95:64] <= mem_rdata;
+                            4'd2: fpb[63:32] <= mem_rdata;
+                            default: fpb[31:0] <= mem_rdata;
+                        endcase
+                        fpu_iawe <= 1;
+                        fpu_req <= 1;
+                        state <= S_FPU_GO;
+                    end
+                    // Queue the next ordinary multiword FPU operand read
+                    // after a successful beat. Faults and split transfers retain
+                    // their existing paths; no FPU register commits here.
+                    else if (r_m_ret == S_FPU_RD &&
+                             ((fp_nb == 4'd8 && fp_n == 4'd1) ||
+                              (fp_nb == 4'd12 && (fp_n == 4'd1 || fp_n == 4'd2)))) begin
+                        if (fp_n == 4'd1) fpb[95:64] <= mem_rdata;
+                        else fpb[63:32] <= mem_rdata;
+                        mrd(t_a + {26'd0, fp_n, 2'b00}, `AP040_SZ_L, S_FPU_RD);
+                        fp_n <= fp_n + 4'd1;
+                    end
+                    // Capture a successful FMOVEM read beat at acknowledgement.
+                    // The register commit remains in S_FPU_MVM2 after all words.
+                    else if (r_m_ret == S_FPU_MVM3 && !fp_st) begin
+                        case (fp_n)
+                            4'd1: fpb[95:64] <= mem_rdata;
+                            4'd2: fpb[63:32] <= mem_rdata;
+                            default: fpb[31:0] <= mem_rdata;
+                        endcase
+                        state <= S_FPU_MVM2;
+                    end
 					else if (r_m_ret == S_UNLK3) begin
 						rfw({1'b1, d_rn}, mem_rdata);
 						fetch_next;
@@ -5431,7 +5563,9 @@ always @(posedge clk) begin
                     if (pipe_load_direct) state <= S_EXPERIMENT_PIPE;
                     else
 `endif
-                    if (r_m_ret == S_NEXT) fetch_next;
+                    // Successful ordinary FMOVEM stores need no MVM3 copy step.
+                    if (r_m_ret == S_FPU_MVM3 && fp_st) state <= S_FPU_MVM2;
+                    else if (r_m_ret == S_NEXT) fetch_next;
 					// LINK and PEA: A7 lands with the push's acknowledge and
 					// the instruction retires, as S_LINK4/S_PEA2 would a cycle
 					// later (both stay for the byte-split path).  (2026-09-17)

@@ -342,7 +342,10 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # P147 state-based cache response data selector: same seed, timing evaluation.
 # P147 P109/P120/P147 cache seed24: placement passed, routing congestion failed after40m10s; no fresh RBF or STA.
 # P150 retries identical qualified HDL at seed25; aggressive routability was already ALWAYS.
-set_global_assignment -name SEED 25
+# P150 seed25 2026-09-21: fit completed but CPU clock -19.298 ns, sys->ram -5.557 ns, 40,551 ALMs: the P147 cache response
+# into the fetch queue (mem_addr_q -> epf_data) is one clock too long.  P147 is out of the tree.
+# P165: P162 core (P137..P162 chain) + P124 cache (the last cache that fitted, -0.188 ns at seed 23) + P120 pipeline.
+set_global_assignment -name SEED 23
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
