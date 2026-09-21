@@ -78,3 +78,14 @@ at downstream acknowledgement. Isolated P113b in
 on the first posted-store cycle and uses that snapshot for ordinary merges.
 Directed tests and workload screening of this correction remain pending.
 Production P112 inputs are unchanged while its FPGA build runs.
+
+P113b directed checks pass: all108 overlap cases,396 pending/prepared-read
+observations, existing snoop suite and100 crossing-store cases. Root inspected
+all three logs under its scratch directory. The original P113 failure is a
+byte store followed by another word in the same line, delay2, no injection:
+cached word at0x5004 becomes0xd4xxxxxx instead of0xd4485562. This supports the
+RAM-output lifetime diagnosis. P113b SHA256
+b8a4feab3dd35b18411b2b25635b28580edb0de6f965f866d5efe3888c2c19be.
+Unapplied `scripts/cpu/posted_store_lookup_snapshot.patch` preserves the
+correction relative to P112. Workload reruns, broader integration and hardware
+qualification are still pending.
