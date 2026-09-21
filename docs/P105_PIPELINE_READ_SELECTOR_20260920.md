@@ -24,3 +24,28 @@ commands; it never launched Speedometer. Lack of benchmark evidence was an
 operator omission, not a demonstrated CPU failure. Luna owns a fresh disposable
 retry under scratch/p104_fullguest_retry_20260920 with screenshot verification.
 No new hardware result; best P96 median remains 1.211, goal 1.8 unmet.
+
+## Qualification completed and candidate promoted
+
+Luna completed all three gates with exit 0. Whetstone loop 30,236,820 and
+returned 30,237,470 cycles exactly match P104. Captured stack/globals/code
+are byte-identical; supporting source hashes and fixture/ROM/flags match,
+with only the intended pipeline module changed. This is differential evidence,
+not an independent Whetstone numerical oracle.
+
+Extended real-core integration passed including all IRQ/replay gates.
+First-100 corpus: 1,900 field groups match, zero differences, 28,528,316 cycles;
+artifacts /tmp/cpu-corpus100-gate.lCDKmE. This is not the full corpus.
+Evidence: scratch/p105_pipeline_read_selector_20260920/qualification_summary.txt
+and integration.log; Whetstone artifacts scratch/whetstone_full_p105_20260920.
+
+The exact qualified module SHA256
+9b0e3e00e544e05c29c9b46611a1d2cad9f5aaba144b58d753d889ac22786dbc
+is now applied to production. scripts/cpu/pipeline_read_selector.patch is
+historical/applied. Luna will launch the next fit after this commit is pushed;
+freeze all build inputs through its full wrapper/archive/timing sequence.
+No hardware performance or timing improvement is yet claimed.
+
+First retry of fullguest was invalid: the operator used too-short boot waits
+and incorrect navigation. Root has constrained the next retry to ONLY
+wait 1200000000 and shot, no keys/quit, awaiting root screenshot review.

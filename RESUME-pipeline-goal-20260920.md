@@ -1,3 +1,14 @@
+# P105 qualification passed and exact module promoted
+
+Whet P104/P105 same30236820loop/captures. ExtendedintegrationPASS; first100
+1900groups0diffs,/tmp/cpu-corpus100-gate.lCDKmE. Agentluna_p105_tests ownsnextfit.
+ProductionpipelineSHA9b0e3e00e544e05c29c9b46611a1d2cad9f5aaba144b58d753d889ac22786dbc.
+CoreP104SHA00bb4ff7d713455995ac821b0c8e196f1d16ffa663dadb59efee9d9ba0a37528.
+Next delegatefitaftercommit, freeze buildinputs throughwholewrapper.
+FirstLunasimretry invalidshortwait/incorrectkeys; agentluna_monitor now instructed
+freshvisualrun with ONLYwait1200000000+shot, no keys/quit, await rootreview.
+Noacceptedfullguestscore/hardwarechange. Goal1.8unmet,P96median1.211.
+
 # P105 isolated timing candidate; Luna owns routine operations
 
 P104fitTERMINALallcheckscomplete;FREEZEENDED.39542ALM,CPU-1.019,HDMI-.269,RAM+.141.
