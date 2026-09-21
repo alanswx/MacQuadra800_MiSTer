@@ -748,3 +748,12 @@ have to beat the existing owner handoff cost, not merely support the opcode.
 Next instrumentation splits the MOVE's memory clocks into prefetch/setup/issued
 and cache states to locate an actual removable delay. Current-PC attribution
 is not a complete retirement trace and can include predecessor/successor edges.
+
+P109 follow-up COPY_MEMORY counters at 6112aa show no setup/prefetch-wait
+cycles: all recorded clocks have m_issued set. Reads spend3,100,146clocks in
+cache IDLE,1,550,062in LOOK,1,550,031in PASS, plus133in fill/crossing states.
+Writes spend3,100,089in IDLE,1,550,027in PASS, plus119in fill/tag states.
+Loop clocks remain121,404,444. Thus four read cycles are not mainly an
+unissued request waiting for instruction prefetch. The prior posted store and
+cache lookup are worth investigating; removing an EA state alone would not
+remove those waits. Log: scratch/dhrystone_copy_memory_profile_p109_20260921.
