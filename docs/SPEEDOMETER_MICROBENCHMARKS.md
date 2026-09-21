@@ -713,3 +713,11 @@ capture is rejected; oracle_validation.json records that negative control.
 This is validation of the isolated loop's end state, not the Macintosh timer
 wrapper, physical SDRAM, or hardware score. P105/P108b comparative runs are
 assigned to Luna with the same fixture/bench/flags and these output checks.
+
+Dhrystone controlled comparison: P105125,004,548 loop clocks; P106 and
+P108b both123,104,496. P106 removes1.520% of P105 clocks; P108b has no
+additional gain here. All three pass the derived end-state checker. Root
+verified all five captures byte-identical and all fixture/ROM/flags/latency
+and non-core source identities equal. Evidence
+scratch/dhrystone_full_fixture_20260921_500m/comparison_p105_p106_p108b.json.
+These are controlled CPU fixture cycles, not hardware rates.
