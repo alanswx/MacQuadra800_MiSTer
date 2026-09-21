@@ -23,3 +23,23 @@ completion. The host-qualified posting contract excludes architectural write
 faults; unexpected downstream errors still need defensive testing. Ordering
 relative to subsequent memory requests must be reviewed in the full wrapper.
 No performance result, simulation qualification, fit or hardware test yet.
+
+## P114b rebase onto the corrected store snapshot
+
+Original P114 inherits P113's partial-store corruption and is not qualified.
+P114b instead builds on P113b's saved merge word. Isolated candidate
+scratch/p114b_cached_read_during_post_20260921/ap040_cache.v SHA256
+c52f0ed3ca36edadfbdcb08a4d5799a6614225be5c06336f3c8d2f142b3797e8.
+Unapplied patch scripts/cpu/cached_read_during_post_snapshot.patch depends
+on P113b, not the rejected original P113.
+
+Its separate warm-cache216-case bench passes, observing15 early read
+acknowledgements. The bench permits those only for the independently selected
+other-set address0x5014; same-word, same-line and same-set/different-tag reads
+must still wait. It checks oracle data, cached guard bytes, exactly-once RAM
+writes, latency0/2/6, byte/word/long stores, both posted admission paths,
+snoops and CE pauses. Root inspected p114b.log. Original P113b's strict
+no-early-ack matrix is unchanged. This is initial coverage, not full
+qualification: consecutive reads, uncached/MMIO/miss/error/invalidation
+contracts and full-wrapper checks remain outstanding. Workload screening
+is running separately; production remains frozen for the live P112 fit.

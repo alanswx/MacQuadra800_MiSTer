@@ -115,3 +115,12 @@ IRQ suite. Root confirmed the runner and exceptions simulation live after an
 operator reported completion prematurely; qualification remains pending until
 the entire runner reaches its final PASS. The selected-cache identity manifest
 matches P113b b8a4feab... and P109 core b91c964d....
+
+Extended integration has now finished. Root rechecked the reference trace
+against its oracle, all22 program logs and their ownership equations, and all
+four IRQ/replay logs against the runner's injection/killed/store assertions.
+All pass; selected source hashes match P113b/P109/P105. Evidence:
+scratch/p113b_integration_20260921/root_audit.txt and individual logs.
+The original wrapper exit code was not retained, so this conclusion rests on
+the complete per-stage evidence and independent assertion audit, not a claim
+that its missing terminal output was observed.
