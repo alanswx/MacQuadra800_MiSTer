@@ -29,3 +29,11 @@ against P113b. Independent Dhrystone checker passes. Evidence directories:
 scratch/whetstone_full_p117_20260921 and scratch/dhrystone_full_p117_20260921.
 Extended integration is running in scratch/p117_integration_20260921;
 its intermediate passing stages are not yet a final qualification result.
+
+Extended integration completed successfully. Root inspected the final
+PASS real-core pipeline ownership integration in
+scratch/p117_integration_20260921.log and verified the identity manifest's
+P117 pipeline/P109 core/P113b cache hashes. PEA fault, extension fault,
+trace and IRQ/replay tests pass; IRQ overlap injections3/killed6, load/store/
+PEA injections3/killed3, store and PEA exactly3 stores. The timing experiment
+is qualified for a later fit, not yet applied or proven to improve timing.
