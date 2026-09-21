@@ -21,3 +21,11 @@ Original workload exact-cycle/output screens and extended integration,
 including PEA faults/trace/IRQ/replay, are pending. Synthesis may restructure
 this differently than expected; only a later fit can establish timing impact.
 Production inputs remain frozen for the P113b fit.
+
+Both original workload screens preserve exact baseline clocks: Whetstone
+28,747,437 loop/28,748,087 return; Dhrystone120,954,440/120,955,328.
+Root verified all3/5 captures and all supporting identities except pipeline
+against P113b. Independent Dhrystone checker passes. Evidence directories:
+scratch/whetstone_full_p117_20260921 and scratch/dhrystone_full_p117_20260921.
+Extended integration is running in scratch/p117_integration_20260921;
+its intermediate passing stages are not yet a final qualification result.
