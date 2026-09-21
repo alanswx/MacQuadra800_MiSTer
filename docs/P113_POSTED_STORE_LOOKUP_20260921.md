@@ -41,3 +41,14 @@ Original Dhrystone completes in120,954,440 loop clocks, compared with
 P112's121,404,444 (0.3707% fewer). Luna reports independent end-state PASS
 and all five captures identical. Directed cache/coherence qualification
 remains pending; the gain alone does not qualify this cache change.
+
+Root independently verified Dhrystone's five captures and all supporting
+identities except the cache against P112. Existing standalone cache-snoop
+and cross-store suites pass for P112 and P113 (cross-store100cases covering
+posting, residency, byte lanes, set wrap, CE-frozen snoops and partial errors).
+Evidence: tests_p112/{snoop,xstore}.log and tests_p113/{snoop,xstore}.log under
+the P113 scratch directory. The initial attempts to run the entire CPU suite
+exited127 because the assembler was absent from PATH; those logs are not
+passing qualification. Standalone cache benches require no assembler.
+The new directed ordinary posted-store/read overlap bench is still pending;
+the existing suites do not prove all of its new acceptance/validity cases.
