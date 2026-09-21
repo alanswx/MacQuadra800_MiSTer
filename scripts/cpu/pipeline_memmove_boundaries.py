@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
 """Check memory MOVE retirement boundaries and split-source fallback."""
 import argparse
+import json
+import hashlib
 from pathlib import Path
 import subprocess
 r = Path(__file__).resolve().parents[2]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--core', type=Path, required=True, help='candidate ap040_core.v')
 parser.add_argument('--out', type=Path, required=True)
+parser.add_argument('--cache', type=Path)
+parser.add_argument('--handoff-monitor', action='store_true')
+parser.add_argument('--require-early', action='store_true')
 parser.add_argument('--vasm', default='/home/alans/mister/MacQuadra800_fixtures/wombat-vasm/vasmm68k_mot')
 parser.add_argument('--displacement-destination',action='store_true',help='exercise d16(An) destinations instead of indexed destinations')
 parser.add_argument('--simple-destination',type=int,choices=(2,3,4))
 args = parser.parse_args()
+if args.require_early and not args.handoff_monitor: parser.error('require-early needs handoff-monitor')
 if args.simple_destination and args.displacement_destination: parser.error('choose one destination kind')
 d = args.out.resolve()
 d.mkdir(parents=True, exist_ok=True)
@@ -49,9 +55,14 @@ if args.simple_destination:
  monitor=d/'monitor.sv'
  monitor.write_text(monitor.read_text().replace('`C.dst_mode_r==6',f'`C.dst_mode_r=={args.simple_destination}'))
 units=('ap040_tg68k_compat','ap040_bus16_adapter','ap040_bus_timeout','ap040_alu','ap040_muldiv','ap040_mmu','ap040_cache','ap040_fpu','ap040_walker_cdc','primitives/dpram')
-sources=[r/'rtl/ap68040/tb/tb_ap040_program.v',d/'monitor.sv',args.core.resolve(),rtl/'ap040_regfile.v',exp/'ap040_pipeline_integer.sv',*[rtl/(u+'.v') for u in units]]
+sources=[r/'rtl/ap68040/tb/tb_ap040_program.v',d/'monitor.sv',args.core.resolve(),rtl/'ap040_regfile.v',exp/'ap040_pipeline_integer.sv',*[(args.cache.resolve() if u=='ap040_cache' and args.cache else rtl/(u+'.v')) for u in units]]
 flags=['-DAP040_EXPERIMENTAL_'+x for x in ('XSTORE','LEA','PIPELINE','PIPELINE_LOADS','PIPELINE_STORES','PIPELINE_PEA','PIPELINE_P6')]+['-DAP040_PIPELINE_COMPARE','-DAP040_PIPELINE_MEMORY_ENTRY','-DAP040_PIPELINE_EARLY_DRAIN']
-run(['iverilog','-g2012','-I',rtl,'-s','tb_ap040_program','-s','fallback_monitor',*flags,'-o',d/'test.vvp',*sources],'compile.log')
+extra=[]
+if args.handoff_monitor:
+ sources.append(r/'scripts/cpu/move_read_write_handoff_monitor.sv')
+ extra=['-s','root_handoff_monitor']
+(d/'identity.json').write_text(json.dumps({'sources':{str(x):hashlib.sha256(x.read_bytes()).hexdigest() for x in sources},'flags':flags},indent=2)+'\n')
+run(['iverilog','-g2012','-I',rtl,'-s','tb_ap040_program','-s','fallback_monitor',*extra,*flags,'-o',d/'test.vvp',*sources],'compile.log')
 for name in (('irq','t1','alias','split') if (args.displacement_destination or args.simple_destination) else ('irq','t1','alias','full','split')):
  src=0xcfff if name=='split' else 0xc000
  dst=0xc102 if name=='alias' else 0xc100
@@ -121,6 +132,6 @@ failed:
  (d/(name+'.s')).write_text(asm)
  run([args.vasm,'-Fbin','-m68040','-no-opt','-o',d/(name+'.bin'),d/(name+'.s')],name+'_asm.log')
  run(['python3',r/'rtl/ap68040/tb/bin2hex.py',d/(name+'.bin'),d/(name+'.hex')],name+'_hex.log')
- run(['vvp',d/'test.vvp','+prog='+str(d/(name+'.hex')),'+shortcuts='+str(0 if name=='split' else 3),'+irq='+str(int(name=='irq'))],name+'.log')
- log=(d/(name+'.log')).read_text();assert 'ALL TESTS PASSED' in log and 'FAIL:' not in log,log[-2400:]
+ run(['vvp',d/'test.vvp','+prog='+str(d/(name+'.hex')),'+shortcuts='+str(0 if name=='split' else 3),'+irq='+str(int(name=='irq')),'+require_early='+str(int(args.require_early and name!='split'))],name+'.log')
+ log=(d/(name+'.log')).read_text();assert 'ALL TESTS PASSED' in log and all(x not in log for x in ('FAIL','FATAL','ERROR')),log[-2400:]
  print(name,'PASS',next(l for l in log.splitlines() if l.startswith('MOVE_ACK')),flush=True)
