@@ -15,7 +15,12 @@ remains. Source faults and split reads keep their existing completion paths.
 Preparing a register selector causes no memory access or architectural update.
 Byte A7 adjustments still use an_adj, and rollback still uses u_rec.
 
-Luna owns the Whetstone/value/boundary/fault/RTE screen. Results pending.
+Initial Luna screen passed: full Whetstone 30,236,820 -> 29,454,150 loop
+clocks (2.588% fewer), with identical stack/global/code captures. This is
+differential correctness, not an independent numerical oracle. Simple
+destination modes 2/3/4 passed value, boundary and fault gates; the 4K MMU
+restart gate passed. Broader CPU integration/corpus and additional A7 byte
+adjustment tests are now assigned to Luna; results pending.
 The existing value monitor's direct-EA coverage expects MRD->EA_DISP; do not
 use --require-direct-ea to claim this new MRD->PIPE_DEA transition is covered.
 Existing value/CCR/alias/guard checks and acknowledgement counts remain enabled.
