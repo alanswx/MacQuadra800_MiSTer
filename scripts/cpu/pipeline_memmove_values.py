@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 """Check indexed or displacement memory MOVE values, CCRs, aliases and byte guards."""
 import argparse
+import hashlib
+import json
 from pathlib import Path
 import subprocess
 r=Path(__file__).resolve().parents[2]
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--core',type=Path,required=True)
+parser.add_argument('--cache',type=Path,help='explicit cache snapshot (default production cache)')
+parser.add_argument('--handoff-monitor',choices=('basic','exact'),help='check the actual read-to-write handoff')
+parser.add_argument('--require-early',action='store_true',help='require actual early handoff coverage')
 parser.add_argument('--out',type=Path,required=True)
 parser.add_argument('--require-direct-ea',action='store_true',help='require coverage of source acknowledgement directly entering destination calculation')
 parser.add_argument('--vasm',default='/home/alans/mister/MacQuadra800_fixtures/wombat-vasm/vasmm68k_mot')
@@ -13,6 +18,8 @@ parser.add_argument('--displacement-destination',action='store_true',help='exerc
 parser.add_argument('--simple-destination',type=int,choices=(2,3,4),help='test (An), (An)+ or -(An) destinations')
 parser.add_argument('--stack-register',choices=('source','destination'),help='use A7 for one base, including byte adjustment by two')
 args=parser.parse_args()
+if args.require_early and not args.handoff_monitor: parser.error('require-early requires handoff-monitor')
+if args.handoff_monitor and not args.simple_destination: parser.error('handoff-monitor requires simple-destination')
 if args.stack_register and not args.simple_destination: parser.error('stack-register requires simple-destination')
 if args.simple_destination and args.displacement_destination: parser.error('choose one destination kind')
 d=args.out.resolve();d.mkdir(parents=True,exist_ok=True)
@@ -109,9 +116,15 @@ if args.simple_destination:
  monitor=d/'monitor.sv'
  monitor.write_text(monitor.read_text().replace('`C.dst_mode_r==6',f'`C.dst_mode_r=={args.simple_destination}').replace('`C.state==`C.S_EA_EXTW2','`C.state==`C.S_EA_DISP'))
 units=('ap040_tg68k_compat','ap040_bus16_adapter','ap040_bus_timeout','ap040_alu','ap040_muldiv','ap040_mmu','ap040_cache','ap040_fpu','ap040_walker_cdc','primitives/dpram')
-sources=[r/'rtl/ap68040/tb/tb_ap040_program.v',d/'monitor.sv',args.core.resolve(),rtl/'ap040_regfile.v',exp/'ap040_pipeline_integer.sv',*[rtl/(u+'.v') for u in units]]
+sources=[r/'rtl/ap68040/tb/tb_ap040_program.v',d/'monitor.sv',args.core.resolve(),rtl/'ap040_regfile.v',exp/'ap040_pipeline_integer.sv',*[(args.cache.resolve() if u=='ap040_cache' and args.cache else rtl/(u+'.v')) for u in units]]
 flags=['-DAP040_EXPERIMENTAL_'+x for x in ('XSTORE','LEA','PIPELINE','PIPELINE_LOADS','PIPELINE_STORES','PIPELINE_PEA','PIPELINE_P6')]+['-DAP040_PIPELINE_COMPARE','-DAP040_PIPELINE_MEMORY_ENTRY','-DAP040_PIPELINE_EARLY_DRAIN']
-run(['iverilog','-g2012','-I',rtl,'-s','tb_ap040_program','-s','move_monitor',*flags,'-o',d/'test.vvp',*sources],'compile.log')
-run(['vvp',d/'test.vvp','+prog='+str(d/'test.hex'),'+require_direct='+str(int(args.require_direct_ea))],'run.log')
-s=(d/'run.log').read_text();assert 'ALL TESTS PASSED' in s and 'FAIL:' not in s,s[-2500:]
+monitor_args=[]
+if args.handoff_monitor:
+ extra='move_read_write_exact_monitor.sv' if args.handoff_monitor=='exact' else 'move_read_write_handoff_monitor.sv'
+ sources.append(r/'scripts/cpu'/extra)
+ monitor_args=['-s','root_handoff_exact_monitor' if args.handoff_monitor=='exact' else 'root_handoff_monitor']
+(d/'identity.json').write_text(json.dumps({'sources':{str(x):hashlib.sha256(x.read_bytes()).hexdigest() for x in sources},'flags':flags,'args':{k:str(v) for k,v in vars(args).items()}},indent=2)+'\n')
+run(['iverilog','-g2012','-I',rtl,'-s','tb_ap040_program','-s','move_monitor',*monitor_args,*flags,'-o',d/'test.vvp',*sources],'compile.log')
+run(['vvp',d/'test.vvp','+prog='+str(d/'test.hex'),'+require_direct='+str(int(args.require_direct_ea)),'+require_early='+str(int(args.require_early))],'run.log')
+s=(d/'run.log').read_text();assert 'ALL TESTS PASSED' in s and all(bad not in s for bad in ('FAIL','FATAL','ERROR')),s[-2500:]
 print(k,'fixtures PASS',s[-500:])
