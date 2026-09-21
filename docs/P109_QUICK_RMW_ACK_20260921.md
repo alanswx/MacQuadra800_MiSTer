@@ -61,3 +61,21 @@ After P108b's complete fit/STA/archive wrapper terminated and no Quartus
 process remained, the exact screened P109 core was applied for FPGA
 evaluation. quick_rmw_read_ack.patch is now historical/APPLIED.
 No hardware performance claim is made for P109.
+
+## FPGA fit and timing diagnosis
+
+Seed23 fit completed, Quartus compile17m01s; build wrapper returned1 for
+failed timing. Source, cross-domain and detailed STA exits are0, whole unit
+terminal/MainPID0. Uses39,531ALMs,25,631registers,482RAMblocks,42DSPblocks.
+CPU setup -0.522 ns, RAM +0.416 ns, HDMI -0.709 ns. This is not release timing.
+Archived MacQuadra800_p109_quick_rmw_ack_212be61.rbf SHA256
+ a852e2bca20833dda785225de1bcc64ee58b32e791bd3155ee150b1fbebe05d3
+under scratch/p109_quick_rmw_ack_fit_20260921.
+
+Root inspected the worst detailed path: cache tag RAM -> hint hit comparison
+hh2 -> way/word Add3 -> data mux -> integer_pipeline ALU flags -> rd_bcc_fl ->
+branch seed -> epf_data[7][12]. It spans25logic levels,29.171ns data delay,
+-1.504ns clock skew. The reported worst path does not run through the new
+quick-RMW store calculation; this does not prove the change had no placement
+impact. P112 investigates pre-rotating data words before late tag selection,
+preserving cycle semantics while attempting to shorten this path.
