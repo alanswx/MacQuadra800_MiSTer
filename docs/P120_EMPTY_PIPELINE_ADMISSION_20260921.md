@@ -20,3 +20,12 @@ extended integration, standalone pipeline admission/stream/backpressure/CE/
 flush tests, precise IRQ and fault replay, partial-register/forwarding cases,
 and a timing/area fit. The new admission mux may affect timing and area.
 Production remains frozen for the P113b fit; no promotion is implied.
+
+Initial performance screens: Whetstone unchanged28,747,437 loop/28,748,087
+return. Dhrystone improves120,954,440 ->119,854,443 loop clocks (0.9094%),
+return119,855,331. Root verified all3/5 captures and non-pipeline identities
+against P113b; independent Dhrystone checker passes. Logs under
+scratch/{whetstone,dhrystone}_full_p120_20260921. Baseline Whetstone has no
+S_EXPERIMENT_PIPE cycles, so its unchanged result does not exercise this
+optimization. Extended integration and standalone admission coverage remain
+pending; the gain alone does not qualify promotion.

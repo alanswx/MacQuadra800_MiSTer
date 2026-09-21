@@ -132,3 +132,22 @@ P109/P105; the snapshot patch is now historical/APPLIED. The strict216-case
 bench is preserved as scripts/cpu/tb_cache_posted_read_matrix.sv (module
 tb_posted_read_matrix). P114b early acceptance remains unapplied. No hardware
 qualification or completed FPGA timing result is claimed for P113b yet.
+
+## P113b FPGA result
+
+Seed23 full wrapper completed in15m55s. Synthesis and fitting succeeded;
+build exit1 is the HDMI timing miss. Source identity, cross-domain STA and
+detailed CPU STA exited0. CPU setup+0.579ns, RAM+0.442ns, HDMI-0.205ns;
+sys-to-RAM minimum+0.936ns, RAM-to-sys+0.579ns. Uses40,050ALMs,
+25,685registers,482RAMblocks,42DSPblocks. Root read the RAM Summary:
+ctag is a512x86 true-dual-port M10K; four cdata arrays remain2048x32 AUTO
+simple-dual-port RAMs. PortB address is clocked, output unregistered, matching
+the synchronous lookup design; invalidation/port-write guards exclude mixed
+read/write ambiguity from fast-hit qualification.
+
+Archive scratch/p113b_posted_store_snapshot_fit_20260921 contains reports,
+source/check manifests, detailed CPU paths and both cross reports.
+Artifact MacQuadra800_p113b_posted_store_snapshot_a7bd91c.rbf SHA256
+4e782049749258c9d4f81ffbc03cc80c8ed3abd4c5d93cec787239cc92bb8dbe.
+Development hardware testing is next; HDMI miss and omitted CD/audio/Ethernet
+still prevent release qualification. No P113b hardware score is claimed yet.

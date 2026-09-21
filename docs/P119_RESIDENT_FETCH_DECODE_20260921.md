@@ -22,3 +22,11 @@ exception-handler entry, privilege/A7-bank transition, immediate-word count,
 queue-forward collision and extension/fetch-fault checks. No timing or
 hardware result is claimed. This is a fetch/decode overlap experiment, not a
 change to architectural instruction semantics or clock frequency.
+
+Initial screens are output-identical but the gain is small: Whetstone
+28,720,671 loop/28,721,320 return (26,766 fewer loop clocks,0.0931%);
+Dhrystone loop unchanged120,954,440, return120,955,327 (one clock less outside
+the measured loop). Root verified all captures and non-core identities,
+and ran the independent Dhrystone checker: PASS. Evidence directories
+scratch/{whetstone,dhrystone}_full_p119_resident_20260921. Parked without
+broader qualification or a fit; P120's admission change has the larger gain.
