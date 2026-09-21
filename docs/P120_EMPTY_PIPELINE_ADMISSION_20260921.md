@@ -39,3 +39,5 @@ Admission boundary qualification completed: scratch/p120_admission_20260921/boun
 P120 is qualified for an isolated FPGA fit with P109 core/P113b cache. P117 and P122 remain separate. The current P122 integration must finish before production pipeline source changes, because its later IRQ compiles still refer to the current production file.
 
 P122 integration is terminal and root-audited. Promoted the exact P120 pipeline hash for the next FPGA fit, retaining P109 core and P113b cache. The unapplied-patch description above is historical; empty_pipeline_admit.patch is now applied. No FPGA result or hardware speedup is claimed yet.
+
+Fit launched from commit a102f76 as q800-p120-empty-pipeline-admit-fit-20260921.service. Root confirmed wrapper PID 182559 and quartus_sh PID 182583 live. Archive: scratch/p120_empty_pipeline_admit_fit_20260921. Tracked HDL/QSF/QIP/SDC are frozen through terminal wrapper completion. No result yet.
