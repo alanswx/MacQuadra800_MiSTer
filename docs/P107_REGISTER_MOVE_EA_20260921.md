@@ -12,5 +12,15 @@ as memory/immediate sources already do, instead of spending S_EXEC.
 Read-modify-write operations and write-suppressed operations remain excluded.
 Destination address updates and exception rollback remain in the EA engine.
 
-Whetstone screening and directed register-store correctness gates pending.
+Whetstone screening: 30,236,820 -> 30,226,369 loop clocks (0.0346% fewer),
+with identical stack/globals/code captures. This is too small a Whetstone
+benefit to prioritize for the next fit; other benchmark effects are unknown.
+Dedicated pipeline_stores and pipeline_store_fault cases passed.
+The --stores --force-decode handoff wrapper stopped at an exception accounting
+assertion. An identical P105 baseline run reproduces the same counts:
+entries=1518, commits=1515, cancelled=0, stores=420, although architectural
+checks report ALL TESTS PASSED. No assertion was weakened. This particular
+wrapper run is not a passing broad qualification gate for either candidate.
+Artifacts: scratch/whetstone_full_p107_20260921/comparison.json and
+scratch/p105_store_tests_20260921. P107 remains unpromoted.
 No production RTL changes, fit or hardware qualification.

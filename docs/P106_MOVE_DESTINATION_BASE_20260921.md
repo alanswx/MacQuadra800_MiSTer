@@ -23,8 +23,11 @@ restart gate passed. Additional A7 source/destination gates pass for both P105 a
 of the 12 invocations covers 144 value/CCR/address/guard fixtures across
 three bus phases, including byte adjustment by two and aliased A7. Generated
 assembly and completed run logs were inspected. These are successful-access
-checks; they do not extend the existing fault/RTE gate to A7. Broader CPU
-integration/corpus is running under Luna; results pending.
+checks; they do not extend the existing fault/RTE gate to A7. Extended CPU integration passed under scratch/p106_move_dest_base_20260921/integration,
+including 14,720 architectural snapshots and fault/replay/ownership checks.
+The corpus launch initially used system Verilator 4.204, which lacks --binary;
+it is being rerun with established /home/alans/verilator5/bin/verilator.
+Corpus results remain pending.
 The existing value monitor's direct-EA coverage expects MRD->EA_DISP; do not
 use --require-direct-ea to claim this new MRD->PIPE_DEA transition is covered.
 Existing value/CCR/alias/guard checks and acknowledgement counts remain enabled.
