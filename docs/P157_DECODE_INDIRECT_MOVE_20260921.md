@@ -1,0 +1,7 @@
+# P157 decode-time indirect MOVE source read
+
+Unqualified scratch experiment over P154. Source `scratch/p157_decode_indirect_move_20260921/ap040_core.v`, SHA256 `1f663be98e42bf260e89b34d5409d734dcc090a2de91df61f99aad1a8db71732`. Patch `scripts/cpu/decode_indirect_move_read.patch` applies to P154.
+
+P155 found320,820 S_PIPE_START clocks for opcode2f10, the most frequent preparation opcode. In normal apply_record_decode only, P157 calls the existing mrd machinery directly for a memory-to-memory MOVE with source mode2 when portA already selects the source An, neither register write port is active, the decoded fields are valid and the following instruction is prefetched. It copies x_ext as S_PIPE_START would. Source postincrement/predecrement, other operation classes, unsettled ports and retire-time record application keep the existing path. Destination preparation/flags/writes still wait for source completion.
+
+No source register update is moved earlier. The ordinary memory issue/ack/fault/split machinery is reused. The changed decode-to-data-request scheduling and cache hint readiness must be measured and tested; guards alone do not prove correctness or timing. First screen original Whetstone with explicitP120/P136 against P15425330407/25331035 cycles and captures. Full integration, source/destination faults, aliases, trace/IRQ and positive actual decode-read coverage are required if the screen warrants continuing. No measurement, fit or hardware result yet; production is frozen for P150.
