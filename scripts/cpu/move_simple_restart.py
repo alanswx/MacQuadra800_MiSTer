@@ -6,7 +6,10 @@ import subprocess
 R=Path(__file__).resolve().parents[2]
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--core',type=Path,required=True);p.add_argument('--out',type=Path,required=True)
-a=p.parse_args();d=a.out.resolve();d.mkdir(parents=True,exist_ok=True)
+p.add_argument('--displacement-destination',type=int,help='use d16(An) with this signed displacement instead of simple modes')
+a=p.parse_args()
+if a.displacement_destination is not None and not -32768<=a.displacement_destination<=32767: p.error('displacement must fit signed 16 bits')
+d=a.out.resolve();d.mkdir(parents=True,exist_ok=True)
 rtl=R/'rtl/ap68040/rtl'
 def run(cmd,name):
  with (d/name).open('w') as f:
@@ -16,15 +19,16 @@ flags=['-DAP040_EXPERIMENTAL_'+x for x in ['XSTORE','LEA','PIPELINE','PIPELINE_L
 run(['iverilog','-g2012','-I',rtl,'-s','tb_ap040_program',*flags,'-o',d/'bench.vvp',R/'rtl/ap68040/tb/tb_ap040_program.v',a.core.resolve(),R/'rtl/ap68040/experimental/ap040_pipeline_integer.sv',*[rtl/(u+'.v') for u in units]],'compile.log')
 for suffix,n in [('b',1),('w',2),('l',4)]:
  for sm in (3,4):
-  for dm in (2,3,4):
+  for dm in ((5,) if a.displacement_destination is not None else (2,3,4)):
    for fault in ('source','destination'):
     name=f'{suffix}_src{sm}_dst{dm}_{fault}'
     sa=0xb040+(n if sm==4 else 0);da=0xc100+(n if dm==4 else 0)
+    if dm==5: da=0xc100-a.displacement_destination
     sf=sa+(n if sm==3 else -n);df=da+(n if dm==3 else -n if dm==4 else 0)
     page=11 if fault=='source' else 12;desc=0x4400+page*4
     fa=0xb040 if fault=='source' else 0xc100
     sr=0x271f if fault=='source' else 0x2718
-    source='(a0)+' if sm==3 else '-(a0)';dest={2:'(a1)',3:'(a1)+',4:'-(a1)'}[dm]
+    source='(a0)+' if sm==3 else '-(a0)';dest=f'({a.displacement_destination},a1)' if dm==5 else {2:'(a1)',3:'(a1)+',4:'-(a1)'}[dm]
     value=(1<<(n*8-1))|1
     asm=f''' org 0
  dc.l $3400,start,handler

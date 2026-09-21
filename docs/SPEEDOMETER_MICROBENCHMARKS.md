@@ -655,3 +655,25 @@ A9EB0x12 after a comparison. Additional A9EB0x08 compares occur in the last two.
 These resource-relative destinations are established from the actual loader;
 live guest A9EB/A9EC handler addresses and their runtime costs remain unknown.
 Next resolve installed trap handlers in the running guest and profile that code.
+
+## Dhrystone string runtime resolution (2026-09-21)
+
+Original DATA0 slots resolve A5+0x40 to CODE6+0x125e and A5+0x48 to
+CODE6+0x1296 (lazy slot bytes a9f00000125e0006 / a9f0000012960006).
+CODE3 XREF marks the three JSR fields at 0xc92, 0xca0, 0xccc as A5+0x48,
+and Func2's call at 0x10c2 as A5+0x40. These are original application runtime
+routines, not Toolbox calls. Static disassembly identifies unsigned-byte
+NUL-terminated string comparison (returns -1/0/+1) and string copying
+(including the terminator, returning destination in A0). Neither calls out.
+
+Byte-exact ranges: compare [0x125e,0x1296), SHA256
+3ed9468606fbe86ccec9c51beb76eaaf181cbf318482a33347c088a1ead54ce6;
+copy [0x1296,0x12b6), SHA256
+58fea67fc4db6341def0e9bd1271e5621c63d182bdd524466fd1f32542f88dfe.
+Evidence: scratch/dhrystone_inventory_20260920/runtime.json and runtime.dis.
+
+This resolves the previously missing string dependency. A standalone workload
+still needs original helper relocations and DATA0 globals, deterministic
+record storage, an explicit entry/exit outside the original 50,000-iteration
+loop, and an independent result oracle. No Dhrystone execution or performance
+claim follows from this static resolution.
