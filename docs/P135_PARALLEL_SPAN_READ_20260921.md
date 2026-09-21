@@ -1,0 +1,7 @@
+# P135 parallel spanning-word cache read
+
+Unqualified isolated prototype over P134, using explicit P109 core and P120 pipeline. Cache SHA256 bb545fa8b141bec65f32a852cb4caeb2e1bfae9694aa3db7e679005eb338f9b9, source `scratch/p135_parallel_span_read_20260921/ap040_cache.v`, unapplied patch `scripts/cpu/parallel_span_read.patch` over P134.
+
+The existing four rotated data RAM banks initially read one requested word across all ways. A within-line spanning access then reads the selected way as a line to obtain its second word. P135 duplicates the four physical data arrays, broadcasting identical writes and reading the next word of every way through the mirrored arrays. Cache capacity and replacement policy stay unchanged. Qualified warm data spans can acknowledge in C_IDLE or the first C_LOOK stage, avoiding the extra pair-read stage. Cross-line, instruction, miss, snoop and error handling retain their existing paths; those claims require directed verification.
+
+Original workload screens are queued against P134's 27,165,355 Whetstone and 112,554,337 Dhrystone loop clocks. No gain, correctness or timing result is claimed yet. Extra physical RAM, write fanout and wider word selection may hurt routing/timing. Required gates include duplicate-bank update correctness across fills/partial and spanning stores, snoops/errors, actual early-pair paths, exact-once/no-gap and CE pause, full CPU/IRQ integration, RAM inference and full FPGA fit. Production HDL remains frozen for the independent P130 seed-24 flow.
