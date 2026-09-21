@@ -15,11 +15,11 @@ marked invalid. A populated pipeline and any retained transaction use the
 existing ID path. This targets the startup clock paid at each pipeline entry
 without expanding opcode support or changing the memory execution stage.
 
-Original Whetstone/Dhrystone screens are pending. A gain would still require
+Performance screens are recorded below. Promotion still requires
 extended integration, standalone pipeline admission/stream/backpressure/CE/
 flush tests, precise IRQ and fault replay, partial-register/forwarding cases,
 and a timing/area fit. The new admission mux may affect timing and area.
-Production remains frozen for the P113b fit; no promotion is implied.
+P113b fitting has completed; P120 remains isolated and unpromoted.
 
 Initial performance screens: Whetstone unchanged28,747,437 loop/28,748,087
 return. Dhrystone improves120,954,440 ->119,854,443 loop clocks (0.9094%),
@@ -29,3 +29,5 @@ scratch/{whetstone,dhrystone}_full_p120_20260921. Baseline Whetstone has no
 S_EXPERIMENT_PIPE cycles, so its unchanged result does not exercise this
 optimization. Extended integration and standalone admission coverage remain
 pending; the gain alone does not qualify promotion.
+
+Root integration audit (2026-09-21): selected source hashes match P120/P109/P113b; architectural trace matches the independent oracle; all 22 program logs pass with entries = commits + cancelled. Four interrupt/replay groups each exercise three injections, with 3/6 killed instructions and exactly three stores in the store/PEA tests. Evidence: scratch/p120_integration_20260921/{identity.json,root_audit.txt,*log}. The standalone prerequisite hardcoded the default P105 pipeline, so its six modes and mutation controls do not qualify P120. Candidate-specific standalone testing is being rerun with an explicit module override. No timing or hardware result exists for P120.
