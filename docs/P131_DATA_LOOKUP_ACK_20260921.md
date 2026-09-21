@@ -1,0 +1,9 @@
+# P131 ordinary data lookup acknowledgement
+
+Isolated, unqualified experiment over P124, with explicit P109 core and P120 pipeline. Cache SHA256 af6a5f02bfd44b7feebf74212f2673edc24f406163d610387350082da7f8337e, source `scratch/p131_data_lookup_ack_20260921/ap040_cache.v`, unapplied patch `scripts/cpu/data_lookup_ack.patch`.
+
+The hinted C_IDLE data fast path already returns immediately. Ordinary non-spanning data hits that reach C_LOOK still register their acknowledgement for the next cycle. P131 acknowledges the settled lookup word in C_LOOK and suppresses the duplicate registered acknowledgement. It excludes instruction, spanning and crossing transactions and retains request/read, hit, snoop and error guards. Data selection uses registered transaction state; accepted data must remain unchanged.
+
+Original Whetstone/Dhrystone screens are queued against P120/P124 (27,949,845 and 114,804,374 loop cycles respectively). No gain is claimed yet. If useful, qualification needs exact-once and no-gap reads, actual new-path coverage, same-row snoops at admission/lookup/CE pause, partial accesses, errors, ordinary cache/store matrices, full CPU/IRQ regressions and FPGA timing/area before hardware use.
+
+P129 scope correction: the hot normal memory-to-memory MOVE acknowledgement already starts the destination EA in S_MRD. Its new S_PIPE_SDONE bypass targets remaining buffered/split or unsupported destination paths. Whetstone's completed screen is unchanged at 27,949,845 loop / 27,950,495 returned cycles; Dhrystone and output audit remain pending. Do not infer a gain from the hot opcode frequency alone.
