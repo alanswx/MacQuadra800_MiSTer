@@ -36,3 +36,8 @@ scratch/whetstone_full_p113_20260921. This is a controlled-latency simulation,
 not a hardware score, and the Whetstone independent numerical oracle remains
 pending. Dhrystone and directed posted-store/coherence checks are assigned to
 Luna. Candidate is not promoted; P112's whole FPGA wrapper remains active.
+
+Original Dhrystone completes in120,954,440 loop clocks, compared with
+P112's121,404,444 (0.3707% fewer). Luna reports independent end-state PASS
+and all five captures identical. Directed cache/coherence qualification
+remains pending; the gain alone does not qualify this cache change.
