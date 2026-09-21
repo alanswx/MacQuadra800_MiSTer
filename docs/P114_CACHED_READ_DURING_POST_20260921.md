@@ -43,3 +43,9 @@ no-early-ack matrix is unchanged. This is initial coverage, not full
 qualification: consecutive reads, uncached/MMIO/miss/error/invalidation
 contracts and full-wrapper checks remain outstanding. Workload screening
 is running separately; production remains frozen for the live P112 fit.
+
+P114b original Whetstone completed:28,746,160 loop clocks,28,746,810 return.
+Root verified all3 captures and all supporting identities except cache against
+P113b. The additional gain is only1,277 clocks (0.0044%) at latency3.
+Evidence: scratch/whetstone_full_p114b_20260921. Dhrystone screening remains
+pending; this tiny Whetstone benefit alone does not justify promotion or a fit.
