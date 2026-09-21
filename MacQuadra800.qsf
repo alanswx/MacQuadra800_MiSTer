@@ -389,6 +389,10 @@ set_global_assignment -name VERILOG_MACRO "MISTER_DISABLE_ADAPTIVE=1"
 #set_global_assignment -name VERILOG_MACRO "SCSI_TRACE=1"
 set_global_assignment -name VERILOG_MACRO "CDROM_OFF=1"
 set_global_assignment -name VERILOG_MACRO "ETHERNET_OFF=1"
+# P165 2026-09-21: 40,003 ALMs at seed 23 failed routing (peak interconnect 84 %); the
+# CPU alone is 24,300 ALMs.  Development builds now also source the headroom profile
+# (about 3,300 ALMs of framework the benchmark never uses).  Release builds must not.
+source configs/cpu_development.tcl
 # Posted cross-line cache-store merge, validated on hardware.
 set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_XSTORE=1"
 # Overlap LEA displacement fetch with base selection; checked independently.
