@@ -78,3 +78,18 @@ SHA256 bb5267c5a71c5ea3203fceb91760a2d1b33e348afbdd5a235b20811461f1532b.
 Archive scratch/p105readselector_seed23_fit_20260921.
 Luna assigned deployment and five-run hardware benchmark; results pending.
 CD-ROM/audio and Ethernet remain omitted in this development build.
+
+## Hardware series complete
+
+Exact seed23 artifact above booted on mister.local10.3.89.233,33MHz32MB,
+disposable QuadSquad8-pipeline-test-20260919.hda. Five all-ten one-iteration
+runs after at least70 seconds undisturbed each:1.267,1.272,1.272,1.272,1.272.
+Median1.272, mean1.271, compared with P96median1.211 (+5.04%). No invalid
+timer results observed. Initial setup-only navigation attempts are not runs.
+Root visually reviewed all absolute times and Mix values, corrected operator
+transcription errors and the mean, and left occluded normalized ratings null.
+Evidence scratch/hardware_p105readselector_seed23_20260921/results.json;
+original operator record retained as results_operator_original.json.
+Clean shutdown independently verified in shutdown_result.png (safe-off text).
+P106 hardware testing assigned next. This development core still omits
+CD-ROM/audio and Ethernet and is not a feature-complete release.
