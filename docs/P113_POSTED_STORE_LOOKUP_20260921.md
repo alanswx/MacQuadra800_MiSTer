@@ -89,3 +89,10 @@ b8a4feab3dd35b18411b2b25635b28580edb0de6f965f866d5efe3888c2c19be.
 Unapplied `scripts/cpu/posted_store_lookup_snapshot.patch` preserves the
 correction relative to P112. Workload reruns, broader integration and hardware
 qualification are still pending.
+
+Expanded matrix additionally enables same-cycle fast-store admission as well
+as the registered posted acknowledgement path:216 cases pass on both P112
+and P113b, with900 pending observations and0/900 prepared reads respectively.
+Logs: tests_p112/post_matrix216.log and P113b/post_matrix216.log. Full workload
+runs are still being monitored; an observation timeout is not a terminal
+simulation result and no performance claim is made for P113b yet.
