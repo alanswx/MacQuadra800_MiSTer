@@ -7,3 +7,5 @@ P142 measures 160,422 unissued setup and 129,399 prefetch-wait clocks for MOVE.L
 Workload screens and correctness gates pending; no measured gain or production promotion.
 
 Whetstone screen takes 26,244,409 loop / 26,245,037 returned clocks, 638 more than P137. Root verified all captures and non-core identities. Setup and issued memory clocks are unchanged; the entire delta is additional prefetch wait. This does not support this decode-stage policy for Whetstone. Dhrystone screen pending.
+
+Dhrystone is unchanged at 106,054,250 / 106,055,140 returned clocks. Root verified all eight workload captures and every non-core identity. Parked: no workload gain.
