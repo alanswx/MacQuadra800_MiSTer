@@ -757,3 +757,20 @@ Loop clocks remain121,404,444. Thus four read cycles are not mainly an
 unissued request waiting for instruction prefetch. The prior posted store and
 cache lookup are worth investigating; removing an EA state alone would not
 remove those waits. Log: scratch/dhrystone_copy_memory_profile_p109_20260921.
+
+## P115 missed register-descriptor retire opportunities
+
+Simulation-only counters in scratch/p115_decode_retire_profile_20260921
+instrument P109 at the shared descriptor writer: rd_queue_pop && rd_valid &&
+!n_desc_ok && !pipe_claim. With P113b cache, root verified unchanged Whetstone
+28,747,437 and Dhrystone120,954,440 loop clocks, all captured outputs and all
+supporting identities except the instrumented core. Dhrystone's independent
+end-state checker passes. Logs: scratch/{whetstone,dhrystone}_full_p115_profile_20260921.
+
+Whetstone105,870 missed opportunities; Dhrystone450,000. Removing one decode
+cycle at every counted site would save only about0.37% of either workload,
+before correctness restrictions. Dhrystone counts are state28/family5:200,000,
+state30/family2:200,000, state30/family9:50,000. Broadening this retirement
+whitelist is therefore not the next optimization. P116 instead explores
+pipeline admission of d16 MOVE/MOVEA loads, including the original strcpy's
+frequent stack-based pointer loads. Performance screening remains pending.
