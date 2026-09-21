@@ -1,7 +1,8 @@
 # P113 prepare cache lookup while a posted store drains
 
-Isolated cache candidate over P112, keeping P109 core/pipeline unchanged.
-Production inputs remain frozen for the P112 fit. Candidate:
+Current status: original P113 rejected; corrected P113b is promoted and fitted. P113b hardware measurements are in progress. The historical original-candidate notes below are not the selected RTL.
+
+Original candidate over P112, keeping P109 core/pipeline unchanged. Candidate:
 scratch/p113_posted_store_lookup_20260921/ap040_cache.v SHA256
 2378da304f0de74599bdc6db5a76a5fa4fac3b8e6bfd6b34b6f10e96c3062e9f.
 Unapplied patch scripts/cpu/posted_store_lookup.patch.
@@ -21,7 +22,7 @@ The fast-hit data path uses the independent hinted tag read. Its request,
 MMU permission/cacheability, error, snoop and C_IDLE acceptance guards remain.
 No read acknowledges before the previous posted store leaves C_PASS.
 
-Original workload performance/output screening is pending. This changes
+The original candidate initially required workload screening. This changes
 cache behavior and needs directed same-row/different-row store-read, snoop,
 invalidate, reset, CE-pause, MMU protection and error checks, plus integration
 and boot evidence before qualification. Synthesis must also confirm the tag
