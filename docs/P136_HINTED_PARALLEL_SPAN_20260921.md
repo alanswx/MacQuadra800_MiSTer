@@ -28,3 +28,5 @@ The next cache evaluation is planned with P109 core/P120 pipeline/P136 cache, se
 The recipe is prepared, not launched. P130 seed24 still owns the checkout and database; its entire wrapper must terminate before source promotion or any next flow. The staged P136 cache patch is `scratch/p136_hinted_parallel_span_fit_20260921/p136_over_p130.patch`; the tracked constituent patches also reproduce it.
 
 Promoted the exact qualified P136 cache for a seed-24 FPGA evaluation after P130 seed24 routing failed and the entire previous wrapper ended. Production CPU remains P109 and pipeline P120, isolating cache performance from P137/P141 CPU changes. The reviewed `scripts/cpu/fit_hinted_parallel_span.sh` records fresh reports, RAM inference, timing and complete-flow source hashes. No FPGA or hardware result yet.
+
+Fit launched from commit `65440d0` under `q800-p136-hinted-parallel-span-fit-20260921.service`, wrapper PID 424301 / Quartus flow 424351 / mapper 424413. Root verified live processes. Archive `scratch/p136_hinted_parallel_span_fit_20260921`; tracked HDL/QSF/QIP/SDC frozen through full wrapper termination.
