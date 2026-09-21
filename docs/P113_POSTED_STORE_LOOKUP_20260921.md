@@ -52,3 +52,29 @@ exited127 because the assembler was absent from PATH; those logs are not
 passing qualification. Standalone cache benches require no assembler.
 The new directed ordinary posted-store/read overlap bench is still pending;
 the existing suites do not prove all of its new acceptance/validity cases.
+
+## Expanded overlap matrix rejects the original P113 candidate
+
+The root-authored `scratch/p113_posted_store_lookup_20260921/tb_cache_posted_read_matrix.sv`
+warms both lines and tests 108 combinations: byte/word/long stores, four read
+address relationships (same word, another word in the same line, another set,
+and another tag in the same set), downstream delays 0/2/6, and no injection,
+snoop, or snoop with CPU enable paused. An independent byte oracle checks the
+read, RAM, cached store/guard words, and repeated reads. Each store must reach
+RAM exactly once; reads must not acknowledge while the posted store is pending.
+
+P112 passes all 108 cases (`pending=396 prepared=0`). Original P113 fails a
+cached store/guard comparison. Logs are `tests_p112/post_matrix.log` and
+`tests_p113/post_matrix.log`. The earlier `tb_posted_read.sv` report of 100
+cases referred to inherited crossing-store tests plus only one extra cold
+read overlap; it did not establish coverage of the new warm-cache path.
+**Original P113 is rejected despite its workload speed gains.** P114 inherits
+this issue and must not advance on those gains either.
+
+Inspection identifies a likely cause: speculative data reads replace the RAM
+outputs which an outstanding partial store still needs for its byte/word merge
+at downstream acknowledgement. Isolated P113b in
+`scratch/p113b_posted_store_snapshot_20260921/ap040_cache.v` captures the old word
+on the first posted-store cycle and uses that snapshot for ordinary merges.
+Directed tests and workload screening of this correction remain pending.
+Production P112 inputs are unchanged while its FPGA build runs.
