@@ -49,3 +49,10 @@ Root verified all3 captures and all supporting identities except cache against
 P113b. The additional gain is only1,277 clocks (0.0044%) at latency3.
 Evidence: scratch/whetstone_full_p114b_20260921. Dhrystone screening remains
 pending; this tiny Whetstone benefit alone does not justify promotion or a fit.
+
+P114b is parked. Dhrystone completed120,954,440 loop/120,955,328 return clocks,
+identical to P113b, and passed the independent end-state checker. Root verified
+all five captures and supporting identities against P113b. The additional
+ordering/timing complexity is not justified by the tiny Whetstone gain and
+zero Dhrystone gain at the measured latency. No hardware fit is planned for
+this isolated experiment; its outstanding qualification gates remain open.
