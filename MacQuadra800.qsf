@@ -336,6 +336,8 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # hold +0.229, sys->ram +0.804 and ram->sys +0.518 ns.
 # P130 2026-09-21: seed 23 routing congestion, no new RBF/STA; 39,920 ALMs.
 # Retry unchanged P130 RTL at seed 24 after full wrapper terminal.
+# P130 seed24: routing failed, 39882 ALMs/482 RAM; no fresh STA/RBF (2026-09-21).
+# P136 hinted parallel spanning reads: seed24 development evaluation follows.
 set_global_assignment -name SEED 24
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
