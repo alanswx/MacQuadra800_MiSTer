@@ -45,3 +45,19 @@ under scratch/p109_quick_rmw_ack_20260921/quick_rmw_restart.
 Baseline comparison and broader integration/corpus are still being checked.
 This matrix does not cover A7, split operands, IRQ/trace or MMIO side effects.
 No FPGA fit or hardware result exists for P109 yet. Production remains P108b.
+
+## Promotion for FPGA evaluation
+
+P108b baseline also passes the 48-case repair matrix in all three bus phases.
+Extended integration passes, including existing exception, MMU, cache, FPU,
+load/store/PEA, trace, IRQ/replay and ownership checks. These broad tests do
+not replace the missing quick-arithmetic-specific boundary checks above.
+First-100 corpus passes 1,900 field groups with zero differences in
+28,482,938 cycles; root verified candidate and experimental pipeline hashes.
+Evidence: /tmp/cpu-corpus100-gate.Aw34Uf and
+scratch/p109_quick_rmw_ack_20260921/integration.
+
+After P108b's complete fit/STA/archive wrapper terminated and no Quartus
+process remained, the exact screened P109 core was applied for FPGA
+evaluation. quick_rmw_read_ack.patch is now historical/APPLIED.
+No hardware performance claim is made for P109.
