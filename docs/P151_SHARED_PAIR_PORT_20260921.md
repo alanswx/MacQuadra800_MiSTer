@@ -1,0 +1,7 @@
+# P151 shared cache write/read port experiment
+
+Unqualified scratch cache over P147: `scratch/p151_shared_pair_port_20260921/ap040_cache.v`, SHA256 `b8e59ae3ee53141a4709fa9a3bd4a41db80fffbe9d0b1e450b834049382a8836`; patch `scripts/cpu/shared_pair_port.patch`. Production remains frozen for P150 seed25.
+
+P147 routing failed at96%ALMs/502RAMblocks. This experiment removes the mirrored paired-read arrays and shares each primary bank's write port with the paired lookup. Writes retain priority; a registered validity flag disables fast paired acknowledgements following a write collision until a clean paired read occurs. Ordinary word/line reads keep the independent port. Existing slow span paths handle unavailable pair data.
+
+The intended benefit is less RAM duplication and routing fanout, with possible extra cycles after write collisions. Actual block-RAM inference, area and timing are unproven until a future Quartus run; never start one beside P150. First require cache data/control/snoop/error/CE/no-gap tests, original workload captures/cycles, then full CPU integration. No speed, fit or correctness claim yet.
