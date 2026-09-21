@@ -124,3 +124,11 @@ scratch/p113b_integration_20260921/root_audit.txt and individual logs.
 The original wrapper exit code was not retained, so this conclusion rests on
 the complete per-stage evidence and independent assertion audit, not a claim
 that its missing terminal output was observed.
+
+After P112's complete wrapper terminated, the exact P113b cache
+b8a4feab3dd35b18411b2b25635b28580edb0de6f965f866d5efe3888c2c19be
+is applied to production for synthesis/timing evaluation. Core/pipeline stay
+P109/P105; the snapshot patch is now historical/APPLIED. The strict216-case
+bench is preserved as scripts/cpu/tb_cache_posted_read_matrix.sv (module
+tb_posted_read_matrix). P114b early acceptance remains unapplied. No hardware
+qualification or completed FPGA timing result is claimed for P113b yet.

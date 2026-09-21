@@ -32,3 +32,17 @@ P109's whole wrapper is terminal and no Quartus process remains. The exact
 screened cache is now applied to production for the next single seed23 fit;
 the patch is historical/APPLIED. Core and pipeline remain P109/P105. This is
 a timing experiment with unchanged simulated speed, not a measured speedup.
+
+## FPGA result: CPU timing still fails
+
+The full seed23 wrapper finished in40m25s: successful synthesis/fitting,
+build exit1 for timing, source check/cross STA/detailed CPU STA all exit0.
+CPU setup-1.166ns, HDMI+0.187ns, RAM+0.224ns;39,802ALMs,25,638registers,
+482RAMblocks,42DSPblocks. The worst path has moved to core sr[13] through
+logic ending at epf_data[1][11], data delay30.775ns and skew-0.544ns.
+This fit does not demonstrate a timing improvement; no P112 hardware score
+is claimed. Archive scratch/p112_cache_hint_word_select_fit_20260921.
+Its original wrapper mislabeled the bitstream P109 although source identity
+is P112: MacQuadra800_p109_quick_rmw_ack_8539160.rbf, SHA256
+fa8ac3b35a823aabcf72103cca54bc83d6dfc736b247598dde1db37da5bc9772.
+A correctly named copy is being archived without changing those bytes.
