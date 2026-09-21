@@ -1,7 +1,13 @@
 # P147 state-based cache response-data selection
 
-Unqualified timing candidate over P136 cache, SHA256 `415efd9b2b96eb0972e6f3f75bf8b7ecd85e43b9e2aa78313de9256f1ff54aa3` at `scratch/p147_cache_response_data_20260921/ap040_cache.v`. Patch `scripts/cpu/cache_response_data_select.patch`.
+Simulation-qualified timing candidate over P136 cache, SHA256 `415efd9b2b96eb0972e6f3f75bf8b7ecd85e43b9e2aa78313de9256f1ff54aa3` at `scratch/p147_cache_response_data_20260921/ap040_cache.v`. Patch `scripts/cpu/cache_response_data_select.patch`.
 
 P136 fits at 40,228 ALMs and 502 RAM blocks, but CPU setup is -5.481 ns. Root inspected the actual 32-level worst path: MMU ATC RAM/tag selection and physical address qualification drive fast_ifetch_idle, which selects c_rdata, then pipeline load ALU/flags and branch-refill writes into epf_data. Live request qualification therefore selects DATA values even when its qualified instruction-read arm cannot be accepted.
 
 P147 keeps every acknowledge/error condition unchanged and selects data from response state plus request/hint shape. C_IDLE with ack_r retains rdata_r; other idle reads select instruction data or the hinted aligned/pair data. C_LOOK instruction/data/paired responses select from registered transaction shape. Unacknowledged data may differ and is not valid response evidence. Timing improvement requires a new fit. Before promotion, require cycle-identical acknowledgements and accepted data, cache snoop/error/CE/no-gap regressions, full CPU integration and identical workload cycles/captures.
+
+Promoted for FPGA evaluation after root verification: all 22 CPU programs and four IRQ/replay gates pass with balanced HANDOFF accounting, exact oracle trace and recorded source identities. P109/P120 workload cycles are identical to P136: Whetstone 26,243,771 / 26,244,399 returned; Dhrystone 107,504,306 / 107,505,196 returned. All eight captures and every non-cache identity match; the independent Dhrystone checker passes.
+
+Directed hint/way/partial-write, exact-once/no-gap, CE pause, snoop, XSTORE100 and posted216 gates pass. Paired P136/P147 benches compare 28 accepted reads over 1,183 clocks and 342 over 18,930 clocks, requiring identical control/master transactions, accepted read values and line offers. Instruction-cache contract passes with 20/20 requests/acks, fast idle1/lookup5 and admission/lookup/paused snoop windows1/1/1. Initial span/snoop failures used missing P131 latency defines; initial I-cache runs lacked coverage defines. Only the corrected flagged runs qualify this result.
+
+Use reviewed `scripts/cpu/fit_cache_response_data.sh`: P109 core, P120 pipeline, P147 cache, seed24, development CD-ROM/audio and Ethernet omitted. No new CPU optimization is included. FPGA timing and hardware performance remain pending.

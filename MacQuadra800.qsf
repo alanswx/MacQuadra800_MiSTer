@@ -338,6 +338,8 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # Retry unchanged P130 RTL at seed 24 after full wrapper terminal.
 # P130 seed24: routing failed, 39882 ALMs/482 RAM; no fresh STA/RBF (2026-09-21).
 # P136 hinted parallel spanning reads: seed24 development evaluation follows.
+# P136 seed24 fit: 40228 ALMs/502 RAM, CPU -5.481 ns; HDMI -0.373 ns.
+# P147 state-based cache response data selector: same seed, timing evaluation.
 set_global_assignment -name SEED 24
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
