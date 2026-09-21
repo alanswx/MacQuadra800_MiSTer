@@ -1,0 +1,9 @@
+# P163 combined CPU and shared cache fit preparation
+
+Prepared, not launched: `scripts/cpu/fit_combined_forward_shared_port.sh`, archive `scratch/p163_combined_forward_shared_port_fit_20260921`. Exact P161 core/P120 pipeline/P151 cache, seed25, current development CDROM_OFF/ETHERNET_OFF configuration. No production HDL has changed.
+
+Prefer this combined candidate for the next performance build if P150 cannot produce a usable artifact. It puts the qualified CPU improvements and shared RAM port into one hardware candidate, reducing the number of serial fits needed to measure performance. P156 remains available as an isolated cache diagnostic if combined synthesis or timing needs attribution; it need not precede P163. This choice trades isolated FPGA area attribution for earlier measurement of the intended combined implementation. P162 is experimental and excluded.
+
+P161/P151 has passed the original workload output comparisons and 22 CPU plus four IRQ/replay integration suites. P161-specific forwarding source/destination faults, split reads, values, trace and synchronized IRQ boundary checks are separately documented. Whetstone loop25,366,469; Dhrystone loop104,254,232. These are simulation counts, not predicted Speedometer scores.
+
+Wait until the entire P150 wrapper, including source checks and reports, is terminal and reviewed. Promote the exact P161/P151 sources in this checkout, commit/push, verify machinewide Quartus idleness, then launch one flow. Freeze tracked HDL/QSF/QIP/SDC throughout. Inspect RAM inference after map, fresh fit/CPU/RAM/HDMI/cross-domain reports and artifact/source hashes before any hardware test. Existing P150 hardware plan must be adapted to the exact new artifact; five valid all-ten Speedometer runs and clean shutdown remain required. No fit or hardware result yet.
