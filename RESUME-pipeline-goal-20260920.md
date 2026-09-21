@@ -1,3 +1,17 @@
+# P105 seed23 fitter active; P106 isolated screen; MiSTer at Menu
+
+Unitq800-p105readselector-seed23-fit-20260921 activewrapper4056715,fit4056834.
+Agentluna_p105_tests ownsmonitoringthroughWHOLEwrapper/archive/STA. FREEZEinputs.
+Productioncommitcd3fffc unchangedqualifiedP105exceptseed23. P105seed22CPU-.069.
+Agentluna_monitor READONLYreadycheck: mister.local10.3.89.233 atMainMenu,
+slot0 disposableQuadSquad8-pipeline-test-20260919.hda; screenshot
+scratch/hardware_readiness_p105_20260921/readiness.png. No activeMacguest.
+P106 isolatedpreselectdestAn/S_MRDsuccessfulack skipsEA_DISP ifsettled/noRFwrites.
+UNAPPLIEDscripts/cpu/move_destination_base_early.patch. Candidate
+scratch/p106_move_dest_base_20260921/ap040_core.v. Agentluna_p106_screen owns
+Whet/values/IRQtrace/split/fault/RTEscreen; noresults yet. Nofit/promotion.
+Goal1.8unmet; latesthardwaremedian1.211. NoMiSTerdeploy/input yet.
+
 # P105 seed22 complete, seed23 placement retry prepared
 
 P105seed22CPU-.069/TNS-.069,HDMI+.212,RAM+.386,39464ALMs,allarchivechecksPASS.
