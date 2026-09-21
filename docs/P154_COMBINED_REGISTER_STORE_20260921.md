@@ -17,3 +17,5 @@ Corrected standalone monitor now passes: P153 classes000/A7mask00/alias0/fallbac
 Full P154/P120/P136 CPU integration independently audited by root:22programs+4IRQ/replay cases pass, balanced handoff accounting, exact oracle trace and all recorded source hashes match (`scratch/p154_full_integration_20260921/root_audit.txt`). This is the combined CPU's full simulation integration result. P154/P151 cache compatibility remains separate and in progress; no FPGA/hardware qualification.
 
 P154/P120/P151 compatibility full integration independently audited:22programs+4IRQ/replay pass, handoff accounting balances, exact oracle trace matches and every recorded source hash verifies (`scratch/p154_p151_full_integration_20260921/root_audit.txt`). Combined original workload screens remain pending; this is not fit/hardware evidence.
+
+P154/P151 original Dhrystone matches P154/P136 exactly at104,254,232 loop/104,255,122 returned cycles. Root verified all five captures, non-cache identities and source hashes, then independently ran the50,000-iteration checker:PASS (`scratch/dhrystone_full_p154_p151_20260921/root_audit.txt`). Combined Whetstone is the remaining workload screen.
