@@ -1,3 +1,16 @@
+# P105 isolated timing candidate; Luna owns routine operations
+
+P104fitTERMINALallcheckscomplete;FREEZEENDED.39542ALM,CPU-1.019,HDMI-.269,RAM+.141.
+Worstpath ex_opcode->read_dst->regfile->address->ALUflags->branchrefill->epf_data.
+P105 predecodes/registers EXportBselector duringID->EX, noaddedcycles intended.
+UNAPPLIEDcandidate scratch/p105_pipeline_read_selector_20260920/ap040_pipeline_integer.sv.
+Luna agent luna_p105_tests owns Whet/integration/corpus qualification. Rootadded
+--pipeline-module to runners. Agent luna_monitor owns fullguest retry/session86189
+scratch/p104_fullguest_retry_20260920; requires screenshot-driven navigation.
+OriginalP104guestbootedFinder/GameSprocket;wait/shot/quit only, neverstartedbenchmark.
+UserexplicitlyrequestsLunaforbuilds/simulation/hardwareroutines. NoMiSTeractions.
+Goal1.8unmet,P96hardwaremedian1.211. See docs/P105_PIPELINE_READ_SELECTOR_20260920.md.
+
 # P104 timing fit active
 
 P104 production SHA00bb4ff7d713455995ac821b0c8e196f1d16ffa663dadb59efee9d9ba0a37528.
