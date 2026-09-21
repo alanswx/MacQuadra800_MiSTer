@@ -156,3 +156,15 @@ still prevent release qualification. No P113b hardware score is claimed yet.
 P113b hardware input recovery (2026-09-21): core booted to Finder, but transient uinput helpers did not provide reliable input. A persistent mouse was established before reloading the same P113b artifact on the authorized disposable disk. The newly written daemon omitted EV_SYN/SYN_REPORT after button changes; movement worked because its movement routine emitted SYN_REPORT. Root diagnosed this from scratch/hardware_p113b_20260921/remote_mouse_sources.txt. Flushing each button change with a one-pixel movement through the existing daemon restored clicks without another reload. Root visually verified button_syn_fix.png (Finder), alias_selected.png (selected alias), and speedometer_launch.png (Speedometer splash and menus). Benchmarks remain pending; these recovery captures are not speed results. Keep the running daemon alive and issue a SYN_REPORT after every button event.
 
 First valid P113b hardware attempt (series incomplete): root visually verified scratch/hardware_p113b_20260921/run1_complete.png. Mix 1.284; Whetstones/sec 1049.659; Dhrystones/sec 15546.026; seconds: Towers .706, Quick .612, Bubble .687, Queens .506, Puzzle .975, Permutations 1.101, Matrix .666, Sieve 1.032. No invalid timer evident. settings.txt confirms CFG 40 00 00 00 and disposable slot0 games/MacQuadra800/QuadSquad8-pipeline-test-20260919.hda. Five-run hardware qualification and clean shutdown remain pending. This first Mix does not establish improvement over P108b median 1.286.
+
+P113b completed five valid all-ten hardware attempts (33 MHz, 32 MB, disposable disk); root visually verified all five result frames. No invalid timer attempts observed. Median Mix 1.289; mean 1.2882, versus P108b median 1.286. Clean save/quit/shutdown remains in progress.
+
+| Run | Mix | Whet/s | Dhry/s | Towers | Quick | Bubble | Queens | Puzzle | Permute | Matrix | Sieve |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 1.284 | 1049.659 | 15546.026 | .706 | .612 | .687 | .506 | .975 | 1.101 | .666 | 1.032 |
+| 2 | 1.289 | 1060.956 | 15547.171 | .706 | .611 | .687 | .506 | .972 | 1.101 | .664 | 1.029 |
+| 3 | 1.289 | 1060.789 | 15547.292 | .706 | .611 | .687 | .506 | .971 | 1.101 | .662 | 1.031 |
+| 4 | 1.289 | 1059.986 | 15547.166 | .706 | .611 | .686 | .506 | .972 | 1.101 | .660 | 1.031 |
+| 5 | 1.290 | 1060.036 | 15545.489 | .705 | .611 | .687 | .506 | .971 | 1.101 | .656 | 1.030 |
+
+Evidence: scratch/hardware_p113b_20260921/run{1..5}_complete.png; all eight elapsed-time columns are seconds.

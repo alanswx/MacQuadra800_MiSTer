@@ -21,3 +21,5 @@ Reproduce by generating spans_tb.v with scripts/cpu/cache_spanning_reads.py, app
 Composition screen with P120 pipeline/P109 core completed: Whetstone 27,949,845 loop / 27,950,495 returned clocks; Dhrystone 114,804,374 / 114,805,260. The P120 Dhrystone saving of 1,099,997 clocks is retained on top of P124; Whetstone is unchanged from P124 alone. Root verified all 3/5 output captures and non-pipeline identities against isolated P124. Runs: scratch/{whetstone,dhrystone}_full_p120_p124_20260921. Composition integration is still required before fitting the pair.
 
 Root audited terminal P120/P124 integration: exact source hashes, independent architectural trace, all 22 program ownership checks and four IRQ/replay groups pass. Evidence scratch/p120_p124_integration_20260921/root_audit.txt. Promoted exact P124 cache with P109 core and P120 pipeline for the next fit; P122/P125 are excluded.
+
+Combined fit launched from commit 88466cc under q800-p120-p124-spanning-read-fit-20260921.service, wrapper PID224736 / quartus_sh224776. Archive scratch/p120_p124_spanning_read_fit_20260921. Tracked HDL/QSF/QIP/SDC are frozen until this full flow ends. No fit result yet.
