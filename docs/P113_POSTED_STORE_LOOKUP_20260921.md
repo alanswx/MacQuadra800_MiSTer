@@ -151,3 +151,5 @@ Artifact MacQuadra800_p113b_posted_store_snapshot_a7bd91c.rbf SHA256
 4e782049749258c9d4f81ffbc03cc80c8ed3abd4c5d93cec787239cc92bb8dbe.
 Development hardware testing is next; HDMI miss and omitted CD/audio/Ethernet
 still prevent release qualification. No P113b hardware score is claimed yet.
+
+P113b hardware input recovery (2026-09-21): core booted to Finder, but transient uinput helpers did not provide reliable input. A persistent mouse was established before reloading the same P113b artifact on the authorized disposable disk. The newly written daemon omitted EV_SYN/SYN_REPORT after button changes; movement worked because its movement routine emitted SYN_REPORT. Root diagnosed this from scratch/hardware_p113b_20260921/remote_mouse_sources.txt. Flushing each button change with a one-pixel movement through the existing daemon restored clicks without another reload. Root visually verified button_syn_fix.png (Finder), alias_selected.png (selected alias), and speedometer_launch.png (Speedometer splash and menus). Benchmarks remain pending; these recovery captures are not speed results. Keep the running daemon alive and issue a SYN_REPORT after every button event.
