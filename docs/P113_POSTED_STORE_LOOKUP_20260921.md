@@ -168,3 +168,5 @@ P113b completed five valid all-ten hardware attempts (33 MHz, 32 MB, disposable 
 | 5 | 1.290 | 1060.036 | 15545.489 | .705 | .611 | .687 | .506 | .971 | 1.101 | .656 | 1.030 |
 
 Evidence: scratch/hardware_p113b_20260921/run{1..5}_complete.png; all eight elapsed-time columns are seconds.
+
+Shutdown audit correction: root verified clean Speedometer save/quit to Finder (`root_label_accepted.png`), but neither `root_safe_shutdown.png` nor agent `safeoff_final.png` shows the safe-to-switch-off message: both show an empty Finder desktop. The operator subsequently loaded P120, whose `boot.png` shows an improper-shutdown warning. P113b clean shutdown is therefore UNVERIFIED, despite the misleading screenshot filename. Five benchmark results remain recorded; this is not complete hardware qualification. The disk is the authorized disposable copy.
