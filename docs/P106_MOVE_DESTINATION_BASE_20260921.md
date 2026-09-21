@@ -41,3 +41,19 @@ P105 seed23 fit is active as q800-p105readselector-seed23-fit-20260921,
 wrapper4056715 and quartus_fit4056834 at launch. Buildinputs frozen through
 whole wrapper/archive/STA. MiSTer readiness screenshot confirmed Main menu,
 slot0 disposable test HDA, no hardware inputs or reset sent.
+
+## Corrected qualification
+
+The corrected corpus run uses core 020ba551c9b63a3c7bd3f5370985b6f57fce26a9f3eb9a8487083503f1bad367
+and pipeline 9b0e3e00e544e05c29c9b46611a1d2cad9f5aaba144b58d753d889ac22786dbc.
+Verilator 5.050: 28,483,982 cycles; all 1,900 field groups match, zero real
+differences, first 100 rows only. Evidence: corpus100_v5_correct.log and
+/tmp/cpu-corpus100-gate.2xAA1f. The earlier stale-pipeline run stays discarded.
+The integration program.vvp file table independently confirms the candidate
+core path and production experimental pipeline path. The prototype's results
+manifest includes the baseline core because it generates the reference trace;
+it is not the source identity of the candidate integration executable.
+
+Candidate is ready for promotion after the active P105 build wrapper finishes.
+A P106 build wrapper is prepared under scratch/p106destbase_fit_20260921/run.sh
+but has NOT been launched. Production build inputs remain unchanged.
