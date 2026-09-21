@@ -689,3 +689,27 @@ count remain unchanged. A jump at +0xdb2 exits before DisposePtr; timer and
 allocation wrappers are omitted. Captures cover registers, stack, globals,
 records and relocated code. Execution and independent numerical validation
 are pending; this is not a hardware Dhrystone score.
+
+## Dhrystone execution and derived output checks
+
+P106 with the unchanged P105 pipeline completes the original 50,000-iteration
+fixture in 123,104,496 measured clocks (123,105,384 total), latency3.
+The inherited Whetstone100M bound was insufficient; that run stopped at its
+limit. A separate bench with500M bound and iteration-entry tracking reaches
+50,000 entries without fault, unmodeled access or code modification.
+Artifacts: scratch/dhrystone_full_p106_500m_20260921.
+
+check_dhrystone_outputs.py derives expected end state from original CODE3/6,
+not another simulator capture. It passes comparison of the full16KB globals
+region, records and surrounding guards, final registers, locals and strings,
+and unchanged relocated code. Proc8 uses51 columns (102-byte rows); its
+initial-zero array counter becomes50,000. Globals are integer5, Boolean1,
+characters A/B; primary/secondary record integers17/18 and enumerations2/1.
+The original arithmetic at0xd72..0xd94 yields D4=39; Proc2 leaves local7 and
+the product local is9. Substituting familiar Dhrystone2.1 expected values
+would be incorrect for these original instructions. A corrupted global
+capture is rejected; oracle_validation.json records that negative control.
+
+This is validation of the isolated loop's end state, not the Macintosh timer
+wrapper, physical SDRAM, or hardware score. P105/P108b comparative runs are
+assigned to Luna with the same fixture/bench/flags and these output checks.
