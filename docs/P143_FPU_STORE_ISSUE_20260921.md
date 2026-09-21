@@ -23,3 +23,5 @@ Root inspected successful FMOVE.B/W/L/S/D/X postincrement/predecrement payload, 
 P143 now has the directed simulation evidence needed for continued integration evaluation with P147 cache. It has not been synthesized or tested on hardware. P143/P147 full integration and original workload equivalence are the next checks; production remains unchanged during the P147 fit.
 
 P143/P147 compatibility integration is root-audited: all 22 CPU programs and four IRQ/replay tests pass, HANDOFF accounting balances, oracle trace matches exactly and all source identities match. Evidence: `scratch/p143_p147_integration_20260921/root_audit.txt`. Original workload comparisons on P147 remain in progress.
+
+Original P143/P147 workload comparisons are root-verified: Whetstone 25,984,144 / 25,984,772 returned and Dhrystone 106,054,250 / 106,055,140 returned, exactly P143/P136. All eight captures and every non-cache identity match; independent Dhrystone end-state checker passes 50,000 iterations. Evidence: `scratch/{whetstone,dhrystone}_full_p143_p147_20260921`. This qualifies the combination in simulation, not FPGA timing or hardware speed.
