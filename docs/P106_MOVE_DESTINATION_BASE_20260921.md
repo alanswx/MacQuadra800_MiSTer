@@ -74,3 +74,27 @@ MacQuadra800_p106destbase_70debea.rbf SHA256
 fc6527b4722500c3967a8faaae2e8978f84327454673a03ccfbdbf446e9b554b.
 Archive scratch/p106destbase_fit_20260921. Hardware test pending completion
 of P105's current series. Development CD-ROM/Ethernet omissions remain.
+
+## Hardware series and quit-time anomaly
+
+Artifact MacQuadra800_p106destbase_70debea.rbf, SHA256
+fc6527b4722500c3967a8faaae2e8978f84327454673a03ccfbdbf446e9b554b.
+33 MHz, 32 MB, CFG prefix 40000000; disposable slot-0 test disk.
+Root visually reviewed all five completed all-ten Benchmark Mix runs:
+1.278, 1.284, 1.284, 1.286, 1.284. Median 1.284, mean 1.2832;
+0.943% above P105's median 1.272. No invalid timer run was observed.
+
+Evidence in scratch/hardware_p106destbase_20260921: run1_complete2.png,
+run2_complete.png, run3_complete.png, run4_complete.png, run5_complete.png.
+Do not use run1_complete.png: it shows the next run already in progress.
+Root corrected results.json to separate absolute Whetstone/Dhrystone rates
+from seconds and normalized ratings, and corrected run3 Dhrystone to
+15,275.412. Original operator JSON is retained beside it.
+
+shutdown_result.png shows a Speedometer application error during shutdown,
+with the error type obscured by the benchmark window. recover_finder.png
+then shows the Mac's safe shutdown screen. This is an unresolved quit-time
+anomaly, not a clean full hardware qualification. P108b testing will explicitly
+quit Speedometer and inspect the result before requesting guest shutdown.
+CD-ROM/audio and Ethernet remain omitted in these development builds;
+A/UX testing is deferred to Dani by the user. The 1.8 goal remains unmet.
