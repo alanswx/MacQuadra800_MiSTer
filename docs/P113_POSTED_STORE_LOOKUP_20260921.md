@@ -96,3 +96,22 @@ and P113b, with900 pending observations and0/900 prepared reads respectively.
 Logs: tests_p112/post_matrix216.log and P113b/post_matrix216.log. Full workload
 runs are still being monitored; an observation timeout is not a terminal
 simulation result and no performance claim is made for P113b yet.
+
+P113b retains the initial workload gains after the merge correction:
+Whetstone28,747,437 loop clocks (1.0357% fewer than P112), return28,748,087;
+Dhrystone120,954,440 (0.3707% fewer), return120,955,328. Root verified all
+three Whetstone captures, all five Dhrystone captures, and fixture/ROM/flags/
+latency/non-cache source identities against P112. Evidence directories:
+scratch/whetstone_full_p113b_20260921 and scratch/dhrystone_full_p113b_20260921.
+These are simulation results; P113b has not been fitted or tested on MiSTer.
+The integration runner now accepts an isolated `--cache` and records selected
+source hashes/compile arguments so qualification can proceed without changing
+production inputs during P112's fit.
+
+The independent Dhrystone end-state checker passes for P113b. Extended
+integration is still running: prototype_extended is only the prerequisite
+reference generation, not completion of the real-core MMU/cache/FPU/restart/
+IRQ suite. Root confirmed the runner and exceptions simulation live after an
+operator reported completion prematurely; qualification remains pending until
+the entire runner reaches its final PASS. The selected-cache identity manifest
+matches P113b b8a4feab... and P109 core b91c964d....

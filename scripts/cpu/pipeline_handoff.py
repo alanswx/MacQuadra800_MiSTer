@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Test opt-in pipeline ownership in the real core, with one shared register file."""
 import argparse
+import hashlib
+import json
 from pathlib import Path
 import re
 import subprocess
@@ -13,6 +15,7 @@ def main():
     parser.add_argument("--vasm", default="/home/alans/mister/MacQuadra800_fixtures/wombat-vasm/vasmm68k_mot")
     parser.add_argument("--pipeline-module", type=Path, default=EXP / "ap040_pipeline_integer.sv")
     parser.add_argument("--core", type=Path, help="isolated candidate ap040_core.v")
+    parser.add_argument("--cache", type=Path, help="isolated candidate ap040_cache.v")
     parser.add_argument("--only-irq", action="store_true")
     parser.add_argument("--force-decode", action="store_true", help="disable sequencer lookahead for full pipeline coverage")
     parser.add_argument("--extended", action="store_true")
@@ -42,8 +45,9 @@ def main():
     units = ("ap040_tg68k_compat", "ap040_core", "ap040_bus16_adapter", "ap040_bus_timeout",
              "ap040_regfile", "ap040_alu", "ap040_muldiv", "ap040_mmu", "ap040_cache",
              "ap040_fpu", "ap040_walker_cdc", "primitives/dpram")
+    overrides = {"ap040_core": args.core, "ap040_cache": args.cache}
     source = [ROOT / "rtl/ap68040/tb/tb_ap040_program.v", args.pipeline_module.resolve(),
-              EXP / "handoff_monitor.sv", *(args.core.resolve() if u == "ap040_core" and args.core else RTL / (u + ".v") for u in units)]
+              EXP / "handoff_monitor.sv", *(overrides[u].resolve() if overrides.get(u) else RTL / (u + ".v") for u in units)]
     common = ["iverilog", "-g2012", "-DAP040_EXPERIMENTAL_PIPELINE", "-I", RTL,
               "-s", "tb_ap040_program", "-s", "handoff_monitor"]
     if args.compare:
@@ -70,6 +74,10 @@ def main():
         common.append("-DAP040_EXPERIMENTAL_PIPELINE_LOADS")
     if args.force_decode:
         common.append("-DAP040_PIPELINE_FORCE_DECODE")
+    (out / "identity.json").write_text(json.dumps({
+        "sources": {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in source},
+        "compile_args": [str(v) for v in common],
+    }, indent=2) + "\n")
     if not args.only_irq:
         run([*common, "-s", "reference_trace", "-o", out / "trace.vvp",
              EXP / "reference_trace.sv", *source], out / "compile_trace.log")
