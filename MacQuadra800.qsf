@@ -419,16 +419,20 @@ set_global_assignment -name VERILOG_MACRO "ETHERNET_OFF=1"
 # full release recipe -- profile off, CD-ROM and Ethernet in -- synthesizes to 42,379 ALMs
 # with this CPU, over the device); the four invisible trims stay off.
 source configs/cpu_release_lite.tcl
-set_global_assignment -name VERILOG_MACRO "MISTER_DISABLE_SHADOWMASK=1"
-set_global_assignment -name VERILOG_MACRO "MISTER_BYPASS_AUDIO_FILTER=1"
-set_global_assignment -name VERILOG_MACRO "MISTER_DISABLE_VIDEO_CALC=1"
-set_global_assignment -name VERILOG_MACRO "VIDEO_512_OFF=1"
 # P171c seed 24 2026-09-22: 39,070 ALMs (93 %), 489 RAM, routes; CPU clock -1.425 ns, HDMI/clk_ram met.  Seed 26 next.
 # P174: the one-clock instruction hit (fast_ihit; the line for the offer read on the P170 mirror banks in the
 # acknowledge clock).  Sim vs P171b: Permute -3.7 %, Whetstone -1.2 %, Dhrystone -1.0 %, Queens -2.7 %.
 # P171c seed 26: 39,141 ALMs, routes, CPU clock -1.648 ns (worse than 24): the in-place dispatch path is structural.
 # P174 seed 24 2026-09-22: 39,441 ALMs (94 %), routes; CPU clock -0.920 ns, HDMI +0.009, clk_ram met.  (Built from c152ac4;
 # the fast_span_ack change 949ac44 landed in the tree after its synthesis had read the sources.)
+# P174b (P174 + the fast_span_ack change) seed 24: 39,158 ALMs, routing failed (seed lottery at 93 %).
+# P175b (53f7f53): the instruction side's own hint bus (mem_ihint_addr; a mirror tag RAM and mirror data banks read it
+# every clock for fast_ihit) and a one-clock fill hold after an instruction acknowledge.  Sim vs P174: Permute -1.5 %,
+# Whetstone -0.8 %, Dhrystone -1.8 %, Queens -1.2 %.  FIRST FIT: 84,851 ALMs estimated, 104k registers -- the
+# full-depth data mirror (28 M10K) took the RAM estimate over the device and Quartus turned the OSD and palette
+# buffers into registers.  The mirrors were halved to their own bank's rows (P175c).
+# P177 (57a3356): a return-address stack hint for the RTS target fetch.  Sim vs P175b: Permute -3.0 %, Dhrystone -1.1 %.
+# NOTE: Quartus rewrites this file during a flow (it inlined the sourced profile's macros once); clean it after.
 # Posted cross-line cache-store merge, validated on hardware.
 set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_XSTORE=1"
 # Overlap LEA displacement fetch with base selection; checked independently.
