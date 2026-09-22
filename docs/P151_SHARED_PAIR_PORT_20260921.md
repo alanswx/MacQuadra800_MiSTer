@@ -13,3 +13,13 @@ Root reviewed clean Icache/snoop coverage (20requests/20acks, I-SNOOP/I-CINV/dat
 Full P109/P120/P151 CPU integration independently audited by root:22programs and4IRQ/replay cases pass, handoff accounting balances, exact oracle trace matches and all recorded source hashes verify (`scratch/p151_full_integration_20260921/root_audit.txt`). Original Dhrystone remains pending. RAM inference/area/routing still require a future exclusive Quartus flow after P150 ends.
 
 Original Dhrystone now matches P147 exactly:107,504,306 loop/107,505,196 returned cycles. Root independently compared all five captures and non-cache identities, rehashed all source files and ran the50,000-iteration checker:PASS (`scratch/dhrystone_full_p151_20260921/root_audit.txt`). Whetstone's0.579% cycle regression remains the measured tradeoff. This supplies simulation evidence for evaluating its intended RAM/routing savings in a future exclusive fit; it does not prove those savings.
+
+## 2026-09-21 evening: disqualified
+
+With the P162 core, the standard AP68040 suite (`rtl/ap68040/tb/run_tests.sh`) fails `cache_snoop`
+on this cache: test 14 "stale word must fallback" (a snooped line served stale) and 15d "second line
+not cached after the crossing fill". The P124 cache passes the same suite on the same core
+(`scratch/p165_p162core_p124cache_20260921/run_tests.log`). A snoop that can serve a stale word is a
+coherence bug against the SONIC's DMA writes (see `RESUME-ethernet-20260919.md`), so P151 does not go
+to a fit until that bench passes. Evidence: `scratch/p166_p162core_p151cache_20260921/run_tests.log`,
+`.../ap68040/tb/build/cache_snoop.log`.
