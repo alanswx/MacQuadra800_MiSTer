@@ -420,6 +420,8 @@ set_global_assignment -name VERILOG_MACRO "ETHERNET_OFF=1"
 # with this CPU, over the device); the four invisible trims stay off.
 source configs/cpu_release_lite.tcl
 # P171c seed 24 2026-09-22: 39,070 ALMs (93 %), 489 RAM, routes; CPU clock -1.425 ns, HDMI/clk_ram met.  Seed 26 next.
+# P174: the one-clock instruction hit (fast_ihit; the line for the offer read on the P170 mirror banks in the
+# acknowledge clock).  Sim vs P171b: Permute -3.7 %, Whetstone -1.2 %, Dhrystone -1.0 %, Queens -2.7 %.
 # Posted cross-line cache-store merge, validated on hardware.
 set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_XSTORE=1"
 # Overlap LEA displacement fetch with base selection; checked independently.
