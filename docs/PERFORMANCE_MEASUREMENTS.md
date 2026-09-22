@@ -1904,3 +1904,25 @@ profile did not change that (P136 had missed by 5.5 ns at 96 %), so it is a desi
 placement. In simulation the cache is worth -6.8 % on Permute(7) at latency 0 (1,303,949 -> 1,215,081),
 i.e. the misaligned-stack effect is real and worth having -- but through a path that does not touch
 the live translation. Not deployed; the tree is back at P165 (P124 cache).
+
+## P171 on hardware: Mix 1.377 (2026-09-22, 12:50-13:03)
+
+P171 = P170 (P124 cache + the hinted pair hit) + the split fetch/data request channels with the idle-slot
+supply policy (floor 3, idle fill to 6; commit `d17f794`, seed 24). 37,091 ALMs (89 %), 489 RAM blocks,
+CPU clock **-1.231 ns** (the in-place dispatch chain ATC -> need_walk -> cache response -> ALU compare ->
+branch dispatch -> `ifr_addr` enable; 1.6 ns of it is the final route), clk_ram +0.399, HDMI +0.005
+(`scratch/p171_split_idle3_fit_20260922`, rbf `MacQuadra800_p171_split_idle3_d17f794.rbf`, sha256
+`7167dee7ef47a7e9...`, on the MiSTer as `_Unstable/MacQuadra800_p171.rbf`).  Timing not met; run as a measurement.
+
+Five valid Mix runs: **1.372, 1.377, 1.377, 1.377, 1.376** — median **1.377**, mean 1.3758, no invalid
+timers.  Per test (median, P165b in brackets): Whetstones 1162 (1142, +1.8 %), Dhrystones 15,904 (15,970,
+-0.4 %), Towers 0.663 (0.685, +3.3 %), Quick 0.574 (0.579), Bubble 0.655 (0.656), Queens 0.466 (0.462,
+-0.9 %), **Puzzle 0.964 (0.896, -7.5 %)**, Permutations 1.028 (1.062, +3.3 %), Int. Matrix 0.560 (0.608,
++8.7 %), **Sieve 1.055 (1.029, -2.6 %)**.
+
+So the split channel is a per-test trade on hardware: the fetch-bound tests gain, the data-bound short
+loops (Puzzle, Sieve, Queens) lose -- the data access that follows a fetch waits behind it at the one
+port and loses its hint.  The simulation fixtures (Permute -5.7 %, Whetstone -1.1 %) saw only the gains;
+neither Puzzle nor Sieve has a working fixture (the exact-Sieve monitor is stale against the regfile).
+
+Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377. Real Quadra 800: 1.897.
