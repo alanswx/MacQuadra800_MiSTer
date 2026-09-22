@@ -816,11 +816,16 @@ t139_ok:
 	; FA = the fetch address, supervisor program space, ATC clear; RTE
 	; restarts the fetch, which then succeeds.  The target sits BEHIND
 	; the arming code so it can only ever be fetched through the
-	; branch's flush -- a demand fetch by construction.
+	; branch's flush -- a demand fetch by construction -- and in a
+	; different 64-byte sector from it: the branch-refill buffer keeps
+	; the last redirect's sector (the arming code's, entered by the
+	; bra.s), and a target resident there is served without a bus
+	; cycle, so the one-shot bus error would never be seen (P171).
 	bra.s	t141_arm
 t141_t:
 	nop			; restarted after the handler
 	bra.s	t141_chk
+	cnop	0,64
 t141_arm:
 	clr.w	(cnt_fberr).l
 	lea	t141_t(pc),a0

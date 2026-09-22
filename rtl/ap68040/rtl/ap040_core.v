@@ -868,6 +868,13 @@ reg [31:0] epf_ftail;            // address of the next word to be fetched
 reg        epf_super;            // FC the queue was filled under
 reg        epf_armed;            // the fill engine owns this stream
 reg        epf_pend;             // a queue fetch is outstanding
+// The fetch channel can take a redirect's target now: nothing is
+// outstanding, or the outstanding speculative fetch has not been
+// presented to the platform yet (the data channel holds the port) and is
+// replaced in place -- it never went out, so nothing is killed and its
+// acknowledge, when it comes, is the target's (P171).
+wire        ifr_replaceable = epf_pend && ifr_req && !ifr_pres && !ifr_ack;
+wire        ifr_avail = (!epf_pend && !ifr_req && !ifr_ack) || ifr_replaceable;
 reg        i_ack_d;              // an instruction fetch acknowledged last cycle: its line offer lands now (P171)
 reg        epf_pend_lw;          // ... and it returns two words
 reg        epf_kill;             // ... whose data a flush has abandoned
@@ -969,7 +976,7 @@ wire       epf_ready_pc2 = epf_armed && (epf_count > 4'd1) &&
 // queue dry still completes in the acknowledge cycle, exactly as the
 // pre-queue demand fetch did.
 wire       epf_fwd_pc = epf_pend && i_ack && !epf_kill && epf_armed &&
-                        (epf_count == 4'd0) && (epf_next == mem_addr_q) &&
+                        (epf_count == 4'd0) && (epf_next == ifr_addr) &&
                         (epf_next == pc) && (epf_super == sr_s);
 wire [15:0] epf_fwd_word = epf_pend_lw ? mem_rdata[31:16] : mem_rdata[15:0];
 
@@ -1819,7 +1826,7 @@ task issue_ifetch;
 				epf_fill  <= 0;
 				epf_ftail <= a;
 			end
-			if (!refill_hit && !epf_pend && !ifr_req && !ifr_ack) begin
+			if (!refill_hit && ifr_avail) begin
 				// The port is free: issue the redirect now rather than
 				// leaving it to the engine one cycle later.  A longword
 				// aligned fetch takes both words in one request.  Alignment
@@ -2806,7 +2813,7 @@ wire [31:0] bd_fall   = pc + 32'd2 + {29'd0, bd_n, 1'b0};
 // state's later fetch.  mem_req covers the acknowledge cycle (the
 // request is held until it), so the acknowledge itself stays out.
 wire        bd_go     = bd_ok && !bd_t[0] && (bd_t != bd_fall) &&
-                        !epf_pend && !ifr_req && !sr[15] &&
+                        ifr_avail && !sr[15] &&
                         (state != S_BCC_EXT) && (state != S_DBCC1) &&
                         (state != S_FBCC) && (state != S_FDBCC) &&
                         (state != S_MWR);
@@ -3548,7 +3555,7 @@ wire [31:0] hint_p2_addr = pipe_load_addr;
 wire hint_p2 = 1'b0;
 wire [31:0] hint_p2_addr = 32'd0;
 `endif
-wire        hint_bd  = bd_ok && !epf_pend && !ifr_req && !sr[15];
+wire        hint_bd  = bd_ok && ifr_avail && !sr[15];
 wire [31:0] hint_addr = hint_data  ? m_addr_r :
                         retire_move_read ? alu_res :
                         hint_p2    ? hint_p2_addr :
@@ -6586,7 +6593,7 @@ always @(posedge clk) begin
 						// The generic redirect keeps trace/interrupt priority.
 						// Only the ordinary idle-bus loop case dispatches here.
 						if (!tr_t1 && !tr_t0 && !irq_pend && refill_hit &&
-						    !epf_pend && !ifr_req && !ifr_ack &&
+						    ifr_avail &&
 						    (!epf_armed || epf_next != tgt || epf_super != sr_s))
 							decode_dbcc_brf(tgt);
 						else
@@ -9724,7 +9731,7 @@ always @(posedge clk) begin
 				// it then pays a demand fetch (the corpus ran 1.3 % slower);
 				// S_DECODE, a cycle later, usually finds the port free.
 				// (2026-09-17)
-				else if (!epf_pend && !ifr_req && !ifr_ack) go_pc(rd_bcc_t);
+				else if (ifr_avail) go_pc(rd_bcc_t);
 			end
 			else if (epf_count >= 4'd2) begin
 				ir <= epf_data[epf_head + 3'd1];
@@ -9788,23 +9795,23 @@ always @(posedge clk) begin
 				// the loop it will branch back into, and must not touch the
 				// buffer's data either, or stale valid bits would describe
 				// words from another sector.
-				if ((brf_tag == mem_addr_q[31:6] && brf_super == epf_super) ||
+				if ((brf_tag == ifr_addr[31:6] && brf_super == epf_super) ||
 				    epf_pend_seed) begin
 					if (epf_pend_lw)
-						brf_data[mem_addr_q[5:2]] <= mem_rdata;
-					else if (mem_addr_q[1])
-						brf_data[mem_addr_q[5:2]][15:0] <= mem_rdata[15:0];
+						brf_data[ifr_addr[5:2]] <= mem_rdata;
+					else if (ifr_addr[1])
+						brf_data[ifr_addr[5:2]][15:0] <= mem_rdata[15:0];
 					else
-						brf_data[mem_addr_q[5:2]][31:16] <= mem_rdata[15:0];
-					if (brf_tag == mem_addr_q[31:6] && brf_super == epf_super) begin
-						brf_valid[mem_addr_q[5:1]] <= 1;
-						if (epf_pend_lw) brf_valid[mem_addr_q[5:1] + 5'd1] <= 1;
+						brf_data[ifr_addr[5:2]][31:16] <= mem_rdata[15:0];
+					if (brf_tag == ifr_addr[31:6] && brf_super == epf_super) begin
+						brf_valid[ifr_addr[5:1]] <= 1;
+						if (epf_pend_lw) brf_valid[ifr_addr[5:1] + 5'd1] <= 1;
 					end
 					else begin
 						brf_valid <= (epf_pend_lw ? 32'd3
 						                          : 32'd1)
-						                  << mem_addr_q[5:1];
-						brf_tag <= mem_addr_q[31:6];
+						                  << ifr_addr[5:1];
+						brf_tag <= ifr_addr[31:6];
 						brf_super <= epf_super;
 					end
 				end
