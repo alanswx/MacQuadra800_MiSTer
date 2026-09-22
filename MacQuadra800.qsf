@@ -436,6 +436,8 @@ source configs/cpu_release_lite.tcl
 # P178 (with P175c): the one-clock hit across two lines (the mirror tag RAM's port B reads the next row, the pair banks
 # its word 0).  Sim vs P177: Permute -2.1 %, Whetstone -1.2 %, Dhrystone -1.6 %.  sys_top passes PALETTE=false without
 # MISTER_FB (the dead 128x48 palette Quartus kept turning into 6,144 registers).  Synthesis estimate 39,043 ALMs.
+# P178 seed 24 2026-09-22 (8ce901c): 39,386 ALMs (94 %), 513 RAM blocks, routes; CPU clock -0.505 ns (the day's best),
+# HDMI +0.177, clk_ram +0.441.  rbf scratch/p178_xline_fit_20260922/MacQuadra800_p178_xline_8ce901c.rbf.
 # Posted cross-line cache-store merge, validated on hardware.
 set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_XSTORE=1"
 # Overlap LEA displacement fetch with base selection; checked independently.
