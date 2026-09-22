@@ -981,8 +981,16 @@ wire  [1:0] wr_arr = wr_way + r_beat;
 wire  [1:0] wr_arr1 = wr_arr + 2'd1;
 // The registered whole-line read already supplies both words in look2.
 // Acknowledge a qualified spanning data hit here instead of registering it.
+// No c_req here (P176): the request was accepted into C_LOOK and is
+// level-held until its acknowledge, and c_req is the MMU's pass_ok -- the
+// live ATC lookup (ATC RAM -> hit -> need_walk), which this term put in
+// front of c_rdata and c_ack, i.e. in front of the operand that the
+// in-place compare-and-branch dispatch consumes in the same clock (the
+// CPU clock's worst path, -1.2 to -1.6 ns across seeds).  C_LOOK only
+// ever holds a read (stores post through C_PASS); c_write and c_instr are
+// the core's own registers through the arbiter mux and stay.
 wire fast_span_ack = (cst == C_LOOK) && look2 && r_span2 && !r_bank &&
-    c_req && !c_write && !c_instr && !look_snooped && !snoop_look_row &&
+    !c_write && !c_instr && !look_snooped && !snoop_look_row &&
     !err_hold && !m_err;
 wire [63:0] pair_new = span_merge({sp_w0, sp_w1}, r_wdata, r_size, r_off);
 assign cd_we     = store_pair_write ? ((4'd1 << wr_arr) | (4'd1 << wr_arr1)) :
