@@ -3630,11 +3630,27 @@ wire        epf_fill_ok     = (epf_fill_floor || epf_fill_idle) && !i_ack_d;
 // a fetch and a data access can both be hinted in the same clock.
 assign mem_hint_addr  = mem_req ? mem_addr_q : hint_addr;
 assign mem_hint_instr = 1'b0;
-assign mem_ihint_addr = ifr_req ? ifr_addr :
+// P177: a return-address stack.  The RTS target fetch is issued in the
+// pop read's acknowledge clock from the popped data, so nothing can hint
+// it -- except a prediction: the return address pushed by the matching
+// JSR/BSR (recorded at the push store's acknowledge).  During the pop
+// read the instruction hint bus carries the prediction; when the popped
+// address agrees, the target fetch is a one-clock hit.  A wrong
+// prediction costs nothing (the fetch is un-hinted, as before).
+// The redirect hints (this one, hint_bcc, hint_redir, hint_ftb, hint_bd)
+// take the bus over a fetch that is outstanding but not presented: such
+// a fetch is replaced by the redirect (ifr_avail) in the next clock.
+reg  [31:0] ras [0:7];
+reg   [2:0] ras_sp;
+wire        hint_ras = (state == S_MRD) && (r_m_ret == S_RET2) && (ret_kind == RK_RTS) && m_issued;
+wire [31:0] ras_top  = ras[ras_sp - 3'd1];
+assign mem_ihint_addr = (ifr_req && ifr_pres) ? ifr_addr :
+                        hint_ras   ? ras_top :
                         hint_bcc   ? (pc + sxb(ir[7:0])) :
                         hint_redir ? hint_redir_addr :
                         hint_ftb   ? rd_bcc_t :
-                        hint_bd    ? bd_t : epf_ftail;
+                        hint_bd    ? bd_t :
+                        ifr_req    ? ifr_addr : epf_ftail;
 
 //---------------------------------------------------------------------------
 // main state machine
@@ -4994,6 +5010,7 @@ always @(posedge clk) begin
 		epf_ftail <= 0; epf_armed <= 0; epf_pend <= 0;
 		epf_pend_seed <= 0; brf_seed_ok <= 0; iline_log <= 0; iline_super <= 0;
 		epf_pend_lw <= 0; epf_kill <= 0; epf_err <= 0; epf_brf <= 0;
+		ras_sp <= 0;
 		// Queue/refill payload is invalid while the count/valid controls below
 		// are clear.  Do not reset it: payload reset muxes only consume FPGA
 		// packing resources and the words are overwritten before becoming valid.
@@ -5070,6 +5087,13 @@ always @(posedge clk) begin
 		if (mem_ack) mem_req <= 0;
 		if (ifr_ack) ifr_req <= 0;
 		i_ack_d <= i_ack;
+		// P177: the return-address stack (see mem_ihint_addr)
+		if ((state == S_MWR) && d_ack && ((r_m_ret == S_JSR2) || (r_m_ret == S_BSR_PUSH))) begin
+			ras[ras_sp] <= m_wdat;
+			ras_sp <= ras_sp + 3'd1;
+		end
+		else if ((state == S_MRD) && d_ack && (r_m_ret == S_RET2) && (ret_kind == RK_RTS))
+			ras_sp <= ras_sp - 3'd1;
 		// Every acknowledged instruction fetch, whether the queue engine's,
 		// a redirect's or the exception prefetch's own, names the line the
 		// cache will offer next cycle: record it and its context here, not
