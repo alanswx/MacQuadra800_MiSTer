@@ -290,6 +290,14 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # 2026-09-18 15:33 ethernet build 2 (665a450: + the any-slot flag as a level, + the front-end's DEBUG word), seed 21 + the
 # switch, on .153: MEETS TIMING on every clock -- 36,502 ALMs (87 %), clk_sys +0.323, HDMI +0.314, clk_ram +0.716, hold
 # +0.220, TNS 0. rbf 2ea4d529 = scratch/eth/build2/.
+# 2026-09-19 11:19 ethernet build 11 (b2e5377 = the merge of Alan's pull request #3: the phantom adapter read after a
+# line ack in the clock the FSM leaves idle for a DMA beat, 0533256, and the DMA engine no longer starved by a parked
+# pseudo-DMA beat, 49b8648; his builds 9 and 10 were fitted on his own host), seed 21 + the switch, on this PC: MEETS
+# TIMING on every clock -- 36,914 ALMs (88 %), 25,896 registers, clk_sys +0.622, clk_ram +0.415, HDMI +0.107, hold
+# +0.190; req_tgl -> req_handoff +1.545, line_done_handoff -> line_tag +0.622; open_row stays in logic. rbf 933b421a =
+# scratch/ethernet-handover/build11_b2e5377/ = releases/MacQuadra800_20260919.rbf. ON HARDWARE with Main fbb540c8: 8.1 at
+# CFG 40 00 506/506 pings, CD audio transport, A/UX 3.1 boot/shell/shutdown with the SONIC present, both guests again
+# with Ethernet off -- all pass (docs/ethernet-regression-20260919.md).
 # 2026-09-19 XSTORE c328ae7, seed 21: 36,871 ALMs (88%), 491 RAM blocks,
 # 43 DSP; setup +0.068 ns, hold +0.243 ns, CPU +0.979 ns, SDRAM +0.800 ns.
 # Crossings sys->ram +1.514 ns / ram->sys +0.979 ns. Hardware Mix pending.
