@@ -59,6 +59,22 @@ not applicable without CD) on the FPGA — the user was using it; ask before tou
 - `scripts/cpu/fit_dev.sh <tag>` via `systemd-run --user --unit=q800-<tag>-fit-<date>`; Quartus
   rewrites the qsf during a flow (it inlined the sourced profile macros once) — clean it after.
 
+## P178 and after (added later the same evening)
+
+P175c halved the mirrors (the full-depth data mirror took Quartus's RAM estimate over the device and it
+silently registered the framework's OSD/palette buffers: 84,851 ALMs); P178 is the one-clock hit for a
+longword spanning two lines; `sys/sys_top.v` passes `PALETTE=false` without `MISTER_FB` (the dead
+scaler palette Quartus kept turning into 6,144 registers whenever a second tag-shaped RAM existed — a
+four-run synthesis bisect). Tree HEAD = P177 core + P175c/P178 cache; sim Permute **1,058,070**,
+Whetstone 24,354,754, Dhrystone 98,004,234 (vs P170: -16.3 % / -5.1 % / -7.6 %). Synthesis estimate
+39,043 ALMs; fit `q800-p178-fit-20260922` -> `scratch/p178_xline_fit_*`.
+
+S_DECODE's 130k clocks on Permute, by opcode: the `4E4x-4E7x` group 56k (LINK, UNLK, RTS — one decode
+clock each per call), MOVEA.L Dn,An 20k, MOVEM 17k, MOVE.L Dn,-(A7) 8.7k; by predecessor: after S_FETCH
+47.5k, after a store's S_MWR 37.5k, after a read's S_MRD 18.7k. The record dispatch (n_desc_ok) does not
+cover LINK/UNLK/RTS/MOVEM/the pushes; adding them is the next sequencer item after the acknowledge-clock
+work.
+
 ## Where the Permute clocks are now (P177, 1,081,092)
 
 S_EXPERIMENT_PIPE 213k, S_MRD 180k (acknowledge 130k + waits 50k), S_MWR 178k (130k + 39k + 9k
