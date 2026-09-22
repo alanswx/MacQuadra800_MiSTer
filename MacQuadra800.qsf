@@ -349,6 +349,8 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # P168: P162 core + P136 cache (one-clock hit for misaligned longwords inside a line) + profile, seed 23:
 # 37,454 ALMs, fits, but CPU clock -6.798 ns (ATC RAM -> epf_data: the span data path reaches the fetch
 # queue through the live translation), HDMI -0.982.  Not a seed problem; P136 stays out.  Tree back at P165.
+# P170: P124 cache + the hinted pair hit only (P136's mirrored next-word banks and fast_pair_idle, built on the
+# registered hint like fast_hit; none of P136's live-request look paths).  Permute -3.1 %, all 31 self-tests pass.
 set_global_assignment -name SEED 23
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
