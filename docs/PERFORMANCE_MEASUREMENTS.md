@@ -1873,3 +1873,23 @@ counters per state): of S_MWR's 281k, **130k are the clock that only observes `d
 waiting because a fetch-queue read owns the single memory port**, 25k waiting for the acknowledge. Of S_MRD's 212k,
 130k are the acknowledge clock and 78k waiting. The two acknowledge clocks are 20 % of the kernel and the port
 contention another 5 %: those, not RAM latency, are what separates the call-heavy tests from the real machine.
+
+## P165b on hardware: Mix 1.364 (2026-09-22, 00:20-00:36)
+
+P165 = the P162 core (the whole P137..P162 chain) + the P124 cache + the P120 pipeline. At seed 23 it
+**failed to route** at 40,003 ALMs (peak interconnect 84 % in one region), so the development headroom
+profile from the profile branch was ported (`configs/cpu_development.tcl`, sourced by the qsf: OSDs, audio
+path, IIR, video measurement, Y/C, shadowmask, 512x384 retarget out) and the same RTL refitted as **P165b**:
+37,045 ALMs (88 %), 469 RAM blocks, CPU clock **-0.145 ns**, clk_ram +0.605, HDMI +0.264
+(`scratch/p165b_devprofile_fit_20260921`, rbf `MacQuadra800_p165b_devprofile_b39fedd.rbf`, sha256 `133f493f1d4f7659...`).
+
+Five valid Mix runs: **1.359, 1.364, 1.365, 1.364, 1.365** — median **1.364**, mean 1.3634.
+A sixth run was invalid (Int. Matrix 0.521 s and Sieve 0.024 s, aggregate 6.868; `run5_INVALID_timer.png`):
+the same short-last-tests anomaly as before, excluded and replaced. Whetstones 1131-1143 (P124: 1091),
+Dhrystones 15,970 (15,803), Towers 0.685, Quick 0.579, Bubble 0.656, Queens 0.462, Puzzle 0.896-0.900,
+Permutations 1.062, Int. Matrix 0.607-0.610, Sieve 1.027-1.030.
+
+The same sources in the Whetstone fixture: 26,310,962 loop clocks against P124's 27,949,845 (-5.9 %);
+hardware Whetstones +4.5 %. Mix +1.8 % over P124, +3.9 % over P120.
+
+Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364. Real Quadra 800: 1.897.
