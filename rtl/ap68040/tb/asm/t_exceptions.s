@@ -697,10 +697,14 @@ irq_withdraw_loop:
 	; request to arrive inside the MOVE to SR that masks it.
 	move.w	#$2000,sr		; mask 0 while the request arrives
 	move.w	(cnt_int2).l,d5
-	; Five cycles lands inside MOVE-to-SR even when a resident next opcode is
-	; consumed at the preceding retirement boundary (one cycle earlier than
-	; the standalone S_FETCH path).
-	move.w	#5,(IPLDLY).l
+	; The request has to reach the registered level while the mask is
+	; still 0.  With the fetch queue on its own request channel (P171)
+	; MOVE-to-SR no longer waits for its immediate, so the NOP keeps the
+	; mask raise far enough out: four cycles lands inside MOVE-to-SR on
+	; both the shared-port and the split-channel cores (3-5 pass on
+	; P171, 3-7 on the shared port; 6+ arrive after the mask on P171).
+	move.w	#4,(IPLDLY).l
+	nop
 	move.w	#$2700,sr		; request qualifies inside this insn
 	nop
 	nop

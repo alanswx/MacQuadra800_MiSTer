@@ -351,7 +351,10 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # queue through the live translation), HDMI -0.982.  Not a seed problem; P136 stays out.  Tree back at P165.
 # P170: P124 cache + the hinted pair hit only (P136's mirrored next-word banks and fast_pair_idle, built on the
 # registered hint like fast_hit; none of P136's live-request look paths).  Permute -3.1 %, all 31 self-tests pass.
-set_global_assignment -name SEED 23
+# P170 seed 23 2026-09-22: 37,243 ALMs, 489 RAM; routing congestion, no RBF.
+# P171: split fetch/data request channels (ifr_* from the core, arbiter in the wrappers) + idle-slot supply policy,
+# on P170.  Permute -5.7 %, Whetstone -1.1 % (sim, vs P170).  Seed 24 for the routing.
+set_global_assignment -name SEED 24
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and

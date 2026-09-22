@@ -48,6 +48,18 @@ module ap040_core
 	output reg        mem_write,
 	output            mem_instr,
 	output reg  [1:0] mem_size,
+	// The instruction fetch channel (P171): the fetch queue's requests on
+	// their own registers, so a data request may be issued -- and hinted --
+	// while a fetch is outstanding.  The wrapper presents one channel at a
+	// time to the cache and returns that channel's acknowledge and fault.
+	output reg        ifr_req,
+	output reg [31:0] ifr_addr,
+	output reg  [1:0] ifr_size,
+	output reg  [2:0] ifr_fc,
+	input             ifr_ack,
+	input             ifr_flt,     // MMU fault on the fetch channel (P171)
+	input             ifr_berr,    // physical bus error on the fetch channel (P171)
+	input             ifr_pres,    // the fetch is the channel presented to the MMU/cache now (P171)
 	output     [31:0] mem_addr,
 	output     [31:0] mem_hint_addr,   // next access's address, one cycle early
 	output            mem_hint_instr,
@@ -250,7 +262,7 @@ wire unused_in = ipl_autovector;
 // An access error comes either from the MMU (translation fault) or from the
 // bus (a physical bus error: no device answered).  Both are only sampled
 // while a transfer is outstanding, which is the only time they are tested.
-wire mem_err = mem_req && (mem_flt | berr);
+wire mem_err = mem_req && (mem_flt | berr);   // data channel only: the wrapper gates each channel's faults (P171)
 
 // X2.2b stage 1: the memory port carries two channels, and mem_instr_q tags
 // which one owns the transaction in flight -- aerr_start already builds the
@@ -267,10 +279,10 @@ wire mem_err = mem_req && (mem_flt | berr);
 // (issue_ifetch's port-free branch and the fill engine, both mem_instr_q=1),
 // exception_prefetch owns the port outright on the exception path, and the
 // data states set mem_instr_q=0 at their own issue.
-wire d_ack = mem_ack && !mem_instr_q;   // data channel acknowledge
-wire i_ack = mem_ack &&  mem_instr_q;   // instruction channel acknowledge
-wire d_err = mem_err && !mem_instr_q;
-wire i_err = mem_err &&  mem_instr_q;
+wire d_ack = mem_ack;                   // data channel acknowledge
+wire i_ack = ifr_ack;                   // instruction channel acknowledge (P171)
+wire d_err = mem_err;
+wire i_err = ifr_req && (ifr_flt | ifr_berr);
 
 //---------------------------------------------------------------------------
 // register file
@@ -856,6 +868,7 @@ reg [31:0] epf_ftail;            // address of the next word to be fetched
 reg        epf_super;            // FC the queue was filled under
 reg        epf_armed;            // the fill engine owns this stream
 reg        epf_pend;             // a queue fetch is outstanding
+reg        i_ack_d;              // an instruction fetch acknowledged last cycle: its line offer lands now (P171)
 reg        epf_pend_lw;          // ... and it returns two words
 reg        epf_kill;             // ... whose data a flush has abandoned
 reg        epf_err;              // the fill engine faulted: re-issue on demand
@@ -1806,7 +1819,7 @@ task issue_ifetch;
 				epf_fill  <= 0;
 				epf_ftail <= a;
 			end
-			if (!refill_hit && !epf_pend && !mem_req && !mem_ack) begin
+			if (!refill_hit && !epf_pend && !ifr_req && !ifr_ack) begin
 				// The port is free: issue the redirect now rather than
 				// leaving it to the engine one cycle later.  A longword
 				// aligned fetch takes both words in one request.  Alignment
@@ -1814,10 +1827,10 @@ task issue_ifetch;
 				// page, so it cannot translate or fault differently than the
 				// two halves would have (the exception prefetch below stays
 				// word-wise precisely because its $FFE entry CAN span).
-				mem_req <= 1; mem_write <= 0; mem_instr_q <= 1;
-				mem_size <= a[1] ? `AP040_SZ_W : `AP040_SZ_L;
-				mem_addr_q <= a;
-				fc_r <= s ? `AP040_FC_SUPER_PROG : `AP040_FC_USER_PROG;
+				ifr_req <= 1;
+				ifr_size <= a[1] ? `AP040_SZ_W : `AP040_SZ_L;
+				ifr_addr <= a;
+				ifr_fc <= s ? `AP040_FC_SUPER_PROG : `AP040_FC_USER_PROG;
 				epf_pend <= 1;
 				epf_pend_lw <= ~a[1];
 				epf_pend_seed <= 1;
@@ -1842,9 +1855,9 @@ task exception_prefetch;
 		epf_super <= s;
 		pc <= a;
 		pc_i <= a;
-		mem_req <= 1; mem_write <= 0; mem_instr_q <= 1;
-		mem_size <= `AP040_SZ_W; mem_addr_q <= a;
-		fc_r <= s ? `AP040_FC_SUPER_PROG : `AP040_FC_USER_PROG;
+		ifr_req <= 1;
+		ifr_size <= `AP040_SZ_W; ifr_addr <= a;
+		ifr_fc <= s ? `AP040_FC_SUPER_PROG : `AP040_FC_USER_PROG;
 		epf_issue = 1;
 		state <= S_EPF_FILL;
 	end
@@ -1858,6 +1871,7 @@ endtask
 task fatal_halt;
 	begin
 		mem_req <= 0;
+		ifr_req <= 0;
 		m_issued <= 0;
 		pt_req <= 0;
 		pf_req <= 0;
@@ -1895,7 +1909,7 @@ task immf_reg;
 	reg  [31:0] v;
 	begin
 		v = 32'd0;
-		if (state == S_DECODE && !epf_flushed && !epf_pend && !mem_ack &&
+		if (state == S_DECODE && !epf_flushed && !epf_pend && !ifr_ack &&
 		    ((n == 2'd2) ? epf_ready_pc2 : epf_ready_pc)) begin
 			v = (n == 2'd2) ? {epf_data[epf_head], epf_data[epf_head + 3'd1]}
 			                : {16'd0, epf_data[epf_head]};
@@ -1941,7 +1955,7 @@ task immf_now;
 		// advancing them while the old fetch still owns the physical bus lets
 		// the table walker overlap that bus.  epf_issue also suppresses a new
 		// speculative fill on this same edge, preserving that ownership rule.
-		if (state == S_DECODE && !epf_flushed && !epf_pend && !mem_ack &&
+		if (state == S_DECODE && !epf_flushed && !epf_pend && !ifr_ack &&
 		    n == 2'd2 && epf_ready_pc2) begin
 			imm <= {epf_data[epf_head], epf_data[epf_head + 3'd1]};
 			pc <= pc + 32'd4;
@@ -1949,7 +1963,7 @@ task immf_now;
 			epf_issue = 1;
 			state <= ret;
 		end
-		else if (state == S_DECODE && !epf_flushed && !epf_pend && !mem_ack &&
+		else if (state == S_DECODE && !epf_flushed && !epf_pend && !ifr_ack &&
 		         epf_ready_pc) begin
 			imm <= {16'd0, epf_data[epf_head]};
 			pc <= pc + 32'd2;
@@ -2046,7 +2060,7 @@ task mem_issue;
 		                 state == S_DECODE || state == S_BCC_EXT ||
 		                 state == S_JSR1 || state == S_PEA1 ||
 		                 state == S_LINK2 || hint_st_fpu || hint_st_fmovem || pipe_load_launch))) &&
-		    mgo_a[31:28] == 4'h0 && !epf_pend &&
+		    mgo_a[31:28] == 4'h0 &&
             ((!mem_req && !mem_ack) || (mgo_wr && move_store_read_handoff)) &&
         // A transfer wholly inside 4KB cannot cross either supported MMU
         // page size. Crossing accesses retain delayed issue and byte splitting.
@@ -2113,7 +2127,7 @@ task ea_operand_start;
 		// advancing the EA computation overlaps the fetch instead of
 		// waiting for it in S_IMMF.
 		ext_inline = (state == S_PIPE_START) && !epf_flushed &&
-		             !mem_ack && epf_ready_pc && (rr_a == {1'b1, rn}) &&
+		             !ifr_ack && epf_ready_pc && (rr_a == {1'b1, rn}) &&
 		             !base_landing && !aux_we;
 		case (mode)
 			// (An), (An)+, -(An) destination with the base settled on port
@@ -2251,7 +2265,10 @@ task exc_now;
 		// finish -- dropping a request the cache has accepted would lose
 		// its acknowledge -- and its data is discarded by epf_kill.
 		epf_flush;
-		if (!epf_pend) mem_req <= 0;
+		// A queue fetch the platform has not accepted yet is withdrawn; one
+		// already on the bus is left to finish under epf_kill (P171).
+		if (!epf_pend || !ifr_pres) begin ifr_req <= 0; epf_pend <= 0; epf_kill <= 0; end
+		mem_req <= 0;
 		// A faulted/aborted locked sequence ends here: the 040 drops LOCK
 		// on the fault, and a stale lk_cyc would throttle the handler's
 		// fetch queue (fetch_next is not on the exception entry path).
@@ -2295,40 +2312,52 @@ task exc0_enter;
 endtask
 
 // access error entry: capture the fault shape from the outstanding request
+// from_ifr: the fault is on the fetch channel, whose request lives in the
+// ifr_* registers (P171); the data channel's is in mem_*.  The frame is
+// built from the live request either way, not from a copy landing on
+// this edge.
 task aerr_start;
+	input from_ifr;
+	reg [2:0] fcx;
 	begin
-		aer_bus  <= berr && !mem_flt;   // physical bus error, not an ATC fault
+		fcx = from_ifr ? ifr_fc : fc_r;
+		aer_bus  <= from_ifr ? (ifr_berr && !ifr_flt)
+		                     : (berr && !mem_flt);   // physical bus error, not an ATC fault
 		// FA is the initial byte of the original transfer, even when a
 		// page-crossing access has been split and a later byte faults.
-		aer_fa   <= mem_instr_q ? mem_addr_q : m_addr_r;
-		aer_wr   <= mem_write;
-		aer_sz   <= (!mem_instr_q && m_cross) ? m_size : mem_size;
-		aer_wd   <= (!mem_instr_q && m_cross) ? m_wdat : mem_wdata;
+		aer_fa   <= from_ifr ? ifr_addr : m_addr_r;
+		aer_wr   <= from_ifr ? 1'b0 : mem_write;
+		aer_sz   <= from_ifr ? ifr_size : m_cross ? m_size : mem_size;
+		aer_wd   <= (!from_ifr && m_cross) ? m_wdat : mem_wdata;
 		aer_lk   <= lk_cyc;
 		// memory ops wait in S_MRD/S_MWR: the requesting context is
 		// identified by the continuation state, not by `state` itself
-		aer_m16  <= !mem_instr_q &&
+		aer_m16  <= !from_ifr &&
 		            (r_m_ret >= S_M16_RD2 && r_m_ret <= S_M16_INC2);
 		// Only operand transfers, not faults while calculating the EA,
 		// carry CM. A fault fetching a resumed MOVEM retains its saved EA.
-		aer_cm <= mm_resume || (!mem_instr_q &&
+		aer_cm <= mm_resume || (!from_ifr &&
 		          (r_m_ret == S_MOVEM_LD || r_m_ret == S_MOVEM_LOOP));
 		aer_ea <= mm_start_ea;
 		mm_resume <= 0;
 		// MOVES faults report the alternate space in TT/TM: FC 0, 3, 4 and 7
 		// keep the raw FC with TT = 10; FC 2 and 6 are remapped onto the
 		// corresponding data space (WinUAE mmu_bus_error's ismoves block)
-		aer_tt   <= (fc_ovr_v && (fc_r[1:0] == 2'b00 || fc_r[1:0] == 2'b11))
+		aer_tt   <= (fc_ovr_v && (fcx[1:0] == 2'b00 || fcx[1:0] == 2'b11))
 		            ? 2'b10 : 2'b00;
-		aer_tm   <= (fc_ovr_v && (fc_r[1:0] == 2'b00 || fc_r[1:0] == 2'b11)) ? fc_r :
-		            (fc_ovr_v && fc_r[1]) ? {fc_r[2], 2'b01} : fc_r;
-		aer_ma   <= mem_flt && !mem_instr_q && m_cross &&
+		aer_tm   <= (fc_ovr_v && (fcx[1:0] == 2'b00 || fcx[1:0] == 2'b11)) ? fcx :
+		            (fc_ovr_v && fcx[1]) ? {fcx[2], 2'b01} : fcx;
+		aer_ma   <= mem_flt && !from_ifr && m_cross &&
 		            ((mem_addr_q & ~m_pgmask) != (m_addr_r & ~m_pgmask));
 		// Preserve fc_r above for the SSW, then force all frame/vector cycles
 		// back to supervisor data space.
 		fc_ovr_v <= 0;
 		epf_flush;
 		mem_req  <= 0;
+		// A queue fetch the platform has not accepted yet is withdrawn
+		// (a request is only committed once it is the presented channel);
+		// one already on the bus is left to finish under epf_kill.
+		if (!ifr_pres) begin ifr_req <= 0; epf_pend <= 0; epf_kill <= 0; end
 		// The locked sequence ends at the fault (aer_lk above still
 		// captures the pre-edge value): the 040 drops LOCK, and a stale
 		// lk_cyc would throttle the handler's fetch queue.
@@ -2777,7 +2806,7 @@ wire [31:0] bd_fall   = pc + 32'd2 + {29'd0, bd_n, 1'b0};
 // state's later fetch.  mem_req covers the acknowledge cycle (the
 // request is held until it), so the acknowledge itself stays out.
 wire        bd_go     = bd_ok && !bd_t[0] && (bd_t != bd_fall) &&
-                        !epf_pend && !mem_req && !sr[15] &&
+                        !epf_pend && !ifr_req && !sr[15] &&
                         (state != S_BCC_EXT) && (state != S_DBCC1) &&
                         (state != S_FBCC) && (state != S_FDBCC) &&
                         (state != S_MWR);
@@ -3322,7 +3351,7 @@ task finish_bcc;
 		// fetch killed, so its later acknowledge appends nothing.  Only the
 		// acknowledge cycle itself is excluded (its append shares the ring).
 		else if (taken && !tr_t1 && !tr_t0 && !irq_pend &&
-		         brf_refill_hit(t) && !mem_ack &&
+		         brf_refill_hit(t) && !ifr_ack &&
 		         (!epf_armed || epf_next != t || epf_super != sr_s))
 			decode_dbcc_brf(t);
 		else if (taken) go_pc(t);
@@ -3519,7 +3548,7 @@ wire [31:0] hint_p2_addr = pipe_load_addr;
 wire hint_p2 = 1'b0;
 wire [31:0] hint_p2_addr = 32'd0;
 `endif
-wire        hint_bd  = bd_ok && !epf_pend && !mem_req && !sr[15];
+wire        hint_bd  = bd_ok && !epf_pend && !ifr_req && !sr[15];
 wire [31:0] hint_addr = hint_data  ? m_addr_r :
                         retire_move_read ? alu_res :
                         hint_p2    ? hint_p2_addr :
@@ -3543,8 +3572,51 @@ wire [31:0] hint_addr = hint_data  ? m_addr_r :
 // it, so the cache's idle read stays on the request.
 assign mem_addr  = mem_addr_q;
 assign mem_instr = mem_instr_q;
-assign mem_hint_addr  = mem_req ? mem_addr_q  : hint_addr;
-assign mem_hint_instr = mem_req ? mem_instr_q : !(retire_move_read || hint_data || hint_store || hint_pipe || hint_ea || hint_early_read || hint_fpu_read || hint_pop || hint_p2);
+// A pending data request is hinted ahead of an outstanding fetch, and a
+// data hint ahead of the fetch's own repeat (P171); the fetch keeps its
+// repeat only when nothing on the data side wants the bus.
+wire        data_hint_any = retire_move_read || hint_data || hint_store || hint_pipe || hint_ea || hint_early_read || hint_fpu_read || hint_pop || hint_p2;
+// Fetch queue supply policy (P171).  A fetch is only needed once per
+// 16-byte line (the cache offers the rest of the line after each hit),
+// and its issue->offer latency is 2-3 clocks.  The floor (P171_FILL_TH,
+// words) is the starvation trigger: below it the fetch goes out even if
+// the data side wants the port.  Above it, with P171_FILL_IDLE, the
+// fetch goes out only into an idle port slot -- no data request
+// outstanding and none hinted for the next cycle -- up to
+// P171_FILL_IDLE_TH words, so long instructions do not run the queue
+// dry while short loops keep the port for their operands.
+// Measured (Permute(7) lat 0 / Whetstone, against P170 1,263,600 / 25,671,327):
+//   floor 2, no idle fill      1,174,917 / 25,742,999
+//   floor 4, no idle fill      1,201,412 / 25,539,756
+//   floor 2 + idle fill to 6   1,191,990 / 25,462,081
+//   floor 3 + idle fill to 6   1,191,988 / 25,381,095   <- default
+//   floor 4 + idle fill to 6   1,202,064 / 25,472,006
+// An idle cap above 6 overflows the eight-entry ring with a longword
+// fetch (cap 8 corrupts Whetstone).  Whether the hinted request counts
+// as "wanted" made no difference (the data side wins the arbiter on
+// arrival anyway); it is kept because it is free.
+`ifndef P171_FILL_TH
+`define P171_FILL_TH 3
+`endif
+`ifndef P171_FILL_IDLE_TH
+`define P171_FILL_IDLE_TH 6
+`endif
+wire        epf_port_wanted = mem_req || data_hint_any;
+wire        epf_fill_floor  = epf_ftail[1] ? (epf_count <= (`P171_FILL_TH + 4'd1)) : (epf_count <= `P171_FILL_TH);
+`ifdef P171_FILL_FLAT
+wire        epf_fill_idle   = 1'b0;
+`else
+wire        epf_fill_idle   = !epf_port_wanted &&
+                              (epf_ftail[1] ? (epf_count <= (`P171_FILL_IDLE_TH + 4'd1)) : (epf_count <= `P171_FILL_IDLE_TH));
+`endif
+wire        epf_fill_ok     = epf_fill_floor || epf_fill_idle;
+// The presented request repeats on the hint bus until its acknowledge
+// (the MMU translates the hint through the same copy it refills from the
+// request); in the acknowledge cycle the hint moves on to whatever waits
+// behind it, so the next request meets a translated hint.
+assign mem_hint_addr  = (ifr_pres && ifr_req && !ifr_ack) ? ifr_addr :
+                        mem_req ? mem_addr_q : data_hint_any ? hint_addr : ifr_req ? ifr_addr : hint_addr;
+assign mem_hint_instr = (ifr_pres && ifr_req && !ifr_ack) ? 1'b1 : mem_req ? 1'b0 : !data_hint_any;
 
 //---------------------------------------------------------------------------
 // main state machine
@@ -4864,7 +4936,7 @@ always @(posedge clk) begin
 		mmu_reset_seen <= 1;
 		ir <= 0;
 		perf_dispatch_toggle <= 0;
-		mem_req <= 0; mem_write <= 0; mem_instr_q <= 0;
+		mem_req <= 0; mem_write <= 0; mem_instr_q <= 0; ifr_req <= 0; ifr_addr <= 0; ifr_size <= 0; ifr_fc <= 0;
 		mem_size <= `AP040_SZ_W; mem_addr_q <= 0; mem_wdata <= 0;
 		fc_r <= `AP040_FC_SUPER_DATA;
 		rf_we <= 0; rf_waddr <= 0; rf_wdata <= 0;
@@ -4978,14 +5050,16 @@ always @(posedge clk) begin
 		fpu_frestore_idle <= 0;
 		fpu_frestore_unimp <= 0;
 		if (mem_ack) mem_req <= 0;
+		if (ifr_ack) ifr_req <= 0;
+		i_ack_d <= i_ack;
 		// Every acknowledged instruction fetch, whether the queue engine's,
 		// a redirect's or the exception prefetch's own, names the line the
 		// cache will offer next cycle: record it and its context here, not
 		// on any one issuer's path.  Only a queue fetch that was neither
 		// killed nor flushed may let the offer replace the refill sector.
 		if (i_ack) begin
-			iline_log <= mem_addr_q[31:4];
-			iline_super <= fc_r[2];
+			iline_log <= ifr_addr[31:4];    // the fetch's own registers (P171)
+			iline_super <= ifr_fc[2];
 			brf_seed_ok <= epf_pend ? (epf_pend_seed && !epf_kill && !epf_flushed)
 			                        : 1'b1;
 		end
@@ -5005,7 +5079,7 @@ always @(posedge clk) begin
 		// return appends the same words) and when the tail is not in the
 		// offered line.  The line also seeds the branch-refill sector
 		// buffer; a same-cycle CPU-write invalidation below wins over it.
-		if (mem_line_stb && epf_armed && !epf_pend && !mem_ack &&
+		if (mem_line_stb && epf_armed && !epf_pend && !ifr_ack &&
 		    (epf_super == iline_super)) begin : line_offer
 			reg [3:0] avail, room, n;
 			integer i;
@@ -5107,10 +5181,10 @@ always @(posedge clk) begin
 			// words.  Changing an address while req remains asserted can make a
 			// completed request look like a duplicate transaction.
 			S_EPF_GAP: begin
-				mem_req <= 1; mem_write <= 0; mem_instr_q <= 1;
-				mem_size <= `AP040_SZ_W;
-				mem_addr_q <= epf_base + {28'd0, epf_fill, 1'b0};
-				fc_r <= epf_super ? `AP040_FC_SUPER_PROG : `AP040_FC_USER_PROG;
+				ifr_req <= 1;
+				ifr_size <= `AP040_SZ_W;
+				ifr_addr <= epf_base + {28'd0, epf_fill, 1'b0};
+				ifr_fc <= epf_super ? `AP040_FC_SUPER_PROG : `AP040_FC_USER_PROG;
 				state <= S_EPF_FILL;
 			end
 
@@ -5204,7 +5278,7 @@ always @(posedge clk) begin
 				end
 				else if (d_err) begin
 					if (in_exc) fatal_halt;
-					else aerr_start;
+					else aerr_start(0);
 				end
 				else if (d_ack) begin : mrd_b
 					reg [31:0] acc;
@@ -5248,7 +5322,7 @@ always @(posedge clk) begin
 				end
 				else if (d_err) begin
 					if (in_exc) fatal_halt;
-					else aerr_start;
+					else aerr_start(0);
 				end
 				else if (d_ack) begin
 					m_issued <= 0;
@@ -5331,9 +5405,8 @@ always @(posedge clk) begin
 				// until it completes.  Only the issue is delayed -- the
 				// acknowledge branches below stay unreachable meanwhile,
 				// so the fetch's ack is never mistaken for this one's.
-				if (!m_issued && epf_pend) begin
-				end
-				else if (!m_issued && m_cross) begin
+				// (a fetch in flight no longer holds a data transfer: P171)
+				if (!m_issued && m_cross) begin
 					m_bidx <= 0;
 					m_acc <= 0;
 					state <= S_MRD_B;
@@ -5347,7 +5420,7 @@ always @(posedge clk) begin
 				end
 				else if (d_err) begin
 					if (in_exc) fatal_halt;
-					else aerr_start;
+					else aerr_start(0);
 				end
 				else if (d_ack) begin
 					// Port B has settled during the read. Reuse the shared ALU
@@ -5537,9 +5610,8 @@ always @(posedge clk) begin
 				// until it completes.  Only the issue is delayed -- the
 				// acknowledge branches below stay unreachable meanwhile,
 				// so the fetch's ack is never mistaken for this one's.
-				if (!m_issued && epf_pend) begin
-				end
-				else if (!m_issued && m_cross) begin
+				// (a fetch in flight no longer holds a data transfer: P171)
+				if (!m_issued && m_cross) begin
 					m_bidx <= 0;
 					state <= S_MWR_B;
 				end
@@ -5553,7 +5625,7 @@ always @(posedge clk) begin
 				end
 				else if (d_err) begin
 					if (in_exc) fatal_halt;
-					else aerr_start;
+					else aerr_start(0);
 				end
 				else if (d_ack) begin
 					// A completed store with nothing left to do retires
@@ -6514,7 +6586,7 @@ always @(posedge clk) begin
 						// The generic redirect keeps trace/interrupt priority.
 						// Only the ordinary idle-bus loop case dispatches here.
 						if (!tr_t1 && !tr_t0 && !irq_pend && refill_hit &&
-						    !epf_pend && !mem_req && !mem_ack &&
+						    !epf_pend && !ifr_req && !ifr_ack &&
 						    (!epf_armed || epf_next != tgt || epf_super != sr_s))
 							decode_dbcc_brf(tgt);
 						else
@@ -6842,7 +6914,13 @@ always @(posedge clk) begin
 				end
 			end
 
-			S_MOVEC2: begin
+			// A killed queue fetch may still be on the bus (with its own
+			// request channel the engine issues right up to the MOVEC, P171);
+			// an MMU register write under it would make the MMU re-translate
+			// an accepted request, so the write waits for it to retire, as
+			// PTEST/PFLUSH do.
+			S_MOVEC2: if (epf_pend) epf_flush;
+			else begin
 				epf_flush;      // control-register access serializes fetch
 				case (imm[11:0])
 					12'h000: sfc <= rf_rdata_a[2:0];
@@ -9510,6 +9588,7 @@ always @(posedge clk) begin
 			//--------------------------------------------------------- halted
 			S_HALT: begin
 				mem_req <= 0;
+				ifr_req <= 0;
 				m_issued <= 0;
 				pt_req <= 0;
 				pf_req <= 0;
@@ -9645,7 +9724,7 @@ always @(posedge clk) begin
 				// it then pays a demand fetch (the corpus ran 1.3 % slower);
 				// S_DECODE, a cycle later, usually finds the port free.
 				// (2026-09-17)
-				else if (!epf_pend && !mem_req && !mem_ack) go_pc(rd_bcc_t);
+				else if (!epf_pend && !ifr_req && !ifr_ack) go_pc(rd_bcc_t);
 			end
 			else if (epf_count >= 4'd2) begin
 				ir <= epf_data[epf_head + 3'd1];
@@ -9738,16 +9817,20 @@ always @(posedge clk) begin
 			// A fault on a word fetched ahead of demand is only recorded:
 			// the fetch is re-issued when execution actually reaches it, and
 			// faults again there with the live context.
-			mem_req  <= 0;
+			ifr_req  <= 0;
+			// the frame builder (aerr_start) reads the faulting request from
+			// the mem_* registers: carry the fetch's over (P171)
+			mem_addr_q <= ifr_addr; mem_size <= ifr_size; fc_r <= ifr_fc;
+			mem_write <= 0; mem_instr_q <= 1;
 			epf_pend <= 0;
 			epf_kill <= 0;
 			if (epf_kill || epf_flushed) begin
 				// abandoned before the fault: nothing to report
 			end
 			else if ((state == S_FETCH || state == S_IMMF) &&
-			         epf_count == 4'd0 && epf_next == mem_addr_q) begin
+			         epf_count == 4'd0 && epf_next == ifr_addr) begin
 				if (in_exc) fatal_halt;
-				else aerr_start;
+				else aerr_start(1);
 			end
 			else epf_err <= 1;
 		end
@@ -9776,12 +9859,10 @@ always @(posedge clk) begin
 		// the loop, so the stream fills like any other.
 		else if (epf_armed && !epf_pend && !epf_err &&
 		         !epf_issue && !epf_flushed &&
-		         !mem_req && !mem_ack &&
+		         !ifr_req && !ifr_ack &&
 		         (!lk_cyc || state == S_IMMF) &&
 		         (epf_super == sr_s) &&
 		         (epf_ftail[31:12] == pc[31:12]) &&
-		         state != S_MRD && state != S_MWR &&
-		         state != S_MRD_B && state != S_MWR_B &&
 		         state != S_EPF_FILL && state != S_EPF_GAP &&
 		         // Computing an effective address means a DATA access is
 		         // imminent, and the port is shared: a speculative fetch
@@ -9790,21 +9871,23 @@ always @(posedge clk) begin
 		         // these slots costs the queue a little run-ahead and is
 		         // worth 12% on loop code (bench_loop).  Demand fetches are
 		         // untouched -- S_FETCH and S_IMMF are not EA states.
-		         !ea_state &&
                  // Leave memory slots for stack transfers once four words
                  // are queued. Demand fetch and other instruction families
                  // retain their usual admission and refill thresholds.
                  (epf_count <= 4'd4 ||
                   !((ir & 16'hfff0) == 16'h4e50 || ir == 16'h4e75 ||
                     ((ir & 16'hfb80) == 16'h4880 && ir[5:3] >= 2))) &&
-		         (epf_ftail[1] ? (epf_count <= 4'd7) : (epf_count <= 4'd6)))
+		         // the supply policy (epf_fill_ok, defined with the hint mux):
+		         // a starvation floor, and above it a fill only into an idle
+		         // port slot (P171)
+		         epf_fill_ok)
 		begin
 			epf_brf <= 0;
 			epf_pend_seed <= 0;
-			mem_req <= 1; mem_write <= 0; mem_instr_q <= 1;
-			mem_size <= epf_ftail[1] ? `AP040_SZ_W : `AP040_SZ_L;
-			mem_addr_q <= epf_ftail;
-			fc_r <= epf_super ? `AP040_FC_SUPER_PROG : `AP040_FC_USER_PROG;
+			ifr_req <= 1;
+			ifr_size <= epf_ftail[1] ? `AP040_SZ_W : `AP040_SZ_L;
+			ifr_addr <= epf_ftail;
+			ifr_fc <= epf_super ? `AP040_FC_SUPER_PROG : `AP040_FC_USER_PROG;
 			epf_pend <= 1;
 			epf_pend_lw <= ~epf_ftail[1];
 			epf_kill <= 0;
