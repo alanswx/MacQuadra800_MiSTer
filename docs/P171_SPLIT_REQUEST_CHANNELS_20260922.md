@@ -49,3 +49,46 @@ fetch channel the engine should prefer *waiting for the offered line* over issui
 known target must own the channel. `scratch/p171_split_request_20260922/` holds the last state
 (fetch-first arbitration, the hint repeat, the `i_ack_d` hold); the FETCHN/FETCHCH counters in its
 `tb_cpu_permute.sv` are the instruments.
+
+## Supply policy and correctness (2026-09-22, daytime)
+
+The 2.5x fetch count had a plain cause: `iline_log` (the line the core matches offers against) was
+still taken from the data channel's `mem_addr_q`, so with the fetch's address in `ifr_addr` no line
+offer ever matched and every line was fetched a longword at a time.  Taking it from `ifr_addr`, removing
+the shared-port refusals (`state != S_MRD/S_MWR`, `!ea_state`) and lowering the fill trigger to two
+words gave Permute(7) **1,174,917** clocks at latency 0 / **1,213,764** at latency 3 against P170's
+1,263,600 / 1,278,213 (-7.0 % / -5.0 %).  Whetstone, however, came out **25,742,999** against P170's
+25,671,327 (+0.3 %): S_FETCH +263k clocks -- the two-word trigger exposes the 2-3 clock issue->offer
+latency on the FPU code's long instructions.  The policy work is a sweep (below).
+
+Making the split correct took five fixes; every one is a place where the single-port core relied on
+"a data request is never outstanding while a fetch is" or on the fetch living in `mem_*`:
+
+1. **MOVEC to an MMU register under a killed fetch** (`atcprobe`).  The engine now issues right up to
+   the MOVEC, so the killed fetch is still on the bus when TC is written; the MMU re-translates a request
+   the platform has already accepted and starts a walk against a live 16-bit bus cycle.  `S_MOVEC2`
+   waits for `!epf_pend`, as PTEST/PFLUSH already did.
+2. **No request gap after a fault** (`mmu`, `movem_restart`, the Whetstone "request changed before
+   ack").  When the presented request faulted, the wrapper switched to the other channel in the very
+   next cycle; the platform's `c_req` never fell and the MMU's `W_DROP` (which waits for that) never
+   returned to idle -- deadlock with the fault frame's store queued behind it.  The arbiter now holds
+   `mem_req` low for one cycle after any fault (`flt_gap`).
+3. **Fault frame from the stale copy** (`lea_fault`).  The queue-fetch fault handler compared
+   `epf_next` with the `mem_addr_q` copy it was itself writing on that edge, and `aerr_start` built the
+   frame from the one-cycle-late `mem_*` registers.  `aerr_start` now takes the channel as an argument
+   and reads `ifr_*` for a fetch fault.
+4. **Bus error folded into the MMU fault**.  `core_flt = (mem_flt|berr) && !sel_instr` made every data
+   bus error look like an ATC fault in the SSW.  The wrappers now deliver `core_flt/ifr_flt` (MMU) and
+   `core_berr/ifr_berr` (bus) separately per channel.
+5. **A killed user fetch running during exception processing** (`mmu`: "handler fetch used FC=2").
+   A fetch the platform has not accepted yet is now withdrawn at exception entry (`!ifr_pres`); one
+   already on the bus is left to finish under `epf_kill`, as before.
+
+`t_exceptions` 136 (a request timed to qualify inside `MOVE #$2700,SR`) is cycle-tuned to the
+shared port: with the immediate already resident the mask is raised before any IPLDLY value can land,
+so the test gained a `nop` and uses delay 4 (3-5 pass on P171, 3-7 on the shared port).  A live-level
+hold latch was tried and rejected: the bench's own claim model (`tb_qual`) qualifies from the registered
+level, and the live latch is a phantom by that definition.
+
+Gates on the corrected sources: `run_tests.sh` 31/31, the 22 pipeline programs, the four IRQ replay
+programs (`irq_overlap/load/store/pea`), Whetstone and Permute run to completion.
