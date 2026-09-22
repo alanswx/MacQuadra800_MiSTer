@@ -1893,3 +1893,14 @@ The same sources in the Whetstone fixture: 26,310,962 loop clocks against P124's
 hardware Whetstones +4.5 %. Mix +1.8 % over P124, +3.9 % over P120.
 
 Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364. Real Quadra 800: 1.897.
+
+## P168 (P162 core + P136 cache + profile): fits, misses the CPU clock by 6.8 ns (2026-09-22)
+
+37,454 ALMs (89 %), 489 RAM blocks; CPU clock **-6.798 ns**, HDMI -0.982, clk_ram +0.689
+(`scratch/p168_p162core_p136cache_fit_20260921/`). The worst paths all run from the MMU's ATC RAM into
+the fetch queue (`atc_ram ... -> ap040_core epf_data[*]`): P136's parallel span read puts the live
+translation in front of the queue's ring write, the same class as P147/P150's -19 ns. The headroom
+profile did not change that (P136 had missed by 5.5 ns at 96 %), so it is a design fault, not
+placement. In simulation the cache is worth -6.8 % on Permute(7) at latency 0 (1,303,949 -> 1,215,081),
+i.e. the misaligned-stack effect is real and worth having -- but through a path that does not touch
+the live translation. Not deployed; the tree is back at P165 (P124 cache).
