@@ -231,11 +231,12 @@ dpram #(ROWIW, ROWW) ctag_ram_i
 	.data_a    (tag_wdat),
 	.wren_a    (ce & tag_we),
 	.q_a       (ihint_tag_q),
-	.address_b (inv_wren ? inv_idx : x_rowp1),
+	.address_b (inv_idx),
 	.data_b    ({ROWW{1'b0}}),
 	.wren_b    (inv_wren),
-	.q_b       (xhint_tag_q)
+	.q_b       ()
 );
+assign xhint_tag_q = {ROWW{1'b0}};   // BISECT: P178 off
 // In the clock a fast instruction hit acknowledges, the mirror reads that
 // way's whole line (every array at {set, way}) for the offer a clock later
 // (P174, moved here from the pair banks); the instruction hint's own idle
@@ -649,7 +650,7 @@ reg  iline_pair_pending;
 // Keep writes identical to the architectural cache banks. Only the
 // independent synchronous read address differs; cache capacity is unchanged.
 wire [1:0] pair_read_word = x_w + 2'd1;
-wire [SETW:0] pair_row = (x_w == 2'd3 && !x_instr) ? x_rowp1 : x_row;   // P178
+wire [SETW:0] pair_row = x_row;   // BISECT: P178 off
 always @(posedge clk) begin
     if (ce & cd_we[0] & !cd_widx[DIDXW-1]) pairdata0[cd_widx[DIDXW-2:0]] <= cd_wdat0;
     if (ce & cd_we[1] & !cd_widx[DIDXW-1]) pairdata1[cd_widx[DIDXW-2:0]] <= cd_wdat1;
