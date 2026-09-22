@@ -29,7 +29,7 @@ static void speedometer_before_eval() {
     b.error=SPEED_CORE(mem_err);b.instruction=SPEED_CORE(mem_instr_q);
     b.write=SPEED_CPU(mem_write);b.addr=SPEED_CORE(mem_addr_q);
     b.fc=SPEED_CORE(fc_r);b.bytes=uint8_t(1u<<SPEED_CPU(mem_size));
-    b.data=b.write?SPEED_CPU(mem_wdata):SPEED_CPU(mem_rdata);
+    b.data=b.write?SPEED_CPU(core_wdata):SPEED_CORE(mem_rdata);   // P171: the wrapper aliases mem_wdata to core_wdata
     // sim.v ties the machine CE to 1. This adapter must be changed if that
     // integration changes; the standalone observer nevertheless tests CE=0.
     b.ce=true;

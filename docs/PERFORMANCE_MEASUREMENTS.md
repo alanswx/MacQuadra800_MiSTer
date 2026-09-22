@@ -1926,3 +1926,25 @@ port and loses its hint.  The simulation fixtures (Permute -5.7 %, Whetstone -1.
 neither Puzzle nor Sieve has a working fixture (the exact-Sieve monitor is stale against the regfile).
 
 Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377. Real Quadra 800: 1.897.
+
+## P174 on hardware: Mix 1.460 (2026-09-22, 19:14-19:24)
+
+P174 = P171b + the one-clock instruction hit (`fast_ihit`, `docs/P174_FAST_INSTRUCTION_HIT_20260922.md`),
+with the OSDs, audio out and Y/C back (`configs/cpu_release_lite.tcl`); commit `c152ac4`, seed 24:
+39,441 ALMs (94 %), CPU clock **-0.920 ns**, HDMI +0.009, clk_ram met
+(`scratch/p174_ihit_fit_20260922/MacQuadra800_p174_ihit_01ebd7b.rbf`, md5 `89deb24e...`, on the MiSTer as
+`_Unstable/MacQuadra800_p174.rbf`).  Timing not met on the CPU clock; ran cleanly.
+
+Five valid Mix runs: **1.454, 1.460, 1.460, 1.461, 1.460** — median **1.460**, no invalid timers.
+Per test (median, P171 in brackets): Whetstones 1180 (1162, +1.5 %), Dhrystones 16,606 (15,904,
++4.4 %), Towers 0.637 (0.663, +4.1 %), Quick 0.552 (0.574, +4.0 %), Bubble 0.633 (0.655, +3.5 %),
+Queens 0.438 (0.466, +6.4 %), **Puzzle 0.768 (0.964, +25 %)**, Permutations 0.978 (1.028, +5.1 %),
+Int. Matrix 0.504 (0.560, +11 %), Sieve 1.009 (1.055, +4.6 %).
+
+Every test gained, and the two the split channel had hurt (Puzzle, Sieve) most of all: the two-clock
+fetch that every instruction fetch took before was what the data accesses of those loops waited behind.
+
+P178 (P175c + P177 + P178, `8ce901c`, 39,386 ALMs, -0.505 ns) **hangs during extension loading on
+hardware** (a blank alert, no disk activity) while every CPU bench passes; being bisected.
+
+Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377 -> **P174 1.460**. Real Quadra 800: 1.897.
