@@ -61,7 +61,8 @@ module ap040_core
 	input             ifr_berr,    // physical bus error on the fetch channel (P171)
 	input             ifr_pres,    // the fetch is the channel presented to the MMU/cache now (P171)
 	output     [31:0] mem_addr,
-	output     [31:0] mem_hint_addr,   // next access's address, one cycle early
+	output     [31:0] mem_hint_addr,
+	output     [31:0] mem_ihint_addr,   // the instruction side's own hint (P175)   // next access's address, one cycle early
 	output            mem_hint_instr,
 	output reg [31:0] mem_wdata,
 	output      [2:0] mem_fc,
@@ -3560,16 +3561,13 @@ wire [31:0] hint_addr = hint_data  ? m_addr_r :
                         retire_move_read ? alu_res :
                         hint_p2    ? hint_p2_addr :
                         hint_store ? hint_store_addr :
-                        hint_bcc   ? (pc + sxb(ir[7:0])) :
                         hint_pipe  ? hint_pipe_addr :
                         hint_displacement_read ? hint_displacement_addr :
                         hint_indexed_read ? hint_indexed_addr :
                         hint_fpu_read ? hint_fpu_addr :
                         hint_ea    ? ea_addr :
                         hint_pop   ? hint_pop_addr :
-                        hint_redir ? hint_redir_addr :
-                        hint_ftb   ? rd_bcc_t :
-                        hint_bd    ? bd_t : epf_ftail;
+                        hint_pop_addr;   // the instruction targets ride mem_ihint_addr (P175)
 // The request bus carries only registered state.  The hint rides its own
 // bus, which only RAM address inputs and the MMU's hint copy listen to,
 // so the address arithmetic behind it never enters a request-cycle path
@@ -3616,14 +3614,27 @@ wire        epf_fill_idle   = 1'b0;
 wire        epf_fill_idle   = !epf_port_wanted &&
                               (epf_ftail[1] ? (epf_count <= (`P171_FILL_IDLE_TH + 4'd1)) : (epf_count <= `P171_FILL_IDLE_TH));
 `endif
-wire        epf_fill_ok     = epf_fill_floor || epf_fill_idle;
+// P175b: the clock after an instruction acknowledge is the line offer's
+// clock (the cache offers the acknowledged line then, and the core takes
+// it only while no fetch is outstanding); a fill issued in it refuses the
+// offer and fetches the same words a longword at a time.
+wire        epf_fill_ok     = (epf_fill_floor || epf_fill_idle) && !i_ack_d;
 // The presented request repeats on the hint bus until its acknowledge
 // (the MMU translates the hint through the same copy it refills from the
 // request); in the acknowledge cycle the hint moves on to whatever waits
 // behind it, so the next request meets a translated hint.
-assign mem_hint_addr  = (ifr_pres && ifr_req && !ifr_ack) ? ifr_addr :
-                        mem_req ? mem_addr_q : data_hint_any ? hint_addr : ifr_req ? ifr_addr : hint_addr;
-assign mem_hint_instr = (ifr_pres && ifr_req && !ifr_ack) ? 1'b1 : mem_req ? 1'b0 : !data_hint_any;
+// P175: two hint buses.  The data bus carries the outstanding data request
+// and the data-side hints; the instruction bus carries the presented
+// fetch until it clears, else the redirect targets, else the queue's next
+// fetch.  Each side's idle read in the cache is indexed by its own bus, so
+// a fetch and a data access can both be hinted in the same clock.
+assign mem_hint_addr  = mem_req ? mem_addr_q : hint_addr;
+assign mem_hint_instr = 1'b0;
+assign mem_ihint_addr = ifr_req ? ifr_addr :
+                        hint_bcc   ? (pc + sxb(ir[7:0])) :
+                        hint_redir ? hint_redir_addr :
+                        hint_ftb   ? rd_bcc_t :
+                        hint_bd    ? bd_t : epf_ftail;
 
 //---------------------------------------------------------------------------
 // main state machine

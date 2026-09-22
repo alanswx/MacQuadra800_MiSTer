@@ -48,6 +48,10 @@ module ap040_cache
 	input      [21:0] c_hint_ptag,   // its physical tag, registered by the MMU
 	input             c_hint_match,  // the request is that hint
 	input             c_hint_wmatch, // ... and the MMU vouches for writing its page now
+	input      [31:0] c_ihint_addr,  // the instruction side's hint (P175)
+	input      [21:0] c_ihint_ptag,  // its physical tag, registered by the MMU
+	input             c_ihint_match, // the request is that hint
+	input             c_ihold,       // an instruction request is presented (the arbiter's registered choice)
 	input      [31:0] c_wdata,
 	input       [2:0] c_fc,
 	input             c_nocache,
@@ -165,6 +169,21 @@ reg [31:0] pair_q3;
 
 wire [ROWW-1:0] tag_q;
 wire [ROWW-1:0] hint_tag_q;
+// P175: the instruction side's own idle read.  A mirror of the tag RAM and
+// of the data banks, written in step with them, is read every clock at the
+// instruction hint's row and word, so the fetch's one-clock hit
+// (fast_ihit) never competes with the data hint for the architectural
+// arrays.  The mirror banks for the pair hit (pairdata) stay as they are.
+wire [ROWW-1:0] ihint_tag_q;
+wire [31:0] c_ihint_addr_x = c_ihint_addr;
+wire  [SETW-1:0] xi_set = c_ihint_addr[SETW+3:4];
+wire  [ROWIW-1:0] xi_row = {1'b1, xi_set};
+wire  [1:0] xi_w = c_ihint_addr[3:2];
+(* ramstyle = "no_rw_check" *) reg [31:0] idata0 [0:(1<<DIDXW)-1];
+(* ramstyle = "no_rw_check" *) reg [31:0] idata1 [0:(1<<DIDXW)-1];
+(* ramstyle = "no_rw_check" *) reg [31:0] idata2 [0:(1<<DIDXW)-1];
+(* ramstyle = "no_rw_check" *) reg [31:0] idata3 [0:(1<<DIDXW)-1];
+reg [31:0] idata_q0, idata_q1, idata_q2, idata_q3;
 reg  [31:0] data_q0, data_q1, data_q2, data_q3;
 
 // RAM control (driven combinationally from the FSM state so the arrays
@@ -195,6 +214,32 @@ dpram #(ROWIW, ROWW) ctag_ram
 	.wren_b    (inv_wren),
 	.q_b       (hint_tag_q)
 );
+// P175: the mirror tag RAM -- port A takes the same writes and otherwise
+// reads the instruction hint's row; port B takes the same invalidates.
+dpram #(ROWIW, ROWW) ctag_ram_i
+(
+	.clock     (clk),
+	.address_a (tag_we ? tag_widx : xi_row),
+	.data_a    (tag_wdat),
+	.wren_a    (ce & tag_we),
+	.q_a       (ihint_tag_q),
+	.address_b (inv_idx),
+	.data_b    ({ROWW{1'b0}}),
+	.wren_b    (inv_wren),
+	.q_b       ()
+);
+always @(posedge clk) begin
+	if (ce & cd_we[0]) idata0[cd_widx] <= cd_wdat0;
+	if (ce & cd_we[1]) idata1[cd_widx] <= cd_wdat1;
+	if (ce & cd_we[2]) idata2[cd_widx] <= cd_wdat2;
+	if (ce & cd_we[3]) idata3[cd_widx] <= cd_wdat3;
+	if (ce) begin
+		idata_q0 <= idata0[{xi_row, 2'd0 - xi_w}];
+		idata_q1 <= idata1[{xi_row, 2'd1 - xi_w}];
+		idata_q2 <= idata2[{xi_row, 2'd2 - xi_w}];
+		idata_q3 <= idata3[{xi_row, 2'd3 - xi_w}];
+	end
+end
 
 wire  [DIDXW-1:0] cd_ridx0, cd_ridx1, cd_ridx2, cd_ridx3;
 always @(posedge clk) begin
@@ -240,8 +285,11 @@ wire        span2     = !c_instr && (c_addr[3:2] != 2'd3) &&
 // The core repeats a presented request on the hint bus (mem_hint_addr is
 // mem_addr_q while mem_req), so the RAM address inputs index by the hint
 // bus alone: no request/hint mux in front of fifty RAM address bits.
-wire [31:0] x_addr  = c_hint_addr;
-wire        x_instr = c_hint_instr;
+// P175: while an instruction request is presented the architectural
+// banks follow the instruction hint (which repeats that request), so its
+// registered paths (idle_hit, C_LOOK, the line read) index its own row.
+wire [31:0] x_addr  = c_ihold ? c_ihint_addr : c_hint_addr;
+wire        x_instr = c_ihold;
 wire  [SETW-1:0] x_set = x_addr[SETW+3:4];
 wire  [SETW:0]   x_row = {x_instr, x_set};
 wire  [1:0] x_w     = x_addr[3:2];
@@ -622,7 +670,7 @@ assign c_posting   = post_active;
 assign m_posted    = post_active && (!r_span2 || sline_ready);
 assign c_line_tag  = iline_tag;
 assign c_line_data = iline_data;
-assign c_rdata = pass_active ? m_rdata : fast_pair_idle ? hint_pair_data : fast_span_ack ? span_extract({sp_w0, sp_w1}, r_size, r_off) : ((fast_hit || fast_ihit) ? fast_data : rdata_r);
+assign c_rdata = pass_active ? m_rdata : fast_pair_idle ? hint_pair_data : fast_span_ack ? span_extract({sp_w0, sp_w1}, r_size, r_off) : (fast_hit ? fast_data : fast_ihit ? fast_idata : rdata_r);
 
 assign rd_accept = (cst == C_IDLE) && !(cinv_req && !cinv_done) &&
                    c_req && !ack_r && !c_write && !bypass &&
@@ -742,6 +790,24 @@ wire [31:0] iline_lw = (c_addr[3:2] == 2'd0) ? iline_data[127:96] :
 // A read is still admitted only after the store has left C_PASS.
 reg hint_tag_valid;
 reg [ROWIW-1:0] hint_tag_idx;
+// P175: the instruction mirrors' read of the previous clock
+reg ihint_tag_valid, idle_idata_valid;
+reg [ROWIW-1:0] ihint_tag_idx;
+reg [DIDXW-1:0] idle_idata_idx;
+reg [SETW+3:0] hqi_lo;
+always @(posedge clk) begin
+	hqi_lo <= c_ihint_addr[SETW+3:0];
+	if (!nreset) begin ihint_tag_valid <= 0; ihint_tag_idx <= 0; idle_idata_valid <= 0; idle_idata_idx <= 0; end
+	else begin
+		ihint_tag_idx <= xi_row;
+		ihint_tag_valid <= !inv_wren && !tag_we;
+		if (ce) begin
+			idle_idata_idx <= {xi_row, xi_w};
+			idle_idata_valid <= !inv_wren && (!(|cd_we) || (cd_widx[DIDXW-1:2] != xi_row));
+		end
+		else if (inv_wren || (|cd_we)) idle_idata_valid <= 0;
+	end
+end
 always @(posedge clk) begin
     if (!nreset) begin hint_tag_valid <= 0; hint_tag_idx <= 0; end
     else begin
@@ -872,24 +938,39 @@ assign fast_hit  = fast_accept && !err_hold && !m_err && fast_lane &&
                    !(s_stb && (s_addr[SETW+3:4] == hq_lo[SETW+3:4])) &&
                    !c_instr && c_hint_match;
 assign fast_data = lw_extract(hint_data_hit, c_size, hq_lo[1:0]);
-// P174: the one-clock instruction hit -- fast_hit's terms on the
-// instruction bank (the hinted idle read of the I row, the hint's
-// registered tag, the MMU's vouch that the request is that hint).  An
-// instruction fetch is an aligned longword or a word, so fast_lane holds.
-// The buffered-line hit (ipred_hit, a registered acknowledge) yields to it.
-reg  hq_instr_c;
-always @(posedge clk) hq_instr_c <= c_hint_instr;
-assign hq_irow  = {1'b1, hq_lo[SETW+3:4]};
-assign hint_way = hh0 ? 2'd0 : hh1 ? 2'd1 : hh2 ? 2'd2 : 2'd3;
+// P174/P175: the one-clock instruction hit -- fast_hit's terms on the
+// instruction side's own idle read (the mirror tag row and the mirror
+// data word at the instruction hint, the hint's registered physical tag,
+// the MMU's vouch that the request is that hint).  An instruction fetch
+// is an aligned longword or a word, so the lane always fits.  The
+// buffered-line hit (ipred_hit, a registered acknowledge) yields to it.
+wire ihh0 = ihint_tag_q[4*TAGW+0] && (ihint_tag_q[0*TAGW +: TAGW] == c_ihint_ptag[21:22-TAGW]);
+wire ihh1 = ihint_tag_q[4*TAGW+1] && (ihint_tag_q[1*TAGW +: TAGW] == c_ihint_ptag[21:22-TAGW]);
+wire ihh2 = ihint_tag_q[4*TAGW+2] && (ihint_tag_q[2*TAGW +: TAGW] == c_ihint_ptag[21:22-TAGW]);
+wire ihh3 = ihint_tag_q[4*TAGW+3] && (ihint_tag_q[3*TAGW +: TAGW] == c_ihint_ptag[21:22-TAGW]);
+wire ihint_look_hit = ihh0 | ihh1 | ihh2 | ihh3;
+assign hint_way = ihh0 ? 2'd0 : ihh1 ? 2'd1 : ihh2 ? 2'd2 : 2'd3;
+assign hq_irow  = {1'b1, hqi_lo[SETW+3:4]};
+wire [31:0] ihint_word0 = (hqi_lo[3:2] == 0) ? idata_q0 : (hqi_lo[3:2] == 1) ? idata_q1 : (hqi_lo[3:2] == 2) ? idata_q2 : idata_q3;
+wire [31:0] ihint_word1 = (hqi_lo[3:2] == 0) ? idata_q1 : (hqi_lo[3:2] == 1) ? idata_q2 : (hqi_lo[3:2] == 2) ? idata_q3 : idata_q0;
+wire [31:0] ihint_word2 = (hqi_lo[3:2] == 0) ? idata_q2 : (hqi_lo[3:2] == 1) ? idata_q3 : (hqi_lo[3:2] == 2) ? idata_q0 : idata_q1;
+wire [31:0] ihint_word3 = (hqi_lo[3:2] == 0) ? idata_q3 : (hqi_lo[3:2] == 1) ? idata_q0 : (hqi_lo[3:2] == 2) ? idata_q1 : idata_q2;
+wire [31:0] ihint_data_hit = (ihint_word0 & {32{ihh0}}) |
+    (ihint_word1 & {32{!ihh0 && ihh1}}) |
+    (ihint_word2 & {32{!ihh0 && !ihh1 && ihh2}}) |
+    (ihint_word3 & {32{!ihh0 && !ihh1 && !ihh2}});
+wire        ifast_lane = (c_size == `AP040_SZ_L && hqi_lo[1:0] == 2'b00) ||
+                         (c_size == `AP040_SZ_W && hqi_lo[1:0] != 2'b11);
 wire        fast_iaccept = (cst == C_IDLE) && !(cinv_req && !cinv_done) && !ack_r &&
                            !c_write && c_instr && ie && !ci_inv_pend && !store_inv_lost;
-assign fast_ihit = fast_iaccept && !err_hold && !m_err && fast_lane && hq_instr_c &&
-                   idle_data_valid && hint_tag_valid &&
-                   (idle_data_idx == {1'b1, hq_lo[SETW+3:2]}) &&
-                   (hint_tag_idx == hq_irow) && hint_look_hit &&
+assign fast_ihit = fast_iaccept && !err_hold && !m_err && ifast_lane &&
+                   idle_idata_valid && ihint_tag_valid &&
+                   (idle_idata_idx == {1'b1, hqi_lo[SETW+3:2]}) &&
+                   (ihint_tag_idx == hq_irow) && ihint_look_hit &&
                    !tag_we && !snoop_wr && !look_snooped &&
-                   !(s_stb && (s_addr[SETW+3:4] == hq_lo[SETW+3:4])) &&
-                   !iline_pending && !iline_pair_pending && c_hint_match;
+                   !(s_stb && (s_addr[SETW+3:4] == hqi_lo[SETW+3:4])) &&
+                   !iline_pending && !iline_pair_pending && c_ihint_match;
+wire [31:0] fast_idata = lw_extract(ihint_data_hit, c_size, hqi_lo[1:0]);
 // The hinted pair hit (P170): fast_hit's terms with the pair lane instead of the aligned one.
 wire hint_pair_lane = hq_lo[3:2] != 3 &&
     ((c_size == `AP040_SZ_L && hq_lo[1:0] != 0) ||

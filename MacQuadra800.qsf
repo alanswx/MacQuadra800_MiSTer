@@ -425,6 +425,9 @@ source configs/cpu_release_lite.tcl
 # P171c seed 26: 39,141 ALMs, routes, CPU clock -1.648 ns (worse than 24): the in-place dispatch path is structural.
 # P174 seed 24 2026-09-22: 39,441 ALMs (94 %), routes; CPU clock -0.920 ns, HDMI +0.009, clk_ram met.  (Built from c152ac4;
 # the fast_span_ack change 949ac44 landed in the tree after its synthesis had read the sources.)
+# P175b: the instruction side's own hint bus (mem_ihint_addr; a mirror tag RAM and mirror data banks read it every
+# clock for fast_ihit) and a one-clock fill hold after an instruction acknowledge (the line offer's clock).  Sim vs
+# P174: Permute -1.5 %, Whetstone -0.8 %, Dhrystone -1.8 %, Queens -1.2 %.
 # Posted cross-line cache-store merge, validated on hardware.
 set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_XSTORE=1"
 # Overlap LEA displacement fetch with base selection; checked independently.
