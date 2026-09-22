@@ -158,13 +158,13 @@ localparam ROWW = 2 + 4 + 4*TAGW;
 // one.  Speedometer's Pascal pushes word arguments, so every callee's stack
 // longwords sit at 2 mod 4 and took the registered path (MOVEM 45k, RTS 12k,
 // UNLK 16k acknowledges per Permute(7)).
-(* ramstyle = "no_rw_check" *) reg [31:0] pairdata0 [0:(1<<DIDXW)-1];
+(* ramstyle = "no_rw_check" *) reg [31:0] pairdata0 [0:(1<<(DIDXW-1))-1];   // data rows only (P175b)
 reg [31:0] pair_q0;
-(* ramstyle = "no_rw_check" *) reg [31:0] pairdata1 [0:(1<<DIDXW)-1];
+(* ramstyle = "no_rw_check" *) reg [31:0] pairdata1 [0:(1<<(DIDXW-1))-1];
 reg [31:0] pair_q1;
-(* ramstyle = "no_rw_check" *) reg [31:0] pairdata2 [0:(1<<DIDXW)-1];
+(* ramstyle = "no_rw_check" *) reg [31:0] pairdata2 [0:(1<<(DIDXW-1))-1];
 reg [31:0] pair_q2;
-(* ramstyle = "no_rw_check" *) reg [31:0] pairdata3 [0:(1<<DIDXW)-1];
+(* ramstyle = "no_rw_check" *) reg [31:0] pairdata3 [0:(1<<(DIDXW-1))-1];
 reg [31:0] pair_q3;
 
 wire [ROWW-1:0] tag_q;
@@ -175,14 +175,22 @@ wire [ROWW-1:0] hint_tag_q;
 // (fast_ihit) never competes with the data hint for the architectural
 // arrays.  The mirror banks for the pair hit (pairdata) stay as they are.
 wire [ROWW-1:0] ihint_tag_q;
+// P178: the data hint's NEXT row (data bank), for the one-clock hit of a
+// longword that spans two lines: the mirror tag RAM's port B reads its
+// tags and the pair banks read its word 0 when the hint sits at word 3.
+wire [ROWW-1:0] xhint_tag_q;
 wire [31:0] c_ihint_addr_x = c_ihint_addr;
 wire  [SETW-1:0] xi_set = c_ihint_addr[SETW+3:4];
 wire  [ROWIW-1:0] xi_row = {1'b1, xi_set};
 wire  [1:0] xi_w = c_ihint_addr[3:2];
-(* ramstyle = "no_rw_check" *) reg [31:0] idata0 [0:(1<<DIDXW)-1];
-(* ramstyle = "no_rw_check" *) reg [31:0] idata1 [0:(1<<DIDXW)-1];
-(* ramstyle = "no_rw_check" *) reg [31:0] idata2 [0:(1<<DIDXW)-1];
-(* ramstyle = "no_rw_check" *) reg [31:0] idata3 [0:(1<<DIDXW)-1];
+// The mirrors hold only their own bank's rows (the index drops the bank
+// bit): a full-depth mirror is 28 M10K and took the device over its RAM
+// budget, at which point Quartus quietly turned the framework's OSD and
+// palette buffers into 80,000 registers (P175b, first fit).
+(* ramstyle = "no_rw_check" *) reg [31:0] idata0 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [31:0] idata1 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [31:0] idata2 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [31:0] idata3 [0:(1<<(DIDXW-1))-1];
 reg [31:0] idata_q0, idata_q1, idata_q2, idata_q3;
 reg  [31:0] data_q0, data_q1, data_q2, data_q3;
 
@@ -223,21 +231,25 @@ dpram #(ROWIW, ROWW) ctag_ram_i
 	.data_a    (tag_wdat),
 	.wren_a    (ce & tag_we),
 	.q_a       (ihint_tag_q),
-	.address_b (inv_idx),
+	.address_b (inv_wren ? inv_idx : x_rowp1),
 	.data_b    ({ROWW{1'b0}}),
 	.wren_b    (inv_wren),
-	.q_b       ()
+	.q_b       (xhint_tag_q)
 );
+// In the clock a fast instruction hit acknowledges, the mirror reads that
+// way's whole line (every array at {set, way}) for the offer a clock later
+// (P174, moved here from the pair banks); the instruction hint's own idle
+// read is skipped in that clock (the offer feeds the queue next).
 always @(posedge clk) begin
-	if (ce & cd_we[0]) idata0[cd_widx] <= cd_wdat0;
-	if (ce & cd_we[1]) idata1[cd_widx] <= cd_wdat1;
-	if (ce & cd_we[2]) idata2[cd_widx] <= cd_wdat2;
-	if (ce & cd_we[3]) idata3[cd_widx] <= cd_wdat3;
+	if (ce & cd_we[0] & cd_widx[DIDXW-1]) idata0[cd_widx[DIDXW-2:0]] <= cd_wdat0;
+	if (ce & cd_we[1] & cd_widx[DIDXW-1]) idata1[cd_widx[DIDXW-2:0]] <= cd_wdat1;
+	if (ce & cd_we[2] & cd_widx[DIDXW-1]) idata2[cd_widx[DIDXW-2:0]] <= cd_wdat2;
+	if (ce & cd_we[3] & cd_widx[DIDXW-1]) idata3[cd_widx[DIDXW-2:0]] <= cd_wdat3;
 	if (ce) begin
-		idata_q0 <= idata0[{xi_row, 2'd0 - xi_w}];
-		idata_q1 <= idata1[{xi_row, 2'd1 - xi_w}];
-		idata_q2 <= idata2[{xi_row, 2'd2 - xi_w}];
-		idata_q3 <= idata3[{xi_row, 2'd3 - xi_w}];
+		idata_q0 <= idata0[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd0 - xi_w}];
+		idata_q1 <= idata1[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd1 - xi_w}];
+		idata_q2 <= idata2[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd2 - xi_w}];
+		idata_q3 <= idata3[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd3 - xi_w}];
 	end
 end
 
@@ -292,6 +304,7 @@ wire [31:0] x_addr  = c_ihold ? c_ihint_addr : c_hint_addr;
 wire        x_instr = c_ihold;
 wire  [SETW-1:0] x_set = x_addr[SETW+3:4];
 wire  [SETW:0]   x_row = {x_instr, x_set};
+wire  [SETW:0]   x_rowp1 = {1'b0, x_set + {{(SETW-1){1'b0}}, 1'b1}};   // the data hint's next row (P178)
 wire  [1:0] x_w     = x_addr[3:2];
 wire        xline     = !c_instr && (c_addr[3:2] == 2'd3) &&
                         ((c_size == `AP040_SZ_L && c_addr[1:0] != 2'b00) ||
@@ -636,26 +649,22 @@ reg  iline_pair_pending;
 // Keep writes identical to the architectural cache banks. Only the
 // independent synchronous read address differs; cache capacity is unchanged.
 wire [1:0] pair_read_word = x_w + 2'd1;
+wire [SETW:0] pair_row = (x_w == 2'd3 && !x_instr) ? x_rowp1 : x_row;   // P178
 always @(posedge clk) begin
-    if (ce & cd_we[0]) pairdata0[cd_widx] <= cd_wdat0;
-    if (ce & cd_we[1]) pairdata1[cd_widx] <= cd_wdat1;
-    if (ce & cd_we[2]) pairdata2[cd_widx] <= cd_wdat2;
-    if (ce & cd_we[3]) pairdata3[cd_widx] <= cd_wdat3;
-    // P174: in the clock a fast instruction hit acknowledges, the mirror
-    // banks read that way's whole line (every array at {row, way}) so the
-    // offer follows a clock later while the architectural banks stay on
-    // the next request's hint.  pair_idle_valid says the mirrors hold the
-    // idle next-word read (the pair hit's precondition), not a line.
+    if (ce & cd_we[0] & !cd_widx[DIDXW-1]) pairdata0[cd_widx[DIDXW-2:0]] <= cd_wdat0;
+    if (ce & cd_we[1] & !cd_widx[DIDXW-1]) pairdata1[cd_widx[DIDXW-2:0]] <= cd_wdat1;
+    if (ce & cd_we[2] & !cd_widx[DIDXW-1]) pairdata2[cd_widx[DIDXW-2:0]] <= cd_wdat2;
+    if (ce & cd_we[3] & !cd_widx[DIDXW-1]) pairdata3[cd_widx[DIDXW-2:0]] <= cd_wdat3;
     if (ce & cd_rd_en) begin
-        pair_q0 <= pairdata0[fast_ihit ? {hq_irow, hint_way} : {x_row, 2'd0 - pair_read_word}];
-        pair_q1 <= pairdata1[fast_ihit ? {hq_irow, hint_way} : {x_row, 2'd1 - pair_read_word}];
-        pair_q2 <= pairdata2[fast_ihit ? {hq_irow, hint_way} : {x_row, 2'd2 - pair_read_word}];
-        pair_q3 <= pairdata3[fast_ihit ? {hq_irow, hint_way} : {x_row, 2'd3 - pair_read_word}];
-        pair_idle_valid <= !fast_ihit;
+        pair_q0 <= pairdata0[{pair_row[SETW-1:0], 2'd0 - pair_read_word}];
+        pair_q1 <= pairdata1[{pair_row[SETW-1:0], 2'd1 - pair_read_word}];
+        pair_q2 <= pairdata2[{pair_row[SETW-1:0], 2'd2 - pair_read_word}];
+        pair_q3 <= pairdata3[{pair_row[SETW-1:0], 2'd3 - pair_read_word}];
+        pair_idle_valid <= 1'b1;
     end
 end
 
-assign c_ack   = (pass_active && !post_active) ? m_ack : (ack_r | fast_hit | fast_ihit | fast_store | fast_span_ack | fast_pair_idle);
+assign c_ack   = (pass_active && !post_active) ? m_ack : (ack_r | fast_hit | fast_ihit | fast_store | fast_span_ack | fast_pair_idle | fast_xline_idle);
 // The offer is a level, not a pulse: the core refuses a line while a
 // queue fetch is outstanding or a data access acknowledges in the same
 // cycle, and a pulse lost to that refusal cost explicit fetches for the
@@ -670,7 +679,7 @@ assign c_posting   = post_active;
 assign m_posted    = post_active && (!r_span2 || sline_ready);
 assign c_line_tag  = iline_tag;
 assign c_line_data = iline_data;
-assign c_rdata = pass_active ? m_rdata : fast_pair_idle ? hint_pair_data : fast_span_ack ? span_extract({sp_w0, sp_w1}, r_size, r_off) : (fast_hit ? fast_data : fast_ihit ? fast_idata : rdata_r);
+assign c_rdata = pass_active ? m_rdata : fast_pair_idle ? hint_pair_data : fast_xline_idle ? hint_xline_data : fast_span_ack ? span_extract({sp_w0, sp_w1}, r_size, r_off) : (fast_hit ? fast_data : fast_ihit ? fast_idata : rdata_r);
 
 assign rd_accept = (cst == C_IDLE) && !(cinv_req && !cinv_done) &&
                    c_req && !ack_r && !c_write && !bypass &&
@@ -793,17 +802,21 @@ reg [ROWIW-1:0] hint_tag_idx;
 // P175: the instruction mirrors' read of the previous clock
 reg ihint_tag_valid, idle_idata_valid;
 reg [ROWIW-1:0] ihint_tag_idx;
+reg xhint_tag_valid;
+reg [ROWIW-1:0] xhint_tag_idx;
 reg [DIDXW-1:0] idle_idata_idx;
 reg [SETW+3:0] hqi_lo;
 always @(posedge clk) begin
 	hqi_lo <= c_ihint_addr[SETW+3:0];
-	if (!nreset) begin ihint_tag_valid <= 0; ihint_tag_idx <= 0; idle_idata_valid <= 0; idle_idata_idx <= 0; end
+	if (!nreset) begin ihint_tag_valid <= 0; ihint_tag_idx <= 0; idle_idata_valid <= 0; idle_idata_idx <= 0; xhint_tag_valid <= 0; xhint_tag_idx <= 0; end
 	else begin
 		ihint_tag_idx <= xi_row;
 		ihint_tag_valid <= !inv_wren && !tag_we;
+		xhint_tag_idx <= x_rowp1;
+		xhint_tag_valid <= !inv_wren && !tag_we;
 		if (ce) begin
 			idle_idata_idx <= {xi_row, xi_w};
-			idle_idata_valid <= !inv_wren && (!(|cd_we) || (cd_widx[DIDXW-1:2] != xi_row));
+			idle_idata_valid <= !fast_ihit && !inv_wren && (!(|cd_we) || (cd_widx[DIDXW-1:2] != xi_row));
 		end
 		else if (inv_wren || (|cd_we)) idle_idata_valid <= 0;
 	end
@@ -1002,6 +1015,34 @@ wire [31:0] hint_pair_next = (hint_pair_word0 & {32{hh0}}) |
     (hint_pair_word2 & {32{!hh0 && !hh1 && hh2}}) |
     (hint_pair_word3 & {32{!hh0 && !hh1 && !hh2}});
 wire [31:0] hint_pair_data = span_extract({hint_data_hit, hint_pair_next}, c_size, hq_lo[1:0]);
+// P178: the one-clock hit of a longword (or a word at 3 mod 4) that spans
+// two lines: this line's word 3 from the hinted idle read, the next line's
+// word 0 from the pair banks (read at the next row when the hint sits at
+// word 3), the next row's tags from the mirror tag RAM's port B.  The two
+// lines share the page unless the set wraps, which is excluded.
+wire xhh0 = xhint_tag_q[4*TAGW+0] && (xhint_tag_q[0*TAGW +: TAGW] == c_hint_ptag[21:22-TAGW]);
+wire xhh1 = xhint_tag_q[4*TAGW+1] && (xhint_tag_q[1*TAGW +: TAGW] == c_hint_ptag[21:22-TAGW]);
+wire xhh2 = xhint_tag_q[4*TAGW+2] && (xhint_tag_q[2*TAGW +: TAGW] == c_hint_ptag[21:22-TAGW]);
+wire xhh3 = xhint_tag_q[4*TAGW+3] && (xhint_tag_q[3*TAGW +: TAGW] == c_hint_ptag[21:22-TAGW]);
+wire xhint_look_hit = xhh0 | xhh1 | xhh2 | xhh3;
+// word 0 of way k sits in array k
+wire [31:0] xhint_next = (pair_q0 & {32{xhh0}}) |
+    (pair_q1 & {32{!xhh0 && xhh1}}) |
+    (pair_q2 & {32{!xhh0 && !xhh1 && xhh2}}) |
+    (pair_q3 & {32{!xhh0 && !xhh1 && !xhh2}});
+wire [SETW-1:0] hq_setp1 = hq_lo[SETW+3:4] + {{(SETW-1){1'b0}}, 1'b1};
+wire hint_xline_lane = hq_lo[3:2] == 2'd3 && !(&hq_lo[SETW+3:4]) &&
+    ((c_size == `AP040_SZ_L && hq_lo[1:0] != 0) ||
+     (c_size == `AP040_SZ_W && hq_lo[1:0] == 3));
+wire fast_xline_idle = fast_accept && !err_hold && !m_err && hint_xline_lane &&
+                   idle_data_valid && pair_idle_valid && hint_tag_valid && xhint_tag_valid &&
+                   (idle_data_idx == {1'b0, hq_lo[SETW+3:2]}) &&
+                   (hint_tag_idx == {1'b0, hq_lo[SETW+3:4]}) && hint_look_hit &&
+                   (xhint_tag_idx == {1'b0, hq_setp1}) && xhint_look_hit &&
+                   !tag_we && !snoop_wr && !look_snooped &&
+                   !(s_stb && ((s_addr[SETW+3:4] == hq_lo[SETW+3:4]) || (s_addr[SETW+3:4] == hq_setp1))) &&
+                   !c_instr && c_hint_match;
+wire [31:0] hint_xline_data = span_extract({hint_data_hit, xhint_next}, c_size, hq_lo[1:0]);
 
 // The one-clock posted store: a data write that the platform posts
 // (c_post_ok), whose request is the registered hint and whose page the
@@ -1160,10 +1201,10 @@ always @(posedge clk) begin
 		// P174: the line read on the mirror banks completed on the preceding edge
 		if (iline_pair_pending) begin
 			case (iline_way)
-				2'd0: iline_data <= {pair_q0, pair_q1, pair_q2, pair_q3};
-				2'd1: iline_data <= {pair_q1, pair_q2, pair_q3, pair_q0};
-				2'd2: iline_data <= {pair_q2, pair_q3, pair_q0, pair_q1};
-				default: iline_data <= {pair_q3, pair_q0, pair_q1, pair_q2};
+				2'd0: iline_data <= {idata_q0, idata_q1, idata_q2, idata_q3};
+				2'd1: iline_data <= {idata_q1, idata_q2, idata_q3, idata_q0};
+				2'd2: iline_data <= {idata_q2, idata_q3, idata_q0, idata_q1};
+				default: iline_data <= {idata_q3, idata_q0, idata_q1, idata_q2};
 			endcase
 			iline_pair_pending <= 0;
 			iline_valid <= 1;
@@ -1218,6 +1259,10 @@ always @(posedge clk) begin
 				else if (fast_pair_idle) begin
 					// completed in the request cycle from the pair banks (P170)
 					rdata_r <= hint_pair_data;
+				end
+				else if (fast_xline_idle) begin
+					// completed in the request cycle across two lines (P178)
+					rdata_r <= hint_xline_data;
 				end
 				else if (idle_hit || fast_hit) begin
 					// Identical registered response to C_LOOK, using the prior

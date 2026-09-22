@@ -207,7 +207,11 @@ localparam CACHE_CD_SLOT = 1;
 `endif
 // CACHE_SMALL=1 in the qsf halves the disk windows (32/32/16 sectors): the tag
 // bitmaps and their muxes shrink with them -- the area lever for CPU builds.
-`ifdef CACHE_SMALL
+// CACHE_TINY=1 halves them again (16/16/16, 24 M10K instead of 40): the RAM
+// lever for CPU builds whose cache mirrors need the blocks (2026-09-22).
+`ifdef CACHE_TINY
+localparam CACHE_SECT0 = 16, CACHE_SECT1 = 16;
+`elsif CACHE_SMALL
 localparam CACHE_SECT0 = 32, CACHE_SECT1 = 32;
 `else
 localparam CACHE_SECT0 = 64, CACHE_SECT1 = 48;

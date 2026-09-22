@@ -53,3 +53,39 @@ programs, the four IRQ replay programs; Dhrystone and Queens below.
 
 Cumulative against P170 (the last cache on hardware, Mix 1.364 as P165b): Permute -11.8 %, Whetstone
 -3.8 %, Dhrystone -5.0 %, Queens -5.2 %.
+
+## P175c — the mirrors halved, and the palette that Quartus dropped
+
+The first P175b fit synthesized to 84,851 ALMs and 104k registers: the full-depth data mirror (4 x
+2048x32, 28 M10K) took the RAM estimate over the device and Quartus, without a warning naming them,
+implemented the framework's OSD buffers, the scaler palette and the MT32-pi LCD buffer in registers. The
+mirrors now hold only their own bank's rows (the index drops the bank bit; 1024x32, 16 M10K each set),
+the pair banks likewise (data rows only), and the instruction line read for the offer moved from the
+pair banks to the instruction mirror (its own idle read is skipped in that clock; the offer feeds the
+queue next).
+
+Even so the scaler's 128x48 framebuffer palette (`ascal` `pal1_mem`) kept falling out to 6,144
+registers with any second tag-RAM-shaped array present (a bisect over four synthesis runs: freeing 16
+blocks of SCSI cache did not bring it back, removing the mirror tag RAM did, a simple-dual-port probe of
+the same shape lost it again). That palette is the HPS framebuffer's 8bpp palette — dead logic here,
+`MISTER_FB` is off — so `sys/sys_top.v` now passes `.PALETTE("false")` when `MISTER_FB` is not defined.
+Synthesis estimate with everything: 39,043 ALMs, 24,576 registers, every framework RAM inferred.
+
+## P178 — the one-clock hit across two lines
+
+A quarter of Speedometer's misaligned stack longwords sit at line offset 14 and span two lines; the P170
+pair hit cannot serve them (16k of the 32k remaining pipe-source read waits on Permute). The mirror tag
+RAM's port B (otherwise only invalidated) reads the data hint's *next* row, and the pair banks read that
+row's word 0 when the hint sits at word 3, so `fast_xline_idle` acknowledges the crossing longword (or
+the word at 3 mod 4) in the request clock from this line's word 3 and the next line's word 0; the two
+lines share the page unless the set wraps, which is excluded.
+
+| fixture | P177 | P175c + P178 | delta |
+|---|---:|---:|---:|
+| Permute(7) lat 0 | 1,081,092 | **1,058,070** | -2.1 % |
+| Permute(7) lat 3 | 1,130,419 | 1,109,355 | -1.9 % |
+| Whetstone | 24,661,704 | **24,354,754** | -1.2 % |
+| Dhrystone | 99,604,352 | **98,004,234** | -1.6 % |
+
+Gates: 31/31, 22 programs, 4 IRQ replays. Against P170: Permute -16.3 %, Whetstone -5.1 %, Dhrystone
+-7.6 %.

@@ -724,6 +724,10 @@ wire         bob_deint;
 		.RAMSIZE(32'h00800000),
 	`endif
 	`ifndef MISTER_FB
+		// no HPS framebuffer: its 8bpp palette RAM (pal1_mem, 128x48) is dead
+		// logic that Quartus turned into 6,144 registers once the CPU cache's
+		// mirror tag RAM was added (MacQuadra800, 2026-09-22)
+		.PALETTE("false"),
 		.PALETTE2("false"),
 	`else
 		`ifndef MISTER_FB_PALETTE

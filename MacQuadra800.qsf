@@ -433,6 +433,9 @@ source configs/cpu_release_lite.tcl
 # buffers into registers.  The mirrors were halved to their own bank's rows (P175c).
 # P177 (57a3356): a return-address stack hint for the RTS target fetch.  Sim vs P175b: Permute -3.0 %, Dhrystone -1.1 %.
 # NOTE: Quartus rewrites this file during a flow (it inlined the sourced profile's macros once); clean it after.
+# P178 (with P175c): the one-clock hit across two lines (the mirror tag RAM's port B reads the next row, the pair banks
+# its word 0).  Sim vs P177: Permute -2.1 %, Whetstone -1.2 %, Dhrystone -1.6 %.  sys_top passes PALETTE=false without
+# MISTER_FB (the dead 128x48 palette Quartus kept turning into 6,144 registers).  Synthesis estimate 39,043 ALMs.
 # Posted cross-line cache-store merge, validated on hardware.
 set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_XSTORE=1"
 # Overlap LEA displacement fetch with base selection; checked independently.
