@@ -45,3 +45,21 @@ The first version deadlocked Whetstone at `408EDD60`: the early retire's `fetch_
 and overwrote the store's request registers in the same clock -- the store vanished, `st_fly` never
 cleared. `!epf_issue` (the blocking flag mem_issue sets) in that branch fixes it. Any future
 retire-at-issue must treat "a request was issued earlier in this clock" as a first-class condition.
+
+## Addendum: with the record dispatch fired from the issue clock
+
+`st_early_now` (a blocking flag mem_issue sets when it retires a store at issue) was added as a retire
+site to `n_desc_ok` and the Bcc lookahead, so the successor dispatches exactly as it would from S_MWR's
+acknowledge. Permute(7) got **worse**: 1,207,523 -> 1,252,179 at latency 0. The successor now arrives one
+clock earlier at a port that still carries the store (its acknowledge is in that clock, `mem_req` still
+high), its in-place issue is refused (`!mem_req && !mem_ack`), and it falls into the S_MRD/S_MWR issue
+clock plus the registered acknowledge: two clocks lost for the one gained. Through S_DECODE it arrived a
+clock later, when the port was free, and kept its one-clock hit.
+
+So every early-retire scheme is gated by the same thing: the request register cannot be reloaded in
+the acknowledge clock, and the hint bus repeats the outstanding request instead of hinting the next
+one. Removing that gap -- the core registering the next request in the clock a *predicted* acknowledge
+lands, and hinting it the clock before from a registered "acknowledge expected" flag rather than the
+live `mem_ack` (which would close the acknowledge -> hint -> translation loop the timing notes warn
+about) -- is the one change the profiles keep pointing at. It is worth about 9 % on the call-heavy
+tests on its own and unlocks the store side (another ~8 %). P169's source is kept for that day.
