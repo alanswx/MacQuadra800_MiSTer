@@ -368,7 +368,7 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # P171b: the queue-bypass forward (epf_fwd_pc) and the refill-buffer fill at acknowledge read the fetch's own
 # address again, and a redirect replaces a speculative fetch the platform has not accepted yet (ifr_avail).
 # Sim vs P170: Permute -7.0 %, Whetstone -1.9 %, Queens -1.5 %, Dhrystone -2.3 %.
-set_global_assignment -name SEED 26
+set_global_assignment -name SEED 24
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
@@ -422,6 +422,7 @@ source configs/cpu_release_lite.tcl
 # P171c seed 24 2026-09-22: 39,070 ALMs (93 %), 489 RAM, routes; CPU clock -1.425 ns, HDMI/clk_ram met.  Seed 26 next.
 # P174: the one-clock instruction hit (fast_ihit; the line for the offer read on the P170 mirror banks in the
 # acknowledge clock).  Sim vs P171b: Permute -3.7 %, Whetstone -1.2 %, Dhrystone -1.0 %, Queens -2.7 %.
+# P171c seed 26: 39,141 ALMs, routes, CPU clock -1.648 ns (worse than 24): the in-place dispatch path is structural.
 # Posted cross-line cache-store merge, validated on hardware.
 set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_XSTORE=1"
 # Overlap LEA displacement fetch with base selection; checked independently.
