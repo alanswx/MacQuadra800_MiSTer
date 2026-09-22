@@ -345,6 +345,9 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # P150 seed25 2026-09-21: fit completed but CPU clock -19.298 ns, sys->ram -5.557 ns, 40,551 ALMs: the P147 cache response
 # into the fetch queue (mem_addr_q -> epf_data) is one clock too long.  P147 is out of the tree.
 # P165: P162 core (P137..P162 chain) + P124 cache (the last cache that fitted, -0.188 ns at seed 23) + P120 pipeline.
+# P165b (P165 + the headroom profile): 37,045 ALMs, CPU -0.145, clk_ram +0.605, HDMI +0.264; hardware Mix 1.364.
+# P168: P162 core + P136 cache (one-clock hit for misaligned longwords inside a line; failed timing at -5.5 ns
+# without the profile, seed 24) + profile, seed 23.
 set_global_assignment -name SEED 23
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
