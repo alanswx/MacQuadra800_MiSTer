@@ -66,6 +66,7 @@ module ap040_core
 	output            mem_hint_instr,
 	output            mem_hint_away,  // the hint is not the presented request (P182)
 	input             mem_fast_ready, // the cache can hit a hinted read in one clock now (P182)
+	input             mem_ack_q,      // the cache acknowledges from its register this clock (P204)
 	output reg [31:0] mem_wdata,
 	output      [2:0] mem_fc,
 	input             mem_ack,
@@ -2087,7 +2088,7 @@ task mem_issue;
 		if (((!mgo_wr && (state == S_PIPE_START || state == S_PIPE_SRD ||
 		                  state == S_PIPE_DEA || state == S_DECODE ||
 		                  state == S_RET1 || state == S_UNLK1 ||
-		                  state == S_MOVEM_LOOP || retire_move_read || retire_store_read || hint_early_read || hint_fpu_read || pipe_load_launch)) ||
+		                  state == S_MOVEM_LOOP || retire_move_read || retire_store_read || ret_after_unlk || fpu_rd_next || hint_early_read || hint_fpu_read || pipe_load_launch)) ||
 		     (mgo_wr && (reg_move_store_prepare || move_store_read_handoff || state == S_EXEC || state == S_PIPE_DEA || state == S_MOVEM_LOOP ||
 		                 // the pushes: BSR.B from decode, BSR.W, JSR, PEA,
 		                 // LINK -- registered data (pc, ea_addr, port A
@@ -2097,7 +2098,7 @@ task mem_issue;
 		                 state == S_LINK2 || hint_st_fpu || hint_st_fmovem || pipe_load_launch))) &&
 		    mgo_a[31:28] == 4'h0 &&
             ((!mem_req && !mem_ack) || (mgo_wr && move_store_read_handoff) ||
-             (!mgo_wr && retire_store_read)) &&
+             (!mgo_wr && (retire_store_read || ret_after_unlk || fpu_rd_next))) &&
         // A transfer wholly inside 4KB cannot cross either supported MMU
         // page size. Crossing accesses retain delayed issue and byte splitting.
 		    ((mgo_sz == `AP040_SZ_B) ||
@@ -2990,6 +2991,21 @@ task dispatch_pea;
 	end
 endtask
 
+task dispatch_ret;
+	begin
+		if (rd_ir[0]) ret_kind <= RK_RTS;
+		else begin
+			ret_kind <= RK_RTD;
+			imm      <= {16'd0, rd_w1};
+			epf_pop  = 2'd2;
+			pc       <= pc + 32'd4;
+		end
+		mrd(dbg_a7_wb, `AP040_SZ_L, S_RET2);
+		mem_issue;
+		mgo = 0;
+	end
+endtask
+
 task dispatch_dbcc;
 	begin
 		epf_pop = 2'd2;
@@ -3791,8 +3807,10 @@ always @(posedge clk) mrd_fresh <= (state != S_MRD) || (m_issued && d_ack);
 // P192: and no fetch holds the port -- the arbiter serves a presented fetch
 // first, so the read cannot be acknowledged this clock (the P175 merge had
 // dropped P182's fetch term along with the fetch's use of this bus).
-wire hint_move_store = move_store_read_ready && m_issued && mrd_fresh && mrd_hinted &&
-                       mem_fast_ready && !ifr_pres;
+// P204: or the read took the registered path and its acknowledge is ack_r's
+// this clock (known at the clock's start; the cache admits nothing then)
+wire hint_move_store = move_store_read_ready && m_issued &&
+                       ((mrd_fresh && mrd_hinted && mem_fast_ready) || (!mrd_fresh && mem_ack_q)) && !ifr_pres;
 // P196: the read-after-store handoff.  A store that retires its instruction
 // (S_MWR, r_m_ret == S_NEXT), hinted when it issued and meeting a cache that
 // can post it now, is predicted to be acknowledged in its first clock; in
@@ -3811,14 +3829,38 @@ wire [31:0] rsr_addr = rsr_d16 ? (rsr_base + sxw(rd_w1)) : rsr_base;
 wire        rsr_head = n_apply_ok && (n_next == NX_PSTART) && n_p_src_v && (n_p_src == SK_MEM) &&
                        n_src_mode_r_v && n_p_ssize_v &&
                        ((n_src_mode_r == 3'b010) || ((n_src_mode_r == 3'b101) && epf_ready_pc2));
-wire        hint_rsr = (state == S_MWR) && (r_m_ret == S_NEXT) && m_issued && mwr_fresh &&
-                       st_hinted && mem_fast_ready && !ifr_pres && rsr_head &&
+wire        hint_rsr = (state == S_MWR) && (r_m_ret == S_NEXT) && m_issued &&
+                       ((mwr_fresh && st_hinted && mem_fast_ready) || (!mwr_fresh && mem_ack_q)) && !ifr_pres && rsr_head &&
 `ifdef AP040_EXPERIMENTAL_PIPELINE
                        !pipe_rf_owner && !pipe_write &&
 `endif
                        !sr[15];
 wire        retire_store_read = hint_rsr && d_ack;
-assign mem_hint_away = hint_move_store || hint_rsr;
+// P198: the return after UNLK.  UNLK retires in its read's acknowledge with
+// A7 already moved (written at the read's issue); when the queue head is
+// RTS, or RTD with its displacement resident, the data hint shows A7 in
+// UNLK's predicted acknowledge clock and the return's pop issues in place
+// on that acknowledge, instead of from S_DECODE a clock later.
+wire        rsp_head = epf_ready_pc && (rd_ir == 16'h4E75);   // RTS only (RTD finishes through S_RET2: no gain)
+wire        hint_rsp = (state == S_MRD) && (r_m_ret == S_UNLK3) && m_issued &&
+                       ((mrd_fresh && mrd_hinted && mem_fast_ready) || (!mrd_fresh && mem_ack_q)) && !ifr_pres && rsp_head &&
+                       (d_rn != 3'd7) && !sr[15];
+wire        ret_after_unlk = hint_rsp && d_ack;
+// P205: the next longword of a multiword FPU operand.  The S_MRD
+// acknowledge already queues it (mrd from the ack branch); in a clock the
+// current beat is predicted to complete, the data hint shows the next beat
+// and the acknowledge issues it in place, so each beat after the first
+// costs one clock instead of an issue clock plus a hit clock.
+wire        fpu_rd_more = ((r_m_ret == S_FPU_RD) &&
+                           ((fp_nb == 4'd8 && fp_n == 4'd1) ||
+                            (fp_nb == 4'd12 && (fp_n == 4'd1 || fp_n == 4'd2)))) ||
+                          ((r_m_ret == S_FPU_MVM3) && !fp_st && (fp_n != 4'd3));
+wire        hint_fpn = (state == S_MRD) && fpu_rd_more && m_issued &&
+                       ((mrd_fresh && mrd_hinted && mem_fast_ready) || (!mrd_fresh && mem_ack_q)) &&
+                       !ifr_pres && !sr[15];
+wire [31:0] fpn_addr = t_a + {28'd0, fp_n[1:0], 2'b00};
+wire        fpu_rd_next = hint_fpn && d_ack;
+assign mem_hint_away = hint_move_store || hint_rsr || hint_rsp || hint_fpn;
 // P175: two hint buses.  The data bus carries the outstanding data request
 // and the data-side hints; the instruction bus carries the presented
 // fetch until it clears, else the redirect targets, else the queue's next
@@ -3826,6 +3868,8 @@ assign mem_hint_away = hint_move_store || hint_rsr;
 // a fetch and a data access can both be hinted in the same clock.
 assign mem_hint_addr  = hint_move_store ? move_store_read_addr :
                         hint_rsr ? rsr_addr :
+                        hint_rsp ? dbg_a7_wb :
+                        hint_fpn ? fpn_addr :
                         mem_req ? mem_addr_q : hint_addr;
 assign mem_hint_instr = 1'b0;
 // P177: a return-address stack.  The RTS target fetch is issued in the
@@ -3840,7 +3884,7 @@ assign mem_hint_instr = 1'b0;
 // a fetch is replaced by the redirect (ifr_avail) in the next clock.
 reg  [31:0] ras [0:7];
 reg   [2:0] ras_sp;
-wire        hint_ras = (state == S_MRD) && (r_m_ret == S_RET2) && (ret_kind == RK_RTS) && m_issued;
+wire        hint_ras = (state == S_MRD) && (r_m_ret == S_RET2) && ((ret_kind == RK_RTS) || (ret_kind == RK_RTD)) && m_issued;
 wire [31:0] ras_top  = ras[ras_sp - 3'd1];
 assign mem_ihint_addr = (ifr_req && ifr_pres) ? ifr_addr :
                         hint_ras   ? ras_top :
@@ -5290,7 +5334,7 @@ always @(posedge clk) begin
 			ras[ras_sp] <= m_wdat;
 			ras_sp <= ras_sp + 3'd1;
 		end
-		else if ((state == S_MRD) && d_ack && (r_m_ret == S_RET2) && (ret_kind == RK_RTS))
+		else if ((state == S_MRD) && d_ack && (r_m_ret == S_RET2) && ((ret_kind == RK_RTS) || (ret_kind == RK_RTD)))
 			ras_sp <= ras_sp - 3'd1;
 		// Every acknowledged instruction fetch, whether the queue engine's,
 		// a redirect's or the exception prefetch's own, names the line the
@@ -5772,9 +5816,11 @@ always @(posedge clk) begin
 					// instruction retires.
                     // Normal RTS commits A7 and redirects at read acknowledgement.
                     // Fault, odd-target, trace/IRQ and split reads keep RET2.
-                    else if (r_m_ret == S_RET2 && ret_kind == RK_RTS &&
+                    // P199: RTD too (A7 + 4 + d16), which went through S_RET2
+                    // and left its target fetch a clock late.
+                    else if (r_m_ret == S_RET2 && (ret_kind == RK_RTS || ret_kind == RK_RTD) &&
                              !mem_rdata[0] && !tr_t1 && !tr_t0 && !irq_pend) begin
-                        rfw(4'd15, dbg_a7 + 32'd4);
+                        rfw(4'd15, dbg_a7 + 32'd4 + ((ret_kind == RK_RTD) ? sxw(imm[15:0]) : 32'd0));
                         go_pc(mem_rdata);
                     end
                     // Final ordinary FPU operand beat can launch at ack.
@@ -5813,7 +5859,13 @@ always @(posedge clk) begin
                             4'd2: fpb[63:32] <= mem_rdata;
                             default: fpb[31:0] <= mem_rdata;
                         endcase
-                        state <= S_FPU_MVM2;
+                        // P205: the register's next beat straight from the
+                        // acknowledge (in place when hinted, fpu_rd_next)
+                        if (fp_n != 4'd3) begin
+                            mrd(t_a + {28'd0, fp_n[1:0], 2'b00}, `AP040_SZ_L, S_FPU_MVM3);
+                            fp_n <= fp_n + 4'd1;
+                        end
+                        else state <= S_FPU_MVM2;
                     end
 					else if (r_m_ret == S_UNLK3) begin
 						rfw({1'b1, d_rn}, mem_rdata);
@@ -7780,7 +7832,9 @@ always @(posedge clk) begin
 							go_fp_fline;
 							state <= S_POST_EXC;
 						end
-						else if (d_mode == 3'b011 || d_mode == 3'b100) begin
+						// P203: an (An) destination too, as P181 did for the
+						// sources (FMOVE.X FPn,(A7) in the ROM's FPU glue)
+						else if (d_mode == 3'b011 || d_mode == 3'b100 || d_mode == 3'b010) begin
 							rr_a <= {1'b1, d_rn};
 							state <= S_FPU_AN;
 						end
@@ -10017,6 +10071,8 @@ always @(posedge clk) begin
 			dispatch_unlk;
 		else if (rd_queue_pop && fd_ok)
 			dispatch_fpu;
+		else if (rd_queue_pop && ret_after_unlk)
+			dispatch_ret;
 `ifdef AP040_EXPERIMENTAL_LEA
 		else if (rd_queue_pop && pd_ok &&
 		         !(rfw_now && ((rfw_now_a == {1'b1, rd_ir[2:0]}) || (rfw_now_a == 4'd15))))

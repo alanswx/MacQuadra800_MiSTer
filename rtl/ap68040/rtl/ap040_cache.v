@@ -50,6 +50,7 @@ module ap040_cache
 	input             c_hint_wmatch, // ... and the MMU vouches for writing its page now
 	input             c_hint_away,   // this clock's hint is not the presented request (P182)
 	output            c_fast_ready,  // registered: a hinted data read can hit in one clock now (P182)
+	output            c_ack_q,       // registered: this clock's acknowledge is ack_r's (P204)
 	input      [31:0] c_ihint_addr,  // the instruction side's hint (P175)
 	input      [21:0] c_ihint_ptag,  // its physical tag, registered by the MMU
 	input             c_ihint_match, // the request is that hint
@@ -1033,6 +1034,9 @@ wire        fast_accept = (cst == C_IDLE) && !(cinv_req && !cinv_done) && !ack_r
                           !c_write && !c_instr && de && !ci_inv_pend && !store_inv_lost;
 // P182: fast_accept's and fast_hit's registered terms, for the core's
 // acknowledge prediction (no request, hint compare or acknowledge in it)
+// P204: nothing is admitted in an ack_r clock (every admission requires
+// !ack_r), so the core may hint its next request in it
+assign c_ack_q = ack_r;
 assign c_fast_ready = (cst == C_IDLE) && !(cinv_req && !cinv_done) && !ack_r && de &&
                       !ci_inv_pend && !store_inv_lost && idle_data_valid && hint_tag_valid;
 // Rotate words using the registered offset before the late tag selection.
@@ -1115,7 +1119,12 @@ wire [31:0] ihint_data_hit = (ihint_word0 & {32{ihh0}}) |
     (ihint_word3 & {32{!ihh0 && !ihh1 && !ihh2}});
 wire        ifast_lane = (c_size == `AP040_SZ_L && hqi_lo[1:0] == 2'b00) ||
                          (c_size == `AP040_SZ_W && hqi_lo[1:0] != 2'b11);
-wire        fast_iaccept = (cst == C_IDLE) && !(cinv_req && !cinv_done) && !ack_r &&
+// P201: and during a posted store's C_PASS (fast_accept_pp's terms): the
+// hit reads only the instruction mirrors, which no store writes, so the
+// store's own row needs no clash check.
+wire        fast_iaccept = ((cst == C_IDLE) ||
+                            ((cst == C_PASS) && post_active && !cross_store && !pass_ci_chk && !winv_pend)) &&
+                           !(cinv_req && !cinv_done) && !ack_r &&
                            !c_write && c_instr && ie && !ci_inv_pend && !store_inv_lost;
 assign fast_ihit = fast_iaccept && !err_hold && !m_err && ifast_lane &&
                    idle_idata_valid && ihint_tag_valid &&
@@ -1579,6 +1588,14 @@ always @(posedge clk) begin
 			end
 
 			C_PASS: begin
+				if (fast_ihit) begin
+					// P201: the one-clock instruction hit under a posted store
+					// (as in C_IDLE: the way's line is offered next cycle)
+					iline_pair_pending <= 1;
+					iline_valid <= 0;
+					iline_way <= hint_way;
+					iline_tag <= c_addr[31:4];
+				end
 				// the second-set invalidate clears only when port B truly
 				// served it; a snoop or a recorded first-set replay owns
 				// the port this cycle and winv stays pending

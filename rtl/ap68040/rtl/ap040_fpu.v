@@ -1290,7 +1290,11 @@ always @(posedge clk) begin
 								r_stag <= frame_tag_x(r_din[94:80], r_din[63:0]);
 								{a_s, a_e, a_m, a_t} <=
 									unpack_x(r_din[95], r_din[94:80], r_din[63:0]);
-								fst <= F_NORM;
+								// P202: with the explicit integer bit set the
+								// operand is normalized (or an infinity/NaN,
+								// which F_NORM passes straight on): its F_NORM
+								// clock would change nothing
+								fst <= r_din[63] ? F_EXEC : F_NORM;
 							end
 						end
 					endcase

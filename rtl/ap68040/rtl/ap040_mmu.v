@@ -206,27 +206,30 @@ wire [EW-1:0] pipe_ent = hit0 ? a_w0 : hit1 ? a_w1 : hit2 ? a_w2 : a_w3;
 // and on reset, so it can never disagree with the array it mirrors.  It
 // carries no state of its own: permissions, cache mode and the M bit come
 // from the copied entry and go through the same fault/walk decisions.
-reg          u_valid [0:4];   // four data copies indexed by page set, one instruction copy
-reg    [4:0] u_row   [0:4];
-reg   [16:0] u_tag   [0:4];
-reg [EW-1:0] u_ent   [0:4];
+// P200: four instruction copies too (a call from user code into the ROM's
+// FPU glue and its return kept replacing the single instruction copy, so
+// the return target's hint never translated)
+reg          u_valid [0:7];   // four data copies and four instruction copies, indexed by page set
+reg    [4:0] u_row   [0:7];
+reg   [16:0] u_tag   [0:7];
+reg [EW-1:0] u_ent   [0:7];
 reg   [31:0] u_tc;
 integer      ui;
 always @(posedge clk) begin
 	u_tc <= tc;
 	if (!nreset || fill_we || sweep_on || pf_req || (tc != u_tc)) begin
-		for (ui = 0; ui < 5; ui = ui + 1) u_valid[ui] <= 0;
+		for (ui = 0; ui < 8; ui = ui + 1) u_valid[ui] <= 0;
 	end
 	else if (pipe_hit) begin
-		u_valid[(l_row[4] ? 3'd4 : {1'b0,l_row[1:0]})] <= 1;
-		u_row[(l_row[4] ? 3'd4 : {1'b0,l_row[1:0]})]   <= l_row;
-		u_tag[(l_row[4] ? 3'd4 : {1'b0,l_row[1:0]})]   <= l_tag;
-		u_ent[(l_row[4] ? 3'd4 : {1'b0,l_row[1:0]})]   <= pipe_ent;
+		u_valid[{l_row[4],l_row[1:0]}] <= 1;
+		u_row[{l_row[4],l_row[1:0]}]   <= l_row;
+		u_tag[{l_row[4],l_row[1:0]}]   <= l_tag;
+		u_ent[{l_row[4],l_row[1:0]}]   <= pipe_ent;
 	end
 end
-wire u_hit = u_valid[(c_instr ? 3'd4 : {1'b0,a_row[1:0]})] && (u_row[(c_instr ? 3'd4 : {1'b0,a_row[1:0]})] == a_row) &&
-             (u_tag[(c_instr ? 3'd4 : {1'b0,a_row[1:0]})] == a_tag);
-wire [EW-1:0] u_sel = u_ent[(c_instr ? 3'd4 : {1'b0,a_row[1:0]})];
+wire u_hit = u_valid[{c_instr,a_row[1:0]}] && (u_row[{c_instr,a_row[1:0]}] == a_row) &&
+             (u_tag[{c_instr,a_row[1:0]}] == a_tag);
+wire [EW-1:0] u_sel = u_ent[{c_instr,a_row[1:0]}];
 
 wire atc_hit = u_hit | pipe_hit;
 
@@ -809,15 +812,15 @@ wire [3:0]    hn_set = tc_p ? c_hint_addr[16:13] : c_hint_addr[15:12];
 wire [4:0]    hn_row = {c_hint_instr, hn_set};
 wire [16:0]   hn_tag = tc_p ? {a_super, c_hint_addr[31:17], 1'b0}
                            : {a_super, c_hint_addr[31:16]};
-wire          uh_hit = u_valid[(c_hint_instr ? 3'd4 : {1'b0,hn_row[1:0]})] && (u_row[(c_hint_instr ? 3'd4 : {1'b0,hn_row[1:0]})] == hn_row) &&
-                       (u_tag[(c_hint_instr ? 3'd4 : {1'b0,hn_row[1:0]})] == hn_tag);
+wire          uh_hit = u_valid[{c_hint_instr,hn_row[1:0]}] && (u_row[{c_hint_instr,hn_row[1:0]}] == hn_row) &&
+                       (u_tag[{c_hint_instr,hn_row[1:0]}] == hn_tag);
 // A held request repeats itself on the hint bus, so when the lookup pipe
 // resolves the request this cycle (the copy is being refilled from it)
 // the same entry translates the hint: without this every first access
 // to a page after a copy miss lost the one-clock hit (3 % of boot
 // dispatches).
 wire          hn_pipe = pipe_hit && (c_hint_addr == c_addr) && (c_hint_instr == c_instr);
-wire [EW-1:0] uh_ent = uh_hit ? u_ent[(c_hint_instr ? 3'd4 : {1'b0,hn_row[1:0]})] : pipe_ent;
+wire [EW-1:0] uh_ent = uh_hit ? u_ent[{c_hint_instr,hn_row[1:0]}] : pipe_ent;
 wire [19:0]   uh_pa  = uh_ent[27:8];
 wire [31:0]   hn_ttra = c_hint_instr ? itt0 : dtt0;
 wire [31:0]   hn_ttrb = c_hint_instr ? itt1 : dtt1;
@@ -879,9 +882,9 @@ wire [3:0]    hi_set = tc_p ? c_ihint_addr[16:13] : c_ihint_addr[15:12];
 wire [4:0]    hi_row = {1'b1, hi_set};
 wire [16:0]   hi_tag = tc_p ? {a_super, c_ihint_addr[31:17], 1'b0}
                            : {a_super, c_ihint_addr[31:16]};
-wire          ui_hit = u_valid[3'd4] && (u_row[3'd4] == hi_row) && (u_tag[3'd4] == hi_tag);
+wire          ui_hit = u_valid[{1'b1,hi_row[1:0]}] && (u_row[{1'b1,hi_row[1:0]}] == hi_row) && (u_tag[{1'b1,hi_row[1:0]}] == hi_tag);
 wire          hi_pipe = pipe_hit && (c_ihint_addr == c_addr) && c_instr;
-wire [EW-1:0] ui_ent = ui_hit ? u_ent[3'd4] : pipe_ent;
+wire [EW-1:0] ui_ent = ui_hit ? u_ent[{1'b1,hi_row[1:0]}] : pipe_ent;
 wire [19:0]   ui_pa  = ui_ent[27:8];
 wire          hi_ttr_a = ttr_match(itt0, c_ihint_addr, a_super);
 wire          hi_ttr_b = ttr_match(itt1, c_ihint_addr, a_super);
