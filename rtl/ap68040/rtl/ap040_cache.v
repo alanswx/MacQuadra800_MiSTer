@@ -208,7 +208,8 @@ wire        cd_rd_en;
 wire  [DIDXW-1:0] cd_ridx, cd_widx;
 wire  [3:0] cd_we;               // one per way
 wire [31:0] cd_wdat;             // single-word writes (fills, aligned merges)
-wire [31:0] cd_wdat0, cd_wdat1, cd_wdat2, cd_wdat3;   // per array, for pair merges
+wire [31:0] cd_wdat0, cd_wdat1, cd_wdat2, cd_wdat3;   // per array
+wire  [3:0] cd_be0, cd_be1, cd_be2, cd_be3;           // their byte enables (P195)
 
 // Reads free-run: the address is held for the whole request, so a stalled
 // ce simply re-reads the same row.  Only the writes are ce-gated.
@@ -243,10 +244,30 @@ dpram #(ROWIW, ROWW) ctag_ram_i
 // (P174, moved here from the pair banks); the instruction hint's own idle
 // read is skipped in that clock (the offer feeds the queue next).
 always @(posedge clk) begin
-	if (ce & cd_we[0] & cd_widx[DIDXW-1]) idata0[cd_widx[DIDXW-2:0]] <= cd_wdat0;
-	if (ce & cd_we[1] & cd_widx[DIDXW-1]) idata1[cd_widx[DIDXW-2:0]] <= cd_wdat1;
-	if (ce & cd_we[2] & cd_widx[DIDXW-1]) idata2[cd_widx[DIDXW-2:0]] <= cd_wdat2;
-	if (ce & cd_we[3] & cd_widx[DIDXW-1]) idata3[cd_widx[DIDXW-2:0]] <= cd_wdat3;
+	if (ce & cd_we[0] & cd_widx[DIDXW-1]) begin
+		if (cd_be0[3]) idata0[cd_widx[DIDXW-2:0]][31:24] <= cd_wdat0[31:24];
+		if (cd_be0[2]) idata0[cd_widx[DIDXW-2:0]][23:16] <= cd_wdat0[23:16];
+		if (cd_be0[1]) idata0[cd_widx[DIDXW-2:0]][15:8]  <= cd_wdat0[15:8];
+		if (cd_be0[0]) idata0[cd_widx[DIDXW-2:0]][7:0]   <= cd_wdat0[7:0];
+	end
+	if (ce & cd_we[1] & cd_widx[DIDXW-1]) begin
+		if (cd_be1[3]) idata1[cd_widx[DIDXW-2:0]][31:24] <= cd_wdat1[31:24];
+		if (cd_be1[2]) idata1[cd_widx[DIDXW-2:0]][23:16] <= cd_wdat1[23:16];
+		if (cd_be1[1]) idata1[cd_widx[DIDXW-2:0]][15:8]  <= cd_wdat1[15:8];
+		if (cd_be1[0]) idata1[cd_widx[DIDXW-2:0]][7:0]   <= cd_wdat1[7:0];
+	end
+	if (ce & cd_we[2] & cd_widx[DIDXW-1]) begin
+		if (cd_be2[3]) idata2[cd_widx[DIDXW-2:0]][31:24] <= cd_wdat2[31:24];
+		if (cd_be2[2]) idata2[cd_widx[DIDXW-2:0]][23:16] <= cd_wdat2[23:16];
+		if (cd_be2[1]) idata2[cd_widx[DIDXW-2:0]][15:8]  <= cd_wdat2[15:8];
+		if (cd_be2[0]) idata2[cd_widx[DIDXW-2:0]][7:0]   <= cd_wdat2[7:0];
+	end
+	if (ce & cd_we[3] & cd_widx[DIDXW-1]) begin
+		if (cd_be3[3]) idata3[cd_widx[DIDXW-2:0]][31:24] <= cd_wdat3[31:24];
+		if (cd_be3[2]) idata3[cd_widx[DIDXW-2:0]][23:16] <= cd_wdat3[23:16];
+		if (cd_be3[1]) idata3[cd_widx[DIDXW-2:0]][15:8]  <= cd_wdat3[15:8];
+		if (cd_be3[0]) idata3[cd_widx[DIDXW-2:0]][7:0]   <= cd_wdat3[7:0];
+	end
 	if (ce) begin
 		idata_q0 <= idata0[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd0 - xi_w}];
 		idata_q1 <= idata1[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd1 - xi_w}];
@@ -257,10 +278,30 @@ end
 
 wire  [DIDXW-1:0] cd_ridx0, cd_ridx1, cd_ridx2, cd_ridx3;
 always @(posedge clk) begin
-	if (ce & cd_we[0]) cdata0[cd_widx] <= cd_wdat0;
-	if (ce & cd_we[1]) cdata1[cd_widx] <= cd_wdat1;
-	if (ce & cd_we[2]) cdata2[cd_widx] <= cd_wdat2;
-	if (ce & cd_we[3]) cdata3[cd_widx] <= cd_wdat3;
+	if (ce & cd_we[0]) begin
+		if (cd_be0[3]) cdata0[cd_widx][31:24] <= cd_wdat0[31:24];
+		if (cd_be0[2]) cdata0[cd_widx][23:16] <= cd_wdat0[23:16];
+		if (cd_be0[1]) cdata0[cd_widx][15:8]  <= cd_wdat0[15:8];
+		if (cd_be0[0]) cdata0[cd_widx][7:0]   <= cd_wdat0[7:0];
+	end
+	if (ce & cd_we[1]) begin
+		if (cd_be1[3]) cdata1[cd_widx][31:24] <= cd_wdat1[31:24];
+		if (cd_be1[2]) cdata1[cd_widx][23:16] <= cd_wdat1[23:16];
+		if (cd_be1[1]) cdata1[cd_widx][15:8]  <= cd_wdat1[15:8];
+		if (cd_be1[0]) cdata1[cd_widx][7:0]   <= cd_wdat1[7:0];
+	end
+	if (ce & cd_we[2]) begin
+		if (cd_be2[3]) cdata2[cd_widx][31:24] <= cd_wdat2[31:24];
+		if (cd_be2[2]) cdata2[cd_widx][23:16] <= cd_wdat2[23:16];
+		if (cd_be2[1]) cdata2[cd_widx][15:8]  <= cd_wdat2[15:8];
+		if (cd_be2[0]) cdata2[cd_widx][7:0]   <= cd_wdat2[7:0];
+	end
+	if (ce & cd_we[3]) begin
+		if (cd_be3[3]) cdata3[cd_widx][31:24] <= cd_wdat3[31:24];
+		if (cd_be3[2]) cdata3[cd_widx][23:16] <= cd_wdat3[23:16];
+		if (cd_be3[1]) cdata3[cd_widx][15:8]  <= cd_wdat3[15:8];
+		if (cd_be3[0]) cdata3[cd_widx][7:0]   <= cd_wdat3[7:0];
+	end
 	if (ce & cd_rd_en) begin
 		data_q0 <= cdata0[cd_ridx0];
 		data_q1 <= cdata1[cd_ridx1];
@@ -655,10 +696,30 @@ reg  iline_pair_pending;
 wire [1:0] pair_read_word = x_w + 2'd1;
 wire [SETW:0] pair_row = (x_w == 2'd3 && !x_instr) ? x_rowp1 : x_row;   // P178
 always @(posedge clk) begin
-    if (ce & cd_we[0] & !cd_widx[DIDXW-1]) pairdata0[cd_widx[DIDXW-2:0]] <= cd_wdat0;
-    if (ce & cd_we[1] & !cd_widx[DIDXW-1]) pairdata1[cd_widx[DIDXW-2:0]] <= cd_wdat1;
-    if (ce & cd_we[2] & !cd_widx[DIDXW-1]) pairdata2[cd_widx[DIDXW-2:0]] <= cd_wdat2;
-    if (ce & cd_we[3] & !cd_widx[DIDXW-1]) pairdata3[cd_widx[DIDXW-2:0]] <= cd_wdat3;
+    if (ce & cd_we[0] & !cd_widx[DIDXW-1]) begin
+		if (cd_be0[3]) pairdata0[cd_widx[DIDXW-2:0]][31:24] <= cd_wdat0[31:24];
+		if (cd_be0[2]) pairdata0[cd_widx[DIDXW-2:0]][23:16] <= cd_wdat0[23:16];
+		if (cd_be0[1]) pairdata0[cd_widx[DIDXW-2:0]][15:8]  <= cd_wdat0[15:8];
+		if (cd_be0[0]) pairdata0[cd_widx[DIDXW-2:0]][7:0]   <= cd_wdat0[7:0];
+	end
+    if (ce & cd_we[1] & !cd_widx[DIDXW-1]) begin
+		if (cd_be1[3]) pairdata1[cd_widx[DIDXW-2:0]][31:24] <= cd_wdat1[31:24];
+		if (cd_be1[2]) pairdata1[cd_widx[DIDXW-2:0]][23:16] <= cd_wdat1[23:16];
+		if (cd_be1[1]) pairdata1[cd_widx[DIDXW-2:0]][15:8]  <= cd_wdat1[15:8];
+		if (cd_be1[0]) pairdata1[cd_widx[DIDXW-2:0]][7:0]   <= cd_wdat1[7:0];
+	end
+    if (ce & cd_we[2] & !cd_widx[DIDXW-1]) begin
+		if (cd_be2[3]) pairdata2[cd_widx[DIDXW-2:0]][31:24] <= cd_wdat2[31:24];
+		if (cd_be2[2]) pairdata2[cd_widx[DIDXW-2:0]][23:16] <= cd_wdat2[23:16];
+		if (cd_be2[1]) pairdata2[cd_widx[DIDXW-2:0]][15:8]  <= cd_wdat2[15:8];
+		if (cd_be2[0]) pairdata2[cd_widx[DIDXW-2:0]][7:0]   <= cd_wdat2[7:0];
+	end
+    if (ce & cd_we[3] & !cd_widx[DIDXW-1]) begin
+		if (cd_be3[3]) pairdata3[cd_widx[DIDXW-2:0]][31:24] <= cd_wdat3[31:24];
+		if (cd_be3[2]) pairdata3[cd_widx[DIDXW-2:0]][23:16] <= cd_wdat3[23:16];
+		if (cd_be3[1]) pairdata3[cd_widx[DIDXW-2:0]][15:8]  <= cd_wdat3[15:8];
+		if (cd_be3[0]) pairdata3[cd_widx[DIDXW-2:0]][7:0]   <= cd_wdat3[7:0];
+	end
     if (ce & cd_rd_en) begin
         pair_q0 <= pairdata0[{pair_row[SETW-1:0], 2'd0 - pair_read_word}];
         pair_q1 <= pairdata1[{pair_row[SETW-1:0], 2'd1 - pair_read_word}];
@@ -680,7 +741,7 @@ assign c_posting   = post_active;
 // after admission; a capture-cycle acknowledge would arrive first and
 // force the invalidate fallback (13 % more data fills in the Speedometer
 // profile), so only non-spanning stores are reported posted at once.
-assign m_posted    = post_active && (!r_span2 || sline_ready);
+assign m_posted    = post_active;   // P195: a spanning store no longer reads its line first
 assign c_line_tag  = iline_tag;
 assign c_line_data = iline_data;
 assign c_rdata = pass_active ? m_rdata : fast_pair_idle ? hint_pair_data : fast_xline_idle ? hint_xline_data : fast_span_ack ? span_extract({sp_w0, sp_w1}, r_size, r_off) : (fast_hit ? fast_data : fast_ihit ? fast_idata : rdata_r);
@@ -853,7 +914,7 @@ wire [31:0] store_merge_word = (post_active && posted_word_valid) ? posted_word 
 // 2-mod-4 stack longwords made every such store cost the following read
 // its one-clock hit.
 wire posted_hint_read = (cst == C_PASS) && post_active &&
-    (!r_span2 || sline_ready) && !cross_store && !pass_ci_chk && !winv_pend &&
+    !cross_store && !pass_ci_chk && !winv_pend &&
     !ci_inv_pend && !store_inv_lost;
 reg idle_data_valid, idle_tag_valid;
 // P178 fix: the pair banks' next-row read (x_rowp1, for the cross-line
@@ -1085,7 +1146,7 @@ wire iline_seed_read = (cst == C_LOOK) && look_hit && r_bank && !look2;
 wire iline_idle_read = idle_hit && c_instr && !fast_ihit;
 wire dline_read = (cst == C_LOOK) && look_hit && !r_bank && r_span2 && !look2;
 wire iline_tagw_read = (cst == C_TAGW) && r_bank && !fill_snooped && !snoop_fill_row;
-wire sline_read = (cst == C_PASS) && pass_store_chk && r_span2 && look_hit && !sline_ready;
+wire sline_read = 1'b0;   // P195: byte-enable writes need no line read
 wire iline_read = iline_seed_read || iline_idle_read || dline_read || iline_tagw_read || sline_read || idle_span_hit;
 wire [ROWIW-1:0] line_read_row = (iline_idle_read || idle_span_hit) ? {c_instr, c_addr[SETW+3:4]} : r_row;
 wire [1:0] line_read_way = iline_tagw_read ? r_way : hit_way;
@@ -1116,7 +1177,7 @@ wire [31:0] sp_w1 = (sp_a1 == 2'd0) ? data_q0 : (sp_a1 == 2'd1) ? data_q1 :
                     (sp_a1 == 2'd2) ? data_q2 : data_q3;
 wire store_hit_write = look_hit &&
                        (((cst == C_PASS) && pass_store_chk && m_ack && (!cross_store || !m_err) &&
-                         (!r_span2 || sline_ready)) ||
+                         1'b1) ||
                         (cross_second && !cross_second_lost));
 wire store_pair_write = store_hit_write && r_span2;
 wire fill_beat_write = ((cst == C_FILL) && r_issued && m_ack) || fill_line_write;
@@ -1139,17 +1200,33 @@ wire fast_span_ack = (cst == C_LOOK) && look2 && r_span2 && !r_bank &&
 wire [63:0] pair_new = span_merge(sp_held ? {sp_h0, sp_h1} : {sp_w0, sp_w1}, r_wdata, r_size, r_off);
 assign cd_we     = store_pair_write ? ((4'd1 << wr_arr) | (4'd1 << wr_arr1)) :
                    (store_hit_write || fill_beat_write) ? (4'd1 << wr_arr) : 4'd0;
-assign cd_wdat0  = store_pair_write ? (wr_arr1 == 2'd0 ? pair_new[31:0] : pair_new[63:32]) : cd_wdat;
-assign cd_wdat1  = store_pair_write ? (wr_arr1 == 2'd1 ? pair_new[31:0] : pair_new[63:32]) : cd_wdat;
-assign cd_wdat2  = store_pair_write ? (wr_arr1 == 2'd2 ? pair_new[31:0] : pair_new[63:32]) : cd_wdat;
-assign cd_wdat3  = store_pair_write ? (wr_arr1 == 2'd3 ? pair_new[31:0] : pair_new[63:32]) : cd_wdat;
+// P195: a store hit writes only its own bytes, so no store reads the old
+// word first.  st_val/st_be place the operand over the pair {word w, word
+// w+1} (w = the word its first byte is in); a store inside one longword
+// uses the high half, a spanning store both, a line-crossing store the high
+// half in its first line (word 3) and the low half in the next (word 0).
+wire  [7:0] st_be  = ((r_size == `AP040_SZ_B) ? 8'b1000_0000 :
+                      (r_size == `AP040_SZ_W) ? 8'b1100_0000 : 8'b1111_0000) >> r_off;
+wire [63:0] st_val = ((r_size == `AP040_SZ_B) ? {r_wdata[7:0], 56'd0} :
+                      (r_size == `AP040_SZ_W) ? {r_wdata[15:0], 48'd0} : {r_wdata, 32'd0}) >> {r_off, 3'd0};
+wire        st_lo  = cross_second;          // the second line of a crossing store: its low half
+wire [31:0] st_w   = st_lo ? st_val[31:0] : st_val[63:32];
+wire  [3:0] st_b   = st_lo ? st_be[3:0]   : st_be[7:4];
+// array k: a spanning store's second word goes to wr_arr1, everything
+// else (its first word, a single-word store, a fill beat) to wr_arr
+assign {cd_be0, cd_wdat0} = store_pair_write ? ((wr_arr1 == 2'd0) ? {st_be[3:0], st_val[31:0]} : {st_be[7:4], st_val[63:32]}) :
+                            store_hit_write ? {st_b, st_w} : {4'hF, cd_wdat};
+assign {cd_be1, cd_wdat1} = store_pair_write ? ((wr_arr1 == 2'd1) ? {st_be[3:0], st_val[31:0]} : {st_be[7:4], st_val[63:32]}) :
+                            store_hit_write ? {st_b, st_w} : {4'hF, cd_wdat};
+assign {cd_be2, cd_wdat2} = store_pair_write ? ((wr_arr1 == 2'd2) ? {st_be[3:0], st_val[31:0]} : {st_be[7:4], st_val[63:32]}) :
+                            store_hit_write ? {st_b, st_w} : {4'hF, cd_wdat};
+assign {cd_be3, cd_wdat3} = store_pair_write ? ((wr_arr1 == 2'd3) ? {st_be[3:0], st_val[31:0]} : {st_be[7:4], st_val[63:32]}) :
+                            store_hit_write ? {st_b, st_w} : {4'hF, cd_wdat};
 assign cd_widx   = {r_bank, r_row[SETW-1:0], wr_way};
 wire [63:0] cross_first_merge = span_merge({data_hit,32'd0}, r_wdata, r_size, r_off);
 wire [63:0] cross_last_merge = span_merge({32'd0,data_hit}, r_wdata, r_size, r_off);
-assign cd_wdat   = store_hit_write ? (cross_store ?
-                      (cross_second ? cross_last_merge[31:0] : cross_first_merge[63:32]) :
-                      lw_merge(store_merge_word, r_wdata, r_size, r_off)) :
-	                  (fill_line_write ? fill_line_word : m_rdata);
+// fills only: a store hit's bytes come from st_val/st_be (P195)
+assign cd_wdat   = fill_line_write ? fill_line_word : m_rdata;
 
 
 `ifdef AP040_EXPERIMENTAL_XSTORE
@@ -1461,10 +1538,6 @@ always @(posedge clk) begin
 					sp_h0   <= sp_w0;
 					sp_h1   <= sp_w1;
 					sp_held <= 1;
-				end
-				if (pass_store_chk && r_span2 && m_ack && look_hit && !sline_ready) begin
-					ci_inv_pend <= 1;
-					ci_inv_row  <= r_row;
 				end
 				if (pass_ci_chk) begin
 					pass_ci_chk <= 0;
