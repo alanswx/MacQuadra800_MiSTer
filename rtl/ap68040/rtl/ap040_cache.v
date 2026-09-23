@@ -963,6 +963,7 @@ reg idle_data_valid, idle_tag_valid;
 // line lands exactly in the clocks posted_hint_read keeps the idle read up.
 reg idle_next_valid;
 reg [DIDXW-1:0] idle_data_idx;
+wire rd_redirect;   // P220: the arrays read another row/word than the hint's
 reg [ROWIW-1:0] idle_tag_idx;
 always @(posedge clk) begin
 	if (!nreset) begin
@@ -978,10 +979,15 @@ always @(posedge clk) begin
 		if (inv_wren || (ce && |cd_we)) begin idle_data_valid <= 0; idle_next_valid <= 0; end
 		if (ce && cd_rd_en) begin
 			idle_data_idx <= {x_instr, x_set, x_addr[3:2]};
-			idle_data_valid <= ((cst == C_IDLE) || posted_hint_read) && !iline_read &&
+			// P220: and only when the arrays really read the hint's row and
+			// word -- a cross-line idle hit (its registered twin fires in the
+			// same clock as fast_xline_idle), the crossing lookups and the
+			// second-line reads steer rd_row/rd_w elsewhere, and a read issued
+			// in place on the next edge used to hit on that other row's data
+			idle_data_valid <= ((cst == C_IDLE) || posted_hint_read) && !iline_read && !rd_redirect &&
                                !inv_wren && (!(|cd_we) ||
                                (cd_widx[DIDXW-1:2] != x_row));
-			idle_next_valid <= ((cst == C_IDLE) || posted_hint_read) && !iline_read &&
+			idle_next_valid <= ((cst == C_IDLE) || posted_hint_read) && !iline_read && !rd_redirect &&
                                !inv_wren && (!(|cd_we) ||
                                ((cd_widx[DIDXW-1:2] != x_row) && (cd_widx[DIDXW-1:2] != x_rowp1)));
 		end
@@ -993,7 +999,13 @@ wire idle_hit = rd_accept && !ipred_hit && !err_hold && !m_err && fits_lane &&
                 (idle_tag_idx == a_row) && look_hit &&
                 !tag_we && !inv_wren && !look_snooped && !snoop_look_row;
 // Start a settled within-line pair read at admission.
-wire idle_span_hit = rd_accept && !ipred_hit && !err_hold && !m_err && span2 &&
+// P217: not when the one-clock pair hit is predicted from its registered
+// terms: the line read it starts replaced the next clock's idle read, so a
+// run of 2-mod-4 longwords (MOVEM on the stack, FPU operands, Pascal stack
+// temporaries) could not hit two in a row.  A wrong prediction only sends
+// the read to the registered lookup.
+wire pair_pred;   // assigned after hint_pair_lane
+wire idle_span_hit = rd_accept && !ipred_hit && !err_hold && !m_err && span2 && !pair_pred &&
                 idle_data_valid && idle_tag_valid &&
                 (idle_data_idx == {c_instr, c_addr[SETW+3:2]}) &&
                 (idle_tag_idx == a_row) && look_hit &&
@@ -1145,6 +1157,9 @@ wire [31:0] fast_idata = lw_extract(ihint_data_hit, c_size, hqi_lo[1:0]);
 wire hint_pair_lane = hq_lo[3:2] != 3 &&
     ((c_size == `AP040_SZ_L && hq_lo[1:0] != 0) ||
      (c_size == `AP040_SZ_W && hq_lo[1:0] == 3));
+assign pair_pred = c_fast_ready && hint_pair_lane && pair_idle_valid &&
+                   (idle_data_idx == {1'b0, hq_lo[SETW+3:2]}) &&
+                   (hint_tag_idx == {1'b0, hq_lo[SETW+3:4]});
 wire fast_pair_idle = (fast_accept || fast_accept_pp) && !err_hold && !m_err && hint_pair_lane &&
                    idle_data_valid && pair_idle_valid && hint_tag_valid &&
                    (idle_data_idx == {1'b0, hq_lo[SETW+3:2]}) &&
@@ -1229,6 +1244,7 @@ assign cd_rd_en  = (cst == C_IDLE) || posted_hint_read || rd_accept || store_loo
                    xlook_read || cross_lookup;
 // word-wise: array k at way (k - w); line-wise: every array at the hit way;
 // the crossing read's second lookup: word 0 of the next row
+assign rd_redirect = idle_xline_hit || xlook_read || cross_lookup || cross_second;
 wire  [1:0] rd_w = (idle_xline_hit || xlook_read || cross_lookup || cross_second) ? 2'd0 : x_w;
 wire  [SETW:0] rd_row = (cross_lookup || cross_second) ? r_row :
                         idle_xline_hit ? {1'b0, a_set + {{(SETW-1){1'b0}},1'b1}} :

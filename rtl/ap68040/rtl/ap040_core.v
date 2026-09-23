@@ -2088,7 +2088,7 @@ task mem_issue;
 		if (((!mgo_wr && (state == S_PIPE_START || state == S_PIPE_SRD ||
 		                  state == S_PIPE_DEA || state == S_DECODE ||
 		                  state == S_RET1 || state == S_UNLK1 ||
-		                  state == S_MOVEM_LOOP || retire_move_read || retire_store_read || ret_after_unlk || fpu_rd_next || hint_early_read || hint_fpu_read || pipe_load_launch)) ||
+		                  state == S_MOVEM_LOOP || retire_move_read || retire_store_read || retire_read_read || ret_after_unlk || fpu_rd_next || mm_rd_next || hint_early_read || hint_fpu_read || pipe_load_launch)) ||
 		     (mgo_wr && (reg_move_store_prepare || move_store_read_handoff || state == S_EXEC || state == S_PIPE_DEA || state == S_MOVEM_LOOP ||
 		                 // the pushes: BSR.B from decode, BSR.W, JSR, PEA,
 		                 // LINK -- registered data (pc, ea_addr, port A
@@ -2098,7 +2098,7 @@ task mem_issue;
 		                 state == S_LINK2 || hint_st_fpu || hint_st_fmovem || pipe_load_launch))) &&
 		    mgo_a[31:28] == 4'h0 &&
             ((!mem_req && !mem_ack) || (mgo_wr && move_store_read_handoff) ||
-             (!mgo_wr && (retire_store_read || ret_after_unlk || fpu_rd_next))) &&
+             (!mgo_wr && (retire_store_read || retire_read_read || ret_after_unlk || fpu_rd_next || mm_rd_next))) &&
         // A transfer wholly inside 4KB cannot cross either supported MMU
         // page size. Crossing accesses retain delayed issue and byte splitting.
 		    ((mgo_sz == `AP040_SZ_B) ||
@@ -3113,7 +3113,7 @@ task apply_record;
                          n_dst_mode_r == 3'b100 || n_dst_mode_r == 3'b101))
                         rr_a <= {1'b1, n_dst_rn_r};
                 end
-                else if (retire_store_read &&
+                else if ((retire_store_read || retire_read_read) &&
                          !(rfw_now && (rfw_now_a == {1'b1, rd_ir[2:0]})) &&
                          !((rsr_pd || rsr_pi) && rfw_now)) begin
                     // P196: the source read at the retiring store's acknowledge
@@ -3864,6 +3864,22 @@ wire        hint_rsr = (state == S_MWR) && (r_m_ret == S_NEXT) && m_issued &&
 `endif
                        !sr[15];
 wire        retire_store_read = hint_rsr && d_ack;
+// P219: the same handoff after a read that retires in its own acknowledge
+// (retire_operand_alu: MOVEA, MOVE/ALU to a register): the next
+// instruction's (An)/d16(An) source read is hinted in the predicted
+// acknowledge clock and issued on it.  Not (An)+/-(An) (the retiring
+// register write holds the one write port) and not when the next base is
+// the register being loaded.
+wire        hint_rrr = (state == S_MRD) && m_issued && (r_m_ret == S_PIPE_SDONE) &&
+                       (p_src == SK_MEM) && (p_dst == DK_REG) && (exec_kind == EK_ALU) &&
+`ifdef AP040_EXPERIMENTAL_PIPELINE
+                       !pipe_load_active && !pipe_rf_owner && !pipe_write &&
+`endif
+                       ((mrd_fresh && mrd_hinted && mem_fast_ready) || (!mrd_fresh && mem_ack_q)) &&
+                       !ifr_pres && rsr_head &&
+                       ((n_src_mode_r == 3'b010) || (n_src_mode_r == 3'b101)) &&
+                       !(!p_wbsup && (p_dreg == {1'b1, rd_ir[2:0]})) && !sr[15];
+wire        retire_read_read = hint_rrr && d_ack;
 // P198: the return after UNLK.  UNLK retires in its read's acknowledge with
 // A7 already moved (written at the read's issue); when the queue head is
 // RTS, or RTD with its displacement resident, the data hint shows A7 in
@@ -3888,16 +3904,24 @@ wire        hint_fpn = (state == S_MRD) && fpu_rd_more && m_issued &&
                        !ifr_pres && !sr[15];
 wire [31:0] fpn_addr = t_a + {28'd0, fp_n[1:0], 2'b00};
 wire        fpu_rd_next = hint_fpn && d_ack;
-assign mem_hint_away = hint_move_store || hint_rsr || hint_rsp || hint_fpn;
+// P216: MOVEM load chaining -- the next register's read hinted in the current
+// one's predicted acknowledge and issued in place on it (see movem_ld_ack)
+wire [31:0] mmn_addr = mm_addr + ((mm_size == `AP040_SZ_L) ? 32'd4 : 32'd2);
+wire        hint_mmn = (state == S_MRD) && (r_m_ret == S_MOVEM_LD) && m_issued && (mm_mask != 16'd0) &&
+                       ((mrd_fresh && mrd_hinted && mem_fast_ready) || (!mrd_fresh && mem_ack_q)) &&
+                       !ifr_pres && !sr[15];
+wire        mm_rd_next = hint_mmn && d_ack;
+assign mem_hint_away = hint_move_store || hint_rsr || hint_rrr || hint_rsp || hint_fpn || hint_mmn;
 // P175: two hint buses.  The data bus carries the outstanding data request
 // and the data-side hints; the instruction bus carries the presented
 // fetch until it clears, else the redirect targets, else the queue's next
 // fetch.  Each side's idle read in the cache is indexed by its own bus, so
 // a fetch and a data access can both be hinted in the same clock.
 assign mem_hint_addr  = hint_move_store ? move_store_read_addr :
-                        hint_rsr ? rsr_addr :
+                        (hint_rsr || hint_rrr) ? rsr_addr :
                         hint_rsp ? dbg_a7_wb :
                         hint_fpn ? fpn_addr :
+                        hint_mmn ? mmn_addr :
                         mem_req ? mem_addr_q : hint_addr;
 assign mem_hint_instr = 1'b0;
 // P177: a return-address stack.  The RTS target fetch is issued in the
@@ -5920,7 +5944,17 @@ always @(posedge clk) begin
 						end
 						else rfw(mm_reg, lv);
 						mm_addr <= mm_addr + ((mm_size == `AP040_SZ_L) ? 32'd4 : 32'd2);
-						state <= S_MOVEM_LOOP;
+						// P216: the next register's load straight from this
+						// acknowledge (in place when hinted, mm_rd_next): the
+						// loop's step for it, one clock a register
+						if (mm_mask != 16'd0) begin : movem_chain
+							reg [3:0] bi;
+							bi = ffs16(mm_mask);
+							mm_mask <= mm_mask & ~(16'd1 << bi);
+							mm_reg  <= bi;
+							mrd(mmn_addr, mm_size, S_MOVEM_LD);
+						end
+						else state <= S_MOVEM_LOOP;
 					end
 					else begin
 						m_val <= mem_rdata;
