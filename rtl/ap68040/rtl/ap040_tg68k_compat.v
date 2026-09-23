@@ -98,6 +98,7 @@ wire        mem_instr;
 wire  [1:0] mem_size;
 wire [31:0] mem_addr;
 wire [31:0] mem_hint_addr, mm_hint_addr;
+wire        mem_hint_away, mem_fast_ready;
 wire        mem_hint_instr, mm_hint_instr, mm_hint_match, mm_hint_wmatch;
 wire [21:0] mm_hint_ptag;
 wire [31:0] mem_wdata;
@@ -236,6 +237,8 @@ ap040_core #(
 	.mem_addr(core_addr),
 	.mem_hint_addr(mem_hint_addr),
 	.mem_hint_instr(mem_hint_instr),
+	.mem_hint_away(mem_hint_away),
+	.mem_fast_ready(mem_fast_ready),
 	.mem_wdata(core_wdata),
 	.mem_fc(core_fc),
 	.mem_ack(core_ack),
@@ -451,6 +454,8 @@ if (AP040_ENABLE_CACHE != 0) begin : g_cache
 		.c_hint_ptag(mm_hint_ptag),
 		.c_hint_match(mm_hint_match),
 		.c_hint_wmatch(mm_hint_wmatch),
+		.c_hint_away(mem_hint_away),
+		.c_fast_ready(mem_fast_ready),
 		.c_wdata(mm_wdata),
 		.c_fc(mm_fc),
 		.c_nocache(mm_nocache | ~cache_allow |

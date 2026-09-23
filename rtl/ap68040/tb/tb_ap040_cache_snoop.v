@@ -101,7 +101,7 @@ ap040_cache dut
 	// registered a cycle earlier (m_hint_match); the bench's hint bus is
 	// its request bus, so model that register here
 	.c_hint_ptag(c_addr[31:10]), .c_hint_match(c_req && (tb_hq_addr == c_addr)),
-	.c_hint_wmatch(1'b0), .c_post_ok_hint(1'b0),   // no posting, no store fast lane here
+	.c_hint_wmatch(1'b0), .c_hint_away(1'b0), .c_post_ok_hint(1'b0),   // no posting, no store fast lane here
 	.c_fc(3'd5), .c_nocache(c_nocache), .c_post_ok(1'b0),
 	.c_ack(c_ack), .c_rdata(c_rdata),
 	.m_req(m_req), .m_write(m_write), .m_instr(m_instr),

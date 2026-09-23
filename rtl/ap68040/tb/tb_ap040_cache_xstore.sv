@@ -24,7 +24,7 @@ module tb_ap040_cache_xstore;
         .c_req(req),.c_write(wr),.c_instr(1'b0),.c_size(size),
         .c_addr(addr),.c_wdata(wdata),.c_fc(3'd5),.c_nocache(1'b0),
         .c_hint_addr(addr),.c_hint_instr(1'b0),.c_hint_ptag(addr[31:10]),
-        .c_hint_match(req && hint==addr),.c_hint_wmatch(1'b0),
+        .c_hint_match(req && hint==addr),.c_hint_wmatch(1'b0),.c_hint_away(1'b0),
         .c_post_ok_hint(1'b0),.c_post_ok(post),.c_ack(done),.c_rdata(data),
         .m_req(mreq),.m_write(mwr),.m_instr(),.m_size(ms),.m_addr(ma),
         .m_wdata(mw),.m_fc(),.m_ack(ack),.m_rdata(rdata),.m_err(err),

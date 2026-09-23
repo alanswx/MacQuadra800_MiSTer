@@ -63,6 +63,8 @@ module ap040_core
 	output     [31:0] mem_addr,
 	output     [31:0] mem_hint_addr,   // next access's address, one cycle early
 	output            mem_hint_instr,
+	output            mem_hint_away,  // the hint is not the presented request (P182)
+	input             mem_fast_ready, // the cache can hit a hinted read in one clock now (P182)
 	output reg [31:0] mem_wdata,
 	output      [2:0] mem_fc,
 	input             mem_ack,
@@ -855,6 +857,9 @@ localparam RK_RTD = 2'd2;
 //---------------------------------------------------------------------------
 
 reg  [7:0] r_imm_ret, r_ea_ret, r_m_ret;
+reg        mrd_hinted;   // P182
+// P180: PEA d16(An)/d16(PC) pushes from S_EA_D16
+wire pea_d16_push = state == S_EA_D16 && r_ea_ret == S_PEA1;
 reg  [2:0] m_bidx;                // byte index of a split transfer
 reg [31:0] m_acc;                 // assembled bytes of a split transfer
 reg  [1:0] imm_n;
@@ -2083,7 +2088,7 @@ task mem_issue;
 		                 // LINK -- registered data (pc, ea_addr, port A
 		                 // selected a state earlier) at dbg_a7 - 4
 		                 state == S_DECODE || state == S_BCC_EXT ||
-		                 state == S_JSR1 || state == S_PEA1 ||
+		                 state == S_JSR1 || state == S_PEA1 || pea_d16_push ||
 		                 state == S_LINK2 || hint_st_fpu || hint_st_fmovem || pipe_load_launch))) &&
 		    mgo_a[31:28] == 4'h0 &&
             ((!mem_req && !mem_ack) || (mgo_wr && move_store_read_handoff)) &&
@@ -2099,6 +2104,10 @@ task mem_issue;
 			        (sr_s ? `AP040_FC_SUPER_DATA : `AP040_FC_USER_DATA);
 			m_issued <= 1;
 			epf_issue = 1;
+			// P182: whether the hint bus carried this read when it issued
+			// (row and word; a false match only costs a held clock)
+			mrd_hinted <= !mgo_wr && !mem_hint_instr &&
+			              (mem_hint_addr[11:2] == mgo_a[11:2]);
 		end
 		else m_issued <= 0;
 	end
@@ -3439,7 +3448,7 @@ wire        hint_st_move_ea = (state == S_PIPE_DEA) && !p_rmw &&
 wire        hint_st_pushf = ((state == S_DECODE) && (ir[15:8] == 8'h61) &&
                              (ir[7:0] != 8'h00) && (ir[7:0] != 8'hFF)) ||
                             ((state == S_BCC_EXT) && (ir[11:8] == 4'h1)) ||
-                            (state == S_JSR1);
+                            (state == S_JSR1) || pea_d16_push;
 wire        hint_st_push  = (state == S_PEA1) || (state == S_LINK2);
 wire        hint_st_movem = (state == S_MOVEM_LOOP) && !mm_dir;
 wire        hint_st_mwr   = (state == S_MWR) && !m_issued;
@@ -3646,7 +3655,22 @@ wire        epf_fill_ok     = epf_fill_floor || epf_fill_idle;
 // (the MMU translates the hint through the same copy it refills from the
 // request); in the acknowledge cycle the hint moves on to whatever waits
 // behind it, so the next request meets a translated hint.
+// P182: the MOVE destination store's hint in the source read's predicted
+// acknowledge clock.  A MOVE source read issued in place is acknowledged in
+// its first S_MRD clock when it hits; move_store_read_handoff then issues the
+// store in place on that edge, and without a hint the cache takes its
+// two-clock registered path for it.  So in that first clock the hint bus
+// shows the store (a register-derived flag, never the live acknowledge,
+// selects it); if the read does not complete there it re-hints itself from
+// the next clock and finishes through the registered lookup.
+reg mrd_fresh;
+always @(posedge clk) mrd_fresh <= (state != S_MRD) || (m_issued && d_ack);
+wire ifr_hint_now = ifr_pres && ifr_req && !ifr_ack;
+wire hint_move_store = move_store_read_ready && m_issued && mrd_fresh && mrd_hinted &&
+                       mem_fast_ready && !ifr_hint_now;
+assign mem_hint_away = hint_move_store;
 assign mem_hint_addr  = (ifr_pres && ifr_req && !ifr_ack) ? ifr_addr :
+                        hint_move_store ? move_store_read_addr :
                         mem_req ? mem_addr_q : data_hint_any ? hint_addr : ifr_req ? ifr_addr : hint_addr;
 assign mem_hint_instr = (ifr_pres && ifr_req && !ifr_ack) ? 1'b1 : mem_req ? 1'b0 : !data_hint_any;
 
@@ -5747,6 +5771,11 @@ always @(posedge clk) begin
                     mrd(hint_displacement_addr, p_ssize, S_PIPE_SDONE);
                 end
 `ifdef AP040_EXPERIMENTAL_LEA
+                // P180: PEA pushes its address from here (S_PEA1's work, with
+                // the forwarded base and A7); S_PEA2 still updates A7.
+                if (r_ea_ret == S_PEA1)
+                    mwr(dbg_a7_wb - 32'd4, `AP040_SZ_L,
+                        (ea_pcmode ? ea_pcb : rf_capture_a) + sxw(imm[15:0]), S_PEA2);
                 // LEA has no operand access or flags to finish after EA.
                 // Retire only after its extension has completed normally.
                 if (r_ea_ret == S_LEA1) begin
@@ -7495,7 +7524,10 @@ always @(posedge clk) begin
 							fpb <= 0;
 							state <= S_FPU_IMM;
 						end
-						else if (d_mode == 3'b011 || d_mode == 3'b100) begin
+						// P181: (An) too -- S_FPU_AN resolves it in one state
+						// (no pre/post adjust: fp_ea_pd/pi stay 0) instead of
+						// S_EA_DISP + S_FPU_EA.
+						else if (d_mode == 3'b011 || d_mode == 3'b100 || d_mode == 3'b010) begin
 							rr_a <= {1'b1, d_rn};
 							state <= S_FPU_AN;
 						end
@@ -8938,7 +8970,15 @@ always @(posedge clk) begin
 																		if (d_mode == 3'b011 || d_mode == 3'b100 || ea_is_imm)
 																			go_illegal;
 																		else
+																		begin
 																			ea_start(d_mode, d_rn, `AP040_SZ_L, S_PEA1);
+`ifdef AP040_EXPERIMENTAL_LEA
+																			// P180: as LEA -- request d16 from decode
+																			// (popped inline), and push from S_EA_D16.
+																			if (d_mode == 3'b101)
+																				immf(2'd1, S_EA_D16);
+`endif
+																		end
 															end
 															default:
 															begin

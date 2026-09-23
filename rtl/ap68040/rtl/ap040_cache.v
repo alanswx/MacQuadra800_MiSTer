@@ -48,6 +48,8 @@ module ap040_cache
 	input      [21:0] c_hint_ptag,   // its physical tag, registered by the MMU
 	input             c_hint_match,  // the request is that hint
 	input             c_hint_wmatch, // ... and the MMU vouches for writing its page now
+	input             c_hint_away,   // this clock's hint is not the presented request (P182)
+	output            c_fast_ready,  // registered: a hinted data read can hit in one clock now (P182)
 	input      [31:0] c_wdata,
 	input       [2:0] c_fc,
 	input             c_nocache,
@@ -834,6 +836,10 @@ wire        fast_lane = (c_size == `AP040_SZ_L && hq_lo[1:0] == 2'b00) ||
 // it is the registered hint, it translated, it is cacheable and readable".
 wire        fast_accept = (cst == C_IDLE) && !(cinv_req && !cinv_done) && !ack_r &&
                           !c_write && !c_instr && de && !ci_inv_pend && !store_inv_lost;
+// P182: fast_accept's and fast_hit's registered terms, for the core's
+// acknowledge prediction (no request, hint compare or acknowledge in it)
+assign c_fast_ready = (cst == C_IDLE) && !(cinv_req && !cinv_done) && !ack_r && de &&
+                      !ci_inv_pend && !store_inv_lost && idle_data_valid && hint_tag_valid;
 // Rotate words using the registered offset before the late tag selection.
 // Preserve the original way priority, including the no-hit default.
 wire [31:0] hint_word0 = (hq_lo[3:2] == 0) ? data_q0 :
@@ -1239,6 +1245,12 @@ always @(posedge clk) begin
 							end
 							cst <= C_PASS;
 						end
+					end
+					else if (c_hint_away) begin
+						// P182: the core is hinting its next request, not
+						// this read, so the RAMs are reading another row:
+						// hold the read one clock (it is level-held, and the
+						// hint repeats it from the next clock).
 					end
 					else if (bypass) begin
 						// the tag row read runs in parallel here too, so
