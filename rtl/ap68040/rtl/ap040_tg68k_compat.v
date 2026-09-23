@@ -101,6 +101,9 @@ wire [31:0] mem_hint_addr, mm_hint_addr;
 wire        mem_hint_away, mem_fast_ready;
 wire        mem_hint_instr, mm_hint_instr, mm_hint_match, mm_hint_wmatch;
 wire [21:0] mm_hint_ptag;
+wire [31:0] mem_ihint_addr, mm_ihint_addr;   // the instruction hint bus (P175)
+wire [21:0] mm_ihint_ptag;
+wire        mm_ihint_match;
 wire [31:0] mem_wdata;
 wire  [2:0] mem_fc;
 wire        mem_ack;
@@ -123,6 +126,15 @@ wire [31:0] core_addr, core_wdata;
 wire  [2:0] core_fc;
 wire        core_ack, core_flt, core_berr;
 reg         pres_v, pres_instr;
+// P184: a fetch in its first presented clock that the instruction hint
+// carried the clock before (row and word) is served by the instruction
+// mirrors (fast_ihit); the architectural banks stay on the data hint then,
+// so the data side's idle read is not lost to every one-clock fetch.  If
+// the fetch does not hit, the cache holds its registered lookup for that
+// clock and the banks follow the fetch from the next (pres_v).
+reg   [9:0] ihint_q;
+always @(posedge clk) ihint_q <= mem_ihint_addr[11:2];
+wire        ifetch_hinted_first = !pres_v && (ihint_q == ifr_addr[11:2]);
 wire        sel_instr = pres_v ? pres_instr : !core_req;
 // The MMU's W_DROP state (and the original core's exception entry) rely
 // on a request-low cycle after a fault before the next request is seen;
@@ -239,6 +251,7 @@ ap040_core #(
 	.mem_hint_instr(mem_hint_instr),
 	.mem_hint_away(mem_hint_away),
 	.mem_fast_ready(mem_fast_ready),
+	.mem_ihint_addr(mem_ihint_addr),
 	.mem_wdata(core_wdata),
 	.mem_fc(core_fc),
 	.mem_ack(core_ack),
@@ -309,6 +322,7 @@ ap040_mmu mmu (
 	.c_addr(mem_addr),
 	.c_hint_addr(mem_hint_addr),
 	.c_hint_instr(mem_hint_instr),
+	.c_ihint_addr(mem_ihint_addr),
 	.c_wdata(mem_wdata),
 	.c_fc(mem_fc),
 	.c_ack(mem_ack),
@@ -341,6 +355,9 @@ ap040_mmu mmu (
 	.m_hint_ptag(mm_hint_ptag),
 	.m_hint_match(mm_hint_match),
 	.m_hint_wmatch(mm_hint_wmatch),
+	.m_ihint_addr(mm_ihint_addr),
+	.m_ihint_ptag(mm_ihint_ptag),
+	.m_ihint_match(mm_ihint_match),
 	.m_wdata(mm_wdata),
 	.m_fc(mm_fc),
 	.m_ack(mm_ack),
@@ -456,6 +473,10 @@ if (AP040_ENABLE_CACHE != 0) begin : g_cache
 		.c_hint_wmatch(mm_hint_wmatch),
 		.c_hint_away(mem_hint_away),
 		.c_fast_ready(mem_fast_ready),
+		.c_ihint_addr(mm_ihint_addr),
+		.c_ihint_ptag(mm_ihint_ptag),
+		.c_ihint_match(mm_ihint_match),
+		.c_ihold(mem_req && sel_instr && !ifetch_hinted_first),
 		.c_wdata(mm_wdata),
 		.c_fc(mm_fc),
 		.c_nocache(mm_nocache | ~cache_allow |

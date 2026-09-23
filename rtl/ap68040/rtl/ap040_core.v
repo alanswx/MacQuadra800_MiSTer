@@ -61,7 +61,8 @@ module ap040_core
 	input             ifr_berr,    // physical bus error on the fetch channel (P171)
 	input             ifr_pres,    // the fetch is the channel presented to the MMU/cache now (P171)
 	output     [31:0] mem_addr,
-	output     [31:0] mem_hint_addr,   // next access's address, one cycle early
+	output     [31:0] mem_hint_addr,
+	output     [31:0] mem_ihint_addr,   // the instruction side's own hint (P175)   // next access's address, one cycle early
 	output            mem_hint_instr,
 	output            mem_hint_away,  // the hint is not the presented request (P182)
 	input             mem_fast_ready, // the cache can hit a hinted read in one clock now (P182)
@@ -3594,16 +3595,13 @@ wire [31:0] hint_addr = hint_data  ? m_addr_r :
                         retire_move_read ? alu_res :
                         hint_p2    ? hint_p2_addr :
                         hint_store ? hint_store_addr :
-                        hint_bcc   ? (pc + sxb(ir[7:0])) :
                         hint_pipe  ? hint_pipe_addr :
                         hint_displacement_read ? hint_displacement_addr :
                         hint_indexed_read ? hint_indexed_addr :
                         hint_fpu_read ? hint_fpu_addr :
                         hint_ea    ? ea_addr :
                         hint_pop   ? hint_pop_addr :
-                        hint_redir ? hint_redir_addr :
-                        hint_ftb   ? rd_bcc_t :
-                        hint_bd    ? bd_t : epf_ftail;
+                        hint_pop_addr;   // the instruction targets ride mem_ihint_addr (P175)
 // The request bus carries only registered state.  The hint rides its own
 // bus, which only RAM address inputs and the MMU's hint copy listen to,
 // so the address arithmetic behind it never enters a request-cycle path
@@ -3650,7 +3648,11 @@ wire        epf_fill_idle   = 1'b0;
 wire        epf_fill_idle   = !epf_port_wanted &&
                               (epf_ftail[1] ? (epf_count <= (`P171_FILL_IDLE_TH + 4'd1)) : (epf_count <= `P171_FILL_IDLE_TH));
 `endif
-wire        epf_fill_ok     = epf_fill_floor || epf_fill_idle;
+// P175b: the clock after an instruction acknowledge is the line offer's
+// clock (the cache offers the acknowledged line then, and the core takes
+// it only while no fetch is outstanding); a fill issued in it refuses the
+// offer and fetches the same words a longword at a time.
+wire        epf_fill_ok     = (epf_fill_floor || epf_fill_idle) && !i_ack_d;
 // The presented request repeats on the hint bus until its acknowledge
 // (the MMU translates the hint through the same copy it refills from the
 // request); in the acknowledge cycle the hint moves on to whatever waits
@@ -3665,14 +3667,38 @@ wire        epf_fill_ok     = epf_fill_floor || epf_fill_idle;
 // the next clock and finishes through the registered lookup.
 reg mrd_fresh;
 always @(posedge clk) mrd_fresh <= (state != S_MRD) || (m_issued && d_ack);
-wire ifr_hint_now = ifr_pres && ifr_req && !ifr_ack;
 wire hint_move_store = move_store_read_ready && m_issued && mrd_fresh && mrd_hinted &&
-                       mem_fast_ready && !ifr_hint_now;
+                       mem_fast_ready;
 assign mem_hint_away = hint_move_store;
-assign mem_hint_addr  = (ifr_pres && ifr_req && !ifr_ack) ? ifr_addr :
-                        hint_move_store ? move_store_read_addr :
-                        mem_req ? mem_addr_q : data_hint_any ? hint_addr : ifr_req ? ifr_addr : hint_addr;
-assign mem_hint_instr = (ifr_pres && ifr_req && !ifr_ack) ? 1'b1 : mem_req ? 1'b0 : !data_hint_any;
+// P175: two hint buses.  The data bus carries the outstanding data request
+// and the data-side hints; the instruction bus carries the presented
+// fetch until it clears, else the redirect targets, else the queue's next
+// fetch.  Each side's idle read in the cache is indexed by its own bus, so
+// a fetch and a data access can both be hinted in the same clock.
+assign mem_hint_addr  = hint_move_store ? move_store_read_addr :
+                        mem_req ? mem_addr_q : hint_addr;
+assign mem_hint_instr = 1'b0;
+// P177: a return-address stack.  The RTS target fetch is issued in the
+// pop read's acknowledge clock from the popped data, so nothing can hint
+// it -- except a prediction: the return address pushed by the matching
+// JSR/BSR (recorded at the push store's acknowledge).  During the pop
+// read the instruction hint bus carries the prediction; when the popped
+// address agrees, the target fetch is a one-clock hit.  A wrong
+// prediction costs nothing (the fetch is un-hinted, as before).
+// The redirect hints (this one, hint_bcc, hint_redir, hint_ftb, hint_bd)
+// take the bus over a fetch that is outstanding but not presented: such
+// a fetch is replaced by the redirect (ifr_avail) in the next clock.
+reg  [31:0] ras [0:7];
+reg   [2:0] ras_sp;
+wire        hint_ras = (state == S_MRD) && (r_m_ret == S_RET2) && (ret_kind == RK_RTS) && m_issued;
+wire [31:0] ras_top  = ras[ras_sp - 3'd1];
+assign mem_ihint_addr = (ifr_req && ifr_pres) ? ifr_addr :
+                        hint_ras   ? ras_top :
+                        hint_bcc   ? (pc + sxb(ir[7:0])) :
+                        hint_redir ? hint_redir_addr :
+                        hint_ftb   ? rd_bcc_t :
+                        hint_bd    ? bd_t :
+                        ifr_req    ? ifr_addr : epf_ftail;
 
 //---------------------------------------------------------------------------
 // main state machine
@@ -5032,6 +5058,7 @@ always @(posedge clk) begin
 		epf_ftail <= 0; epf_armed <= 0; epf_pend <= 0;
 		epf_pend_seed <= 0; brf_seed_ok <= 0; iline_log <= 0; iline_super <= 0;
 		epf_pend_lw <= 0; epf_kill <= 0; epf_err <= 0; epf_brf <= 0;
+		ras_sp <= 0;
 		// Queue/refill payload is invalid while the count/valid controls below
 		// are clear.  Do not reset it: payload reset muxes only consume FPGA
 		// packing resources and the words are overwritten before becoming valid.
@@ -5108,6 +5135,13 @@ always @(posedge clk) begin
 		if (mem_ack) mem_req <= 0;
 		if (ifr_ack) ifr_req <= 0;
 		i_ack_d <= i_ack;
+		// P177: the return-address stack (see mem_ihint_addr)
+		if ((state == S_MWR) && d_ack && ((r_m_ret == S_JSR2) || (r_m_ret == S_BSR_PUSH))) begin
+			ras[ras_sp] <= m_wdat;
+			ras_sp <= ras_sp + 3'd1;
+		end
+		else if ((state == S_MRD) && d_ack && (r_m_ret == S_RET2) && (ret_kind == RK_RTS))
+			ras_sp <= ras_sp - 3'd1;
 		// Every acknowledged instruction fetch, whether the queue engine's,
 		// a redirect's or the exception prefetch's own, names the line the
 		// cache will offer next cycle: record it and its context here, not
