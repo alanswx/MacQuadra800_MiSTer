@@ -180,6 +180,7 @@ sdram_beat32 sdr (
 	.wdata(mem_wdata_r), .ack(sdr_ack), .rdata(sdr_rdata), .busy(sdr_busy),
 	.line_valid_o(line_valid), .line_tag_o(line_tag), .line_data_o(line_data),
 	.line_pending_o(line_pending), .line_pending_tag_o(line_pending_tag),
+	.wp_valid(1'b0), .wp_addr(25'd0), .wp_be(4'd0), .wp_data(32'd0), .wq_room(),
 	.SDRAM_DQ(SDRAM_DQ), .SDRAM_A(SDRAM_A), .SDRAM_DQML(SDRAM_DQML),
 	.SDRAM_DQMH(SDRAM_DQMH), .SDRAM_BA(SDRAM_BA), .SDRAM_nCS(SDRAM_nCS),
 	.SDRAM_nWE(SDRAM_nWE), .SDRAM_nRAS(SDRAM_nRAS), .SDRAM_nCAS(SDRAM_nCAS),

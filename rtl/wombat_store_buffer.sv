@@ -271,7 +271,15 @@ always @(posedge clk) begin
 		// the one queued write (the CPU waits on the read, not the write);
 		// with two queued the drain always goes first
 		if (drain_active) begin
-			if (m_ack || m_err) drain_active <= 0;
+			// Back to back (2026-09-23): with another write queued behind the
+			// one just acknowledged, keep draining -- the next is presented in
+			// the clock after the ack, which every consumer accepts (the
+			// post-cache contract); a waiting read still gets its turn first.
+			if (m_err) drain_active <= 0;
+			// (count is the pre-pop depth: a read may pass one queued write,
+			// so with exactly one left and a read waiting, pause as before)
+			else if (m_ack) drain_active <= (count > 3'd2) ||
+			                                ((count == 3'd2) && !(s_req && !buffer_req));
 		end
 		else if (!direct_active && (count != 0) && !direct_request &&
 		         !m_ack && !m_err)

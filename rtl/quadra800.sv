@@ -32,7 +32,8 @@ module quadra800
 	// within ten received frames although every frame and descriptor in RAM is byte-exact --
 	// Apple's driver marks a recycled receive descriptor with $FF in the top byte of its
 	// length longword, and a stale cached copy of that longword is a 4 GB length.
-	parameter SONIC_SNOOP   = 1
+	parameter SONIC_SNOOP   = 1,
+	parameter DIRECT_WRITES = 1               // store-buffer RAM writes push straight into the bridge FIFO
 )
 (
 	input         clk,
@@ -59,6 +60,12 @@ module quadra800
 	output reg  [1:0] mem_memsel,             // 0 RAM, 1 ROM, 2 VRAM
 	input      [31:0] mem_rdata,
 	input             mem_ack,
+	// posted RAM writes straight into the bridge's write FIFO (2026-09-23)
+	output reg        mem_wp_valid,
+	output reg [31:2] mem_wp_addr,
+	output reg  [3:0] mem_wp_be,
+	output reg [31:0] mem_wp_data,
+	input             mem_wq_room,
 	input             mem_line_valid,
 	input      [26:4] mem_line_tag,
 	input     [127:0] mem_line_data,
@@ -571,7 +578,24 @@ wire [31:0] bus_line_data = (bus_addr[3:2] == 2'd0) ? mem_line_data[127:96] :
 	                        (bus_addr[3:2] == 2'd2) ? mem_line_data[63:32]  :
 	                                                          mem_line_data[31:0];
 
-assign bus_req_adapter = bus_req && !bus_line_match && !bus_line_wait &&
+// A RAM write inside one longword -- the store buffer's drain -- goes
+// straight into the bridge's write FIFO: registered here, acknowledged next
+// clock through bus_miss_ack, with no wombat_bus32 beat and no S_MEM wait.
+// It used to take the adapter, S_MEM and the bridge's registered
+// completion in turn, about six clocks a store, which is what bounded
+// Whetstone's store stream on hardware.  Every RAM read (CPU, walker, SONIC
+// DMA) waits in the bridge until the FIFO has drained, and a push drops the
+// retained line, so ordering is the bridge's as before.
+wire  [2:0] bus_wr_bytes = (bus_size == 2'd0) ? 3'd1 : (bus_size == 2'd1) ? 3'd2 : 3'd4;
+wire  [2:0] bus_wr_end   = {1'b0, bus_addr[1:0]} + bus_wr_bytes;
+wire [31:0] bus_wr_left  = (bus_size == 2'd0) ? {bus_wdata[7:0], 24'd0} :
+                           (bus_size == 2'd1) ? {bus_wdata[15:0], 16'd0} : bus_wdata;
+wire bus_wr_direct = (DIRECT_WRITES != 0) && (svc == S_IDLE) && !walker_pend && !cpu_berr &&
+	                 !bus_miss_ack && !bus_line_ack && !bus_adapter_active &&
+	                 !bus_ack_adapter && bus_req && bus_write && (bus_wr_end <= 3'd4) &&
+	                 (decode(bus_addr[31:2]) == 3'd0) && mem_wq_room;
+
+assign bus_req_adapter = bus_req && !bus_line_match && !bus_line_wait && !bus_wr_direct &&
 	                     !bus_first_miss && !svc_bus_direct && !bus_miss_ack &&
 	                     !bus_line_ack;
 
@@ -589,7 +613,7 @@ always @(posedge clk) begin
 	end
 end
 
-wire cpu_want = walker_pend || bus_first_miss ||
+wire cpu_want = walker_pend || bus_first_miss || bus_wr_direct ||
                 (b_req && !b_ack && !cpu_berr && !line_cpu_wait);
 wire dma_take = (SONIC != 0) && dma_req && !dma_ack && !walker_pend &&
                 (dma_turn || !cpu_want);
@@ -626,6 +650,10 @@ always @(posedge clk) begin
 		b_rdata      <= 0;
 		bus_miss_ack   <= 0;
 		bus_miss_rdata <= 0;
+		mem_wp_valid   <= 0;
+		mem_wp_addr    <= 0;
+		mem_wp_be      <= 0;
+		mem_wp_data    <= 0;
 		cpu_berr     <= 0;
 		mem_req      <= 0;
 		mem_write    <= 0;
@@ -648,6 +676,7 @@ always @(posedge clk) begin
 		walker_berr <= 0;
 		b_ack       <= 0;
 		bus_miss_ack <= 0;
+		mem_wp_valid <= 0;
 		cpu_berr    <= 0;
 		dma_ack     <= 0;
 		snoop_stb   <= 0;
@@ -695,6 +724,14 @@ always @(posedge clk) begin
 					mem_wdata      <= 0;
 					mem_memsel     <= MSEL_RAM;
 					svc            <= S_MEM;
+				end
+				else if (bus_wr_direct) begin
+					mem_wp_valid <= 1;
+					mem_wp_addr  <= bus_addr[31:2];
+					mem_wp_be    <= (4'b1111 << (3'd4 - bus_wr_bytes)) >> bus_addr[1:0];
+					mem_wp_data  <= bus_wr_left >> {bus_addr[1:0], 3'd0};
+					bus_miss_ack   <= 1;
+					bus_miss_rdata <= 0;
 				end
 				else if (!walker_pend && line_cpu_match) begin
 					b_ack   <= 1;

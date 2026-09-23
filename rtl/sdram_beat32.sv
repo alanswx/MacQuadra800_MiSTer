@@ -18,23 +18,26 @@
 //    2FF synchronisers while leaving a timed half-cycle on every crossing.
 //    Hardware-tested read latency: 7 -> 5 clk_sys (~212 -> ~151 ns).
 //
-//  * WRITES ARE POSTED.  ack fires as the beat is captured and the drain
-//    happens behind the machine's back.  Nothing downstream had to change
-//    for that: the whole stall chain — this bridge, wombat_bus32, the
-//    cache's write-through C_PASS state, the core — is ack-based, so
-//    releasing the ack releases all of it.  Ordering is free, because the
-//    next beat still waits on `busy`: a read that follows a posted write
-//    cannot start until the write has been issued to the chip.  Posting
-//    hides write latency; it does not add bandwidth, so a sustained store
-//    stream still drains at the controller's rate.
+//  * WRITES ARE POSTED, THROUGH A FOUR-ENTRY FIFO.  A write is acknowledged
+//    as it enters the FIFO (from the beat port, or from the registered push
+//    port quadra800 drives straight from the store buffer), and clk_ram
+//    drains the FIFO back to back.  A read starts only once the FIFO is
+//    empty, and clk_ram also drains queued writes before it takes a read,
+//    so a read always sees every earlier write.  Before 2026-09-23 a posted
+//    write held `busy` through its whole drain and the machine's service
+//    FSM through its registered completion: ~6 clk_sys a store, which is
+//    what bounded Whetstone on hardware.
 //
 //  Beat contract (clk_sys):
-//   - req is level-held; a beat is captured on the first cycle with
-//     !busy && !ack, and req may drop as soon as ack is seen.
+//   - req is level-held; a read is captured on the first cycle with
+//     !busy && !ack, a write on the first with the FIFO not full; req may
+//     drop as soon as ack is seen.
 //   - ack is a single-cycle pulse.  For a read it means "rdata is valid";
 //     for a write it means "accepted", not "in the chip".
-//   - busy spans the whole access, a posted write's drain included, and is
-//     the only thing that orders one beat against the next.
+//   - busy is high while a read is in flight or a write is not yet in the
+//     chip.
+//   - wp_valid pushes one write per cycle with no handshake; the caller
+//     decides it a cycle ahead from wq_room (two or more free slots).
 //
 //  Byte lanes: be[3] is the byte at addr+0 = wdata[31:24] (the machine's
 //  big-endian convention), so the first SDRAM word carries wdata[31:16].
@@ -56,12 +59,22 @@ module sdram_beat32
 	input      [31:0] wdata,
 	output reg        ack   = 0,
 	output reg [31:0] rdata = 0,
-	output reg        busy  = 0,
+	output            busy,          // a read in flight, or a posted write not yet in the chip
 	output            line_valid_o,
 	output     [26:4] line_tag_o,
 	output    [127:0] line_data_o,
 	output            line_pending_o,
 	output     [26:4] line_pending_tag_o,
+
+	// Posted-write push (clk_sys, registered by the caller): one write into
+	// the FIFO per cycle with no handshake.  The caller pushes only while
+	// wq_room was high in the cycle it decided, which leaves a slot for the
+	// push that decision registers.
+	input             wp_valid,
+	input      [26:2] wp_addr,
+	input       [3:0] wp_be,
+	input      [31:0] wp_data,
+	output            wq_room,       // at least two free slots
 
 	// SDRAM pins
 	inout      [15:0] SDRAM_DQ,
@@ -93,12 +106,39 @@ end
 
 // ---- clk_sys side: hand one beat over, wait for the ack toggle ----------
 reg        req_tgl  = 0;
+reg        rbusy    = 0;             // a read beat is in flight
+reg        fill_poisoned = 0;        // a push arrived while the line fill was reading
+wire       line_done_now;
 reg        ack_seen = 0;
 reg        posted   = 0;             // the beat in flight was acked at capture
 reg [26:2] r_addr;
 reg [31:0] r_wdata;
 reg  [3:0] r_be;
 reg        r_we;
+
+// ---- the posted-write FIFO (2026-09-23) ----------------------------------
+// A posted write used to hold `busy` through its whole drain -- the request
+// toggle across, two controller WRITEs, the completion toggle back -- so
+// the next beat waited ~18 clk_ram (6 clk_sys) per store, and Whetstone's
+// store stream ran at the bridge's round-trip rate.  Writes now enter a
+// four-entry FIFO on clk_sys and are acknowledged there; clk_ram drains it
+// back to back and returns its read pointer through the same falling-edge
+// handoff as the toggles.  A read still waits until every queued write has
+// reached the chip (the FIFO is empty and nothing is in flight), so ordering
+// is exactly as before.  Entries are written on clk_sys and read on clk_ram
+// only after the write pointer that publishes them has crossed.
+reg  [26:2] wq_addr [0:3];
+reg  [31:0] wq_data [0:3];
+reg   [3:0] wq_be   [0:3];
+reg   [2:0] wq_wp   = 0;             // clk_sys: next free slot (bit 2 = wrap)
+reg   [2:0] wq_rp   = 0;             // clk_ram: next slot to drain
+reg   [2:0] wq_wp_handoff = 0;       // wq_wp seen on clk_ram's falling edge
+reg   [2:0] wq_rp_handoff = 0;       // wq_rp seen on clk_ram's falling edge
+wire        wq_full  = (wq_wp[1:0] == wq_rp_handoff[1:0]) && (wq_wp[2] != wq_rp_handoff[2]);
+wire        wq_empty = (wq_wp == wq_rp_handoff);
+wire  [2:0] wq_used  = wq_wp - wq_rp_handoff;
+assign wq_room = (wq_used <= 3'd2);
+assign busy = rbusy || !wq_empty;
 
 // ---- clk_ram side: one burst read, or two 16-bit writes ----------------
 reg        req_seen = 0;
@@ -113,6 +153,7 @@ reg [31:0] d_ram  = 0;
 reg  [3:0] be_ram = 0;
 reg        we_ram = 0;
 reg        acc      = 0;             // write half: 0 = high word, 1 = low
+reg        wq_act   = 0;             // clk_ram: the access in flight is a FIFO write
 reg        rd_burst = 0;
 reg  [2:0] rd_word  = 0;
 reg        ready_d  = 0;
@@ -151,6 +192,7 @@ reg [31:0] line_data [0:3];
 reg        fill_pending = 0;
 reg        line_done_seen = 0;
 wire       line_hit = line_valid && addr[26:4] == line_tag;
+assign     line_done_now = (line_done_handoff != line_done_seen);
 integer    line_i;
 
 assign line_valid_o       = line_valid;
@@ -160,6 +202,8 @@ assign line_pending_o     = fill_pending;
 assign line_pending_tag_o = r_addr[26:4];
 
 always @(negedge clk_ram) begin
+	wq_wp_handoff <= wq_wp;
+	wq_rp_handoff <= wq_rp;
 	req_handoff  <= req_tgl;
 	ack_handoff  <= ack_tgl;
 	line_done_handoff <= line_done_tgl;
@@ -176,43 +220,58 @@ always @(posedge clk_sys) begin
 		fill_pending   <= 0;
 		line_done_seen <= line_done_handoff;
 	end
-	else if (line_done_handoff != line_done_seen) begin
+	else if (line_done_now) begin
 		line_done_seen <= line_done_handoff;
 		line_tag       <= r_addr[26:4];
-		line_valid     <= 1;
+		// a write pushed while this fill was reading is not in its data
+		line_valid     <= !fill_poisoned && !wp_valid;
+		fill_poisoned  <= 0;
 		fill_pending   <= 0;
 		for (line_i = 0; line_i < 4; line_i = line_i + 1)
 			line_data[line_i] <= line_handoff[line_i];
 	end
 
-	if (!init && req && !busy && !ack && !fill_pending && !we && line_hit) begin
+	// the push port: never refused (the caller checked wq_room); a beat
+	// request waits out the clock a push takes the FIFO
+	if (!init && wp_valid) begin
+		if (fill_pending && !line_done_now) fill_poisoned <= 1;
+		wq_addr[wq_wp[1:0]] <= wp_addr;
+		wq_data[wq_wp[1:0]] <= wp_data;
+		wq_be[wq_wp[1:0]]   <= wp_be;
+		wq_wp      <= wq_wp + 3'd1;
+		line_valid <= 0;
+	end
+	if (!init && req && !wp_valid && !rbusy && !ack && !fill_pending && !we && line_hit) begin
 		// The request is still acknowledged synchronously, but needs no
-		// clk_ram transaction.  Keeping busy low permits the next line beat
+		// clk_ram transaction.  Keeping rbusy low permits the next line beat
 		// to be accepted as soon as the requester retires this ack.
 		rdata <= line_data[addr[3:2]];
 		ack   <= 1;
 	end
-	else if (!init && req && !busy && !ack && !fill_pending) begin
+	else if (!init && req && !wp_valid && we && !rbusy && !ack && !fill_pending && !wq_full) begin
+		// posted into the FIFO: the drain is invisible from here
+		wq_addr[wq_wp[1:0]] <= addr;
+		wq_data[wq_wp[1:0]] <= wdata;
+		wq_be[wq_wp[1:0]]   <= be;
+		wq_wp      <= wq_wp + 3'd1;
+		line_valid <= 0;
+		ack        <= 1;
+	end
+	else if (!init && req && !wp_valid && !we && !rbusy && !ack && !fill_pending && wq_empty) begin
 		r_addr  <= addr;
 		r_wdata <= wdata;
 		r_be    <= be;
 		r_we    <= we;
 		req_tgl <= ~req_tgl;
-		busy    <= 1;
-		posted  <= we;
-		if (we) begin
-			line_valid <= 0;
-			ack <= 1;                  // posted: the drain is invisible from here
-		end
-		else begin
-			line_valid   <= 0;
-			fill_pending <= 1;
-		end
+		rbusy    <= 1;
+		posted  <= 0;
+		line_valid   <= 0;
+		fill_pending <= 1;
 	end
 
-	if (busy && (ack_handoff != ack_seen)) begin
+	if (rbusy && (ack_handoff != ack_seen)) begin
 		ack_seen <= ack_handoff;
-		busy     <= 0;
+		rbusy     <= 0;
 		posted   <= 0;
 		if (!posted) begin
 			rdata <= data_handoff;
@@ -259,7 +318,17 @@ always @(posedge clk_ram) begin
 		else rd_word <= rd_word + 1'b1;
 	end
 	else if (!busy_r) begin
-		if (req_handoff != req_seen) begin
+		if (wq_wp_handoff != wq_rp) begin
+			acc      <= 0;
+			rd_word  <= 0;
+			busy_r   <= 1;
+			wq_act   <= 1;
+			a_ram    <= wq_addr[wq_rp[1:0]];
+			d_ram    <= wq_data[wq_rp[1:0]];
+			be_ram   <= wq_be[wq_rp[1:0]];
+			we_ram   <= 1;
+		end
+		else if (req_handoff != req_seen) begin
 			req_seen <= req_handoff;
 			acc      <= 0;
 			rd_word  <= 0;
@@ -279,7 +348,11 @@ always @(posedge clk_ram) begin
 		else if (!acc) acc <= 1;     // second half of the write
 		else begin
 			busy_r  <= 0;
-			ack_tgl <= ~ack_tgl;
+			if (wq_act) begin
+				wq_act <= 0;
+				wq_rp  <= wq_rp + 3'd1;   // the slot is free once it is in the chip
+			end
+			else ack_tgl <= ~ack_tgl;
 		end
 	end
 end

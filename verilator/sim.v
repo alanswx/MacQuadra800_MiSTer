@@ -101,6 +101,10 @@ wire [31:2] mem_addr;
 wire  [3:0] mem_be;
 wire [31:0] mem_wdata;
 wire  [1:0] mem_memsel;
+wire        mem_wp_valid;
+wire [31:2] mem_wp_addr;
+wire  [3:0] mem_wp_be;
+wire [31:0] mem_wp_data;
 reg  [31:0] mem_rdata;
 reg         mem_ack;
 
@@ -135,6 +139,11 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS), .SONIC(0)) machine (
 	.mem_memsel(mem_memsel),
 	.mem_rdata(mem_rdata),
 	.mem_ack(mem_ack),
+	.mem_wp_valid(mem_wp_valid),
+	.mem_wp_addr(mem_wp_addr),
+	.mem_wp_be(mem_wp_be),
+	.mem_wp_data(mem_wp_data),
+	.mem_wq_room(1'b1),
 
 	.vid_addr(vid_addr),
 	.vid_stride(vid_stride),
@@ -240,6 +249,15 @@ wire [16:0]              vram_idx = vram_map(mem_addr[18:2]);
 
 // DAFB scanout port: registered read, 1-cycle latency
 always @(posedge clk_sys) vid_rdata <= vram[vram_map(vid_addr[18:2])];
+
+// posted RAM writes pushed past the beat port (quadra800 DIRECT_WRITES)
+wire [RAM_ADDR_BITS-3:0] wp_idx = mem_wp_addr[RAM_ADDR_BITS-1:2];
+always @(posedge clk_sys) if (mem_wp_valid) begin
+	if (mem_wp_be[3]) ram[wp_idx][31:24] <= mem_wp_data[31:24];
+	if (mem_wp_be[2]) ram[wp_idx][23:16] <= mem_wp_data[23:16];
+	if (mem_wp_be[1]) ram[wp_idx][15:8]  <= mem_wp_data[15:8];
+	if (mem_wp_be[0]) ram[wp_idx][7:0]   <= mem_wp_data[7:0];
+end
 
 always @(posedge clk_sys) begin
 	mem_ack <= 0;

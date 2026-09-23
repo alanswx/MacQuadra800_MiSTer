@@ -418,7 +418,12 @@ set_global_assignment -name VERILOG_MACRO "ETHERNET_OFF=1"
 # 2026-09-22 P171c: the OSDs, audio output and Y/C back in for a shippable fast build (the
 # full release recipe -- profile off, CD-ROM and Ethernet in -- synthesizes to 42,379 ALMs
 # with this CPU, over the device); the four invisible trims stay off.
-source configs/cpu_release_lite.tcl
+# 2026-09-23: P184 (P175-P178 back on P182) failed routing at seed 24, 39,567 ALMs, with the lite
+# profile.  Per the user's ruling (1.9 first, area after), development fits source the full
+# development profile again (OSDs, audio out and Y/C off too: ~2,170 ALMs more); P171 was
+# measured on hardware this way.  A shippable build goes back to cpu_release_lite.tcl.
+source configs/cpu_development.tcl
+#source configs/cpu_release_lite.tcl
 # P171c seed 24 2026-09-22: 39,070 ALMs (93 %), 489 RAM, routes; CPU clock -1.425 ns, HDMI/clk_ram met.  Seed 26 next.
 # P174: the one-clock instruction hit (fast_ihit; the line for the offer read on the P170 mirror banks in the
 # acknowledge clock).  Sim vs P171b: Permute -3.7 %, Whetstone -1.2 %, Dhrystone -1.0 %, Queens -2.7 %.
@@ -448,6 +453,7 @@ source configs/cpu_release_lite.tcl
 # no P179 logic on it), clk 1 -1.250, HDMI -0.386.  Too far out for hardware; not run.
 # P182 seed 24 2026-09-23 (122dab4): 39,229 ALMs (94 %), routes; CPU clock -0.718 ns (P174 -0.920 ran fine),
 # clk 1 +0.619, HDMI +0.029.  rbf scratch/p182_storehint_fit_20260922/MacQuadra800_p182_storehint_122dab4.rbf.
+# P184 seed 24 2026-09-23 (78f05d7, lite profile): 39,567 ALMs (94 %), routing FAILED (congestion).
 # Posted cross-line cache-store merge, validated on hardware.
 set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_XSTORE=1"
 # Overlap LEA displacement fetch with base selection; checked independently.

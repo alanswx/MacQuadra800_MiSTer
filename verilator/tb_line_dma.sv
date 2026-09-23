@@ -27,7 +27,8 @@
 module tb_line_dma #(
 	parameter integer FIX = 1,
 	parameter integer SIDE = 1,
-	parameter integer ROUNDS = 4000
+	parameter integer ROUNDS = 4000,
+	parameter integer DW = 1          // quadra800 DIRECT_WRITES
 );
 
 localparam integer TR = 5050;
@@ -46,6 +47,11 @@ wire ce = 1'b1;
 reg         bus_req = 0;
 reg         bus_write = 0;
 reg   [1:0] bus_size = 2'd2;
+wire        mem_wq_room;
+reg         mem_wp_valid;
+reg  [31:2] mem_wp_addr;
+reg   [3:0] mem_wp_be;
+reg  [31:0] mem_wp_data;
 reg  [31:0] bus_addr = 0;
 reg  [31:0] bus_wdata = 0;
 wire        bus_ack;
@@ -135,7 +141,16 @@ wire [31:0] bus_line_data = (bus_addr[3:2] == 2'd0) ? mem_line_data[127:96] :
 	                        (bus_addr[3:2] == 2'd2) ? mem_line_data[63:32]  :
 	                                                          mem_line_data[31:0];
 
-assign bus_req_adapter = bus_req && !bus_line_match && !bus_line_wait &&
+wire  [2:0] bus_wr_bytes = (bus_size == 2'd0) ? 3'd1 : (bus_size == 2'd1) ? 3'd2 : 3'd4;
+wire  [2:0] bus_wr_end   = {1'b0, bus_addr[1:0]} + bus_wr_bytes;
+wire [31:0] bus_wr_left  = (bus_size == 2'd0) ? {bus_wdata[7:0], 24'd0} :
+                           (bus_size == 2'd1) ? {bus_wdata[15:0], 16'd0} : bus_wdata;
+wire bus_wr_direct = (DW != 0) && (svc == S_IDLE) && !walker_pend && !cpu_berr &&
+	                 !bus_miss_ack && !bus_line_ack && !bus_adapter_active &&
+	                 !bus_ack_adapter && bus_req && bus_write && (bus_wr_end <= 3'd4) &&
+	                 !bus_addr[31] && mem_wq_room;
+
+assign bus_req_adapter = bus_req && !bus_line_match && !bus_line_wait && !bus_wr_direct &&
 	                     !bus_first_miss && !svc_bus_direct && !bus_miss_ack &&
 	                     (FIX == 0 || !bus_line_ack);
 
@@ -153,7 +168,7 @@ always @(posedge clk) begin
 	end
 end
 
-wire cpu_want = walker_pend || bus_first_miss ||
+wire cpu_want = walker_pend || bus_first_miss || bus_wr_direct ||
                 (b_req && !b_ack && !cpu_berr && !line_cpu_wait);
 wire dma_take = dma_req && !dma_ack && !walker_pend &&
                 (dma_turn || !cpu_want);
@@ -164,12 +179,14 @@ always @(posedge clk) begin
 		dma_ack <= 0; dma_rdata <= 0; dma_turn <= 0;
 		b_ack <= 0; b_rdata <= 0; bus_miss_ack <= 0; bus_miss_rdata <= 0;
 		dma_side <= 0; iosb_sel <= 0;
+		mem_wp_valid <= 0; mem_wp_addr <= 0; mem_wp_be <= 0; mem_wp_data <= 0;
 		cpu_berr <= 0; mem_req <= 0; mem_write <= 0; mem_addr <= 0;
 		mem_be <= 0; mem_wdata <= 0;
 	end
 	else if (ce) begin
 		b_ack        <= 0;
 		bus_miss_ack <= 0;
+		mem_wp_valid <= 0;
 		dma_ack      <= 0;
 		case (svc)
 		S_IDLE: begin
@@ -194,6 +211,14 @@ always @(posedge clk) begin
 					mem_be         <= 4'b1111;
 					mem_wdata      <= 0;
 					svc            <= S_MEM;
+				end
+				else if (bus_wr_direct) begin
+					mem_wp_valid <= 1;
+					mem_wp_addr  <= bus_addr[31:2];
+					mem_wp_be    <= (4'b1111 << (3'd4 - bus_wr_bytes)) >> bus_addr[1:0];
+					mem_wp_data  <= bus_wr_left >> {bus_addr[1:0], 3'd0};
+					bus_miss_ack   <= 1;
+					bus_miss_rdata <= 0;
 				end
 				else if (!walker_pend && line_cpu_match) begin
 					b_ack   <= 1;
@@ -316,6 +341,8 @@ sdram_beat32 sdr (
 	.line_valid_o(mem_line_valid), .line_tag_o(mem_line_tag),
 	.line_data_o(mem_line_data), .line_pending_o(mem_line_pending),
 	.line_pending_tag_o(mem_line_pending_tag),
+	.wp_valid(mem_wp_valid), .wp_addr(mem_wp_addr[26:2]), .wp_be(mem_wp_be),
+	.wp_data(mem_wp_data), .wq_room(mem_wq_room),
 	.SDRAM_DQ(SDRAM_DQ), .SDRAM_A(SDRAM_A), .SDRAM_DQML(SDRAM_DQML),
 	.SDRAM_DQMH(SDRAM_DQMH), .SDRAM_BA(SDRAM_BA), .SDRAM_nCS(SDRAM_nCS),
 	.SDRAM_nWE(SDRAM_nWE), .SDRAM_nRAS(SDRAM_nRAS), .SDRAM_nCAS(SDRAM_nCAS),
@@ -370,6 +397,8 @@ function [31:0] pat(input [31:0] a);
 endfunction
 
 integer errors = 0;
+integer pushes = 0;
+always @(posedge clk) if (mem_wp_valid) pushes <= pushes + 1;
 integer reads = 0, writes = 0, line_acks = 0;
 always @(posedge clk) if (bus_line_ack) line_acks <= line_acks + 1;
 integer under_ack = 0, ack_in_mem = 0;
@@ -415,9 +444,13 @@ initial begin
 	#1;
 
 	// fill the requester's region (lines 0..1023) with the address pattern
+	begin : tstore
+		time t0; t0 = $time;
 	for (i = 0; i < 4096; i = i + 1) begin
 		shadow[i] = pat(i << 2);
 		xact(1, i << 2, shadow[i], q);
+	end
+		$display("tb_line_dma: 4096 back-to-back stores took %0d clocks", ($time - t0) / (2*TS));
 	end
 	idle(4);
 
@@ -443,6 +476,36 @@ initial begin
 			shadow[(a >> 2) + lfsr[19:18]] = ~lfsr;
 			xact(1, a + (lfsr[19:18] << 2), ~lfsr, q);
 			writes = writes + 1;
+		end
+		// sized stores inside one longword, then the line read back at once:
+		// the direct-write arm, byte lanes, and a push behind a line fill
+		if (lfsr[21] && lfsr[25]) begin : sized
+			reg [1:0] sz; reg [1:0] off; reg [31:0] v, m, cur; integer k;
+			for (k = 0; k < 3; k = k + 1) begin
+				lfsr = {lfsr[30:0], lfsr[31] ^ lfsr[21] ^ lfsr[1] ^ lfsr[0]};
+				sz  = lfsr[1:0] == 2'd3 ? 2'd2 : lfsr[1:0];
+				off = sz == 2'd2 ? 2'd0 : sz == 2'd1 ? {lfsr[3], 1'b0} : lfsr[3:2];
+				v   = lfsr ^ 32'h0F0F_1234;
+				bus_size = sz;
+				cur = shadow[(a >> 2) + k];
+				m   = sz == 2'd2 ? 32'hFFFF_FFFF :
+				      sz == 2'd1 ? (32'hFFFF_0000 >> {off, 3'd0}) : (32'hFF00_0000 >> {off, 3'd0});
+				shadow[(a >> 2) + k] = (cur & ~m) |
+				      ((sz == 2'd2 ? v : sz == 2'd1 ? {v[15:0], 16'd0} >> {off, 3'd0} : {v[7:0], 24'd0} >> {off, 3'd0}) & m);
+				xact(1, a + (k << 2) + off, v, q);
+				writes = writes + 1;
+			end
+			bus_size = 2'd2;
+			for (w = 0; w < 4; w = w + 1) begin
+				xact(0, a + (w << 2), 0, q);
+				reads = reads + 1;
+				if (q !== shadow[(a >> 2) + w]) begin
+					errors = errors + 1;
+					if (errors <= 8)
+						$display("  SIZED %08x = %08x, expected %08x (round %0d)",
+						         a + (w << 2), q, shadow[(a >> 2) + w], r);
+				end
+			end
 		end
 		// a device access now and then: the FSM parks in S_IOSB
 		if (lfsr[29:28] == 0) begin
@@ -482,6 +545,7 @@ initial begin
 	$display("tb_line_dma: line ack with FSM busy %0d, adapter request under a line ack %0d", ack_in_mem, under_ack);
 	$display("tb_line_dma: %0d reads, %0d stores, %0d line acks, %0d DMA beats, %0d errors",
 	         reads, writes, line_acks, dma_beats, errors);
+	$display("tb_line_dma: %0d direct pushes", pushes);
 	if (errors == 0) $display("tb_line_dma: PASS");
 	else             $display("tb_line_dma: FAIL");
 	$finish;
