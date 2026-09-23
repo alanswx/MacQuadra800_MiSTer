@@ -1037,7 +1037,12 @@ wire        fast_accept = (cst == C_IDLE) && !(cinv_req && !cinv_done) && !ack_r
 // P204: nothing is admitted in an ack_r clock (every admission requires
 // !ack_r), so the core may hint its next request in it
 assign c_ack_q = ack_r;
-assign c_fast_ready = (cst == C_IDLE) && !(cinv_req && !cinv_done) && !ack_r && de &&
+// P210: or a posted store's C_PASS with fast_accept_pp's registered terms
+// (declared below): the read after a store hits there, and the MOVE store
+// behind it can be hinted in that clock (the posted store's C_PASS lasts one
+// clock, so the cache is back in C_IDLE when the MOVE store arrives)
+wire        c_fast_ready_pp;
+assign c_fast_ready = ((cst == C_IDLE) || c_fast_ready_pp) && !(cinv_req && !cinv_done) && !ack_r && de &&
                       !ci_inv_pend && !store_inv_lost && idle_data_valid && hint_tag_valid;
 // Rotate words using the registered offset before the late tag selection.
 // Preserve the original way priority, including the no-hit default.
@@ -1073,6 +1078,8 @@ wire [SETW+1:0] pp_rw0 = hq_lo[SETW+3:2];
 wire [SETW+1:0] pp_rw1 = pp_rw0 + {{SETW{1'b0}}, 2'd1};
 wire        pp_clash = (pp_rw0 == pp_sw0) || (r_span2 && (pp_rw0 == pp_sw1)) ||
                        (pp_rw1 == pp_sw0) || (r_span2 && (pp_rw1 == pp_sw1));
+assign c_fast_ready_pp = (cst == C_PASS) && post_active && !cross_store && !pass_ci_chk &&
+                         !winv_pend && !pp_clash;
 wire        fast_accept_pp = (cst == C_PASS) && post_active && !cross_store && !pass_ci_chk &&
                              !winv_pend && !ci_inv_pend && !store_inv_lost &&
                              !(cinv_req && !cinv_done) && !ack_r && !c_write && !c_instr && de &&

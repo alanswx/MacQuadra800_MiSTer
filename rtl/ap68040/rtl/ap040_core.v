@@ -2828,16 +2828,21 @@ wire        n_desc_ok  = rd_valid && (state != S_DECODE) && !aux_we &&
 // on demand.  (2026-09-18)
 wire        bd_bra    = (rd_ir[15:12] == 4'h6) && (rd_ir[11:9] == 3'b000) &&
                         ((rd_ir[7:0] == 8'h00) || (rd_ir[7:0] == 8'hFF));
+// P212: conditional Bcc.W/.L too -- S_BCC_EXT evaluates the condition a
+// clock after the retire, on the flags the retiring instruction wrote; no
+// early target fetch for them (bd_go), since the branch may fall through
+wire        bd_bcc    = (rd_ir[15:12] == 4'h6) && (rd_ir[11:9] != 3'b000) &&
+                        ((rd_ir[7:0] == 8'h00) || (rd_ir[7:0] == 8'hFF));
 wire        bd_jsrjmp = (rd_ir[15:8] == 8'h4E) && rd_ir[7] &&
                         (rd_ir[5:3] == 3'b111) && (rd_ir[2:0] <= 3'd2);
 wire        bd_jmp    = bd_jsrjmp && rd_ir[6];
-wire        bd_long   = bd_bra ? (rd_ir[7:0] == 8'hFF) : (rd_ir[2:0] == 3'd1);
+wire        bd_long   = (bd_bra || bd_bcc) ? (rd_ir[7:0] == 8'hFF) : (rd_ir[2:0] == 3'd1);
 wire        bd_abs    = bd_jsrjmp && !rd_ir[1];
 wire  [1:0] bd_n      = bd_long ? 2'd2 : 2'd1;
 wire [31:0] bd_immv   = bd_long ? {rd_w1, rd_w2} : {16'd0, rd_w1};
 wire [31:0] bd_disp   = bd_long ? {rd_w1, rd_w2} : sxw(rd_w1);
 wire [31:0] bd_t      = bd_abs ? bd_disp : (pc + 32'd2 + bd_disp);
-wire        bd_ok     = (bd_bra || bd_jsrjmp) &&
+wire        bd_ok     = (bd_bra || bd_bcc || bd_jsrjmp) &&
                         (epf_count >= (4'd1 + {2'd0, bd_n})) &&
                         (state != S_DECODE) && !aux_we && !sys_retire;
 // the early fetch: the port free, an even target that is not the
@@ -2851,7 +2856,7 @@ wire [31:0] bd_fall   = pc + 32'd2 + {29'd0, bd_n, 1'b0};
 // a pop (a not-taken Bcc.W/FBcc, a DBcc/FDBcc exit) keep the branch
 // state's later fetch.  mem_req covers the acknowledge cycle (the
 // request is held until it), so the acknowledge itself stays out.
-wire        bd_go     = bd_ok && !bd_t[0] && (bd_t != bd_fall) &&
+wire        bd_go     = bd_ok && !bd_bcc && !bd_t[0] && (bd_t != bd_fall) &&
                         ifr_avail && !sr[15] &&
                         (state != S_BCC_EXT) && (state != S_DBCC1) &&
                         (state != S_FBCC) && (state != S_FDBCC) &&
@@ -2864,7 +2869,7 @@ task dispatch_branch;
 		// as immf_now's inline pop: no speculative fill under a state
 		// that is about to push
 		epf_issue = 1;
-		if (bd_bra) begin
+		if (bd_bra || bd_bcc) begin
 			br_base <= pc + 32'd2;
 			br_long <= bd_long;
 			imm     <= bd_immv;
@@ -3784,7 +3789,7 @@ wire        data_hint_any = retire_move_read || hint_data || hint_store || hint_
 // as "wanted" made no difference (the data side wins the arbiter on
 // arrival anyway); it is kept because it is free.
 `ifndef P171_FILL_TH
-`define P171_FILL_TH 3
+`define P171_FILL_TH 4
 `endif
 `ifndef P171_FILL_IDLE_TH
 `define P171_FILL_IDLE_TH 6
@@ -3836,15 +3841,20 @@ wire hint_move_store = move_store_read_ready && m_issued &&
 reg mwr_fresh;
 always @(posedge clk) mwr_fresh <= (state != S_MWR) || (m_issued && d_ack);
 wire [31:0] rsr_base = (rf_we && rf_waddr == {1'b1, rd_ir[2:0]}) ? rf_wdata : rsr_base_rf;
-wire        rsr_d16  = (rd_ir[5:3] == 3'b101);
+wire        rsr_d16  = (n_src_mode_r == 3'b101);
 // P207: (An)+ and -(An) sources too; the handoff writes the address
 // register and its undo record as S_PIPE_START would
-wire        rsr_pd   = (rd_ir[5:3] == 3'b100);
-wire        rsr_pi   = (rd_ir[5:3] == 3'b011);
+// the record's decoded mode, not ir[5:3]: CMPM (Ay)+ and ADDX/SUBX/ABCD/SBCD
+// -(Ay) keep their memory mode elsewhere in the opcode (the self-test's
+// CMPM after a store lost its A0 increment when this read ir[5:3])
+wire        rsr_pd   = (n_src_mode_r == 3'b100);
+wire        rsr_pi   = (n_src_mode_r == 3'b011);
 wire [31:0] rsr_adj  = an_adj(rd_ir[2:0], n_p_ssize);
 wire [31:0] rsr_addr = rsr_d16 ? (rsr_base + sxw(rd_w1)) : rsr_pd ? (rsr_base - rsr_adj) : rsr_base;
 wire        rsr_head = n_apply_ok && (n_next == NX_PSTART) && n_p_src_v && (n_p_src == SK_MEM) &&
                        n_src_mode_r_v && n_p_ssize_v &&
+                       // port F reads {1, ir[2:0]}: the record's source register must be it
+                       n_src_rn_r_v && (n_src_rn_r == rd_ir[2:0]) &&
                        ((n_src_mode_r == 3'b010) || (n_src_mode_r == 3'b011) || (n_src_mode_r == 3'b100) ||
                         ((n_src_mode_r == 3'b101) && epf_ready_pc2));
 wire        hint_rsr = (state == S_MWR) && (r_m_ret == S_NEXT) && m_issued &&
