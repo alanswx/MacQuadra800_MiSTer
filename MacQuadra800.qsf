@@ -443,6 +443,9 @@ source configs/cpu_release_lite.tcl
 # (host-side options change the interleaving): a race, not a plain logic error.  P174 boots and benchmarks (Mix
 # 1.460).  The tree's CPU RTL is back at P174 (c152ac4); P175c/P177/P178 live in history (8ce901c) and
 # scratch/p178_state_20260922/ until the race is found.  The P178-off bisect fits failed routing (seeds 24, 25).
+# P179 seed 24 2026-09-22 (182109d): 39,113 ALMs (93 %), 508 RAM blocks, routes; CPU clock -3.153 ns (the known
+# path: ifr_addr -> MMU hint match -> cache fast_pair_idle -> c_rdata -> pipeline ALU -> rd_bcc_fl/dgo -> aer_wd;
+# no P179 logic on it), clk 1 -1.250, HDMI -0.386.  Too far out for hardware; not run.
 # Posted cross-line cache-store merge, validated on hardware.
 set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_XSTORE=1"
 # Overlap LEA displacement fetch with base selection; checked independently.
