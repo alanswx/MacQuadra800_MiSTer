@@ -905,6 +905,13 @@ always @(posedge clk) begin
 						    frame_tag_x(fr_src_e, fr_src_m),
 						    1'b1, 1'b0);   // T, not packed
 					end
+					else if (src_fmt == 3'd2) begin
+						// P222: the raw extended store F_SRC would make next
+						// clock (it sets no status bits and needs no trap check)
+						dout <= {fr_src_s, fr_src_e, 16'd0, fr_src_m};
+						done <= 1; fpu_used <= 1;
+						r_op <= 7'h7F;
+					end
 					else begin
 						{a_s, a_e, a_m, a_t} <=
 							unpack_x(fr_src_s, fr_src_e, fr_src_m);
@@ -982,6 +989,18 @@ always @(posedge clk) begin
 						    {32'd0, din[63:0]}, 3'd7,
 						    {32'd0, din[63:32], din[95:64]}, 3'd0,
 						    1'b0, 1'b1);   // packed -> E1, stag 7
+					end
+					else if (src_fmt == 3'd2 && din[63] && din[94:80] != 15'h7FFF &&
+					         fast_bin_kind(opmode) != 2'd0) begin
+						// P221: a normal extended memory source of a binary op
+						// is unpacked here (what F_SRC would do next clock; it
+						// cannot be an unsupported type) and goes to F_BIN
+						{a_s, a_e, a_m, a_t} <= unpack_x(din[95], din[94:80], din[63:0]);
+						r_stag  <= frame_tag_x(din[94:80], din[63:0]);
+						op_kind <= {2'd0, fast_bin_kind(opmode)};
+						grs     <= 3'd0;
+						e_w     <= $signed({3'd0, din[94:80]});
+						fst     <= F_BIN;
 					end
 					else begin
 						a_t <= T_NUM;   // provisional; F_SRC classifies

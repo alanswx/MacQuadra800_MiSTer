@@ -2095,7 +2095,7 @@ task mem_issue;
 		                 // selected a state earlier) at dbg_a7 - 4
 		                 state == S_DECODE || state == S_BCC_EXT ||
 		                 state == S_JSR1 || state == S_PEA1 || pea_d16_push ||
-		                 state == S_LINK2 || hint_st_fpu || hint_st_fmovem || pipe_load_launch))) &&
+		                 state == S_LINK2 || hint_st_fpu || hint_st_fmovem || hint_st_fpgo || pipe_load_launch))) &&
 		    mgo_a[31:28] == 4'h0 &&
             ((!mem_req && !mem_ack) || (mgo_wr && move_store_read_handoff) ||
              (!mgo_wr && (retire_store_read || retire_read_read || ret_after_unlk || fpu_rd_next || mm_rd_next))) &&
@@ -2976,6 +2976,7 @@ task dispatch_fpu;
 		pc <= pc + 32'd4;
 		epf_issue = 1;
 		imm   <= {16'd0, rd_w1};
+		rr_a  <= {1'b1, rd_ir[2:0]};   // P223: the EA base, for S_FPU_DEC's inline S_FPU_AN
 		state <= S_FPU_DEC;
 	end
 endtask
@@ -3608,15 +3609,18 @@ wire hint_st_fpu = state == S_FPU_WR &&
       (fp_nb == 4'd8 && fp_n == 4'd2) ||
       (fp_nb == 4'd12 && fp_n == 4'd3));
 wire hint_st_fmovem = state == S_FPU_MVM2 && fp_st && fp_n != 4'd3;
+// P225: the FPU store's first longword from S_FPU_GO in the done clock
+wire hint_st_fpgo = state == S_FPU_GO && fpu_done && fp_st && (d_mode != 3'b000) && (fp_nb >= 4'd4);
 wire [31:0] hint_st_fpu_addr = t_a +
     ((hint_st_fpu && fp_nb <= 4'd2) ? 32'd0 : {26'd0, fp_n, 2'b00});
 wire        hint_store    = hint_st_reg_move || hint_st_move_ea || hint_st_exec || hint_st_pushf || hint_st_push ||
-                            hint_st_movem || hint_st_mwr || hint_st_fpu || hint_st_fmovem;
+                            hint_st_movem || hint_st_mwr || hint_st_fpu || hint_st_fmovem || hint_st_fpgo;
 wire [31:0] hint_store_addr = hint_st_reg_move ? hint_dst_addr :
                               hint_st_move_ea ? ea_addr :
                               hint_st_exec  ? dst_addr :
                               hint_st_mwr   ? m_addr_r :
                               (hint_st_fpu || hint_st_fmovem) ? hint_st_fpu_addr :
+                              hint_st_fpgo ? t_a :
                               // P189: the predecrement form stores at mm_addr - size
                               hint_st_movem ? (mm_predec ? mm_addr - ((mm_size == `AP040_SZ_L) ? 32'd4 : 32'd2)
                                                          : mm_addr) :
@@ -3677,9 +3681,10 @@ wire hint_fpu_operand = state == S_FPU_RD &&
     !((fp_nb <= 4'd4 && fp_n != 0) ||
       (fp_nb == 4'd8 && fp_n == 2) || (fp_nb == 4'd12 && fp_n == 3));
 wire hint_fpu_movem = state == S_FPU_MVM2 && !fp_st && fp_n != 3;
-wire hint_fpu_read = hint_fpu_operand || hint_fpu_movem;
+wire hint_fpu_mvm0  = state == S_FPU_MVM && !fp_st && fp_list != 8'd0;   // P227
+wire hint_fpu_read = hint_fpu_operand || hint_fpu_movem || hint_fpu_mvm0;
 wire [31:0] hint_fpu_addr = t_a +
-    ((hint_fpu_operand && fp_nb <= 2) ? 32'd0 : {26'd0,fp_n,2'b00});
+    (((hint_fpu_operand && fp_nb <= 2) || hint_fpu_mvm0) ? 32'd0 : {26'd0,fp_n,2'b00});
 
 wire [31:0] hint_displacement_addr = (ea_pcmode ? ea_pcb : rf_rdata_a) + sxw(imm[15:0]);
 wire [31:0] hint_indexed_offset = (extw[11] ? rf_rdata_b : sxw(rf_rdata_b[15:0])) << extw[10:9];
@@ -3904,6 +3909,11 @@ wire        hint_fpn = (state == S_MRD) && fpu_rd_more && m_issued &&
                        !ifr_pres && !sr[15];
 wire [31:0] fpn_addr = t_a + {28'd0, fp_n[1:0], 2'b00};
 wire        fpu_rd_next = hint_fpn && d_ack;
+// P223: S_FPU_DEC resolves an (An)/(An)+/-(An) operand itself when the base is
+// already on port A (dispatch_fpu selects it); S_FPU_AN's size adjust
+wire        fpu_an_now = (rr_a == {1'b1, d_rn}) && !aux_we;
+wire  [3:0] fpu_an_nb  = fp_bytes(imm[12:10]);
+wire  [6:0] fpu_an_adj = (fpu_an_nb == 4'd1 && d_rn == 3'd7) ? 7'd2 : {3'b000, fpu_an_nb};
 // P216: MOVEM load chaining -- the next register's read hinted in the current
 // one's predicted acknowledge and issued in place on it (see movem_ld_ack)
 wire [31:0] mmn_addr = mm_addr + ((mm_size == `AP040_SZ_L) ? 32'd4 : 32'd2);
@@ -7832,6 +7842,15 @@ always @(posedge clk) begin
 						// P181: (An) too -- S_FPU_AN resolves it in one state
 						// (no pre/post adjust: fp_ea_pd/pi stay 0) instead of
 						// S_EA_DISP + S_FPU_EA.
+						else if ((d_mode == 3'b011 || d_mode == 3'b100 || d_mode == 3'b010) && fpu_an_now) begin
+							// P223: S_FPU_AN's work here, the base being on port A
+							fp_adj   <= fpu_an_adj;
+							fp_ea_v  <= 1;
+							fp_ea_pd <= (d_mode == 3'b100);
+							fp_ea_pi <= (d_mode == 3'b011);
+							t_a      <= (d_mode == 3'b100) ? (rf_capture_a - {25'd0, fpu_an_adj}) : rf_capture_a;
+							state    <= S_FPU_RD;
+						end
 						else if (d_mode == 3'b011 || d_mode == 3'b100 || d_mode == 3'b010) begin
 							rr_a <= {1'b1, d_rn};
 							state <= S_FPU_AN;
@@ -7899,6 +7918,17 @@ always @(posedge clk) begin
 						end
 						// P203: an (An) destination too, as P181 did for the
 						// sources (FMOVE.X FPn,(A7) in the ROM's FPU glue)
+						else if ((d_mode == 3'b011 || d_mode == 3'b100 || d_mode == 3'b010) && fpu_an_now) begin
+							// P223: S_FPU_AN's work here, the base being on port A
+							fp_adj   <= fpu_an_adj;
+							fp_ea_v  <= 1;
+							fp_ea_pd <= (d_mode == 3'b100);
+							fp_ea_pi <= (d_mode == 3'b011);
+							t_a      <= (d_mode == 3'b100) ? (rf_capture_a - {25'd0, fpu_an_adj}) : rf_capture_a;
+							fpu_iawe <= 1;
+							fpu_req  <= 1;
+							state    <= S_FPU_GO;
+						end
 						else if (d_mode == 3'b011 || d_mode == 3'b100 || d_mode == 3'b010) begin
 							rr_a <= {1'b1, d_rn};
 							state <= S_FPU_AN;
@@ -7987,6 +8017,15 @@ always @(posedge clk) begin
 							// dynamic list in a data register
 							rr_a <= {1'b0, imm[6:4]};
 							state <= S_FPU_MVML;
+						end
+						else if ((d_mode == 3'b011 || d_mode == 3'b100) && fpu_an_now) begin
+							// P224: S_FPU_AN's work here (static list, base on port A)
+							fp_adj   <= cnt;
+							fp_ea_v  <= 1;
+							fp_ea_pd <= (d_mode == 3'b100);
+							fp_ea_pi <= (d_mode == 3'b011);
+							t_a      <= (d_mode == 3'b100) ? (rf_capture_a - {25'd0, cnt}) : rf_capture_a;
+							state    <= S_FPU_MVM;
 						end
 						else if (d_mode == 3'b011 || d_mode == 3'b100) begin
 							rr_a <= {1'b1, d_rn};
@@ -8213,7 +8252,13 @@ always @(posedge clk) begin
 						// then fp_exception_pending(false))
 						fp_st_epend <= fpu_exc_req;
 						fp_st_evec  <= fpu_exc_vec;
-						state <= S_FPU_WR;
+						if (fp_nb >= 4'd4) begin
+							// P225: the first longword goes out from here (hinted by
+							// hint_st_fpgo), not a clock later from S_FPU_WR
+							mwr(t_a, `AP040_SZ_L, fpu_dout[95:64], S_FPU_WR);
+							fp_n <= 4'd1;
+						end
+						else state <= S_FPU_WR;
 					end
 				end
 			end
@@ -8347,8 +8392,16 @@ always @(posedge clk) begin
 					if (fp_st)
 						fpu_srcr <= (!fp_st || fp_mode[1]) ? (3'd7 - b) : b;
 					if (fp_ea_pd) t_a <= t_a;   // base already lowered
-					fp_n <= 0;
-					state <= S_FPU_MVM2;
+					if (!fp_st) begin
+						// P227: a load's first longword goes out from here
+						// (no register read to set up; hinted by hint_fpu_mvm0)
+						mrd(t_a, `AP040_SZ_L, S_FPU_MVM3);
+						fp_n <= 4'd1;
+					end
+					else begin
+						fp_n <= 0;
+						state <= S_FPU_MVM2;
+					end
 				end
 			end
 
@@ -8360,7 +8413,15 @@ always @(posedge clk) begin
 						fpu_fmwd <= fpb;
 					end
 					t_a <= t_a + 32'd12;
-					state <= S_FPU_MVM;
+					if (fp_list == 8'd0) begin
+						// P226: the last register -- finish here as S_FPU_MVM
+						// would a clock later (t_a has not advanced yet)
+						if (fp_ea_pd)
+							rfw({1'b1, d_rn}, t_a + 32'd12 - {25'd0, fp_adj});
+						else if (fp_ea_pi) rfw({1'b1, d_rn}, t_a + 32'd12);
+						fetch_next;
+					end
+					else state <= S_FPU_MVM;
 				end
 				else begin : fp_mvm_x
 					reg [31:0] wv;

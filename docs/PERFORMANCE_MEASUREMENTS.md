@@ -2111,3 +2111,17 @@ Machine Record.
 
 Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377 -> P174 1.460 -> P182 1.467 -> P188 1.631 ->
 P193 1.646 -> P205 1.703 -> **P212 1.725**.  Real Quadra 800: 1.897.
+
+## P220 on hardware: FAILED to boot (2026-09-23, 15:56-16:01 EDT)
+
+P220 = P212 + P214 (spanning stores pushed as two FIFO entries) + P215-P220 (associative MMU data copies,
+MOVEM load chains, pair-hit idle reads, read-after-read handoff, idle-read validity fix), commit `1a38ef8`,
+seed 25, CACHE_TINY: 39,078 ALMs, **CPU clock -2.596 ns** (the largest miss run so far), HDMI +0.366,
+crossings met (md5 `08ff68f8a5363005afd09f5b98d968ce`).  Mac OS 8.1 reached the Finder menu bar and bombed
+with "Finder error type 41" on both boots; the bomb dialog's "Restart" drew as "Rest^rt" (a corrupted
+glyph) and on the retry the "Starting Up" progress bar was drawn past its box to the screen edge (seen by
+the user at the display as well).  No Speedometer run.  The build that ran P212's disk cleanly two hours
+earlier.  Evidence: `scratch/hardware_p220_20260923/` (`crash_boot1_bomb.png`,
+`crash_retry_progressbar_overrun.png`, `crash_final.png`).  The guest was left at the bomb dialog.
+Next: P229 (P220 without P215, whose request-side compare is suspected for the timing loss) and a
+full-machine boot sim of P220 to separate a timing failure from a logic bug.

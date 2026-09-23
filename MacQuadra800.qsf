@@ -478,6 +478,10 @@ source configs/cpu_development.tcl
 # P214 seed 25 2026-09-23 (73783ab): 39,163 ALMs (93 %); routing FAILED (congestion).  Seed 26 next, with P215.
 # P215 seed 26 2026-09-23 (bc45d86): STOPPED after 76 min of "exceedingly large" routing congestion.  Next: P216-P220 with
 # CACHE_TINY in the development profile (configs/cpu_development.tcl) for routing room, seed 25.
+# P220 seed 25 2026-09-23 (1a38ef8, CACHE_TINY): 39,078 ALMs (93 %), routes; CPU clock -2.596 ns (mem_addr_q -> MMU
+# request translation -> epf_data), HDMI +0.366, crossings met.  md5 08ff68f8a5363005afd09f5b98d968ce.  ON HARDWARE IT
+# FAILED: Finder type-41 bomb on both boots, a corrupted glyph, the Starting Up bar drawn past its box.  Timing or logic
+# undecided; P229 drops P215 (the associative MMU copies, suspected for the timing) to tell.
 # Posted cross-line cache-store merge, validated on hardware.
 set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_XSTORE=1"
 # Overlap LEA displacement fetch with base selection; checked independently.

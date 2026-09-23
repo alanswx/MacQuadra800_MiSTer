@@ -215,42 +215,21 @@ reg   [16:0] u_tag   [0:7];
 reg [EW-1:0] u_ent   [0:7];
 reg   [31:0] u_tc;
 integer      ui;
-// P215: the four data copies are fully associative (a page may sit in any
-// of them, filled round-robin); the page-set index made the Dhrystone string
-// copy's source page and the stack page evict each other on every byte
-reg   [1:0] u_rr;
-wire  [3:0] u_fill_m = {u_valid[3] && u_row[3] == l_row && u_tag[3] == l_tag,
-                        u_valid[2] && u_row[2] == l_row && u_tag[2] == l_tag,
-                        u_valid[1] && u_row[1] == l_row && u_tag[1] == l_tag,
-                        u_valid[0] && u_row[0] == l_row && u_tag[0] == l_tag};
-wire        u_fill_same = |u_fill_m;
-wire  [1:0] u_fill_way = u_fill_m[0] ? 2'd0 : u_fill_m[1] ? 2'd1 : u_fill_m[2] ? 2'd2 :
-                         u_fill_m[3] ? 2'd3 : u_rr;
-wire  [2:0] u_fill_idx = l_row[4] ? {1'b1, l_row[1:0]} : {1'b0, u_fill_way};
 always @(posedge clk) begin
 	u_tc <= tc;
 	if (!nreset || fill_we || sweep_on || pf_req || (tc != u_tc)) begin
 		for (ui = 0; ui < 8; ui = ui + 1) u_valid[ui] <= 0;
-		u_rr <= 2'd0;
 	end
 	else if (pipe_hit) begin
-		u_valid[u_fill_idx] <= 1;
-		u_row[u_fill_idx]   <= l_row;
-		u_tag[u_fill_idx]   <= l_tag;
-		u_ent[u_fill_idx]   <= pipe_ent;
-		if (!l_row[4] && !u_fill_same) u_rr <= u_rr + 2'd1;
+		u_valid[{l_row[4],l_row[1:0]}] <= 1;
+		u_row[{l_row[4],l_row[1:0]}]   <= l_row;
+		u_tag[{l_row[4],l_row[1:0]}]   <= l_tag;
+		u_ent[{l_row[4],l_row[1:0]}]   <= pipe_ent;
 	end
 end
-wire  [3:0] u_dm = {u_valid[3] && u_row[3] == a_row && u_tag[3] == a_tag,
-                    u_valid[2] && u_row[2] == a_row && u_tag[2] == a_tag,
-                    u_valid[1] && u_row[1] == a_row && u_tag[1] == a_tag,
-                    u_valid[0] && u_row[0] == a_row && u_tag[0] == a_tag};
-wire u_hit = c_instr ? (u_valid[{1'b1,a_row[1:0]}] && (u_row[{1'b1,a_row[1:0]}] == a_row) &&
-                        (u_tag[{1'b1,a_row[1:0]}] == a_tag))
-                     : |u_dm;
-wire [EW-1:0] u_sel = c_instr ? u_ent[{1'b1,a_row[1:0]}] :
-                      ({EW{u_dm[0]}} & u_ent[0]) | ({EW{u_dm[1]}} & u_ent[1]) |
-                      ({EW{u_dm[2]}} & u_ent[2]) | ({EW{u_dm[3]}} & u_ent[3]);
+wire u_hit = u_valid[{c_instr,a_row[1:0]}] && (u_row[{c_instr,a_row[1:0]}] == a_row) &&
+             (u_tag[{c_instr,a_row[1:0]}] == a_tag);
+wire [EW-1:0] u_sel = u_ent[{c_instr,a_row[1:0]}];
 
 wire atc_hit = u_hit | pipe_hit;
 
@@ -833,23 +812,15 @@ wire [3:0]    hn_set = tc_p ? c_hint_addr[16:13] : c_hint_addr[15:12];
 wire [4:0]    hn_row = {c_hint_instr, hn_set};
 wire [16:0]   hn_tag = tc_p ? {a_super, c_hint_addr[31:17], 1'b0}
                            : {a_super, c_hint_addr[31:16]};
-wire    [3:0] uh_dm = {u_valid[3] && u_row[3] == hn_row && u_tag[3] == hn_tag,
-                        u_valid[2] && u_row[2] == hn_row && u_tag[2] == hn_tag,
-                        u_valid[1] && u_row[1] == hn_row && u_tag[1] == hn_tag,
-                        u_valid[0] && u_row[0] == hn_row && u_tag[0] == hn_tag};
-wire          uh_hit = c_hint_instr ? (u_valid[{1'b1,hn_row[1:0]}] && (u_row[{1'b1,hn_row[1:0]}] == hn_row) &&
-                                       (u_tag[{1'b1,hn_row[1:0]}] == hn_tag))
-                                    : |uh_dm;
+wire          uh_hit = u_valid[{c_hint_instr,hn_row[1:0]}] && (u_row[{c_hint_instr,hn_row[1:0]}] == hn_row) &&
+                       (u_tag[{c_hint_instr,hn_row[1:0]}] == hn_tag);
 // A held request repeats itself on the hint bus, so when the lookup pipe
 // resolves the request this cycle (the copy is being refilled from it)
 // the same entry translates the hint: without this every first access
 // to a page after a copy miss lost the one-clock hit (3 % of boot
 // dispatches).
 wire          hn_pipe = pipe_hit && (c_hint_addr == c_addr) && (c_hint_instr == c_instr);
-wire [EW-1:0] uh_ent = !uh_hit ? pipe_ent :
-                      c_hint_instr ? u_ent[{1'b1,hn_row[1:0]}] :
-                      ({EW{uh_dm[0]}} & u_ent[0]) | ({EW{uh_dm[1]}} & u_ent[1]) |
-                      ({EW{uh_dm[2]}} & u_ent[2]) | ({EW{uh_dm[3]}} & u_ent[3]);
+wire [EW-1:0] uh_ent = uh_hit ? u_ent[{c_hint_instr,hn_row[1:0]}] : pipe_ent;
 wire [19:0]   uh_pa  = uh_ent[27:8];
 wire [31:0]   hn_ttra = c_hint_instr ? itt0 : dtt0;
 wire [31:0]   hn_ttrb = c_hint_instr ? itt1 : dtt1;
