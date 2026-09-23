@@ -47,7 +47,6 @@ module ap040_mmu
 	input       [1:0] c_size,
 	input      [31:0] c_addr,
 	input      [31:0] c_hint_addr,  // next access, one cycle early (logical)
-	input      [31:0] c_ihint_addr, // the instruction side's hint (P175), always instruction space
 	input             c_hint_instr,
 	input      [31:0] c_wdata,
 	input       [2:0] c_fc,
@@ -83,9 +82,6 @@ module ap040_mmu
 	output     [21:0] m_hint_ptag,  // the hint's physical tag, registered
 	output            m_hint_match, // the request is the registered hint
 	output            m_hint_wmatch,// ... and its page may be written now (see hq_wok)
-	output     [31:0] m_ihint_addr, // the instruction hint, passed down (P175)
-	output     [21:0] m_ihint_ptag, // its physical tag, registered
-	output            m_ihint_match,// the request is the registered instruction hint
 	output     [31:0] m_wdata,
 	output      [2:0] m_fc,
 	input             m_ack,
@@ -872,44 +868,6 @@ assign m_hint_match = c_req && hq_ok && (hq_addr == c_addr) && (hq_instr == c_in
                       (hq_super == a_super) && (tc == u_tc) &&
                       (ttr_q == {itt0, itt1, dtt0, dtt1}) && mmu_quiet;
 assign m_hint_wmatch = m_hint_match && hq_wok;
-
-// P175: the instruction hint, translated the same way (instruction space,
-// the per-space copy's instruction entry, the ITTs) and registered.
-wire [3:0]    hi_set = tc_p ? c_ihint_addr[16:13] : c_ihint_addr[15:12];
-wire [4:0]    hi_row = {1'b1, hi_set};
-wire [16:0]   hi_tag = tc_p ? {a_super, c_ihint_addr[31:17], 1'b0}
-                           : {a_super, c_ihint_addr[31:16]};
-wire          ui_hit = u_valid[3'd4] && (u_row[3'd4] == hi_row) && (u_tag[3'd4] == hi_tag);
-wire          hi_pipe = pipe_hit && (c_ihint_addr == c_addr) && c_instr;
-wire [EW-1:0] ui_ent = ui_hit ? u_ent[3'd4] : pipe_ent;
-wire [19:0]   ui_pa  = ui_ent[27:8];
-wire          hi_ttr_a = ttr_match(itt0, c_ihint_addr, a_super);
-wire          hi_ttr_b = ttr_match(itt1, c_ihint_addr, a_super);
-wire          hi_ttr  = hi_ttr_a | hi_ttr_b;
-wire  [1:0]   hi_ttr_cm = hi_ttr_a ? itt0[6:5] : itt1[6:5];
-wire          hi_ci    = hi_ttr ? hi_ttr_cm[1] :
-                         (tc_e && (ui_hit || hi_pipe)) ? ui_ent[3] : 1'b0;
-wire          hi_sprot = tc_e && !hi_ttr && (ui_hit || hi_pipe) && !a_super && ui_ent[4];
-wire [31:0]   hi_pa   = hi_ttr ? c_ihint_addr :
-                        (tc_e && (ui_hit || hi_pipe)) ? (tc_p ? {ui_pa[19:1], c_ihint_addr[12], c_ihint_addr[11:0]}
-                                                 : {ui_pa, c_ihint_addr[11:0]})
-                        : c_ihint_addr;
-wire          hi_ok    = (hi_ttr || !tc_e || ui_hit || hi_pipe) && mmu_quiet &&
-                         !hi_ci && !hi_sprot;
-reg  [31:0]   hqi_addr;
-reg           hqi_super, hqi_ok;
-reg  [21:0]   hqi_ptag;
-always @(posedge clk) begin
-	hqi_addr  <= c_ihint_addr;
-	hqi_super <= a_super;
-	hqi_ptag  <= hi_pa[31:10];
-	hqi_ok    <= nreset && hi_ok;
-end
-assign m_ihint_addr  = c_ihint_addr;
-assign m_ihint_ptag  = hqi_ptag;
-assign m_ihint_match = c_req && c_instr && hqi_ok && (hqi_addr == c_addr) &&
-                       (hqi_super == a_super) && (tc == u_tc) &&
-                       (ttr_q == {itt0, itt1, dtt0, dtt1}) && mmu_quiet;
 
 endmodule
 

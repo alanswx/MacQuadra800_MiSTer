@@ -541,6 +541,24 @@ int verilate() {
 				bracket_step(dispatched);
 				if (!cpu_trace_disabled && (main_time >= trace_after ||
 				                            (trace_on_ncr && NCR_REGTRACE))) cpu_trace_step();
+				// [EXC] every exception entry that is not an A-line trap or an
+				// interrupt: vector, faulting/next pc, format, fault address
+				{
+					static uint8_t exc_prev_state = 0;
+					uint8_t st = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__state;
+					if (st == 34 && exc_prev_state != 34) {
+						uint8_t vec = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__exc_vec;
+						bool irq = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__exc_is_irq;
+						if (vec != 10 && !irq)
+							printf("[EXC] vec=%u fmt=%u spc=%08X addr=%08X pc_i=%08X @%llu\n", vec,
+							       SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__exc_fmt,
+							       SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__exc_spc,
+							       SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__exc_addr,
+							       SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__pc_i,
+							       (unsigned long long)main_time);
+					}
+					exc_prev_state = st;
+				}
 				uint32_t hpc = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__pc_i;
 				if (pc_hist_enable) pc_hist[hpc >> 8]++;
 				if (cpu_prof_enable) {

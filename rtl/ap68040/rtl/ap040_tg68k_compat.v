@@ -100,9 +100,6 @@ wire [31:0] mem_addr;
 wire [31:0] mem_hint_addr, mm_hint_addr;
 wire        mem_hint_instr, mm_hint_instr, mm_hint_match, mm_hint_wmatch;
 wire [21:0] mm_hint_ptag;
-wire [31:0] mem_ihint_addr, mm_ihint_addr;   // the instruction hint bus (P175)
-wire [21:0] mm_ihint_ptag;
-wire        mm_ihint_match;
 wire [31:0] mem_wdata;
 wire  [2:0] mem_fc;
 wire        mem_ack;
@@ -239,7 +236,6 @@ ap040_core #(
 	.mem_addr(core_addr),
 	.mem_hint_addr(mem_hint_addr),
 	.mem_hint_instr(mem_hint_instr),
-	.mem_ihint_addr(mem_ihint_addr),
 	.mem_wdata(core_wdata),
 	.mem_fc(core_fc),
 	.mem_ack(core_ack),
@@ -310,7 +306,6 @@ ap040_mmu mmu (
 	.c_addr(mem_addr),
 	.c_hint_addr(mem_hint_addr),
 	.c_hint_instr(mem_hint_instr),
-	.c_ihint_addr(mem_ihint_addr),
 	.c_wdata(mem_wdata),
 	.c_fc(mem_fc),
 	.c_ack(mem_ack),
@@ -343,9 +338,6 @@ ap040_mmu mmu (
 	.m_hint_ptag(mm_hint_ptag),
 	.m_hint_match(mm_hint_match),
 	.m_hint_wmatch(mm_hint_wmatch),
-	.m_ihint_addr(mm_ihint_addr),
-	.m_ihint_ptag(mm_ihint_ptag),
-	.m_ihint_match(mm_ihint_match),
 	.m_wdata(mm_wdata),
 	.m_fc(mm_fc),
 	.m_ack(mm_ack),
@@ -459,10 +451,6 @@ if (AP040_ENABLE_CACHE != 0) begin : g_cache
 		.c_hint_ptag(mm_hint_ptag),
 		.c_hint_match(mm_hint_match),
 		.c_hint_wmatch(mm_hint_wmatch),
-		.c_ihint_addr(mm_ihint_addr),
-		.c_ihint_ptag(mm_ihint_ptag),
-		.c_ihint_match(mm_ihint_match),
-		.c_ihold(mem_req && sel_instr),
 		.c_wdata(mm_wdata),
 		.c_fc(mm_fc),
 		.c_nocache(mm_nocache | ~cache_allow |

@@ -368,7 +368,7 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # P171b: the queue-bypass forward (epf_fwd_pc) and the refill-buffer fill at acknowledge read the fetch's own
 # address again, and a redirect replaces a speculative fetch the platform has not accepted yet (ifr_avail).
 # Sim vs P170: Permute -7.0 %, Whetstone -1.9 %, Queens -1.5 %, Dhrystone -2.3 %.
-set_global_assignment -name SEED 25
+set_global_assignment -name SEED 24
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
@@ -438,6 +438,11 @@ source configs/cpu_release_lite.tcl
 # MISTER_FB (the dead 128x48 palette Quartus kept turning into 6,144 registers).  Synthesis estimate 39,043 ALMs.
 # P178 seed 24 2026-09-22 (8ce901c): 39,386 ALMs (94 %), 513 RAM blocks, routes; CPU clock -0.505 ns (the day's best),
 # HDMI +0.177, clk_ram +0.441.  rbf scratch/p178_xline_fit_20260922/MacQuadra800_p178_xline_8ce901c.rbf.
+# P178 ON HARDWARE (2026-09-22 evening): hangs during 8.1 extension loading (a blank alert, no disk activity).
+# Reproduced in the full-machine sim as "~ATM error type 10" (F-line) at ~70 guest-seconds, but only in some runs
+# (host-side options change the interleaving): a race, not a plain logic error.  P174 boots and benchmarks (Mix
+# 1.460).  The tree's CPU RTL is back at P174 (c152ac4); P175c/P177/P178 live in history (8ce901c) and
+# scratch/p178_state_20260922/ until the race is found.  The P178-off bisect fits failed routing (seeds 24, 25).
 # Posted cross-line cache-store merge, validated on hardware.
 set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_XSTORE=1"
 # Overlap LEA displacement fetch with base selection; checked independently.
