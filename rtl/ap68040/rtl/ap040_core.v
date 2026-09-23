@@ -545,11 +545,20 @@ wire        regs_alu_fire = (state == S_PIPE_REGS || state == S_PIPE_SDONE ||
 wire move_store_read_context = state == S_MRD && r_m_ret == S_PIPE_SDONE &&
     p_src == SK_MEM && p_dst == DK_MEM && exec_kind == EK_ALU &&
     alu_op == `AP040_ALU_MOVE && !p_rmw && !p_wbsup;
+// P179: a register write landing this clock blocks only when it is the
+// destination base's own (port A shows the old value); a source (An)+/-(An)
+// update of another register no longer sends the store through S_EA_DISP.
+wire dst_base_landing = rf_we && rf_waddr == {1'b1,dst_rn_r};
+// P179: d16(An) too, with its displacement at the queue head (popped in
+// the acknowledge clock, as the ea_start fallback's inline path already did).
+wire move_store_read_d16 = dst_mode_r == 3'b101 && epf_ready_pc && !epf_flushed;
 wire move_store_read_ready = move_store_read_context &&
-    (dst_mode_r == 3'b010 || dst_mode_r == 3'b011 || dst_mode_r == 3'b100) &&
-    rr_a == {1'b1,dst_rn_r} && !rf_we && !aux_we;
+    (dst_mode_r == 3'b010 || dst_mode_r == 3'b011 || dst_mode_r == 3'b100 ||
+     move_store_read_d16) &&
+    rr_a == {1'b1,dst_rn_r} && !dst_base_landing && !aux_we;
 wire [31:0] move_store_read_addr = dst_mode_r == 3'b100 ?
-    rf_rdata_a - an_adj(dst_rn_r,p_dsize) : rf_rdata_a;
+    rf_rdata_a - an_adj(dst_rn_r,p_dsize) :
+    dst_mode_r == 3'b101 ? rf_rdata_a + sxw(epf_data[epf_head]) : rf_rdata_a;
 wire move_store_read_handoff = move_store_read_ready && m_issued && d_ack && !d_err;
 // Settled register MOVE store; require the following instruction prefetched.
 wire reg_move_store_prepare = state == S_PIPE_START && exec_kind == EK_ALU &&
@@ -2038,6 +2047,15 @@ task mem_issue;
             rr_a <= {1'b1,dst_rn_r};
             rr_b <= epf_data[epf_head + {1'b0,epf_pop}][15:12];
         end
+        // P179: the simple destination modes' base as well, so a read
+        // acknowledged in its first S_MRD clock finds it settled on port A
+        // (the S_MRD preselect below only lands a clock later).
+        else if (!mgo_wr && mgo_ret == S_PIPE_SDONE && p_src == SK_MEM &&
+            p_dst == DK_MEM && exec_kind == EK_ALU &&
+            alu_op == `AP040_ALU_MOVE && !p_rmw &&
+            (dst_mode_r == 3'b010 || dst_mode_r == 3'b011 ||
+             dst_mode_r == 3'b100 || dst_mode_r == 3'b101))
+            rr_a <= {1'b1,dst_rn_r};
 		// Normal within-page operand reads from on-board RAM (from the operand
 		// pipe) and within-page destination writes (from S_EXEC) claim the shared
 		// port while entering S_MRD/S_MWR, removing the request-setup cycle;
@@ -2955,6 +2973,13 @@ task apply_record;
                     // Consume this new request here; do not leave it queued.
                     mem_issue;
                     mgo = 0;
+                    // P179: mem_issue's destination preselect reads the
+                    // retiring instruction's registered fields; select the
+                    // new MOVE's simple destination base from its record.
+                    if (n_dst_mode_r_v && n_dst_rn_r_v &&
+                        (n_dst_mode_r == 3'b010 || n_dst_mode_r == 3'b011 ||
+                         n_dst_mode_r == 3'b100 || n_dst_mode_r == 3'b101))
+                        rr_a <= {1'b1, n_dst_rn_r};
                 end else state <= S_PIPE_START;
             end
 			NX_PREGS:  state <= S_PIPE_REGS;
@@ -5470,6 +5495,10 @@ always @(posedge clk) begin
                         end else if (dst_mode_r == 3'b100) begin
                             rfw({1'b1,dst_rn_r},move_store_read_addr);
                             u_rec({1'b1,dst_rn_r},rf_rdata_a);
+                        end else if (dst_mode_r == 3'b101) begin
+                            pc <= pc + 32'd2;
+                            epf_pop = 2'd1;
+                            epf_issue = 1;
                         end
                         if (p_flags) sr[4:0] <= alu_fl;
                         mwr(move_store_read_addr,p_dsize,alu_res,S_NEXT);
@@ -5490,7 +5519,7 @@ always @(posedge clk) begin
                         // The queued displacement and settled destination base
                         // can resolve together once the source read succeeds.
                         if (dst_mode_r == 3'b101 && epf_ready_pc && !epf_flushed &&
-                            rr_a == {1'b1,dst_rn_r} && !rf_we && !aux_we) begin
+                            rr_a == {1'b1,dst_rn_r} && !dst_base_landing && !aux_we) begin
                             ea_addr <= rf_rdata_a + sxw(epf_data[epf_head]);
                             pc <= pc + 32'd2;
                             epf_pop = 2'd1;
@@ -5502,7 +5531,7 @@ always @(posedge clk) begin
                         // retain EA_DISP so aliased source updates land first.
                         if ((dst_mode_r == 3'b010 || dst_mode_r == 3'b011 ||
                              dst_mode_r == 3'b100) &&
-                            rr_a == {1'b1,dst_rn_r} && !rf_we && !aux_we) begin
+                            rr_a == {1'b1,dst_rn_r} && !dst_base_landing && !aux_we) begin
                             ea_addr <= (dst_mode_r == 3'b100) ?
                                 rf_rdata_a - an_adj(dst_rn_r,p_dsize) : rf_rdata_a;
                             if (dst_mode_r == 3'b011) begin
