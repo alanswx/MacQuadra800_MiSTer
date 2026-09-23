@@ -209,6 +209,15 @@ wire [EW-1:0] pipe_ent = hit0 ? a_w0 : hit1 ? a_w1 : hit2 ? a_w2 : a_w3;
 // P200: four instruction copies too (a call from user code into the ROM's
 // FPU glue and its return kept replacing the single instruction copy, so
 // the return target's hint never translated)
+// P230: a copy's slot is its page set XORed with two tag bits (the same
+// function on every side: fill, request, data hint, instruction hint), so
+// pages whose low set bits agree -- Dhrystone's string source $61F and the
+// stack $63F -- no longer evict each other on every access
+function [1:0] u_hash;
+	input [4:0]  row;
+	input [16:0] tag;
+	u_hash = row[1:0] ^ tag[1:0];
+endfunction
 reg          u_valid [0:7];   // four data copies and four instruction copies, indexed by page set
 reg    [4:0] u_row   [0:7];
 reg   [16:0] u_tag   [0:7];
@@ -221,15 +230,15 @@ always @(posedge clk) begin
 		for (ui = 0; ui < 8; ui = ui + 1) u_valid[ui] <= 0;
 	end
 	else if (pipe_hit) begin
-		u_valid[{l_row[4],l_row[1:0]}] <= 1;
-		u_row[{l_row[4],l_row[1:0]}]   <= l_row;
-		u_tag[{l_row[4],l_row[1:0]}]   <= l_tag;
-		u_ent[{l_row[4],l_row[1:0]}]   <= pipe_ent;
+		u_valid[{l_row[4],u_hash(l_row,l_tag)}] <= 1;
+		u_row[{l_row[4],u_hash(l_row,l_tag)}]   <= l_row;
+		u_tag[{l_row[4],u_hash(l_row,l_tag)}]   <= l_tag;
+		u_ent[{l_row[4],u_hash(l_row,l_tag)}]   <= pipe_ent;
 	end
 end
-wire u_hit = u_valid[{c_instr,a_row[1:0]}] && (u_row[{c_instr,a_row[1:0]}] == a_row) &&
-             (u_tag[{c_instr,a_row[1:0]}] == a_tag);
-wire [EW-1:0] u_sel = u_ent[{c_instr,a_row[1:0]}];
+wire u_hit = u_valid[{c_instr,u_hash(a_row,a_tag)}] && (u_row[{c_instr,u_hash(a_row,a_tag)}] == a_row) &&
+             (u_tag[{c_instr,u_hash(a_row,a_tag)}] == a_tag);
+wire [EW-1:0] u_sel = u_ent[{c_instr,u_hash(a_row,a_tag)}];
 
 wire atc_hit = u_hit | pipe_hit;
 
@@ -812,15 +821,15 @@ wire [3:0]    hn_set = tc_p ? c_hint_addr[16:13] : c_hint_addr[15:12];
 wire [4:0]    hn_row = {c_hint_instr, hn_set};
 wire [16:0]   hn_tag = tc_p ? {a_super, c_hint_addr[31:17], 1'b0}
                            : {a_super, c_hint_addr[31:16]};
-wire          uh_hit = u_valid[{c_hint_instr,hn_row[1:0]}] && (u_row[{c_hint_instr,hn_row[1:0]}] == hn_row) &&
-                       (u_tag[{c_hint_instr,hn_row[1:0]}] == hn_tag);
+wire          uh_hit = u_valid[{c_hint_instr,u_hash(hn_row,hn_tag)}] && (u_row[{c_hint_instr,u_hash(hn_row,hn_tag)}] == hn_row) &&
+                       (u_tag[{c_hint_instr,u_hash(hn_row,hn_tag)}] == hn_tag);
 // A held request repeats itself on the hint bus, so when the lookup pipe
 // resolves the request this cycle (the copy is being refilled from it)
 // the same entry translates the hint: without this every first access
 // to a page after a copy miss lost the one-clock hit (3 % of boot
 // dispatches).
 wire          hn_pipe = pipe_hit && (c_hint_addr == c_addr) && (c_hint_instr == c_instr);
-wire [EW-1:0] uh_ent = uh_hit ? u_ent[{c_hint_instr,hn_row[1:0]}] : pipe_ent;
+wire [EW-1:0] uh_ent = uh_hit ? u_ent[{c_hint_instr,u_hash(hn_row,hn_tag)}] : pipe_ent;
 wire [19:0]   uh_pa  = uh_ent[27:8];
 wire [31:0]   hn_ttra = c_hint_instr ? itt0 : dtt0;
 wire [31:0]   hn_ttrb = c_hint_instr ? itt1 : dtt1;
@@ -882,9 +891,9 @@ wire [3:0]    hi_set = tc_p ? c_ihint_addr[16:13] : c_ihint_addr[15:12];
 wire [4:0]    hi_row = {1'b1, hi_set};
 wire [16:0]   hi_tag = tc_p ? {a_super, c_ihint_addr[31:17], 1'b0}
                            : {a_super, c_ihint_addr[31:16]};
-wire          ui_hit = u_valid[{1'b1,hi_row[1:0]}] && (u_row[{1'b1,hi_row[1:0]}] == hi_row) && (u_tag[{1'b1,hi_row[1:0]}] == hi_tag);
+wire          ui_hit = u_valid[{1'b1,u_hash(hi_row,hi_tag)}] && (u_row[{1'b1,u_hash(hi_row,hi_tag)}] == hi_row) && (u_tag[{1'b1,u_hash(hi_row,hi_tag)}] == hi_tag);
 wire          hi_pipe = pipe_hit && (c_ihint_addr == c_addr) && c_instr;
-wire [EW-1:0] ui_ent = ui_hit ? u_ent[{1'b1,hi_row[1:0]}] : pipe_ent;
+wire [EW-1:0] ui_ent = ui_hit ? u_ent[{1'b1,u_hash(hi_row,hi_tag)}] : pipe_ent;
 wire [19:0]   ui_pa  = ui_ent[27:8];
 wire          hi_ttr_a = ttr_match(itt0, c_ihint_addr, a_super);
 wire          hi_ttr_b = ttr_match(itt1, c_ihint_addr, a_super);
