@@ -3875,7 +3875,11 @@ wire        retire_store_read = hint_rsr && d_ack;
 // acknowledge clock and issued on it.  Not (An)+/-(An) (the retiring
 // register write holds the one write port) and not when the next base is
 // the register being loaded.
-wire        hint_rrr = (state == S_MRD) && m_issued && (r_m_ret == S_PIPE_SDONE) &&
+// P232: P219 is DISABLED -- with it the Mac OS 8.1 boot ends in a Sad Mac
+// (0000000F/00000002) in the full-machine sim and on hardware (P220, P229);
+// the bisect of P216-P220 put it on P219.  Left in place, gated off, until the
+// fault is understood.
+wire        hint_rrr = 1'b0 && (state == S_MRD) && m_issued && (r_m_ret == S_PIPE_SDONE) &&
                        (p_src == SK_MEM) && (p_dst == DK_REG) && (exec_kind == EK_ALU) &&
 `ifdef AP040_EXPERIMENTAL_PIPELINE
                        !pipe_load_active && !pipe_rf_owner && !pipe_write &&
