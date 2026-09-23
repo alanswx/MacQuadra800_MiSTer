@@ -59,6 +59,36 @@ not applicable without CD) on the FPGA — the user was using it; ask before tou
 - `scripts/cpu/fit_dev.sh <tag>` via `systemd-run --user --unit=q800-<tag>-fit-<date>`; Quartus
   rewrites the qsf during a flow (it inlined the sourced profile macros once) — clean it after.
 
+## Night of 09-22: P174 measured, P178 broken, tree back at P174
+
+- **P174 on hardware: Mix 1.460** (1.454/1.460/1.460/1.461/1.460; P171 1.377, P165b 1.364); every test
+  gained, Puzzle 0.964 -> 0.768 s. rbf `_Unstable/MacQuadra800_p174.rbf` on the MiSTer (md5 89deb24e).
+  Timing -0.920 ns on the CPU clock; ran cleanly. `docs/PERFORMANCE_MEASUREMENTS.md`.
+- **P178 (P175c+P177+P178) hangs 8.1 during extension loading on hardware** (blank alert after the 15th
+  icon, no disk activity). Reproduced in the full-machine Verilator sim with the 8.1 disk
+  (`QuadSquad8.hda` copied to `verilator/run.hda`; run from `verilator/`, the ROM hex path is cwd-relative):
+  "~ATM error type 10" (F-line) at ~70 guest-seconds, frame ~4050, sim edges ~3.39G — **in runs 81b/81d/81e
+  but not 81c/81f** (`scratch/sim_p178_boot/sim_run_81*.log`): host-side options (`--screenshot`, the cpu
+  trace) change the interleaving, so it is a race, not a plain logic fault. P174 boots the same disk on
+  hardware; the System 7 profile disk boots fine on P178 in sim. The P178-off bisect fits failed routing at
+  seeds 24 and 25 (the 94 % lottery), so the bisect has to be in sim.
+- The sim now prints `[EXC] vec= fmt= spc= addr= pc_i=` for every non-A-line, non-interrupt exception
+  (`verilator/sim_main.cpp`); run 81g (crashing args + the print) was in flight at hand-off:
+  `scratch/sim_p178_boot/sim_run_81g.log`. The cpu trace (`--trace-after N`, N in sim edges = the HB
+  "cycle" numbers) reads opcode words from the sim RAM model, which returns zeros above some address —
+  don't trust `0000 ori.b` lines at 01FBxxxx; the `dispatched` flag also skips record-dispatched
+  instructions, so the trace misses fast-path branches.
+- **HEAD (`0dfd1a8`) has the CPU RTL back at P174 (`c152ac4`)**; P175c/P177/P178 are at `8ce901c` and in
+  `scratch/p178_state_20260922/` (`ap040_cache_p178.v` is the P178 cache before the bisect edit). The
+  `fast_span_ack` timing change (949ac44) is also off HEAD now — unvalidated on hardware.
+- Suspects, by construction: the instruction mirror's coherence (a write or snoop landing on the I row
+  between the hint's idle read and the request; `idle_idata_valid`/`ihint_tag_valid` are cleared on
+  `cd_we`/`tag_we`/`inv_wren` cycles, mirrored from the data side), the mirror line read in the
+  acknowledge clock (`idata_q` read at `{set, hint_way}` on a `fast_ihit`-selected address: a RAM address
+  driven by the hint-tag compare), P178's next-row tag read on the mirror's port B (`xhint_tag_valid`),
+  and the RAS hint's priority over a non-presented fetch on the instruction hint bus. Split them with
+  macros and bisect in sim (each run ~60 min; `--stop-at-frame 4300`, `--screenshot 3600,4200` reproduces).
+
 ## P178 and after (added later the same evening)
 
 P175c halved the mirrors (the full-depth data mirror took Quartus's RAM estimate over the device and it
