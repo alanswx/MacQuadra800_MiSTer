@@ -2073,3 +2073,41 @@ at Shut Down; MiSTer 16:14/16:30).  Evidence: `scratch/hardware_p205_20260923/ru
 
 Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377 -> P174 1.460 -> P182 1.467 -> P188 1.631 ->
 P193 1.646 -> **P205 1.703**.  Real Quadra 800: 1.897.
+
+## P212 on hardware: Mix 1.725 (2026-09-23, 17:30-17:53)
+
+P212 = P205 + P206-P212 (FPU fast paths -- EXEC/SHR skips, dispatch on done; read-after-store for
+(An)+/-(An) sources, the source mode taken from the record; a forwarded source-address hint; fast-ready
+prediction during a posted store's C_PASS; fetch floor 4; conditional Bcc.W dispatched at the previous
+instruction's retire); commit `c214e74`, seed 25: 39,413 ALMs, CPU clock **-1.446 ns**, HDMI +0.504,
+clock crossings met (`scratch/p212_batch_fit_20260923/MacQuadra800_p212_batch_c214e74.rbf`, md5
+`c829f5a0045b7a7d464536227b3e59f0`, on the MiSTer as `_Unstable/MacQuadra800_p212.rbf`).  A
+**development-profile** build like P205 (no OSD menu, no sound; video normal).  Timing not met on the CPU
+clock (a little more than P205's -1.326); it ran cleanly: no corruption symptom, no bomb, no error
+dialog, boot, five runs, quit, a Restart and a second boot, and Shut Down to "It is now safe to switch
+off".  The first hardware run of every P206-P212 change.
+
+Boot: Mac OS 8.1 through extension loading to the Finder in about 40 s (`boot1..6.png`, about 13 s
+apart).  The first Special-menu walk landed one row high and chose Restart (operator error, not the
+core); the guest went through an orderly restart and booted to the Finder again in under 50 s
+(`restart_boot1..5.png`) with nothing unusual, then Shut Down reached the safe-halt screen.
+
+Five valid Mix runs: **1.716, 1.725, 1.725, 1.725, 1.726** — median **1.725** (+1.3 % on P205), no invalid
+timers.  Per test (median, P205 in brackets): Whetstones 1535 (1495, +2.7 %), Dhrystones 20,270 (20,185,
++0.4 %), Towers 0.503 (0.507, +0.8 %), Quick 0.506 (0.506), Bubble 0.572 (0.572), Queens 0.364 (0.387,
++6.3 %), Puzzle 0.698 (0.698), Permutations 0.757 (0.757), Int. Matrix 0.460 (0.460), Sieve 1.018
+(1.018).  Run 1 is again the low one (Whetstones 1514 against 1535-1537, Quick 0.507, Puzzle 0.702, Int.
+Matrix 0.461, Sieve 1.019; Mix 1.716); runs 2-5 agree to within 3 ms on every timed test (Dhrystones
+20,269.2-20,269.8, Whetstones 1534.6-1536.5, Int. Matrix 0.457-0.460).
+
+The gain is narrow: Queens +6.3 % (0.387 -> 0.364, identical in all five runs -- the conditional Bcc.W
+dispatch and read-after-store are the likely source), Whetstone +2.7 % (the FPU EXEC/SHR skips), Towers
++0.8 % and Dhrystone +0.4 %; Quick, Bubble, Puzzle, Permutations, Int. Matrix and Sieve are identical to
+P205 to the millisecond.  The guest menu-bar clock kept step with the MiSTer's wall clock (5:32 at the
+Finder, 5:53 at Shut Down; MiSTer 17:32/17:53).  Evidence:
+`scratch/hardware_p212_20260923/run{1..5}_{start,complete}.png`, `run{2..5}_dlg.png`, `mixdlg.png`,
+`menu5.png` (Shut Down lit before the click), `final_halt.png`.  Speedometer quit without saving the
+Machine Record.
+
+Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377 -> P174 1.460 -> P182 1.467 -> P188 1.631 ->
+P193 1.646 -> P205 1.703 -> **P212 1.725**.  Real Quadra 800: 1.897.
