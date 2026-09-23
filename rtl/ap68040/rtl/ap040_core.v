@@ -3109,9 +3109,17 @@ task apply_record;
                         rr_a <= {1'b1, n_dst_rn_r};
                 end
                 else if (retire_store_read &&
-                         !(rfw_now && (rfw_now_a == {1'b1, rd_ir[2:0]}))) begin
+                         !(rfw_now && (rfw_now_a == {1'b1, rd_ir[2:0]})) &&
+                         !((rsr_pd || rsr_pi) && rfw_now)) begin
                     // P196: the source read at the retiring store's acknowledge
                     x_ext <= imm;
+                    // P207: the (An)+/-(An) update and its undo record (the
+                    // retire cleared both records on this edge already)
+                    if (rsr_pi) rfw({1'b1, rd_ir[2:0]}, rsr_base + rsr_adj);
+                    else if (rsr_pd) rfw({1'b1, rd_ir[2:0]}, rsr_addr);
+                    if (rsr_pd || rsr_pi) begin
+                        u0_v <= 1; u0_reg <= {1'b1, rd_ir[2:0]}; u0_old <= rsr_base;
+                    end
                     if (n_p_dst_v && n_p_dst == DK_REG && n_p_dreg_v) rr_b <= n_p_dreg;
                     if (rsr_d16) begin
                         epf_pop = 2'd2;
@@ -3638,12 +3646,16 @@ wire [31:0] hint_d16_addr = rf_rdata_a + sxw(epf_data[epf_head]);
 wire [31:0] hint_dst_addr = (dst_mode_r == 3'b101) ? hint_d16_addr :
                             (dst_mode_r == 3'b100) ? rf_rdata_a - an_adj(dst_rn_r, p_dsize) :
                             rf_rdata_a;
+// P209: the simple source modes hint from the forwarded port (the address
+// S_PIPE_START's read uses): after ADDQ/SUBQ/LEA to the base register its
+// write lands in this very clock, and port A alone showed the old value
+// (127k of Whetstone's reads lost their one-clock hit to it)
 wire [31:0] hint_pipe_addr = hint_pipe_dst ? hint_dst_addr :
                              (src_mode_r == 3'b100)
-                           ? rf_rdata_a - an_adj(src_rn_r, p_ssize) :
+                           ? rf_capture_a - an_adj(src_rn_r, p_ssize) :
                              ((src_mode_r == 3'b101) && hint_ext_ok &&
                               (rr_a == {1'b1, src_rn_r}))
-                           ? hint_d16_addr : rf_rdata_a;
+                           ? hint_d16_addr : rf_capture_a;
 // The brief extension and base are complete; source faults still return
 // through the ordinary read machinery before any result can retire.
 wire hint_indexed_read = state == S_EA_EXTW2 && !extw[8] &&
@@ -3825,10 +3837,16 @@ reg mwr_fresh;
 always @(posedge clk) mwr_fresh <= (state != S_MWR) || (m_issued && d_ack);
 wire [31:0] rsr_base = (rf_we && rf_waddr == {1'b1, rd_ir[2:0]}) ? rf_wdata : rsr_base_rf;
 wire        rsr_d16  = (rd_ir[5:3] == 3'b101);
-wire [31:0] rsr_addr = rsr_d16 ? (rsr_base + sxw(rd_w1)) : rsr_base;
+// P207: (An)+ and -(An) sources too; the handoff writes the address
+// register and its undo record as S_PIPE_START would
+wire        rsr_pd   = (rd_ir[5:3] == 3'b100);
+wire        rsr_pi   = (rd_ir[5:3] == 3'b011);
+wire [31:0] rsr_adj  = an_adj(rd_ir[2:0], n_p_ssize);
+wire [31:0] rsr_addr = rsr_d16 ? (rsr_base + sxw(rd_w1)) : rsr_pd ? (rsr_base - rsr_adj) : rsr_base;
 wire        rsr_head = n_apply_ok && (n_next == NX_PSTART) && n_p_src_v && (n_p_src == SK_MEM) &&
                        n_src_mode_r_v && n_p_ssize_v &&
-                       ((n_src_mode_r == 3'b010) || ((n_src_mode_r == 3'b101) && epf_ready_pc2));
+                       ((n_src_mode_r == 3'b010) || (n_src_mode_r == 3'b011) || (n_src_mode_r == 3'b100) ||
+                        ((n_src_mode_r == 3'b101) && epf_ready_pc2));
 wire        hint_rsr = (state == S_MWR) && (r_m_ret == S_NEXT) && m_issued &&
                        ((mwr_fresh && st_hinted && mem_fast_ready) || (!mwr_fresh && mem_ack_q)) && !ifr_pres && rsr_head &&
 `ifdef AP040_EXPERIMENTAL_PIPELINE
@@ -7669,7 +7687,10 @@ always @(posedge clk) begin
 
 			//------------------------------------------------------------- FPU
 			S_FPU_DEC: begin
-				if (fpu_bg) begin
+				// P208: the background operation's done pulse (never raised
+				// with an enabled exception; the FPU is back in F_IDLE) is
+				// retirement enough: fpu_bg itself clears on this same edge
+				if (fpu_bg && !fpu_done) begin
 					// hold the dispatch until the background FPU
 					// operation has retired
 				end

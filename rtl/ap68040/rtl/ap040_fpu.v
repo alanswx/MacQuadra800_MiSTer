@@ -366,6 +366,22 @@ function op_in_hw;
 	end
 endfunction
 
+// P206: the binary arithmetic ops F_EXEC only dispatches to F_BIN (its other
+// work -- SNaN quieting, FABS/FNEG, the FCMP datatype check, the unimplemented
+// capture -- never applies to them with a normal source): 1 add/sub, 2 mul,
+// 3 div, 0 for anything else.
+function [1:0] fast_bin_kind;
+	input [6:0] op;
+	begin
+		case (op)
+			7'h22, 7'h62, 7'h66, 7'h28, 7'h68, 7'h6C: fast_bin_kind = 2'd1;
+			7'h23, 7'h27, 7'h63, 7'h67:               fast_bin_kind = 2'd2;
+			7'h20, 7'h24, 7'h60, 7'h64:               fast_bin_kind = 2'd3;
+			default:                                  fast_bin_kind = 2'd0;
+		endcase
+	end
+endfunction
+
 // result precision for an opmode: 0 extended (per FPCR), 1 single, 2 double
 function [1:0] prec_of;
 	input [6:0] op;
@@ -941,7 +957,15 @@ always @(posedge clk) begin
 					else begin
 					{a_s, a_e, a_m, a_t} <=
 						unpack_x(fr_src_s, fr_src_e, fr_src_m);
-					fst <= F_EXEC;
+					if (fr_src_m[63] && fr_src_e != 15'h7FFF && fast_bin_kind(opmode) != 2'd0) begin
+						// P206: as from F_SRC -- a normal source of a binary
+						// op is dispatched to F_BIN directly
+						op_kind <= {2'd0, fast_bin_kind(opmode)};
+						grs <= 3'd0;
+						e_w <= $signed({3'd0, fr_src_e});
+						fst <= F_BIN;
+					end
+					else fst <= F_EXEC;
 					end
 				end
 				else begin
@@ -1294,7 +1318,16 @@ always @(posedge clk) begin
 								// operand is normalized (or an infinity/NaN,
 								// which F_NORM passes straight on): its F_NORM
 								// clock would change nothing
-								fst <= r_din[63] ? F_EXEC : F_NORM;
+								if (r_din[63] && r_din[94:80] != 15'h7FFF && !r_unimp && !r_resume &&
+								    fast_bin_kind(r_op) != 2'd0) begin
+									// P206: a normal source of a binary op goes
+									// straight to F_BIN (F_EXEC's dispatch here)
+									op_kind <= {2'd0, fast_bin_kind(r_op)};
+									grs <= 3'd0;
+									e_w <= $signed({3'd0, r_din[94:80]});
+									fst <= F_BIN;
+								end
+								else fst <= r_din[63] ? F_EXEC : F_NORM;
 							end
 						end
 					endcase
@@ -1552,7 +1585,8 @@ always @(posedge clk) begin
 							sh_v <= {aswap ? b_m : a_m, 3'd0};
 							sh_cnt <= (d > 17'd66) ? 7'd67 : d[6:0];
 							sh_ret <= F_ADDX;
-							fst <= F_SHR;
+							// P206: equal exponents need no alignment clock
+							fst <= (d == 17'd0) ? F_ADDX : F_SHR;
 						end
 					end
 					4'd2: begin : bin_mul
