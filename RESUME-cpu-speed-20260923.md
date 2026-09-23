@@ -9,11 +9,13 @@ User on 2026-09-23: "keep going until we hit 1.9".
 | build | Mix | note |
 |---|---:|---|
 | P174 (`c152ac4`) | 1.460 | one-clock instruction hit |
-| P182 (`122dab4`, seed 24, lite profile, CPU -0.718 ns) | **1.467** | P179-P182: MOVE destination at the read ack, PEA d16 as LEA, FPU (An), the MOVE store hinted in the predicted ack. Dhrystone +1.5 %, Towers +2.2 %, Quick +1.3 %, **Whetstone flat** |
+| P182 (`122dab4`, seed 24, lite) | 1.467 | Whetstone flat: store-drain bound |
+| P188 (`f64a2d1`, seed 24, dev) | **1.631** | posted-write path + P184 (P175-P178 back, the P178 hang fixed); 8.1 boots on silicon |
+| P193 (`970b98c`, seed 25, dev) | **1.646** | LEA/LINK/UNLK/JSR dispatch, MOVEM hint, one-clock FPU shift |
+| P197 (`c4a3522`) | fitting | byte-lane cache arrays (P195b), read-after-store handoff (P196), FPU/PEA dispatch |
 
-Per-test vs the real machine (P174): Whetstone 60 % of real and 62 % of the Mix gap; Dhrystone 66 %,
-Permutations 63 %, Queens 70 %, Towers 74 %; Bubble/Sieve/Quick within 12 %; Puzzle and Int. Matrix
-already faster than real.
+Gap at P193: 0.251, Whetstone 0.20 of it (69 % of real).  Int. Matrix/Sieve lost ~1 % on hardware at
+P193 while the fixtures show them unchanged -- a hardware-only effect, not chased.
 
 ## The finding that reorders everything: Whetstone is store-drain bound on hardware
 
@@ -68,6 +70,21 @@ check `scratch/<tag>_fit_*/cross.log` (the bridge crossings), not only the .sta 
 - Hardware runs: an Opus agent with the P182 prompt (this session) works; `mister_ws.py` mouse
   commands are refused by this box's mrext, so shut down with `/media/fat/Scripts/q800tools/vmouse.py`
   and screenshots.  Speedometer Command-B = keycodes 56 + 48.
+
+## Later on 09-23 (after this file was first written)
+
+- P189-P193: MOVEM predec store hint, LEA d16/LINK/UNLK retire dispatch, JSR target fetch from S_JSR1,
+  P182's fetch guard restored, one-clock FPU alignment shift (`docs/P190_...md`).
+- P195: byte-enable store writes (no old-word merge, no spanning-store line read); **its first fit put the
+  arrays in 514,863 registers** -- the slice-write form does not infer byte-enabled M10K in Quartus 17
+  here; P195b splits each array into four byte-lane arrays (22,998 registers).  Always run
+  `build_only.sh --check` and read `Total registers` after touching cache arrays.
+- P196: the read-after-store handoff (regfile port F, `hint_rsr`, `fast_accept_pp` with the word
+  overlap rule); P197: FPU cpGEN and PEA d16 dispatch (`docs/P196_READ_AFTER_STORE_20260923.md`).
+- In scratch `p198_ret` (not landed): P198 UNLK->RTS handoff (RTS only: RTD in it costs Whetstone),
+  P199 RTD redirected in its pop's acknowledge like RTS (+ RAS for RTD).  Whetstone 20,607,769.
+- Fixture ladder (Whetstone at writes latency 1): P193 21.66M -> P197 20.73M -> P199 20.61M.
+  Hardware needs ~15.25M for parity (1978 KWhet/s).
 
 ## Next
 
