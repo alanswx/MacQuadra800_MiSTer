@@ -465,6 +465,10 @@ source configs/cpu_development.tcl
 # clk 1 +0.271, crossings met (+1.359 / +0.852).  rbf md5 62d1d13b.
 # P195 seed 25 2026-09-23 (aef55e2): STOPPED -- synthesis put the byte-enabled cache data arrays in registers (514,863
 # registers; Quartus did not infer byte enables from slice writes into [31:0] arrays).  P195b splits them into byte lanes.
+# P197 seed 25 2026-09-23 (c4a3522, development profile): STOPPED after 1 h 45 min in quartus_fit with no output after
+# its pre-placement physical synthesis (P188/P193 took 17-26 min for the whole flow); cause not found.  Superseded by P205.
+# P205 seed 25 2026-09-23 (887945b, development profile): 39,109 ALMs (93 %), 504 RAM blocks, routes in ~12 min; CPU clock
+# -1.326 ns, HDMI +0.314, clk_ram +0.514, bridge crossings met (+1.207 / +0.976).  md5 a98eaf296dd7a20819387d15c2387b4b.
 # Posted cross-line cache-store merge, validated on hardware.
 set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_XSTORE=1"
 # Overlap LEA displacement fetch with base selection; checked independently.
