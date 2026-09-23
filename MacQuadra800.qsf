@@ -473,6 +473,8 @@ source configs/cpu_development.tcl
 # P209 seed 25 2026-09-23 (8e4d06e): 39,224 ALMs (94 %), routes with congestion warnings; CPU clock -2.220 ns (debug_busy /
 # ifr_addr -> epf_data), HDMI +0.191, crossings met.  NOT run: carries the P207 read-after-store bug (CMPM/ADDX memory
 # modes lost their An update), fixed with P210-P212.
+# P212 seed 25 2026-09-23 (c214e74): 39,413 ALMs (94 %); CPU clock -1.446 ns (cache tag RAM -> core), HDMI +0.504,
+# clk_ram +0.453, crossings met.  md5 c829f5a0045b7a7d464536227b3e59f0.
 # Posted cross-line cache-store merge, validated on hardware.
 set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_XSTORE=1"
 # Overlap LEA displacement fetch with base selection; checked independently.
