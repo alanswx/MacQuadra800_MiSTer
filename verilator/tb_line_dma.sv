@@ -145,12 +145,18 @@ wire  [2:0] bus_wr_bytes = (bus_size == 2'd0) ? 3'd1 : (bus_size == 2'd1) ? 3'd2
 wire  [2:0] bus_wr_end   = {1'b0, bus_addr[1:0]} + bus_wr_bytes;
 wire [31:0] bus_wr_left  = (bus_size == 2'd0) ? {bus_wdata[7:0], 24'd0} :
                            (bus_size == 2'd1) ? {bus_wdata[15:0], 16'd0} : bus_wdata;
+reg         wr_split_pend;
+reg  [31:2] wr_split_addr;
+reg   [3:0] wr_split_be;
+reg  [31:0] wr_split_data;
+wire        bus_wr_span  = (bus_wr_end > 3'd4);
 wire bus_wr_direct = (DW != 0) && (svc == S_IDLE) && !walker_pend && !cpu_berr &&
-	                 !bus_miss_ack && !bus_line_ack && !bus_adapter_active &&
-	                 !bus_ack_adapter && bus_req && bus_write && (bus_wr_end <= 3'd4) &&
+	                 !bus_miss_ack && !bus_line_ack && !bus_adapter_active && !wr_split_pend &&
+	                 !bus_ack_adapter && bus_req && bus_write &&
+	                 (!bus_wr_span || !((bus_addr[31:2] + 30'd1) >> 29)) &&
 	                 !bus_addr[31] && mem_wq_room;
 
-assign bus_req_adapter = bus_req && !bus_line_match && !bus_line_wait && !bus_wr_direct &&
+assign bus_req_adapter = bus_req && !bus_line_match && !bus_line_wait && !bus_wr_direct && !wr_split_pend &&
 	                     !bus_first_miss && !svc_bus_direct && !bus_miss_ack &&
 	                     (FIX == 0 || !bus_line_ack);
 
@@ -180,6 +186,7 @@ always @(posedge clk) begin
 		b_ack <= 0; b_rdata <= 0; bus_miss_ack <= 0; bus_miss_rdata <= 0;
 		dma_side <= 0; iosb_sel <= 0;
 		mem_wp_valid <= 0; mem_wp_addr <= 0; mem_wp_be <= 0; mem_wp_data <= 0;
+		wr_split_pend <= 0;
 		cpu_berr <= 0; mem_req <= 0; mem_write <= 0; mem_addr <= 0;
 		mem_be <= 0; mem_wdata <= 0;
 	end
@@ -188,6 +195,15 @@ always @(posedge clk) begin
 		bus_miss_ack <= 0;
 		mem_wp_valid <= 0;
 		dma_ack      <= 0;
+		if (wr_split_pend) begin
+			wr_split_pend  <= 0;
+			mem_wp_valid   <= 1;
+			mem_wp_addr    <= wr_split_addr;
+			mem_wp_be      <= wr_split_be;
+			mem_wp_data    <= wr_split_data;
+			bus_miss_ack   <= 1;
+			bus_miss_rdata <= 0;
+		end
 		case (svc)
 		S_IDLE: begin
 			if (dma_take) begin
@@ -217,8 +233,16 @@ always @(posedge clk) begin
 					mem_wp_addr  <= bus_addr[31:2];
 					mem_wp_be    <= (4'b1111 << (3'd4 - bus_wr_bytes)) >> bus_addr[1:0];
 					mem_wp_data  <= bus_wr_left >> {bus_addr[1:0], 3'd0};
-					bus_miss_ack   <= 1;
-					bus_miss_rdata <= 0;
+					if (bus_wr_span) begin
+						wr_split_pend <= 1;
+						wr_split_addr <= bus_addr[31:2] + 30'd1;
+						wr_split_be   <= 4'b1111 << (4'd8 - {1'b0, bus_wr_end});
+						wr_split_data <= bus_wr_left << {3'd4 - {1'b0, bus_addr[1:0]}, 3'd0};
+					end
+					else begin
+						bus_miss_ack   <= 1;
+						bus_miss_rdata <= 0;
+					end
 				end
 				else if (!walker_pend && line_cpu_match) begin
 					b_ack   <= 1;
@@ -431,6 +455,7 @@ task automatic idle(input integer n);
 	end
 endtask
 
+integer spans = 0;
 integer i, r, w;
 reg [31:0] q, a, lfsr;
 
@@ -484,14 +509,23 @@ initial begin
 			for (k = 0; k < 3; k = k + 1) begin
 				lfsr = {lfsr[30:0], lfsr[31] ^ lfsr[21] ^ lfsr[1] ^ lfsr[0]};
 				sz  = lfsr[1:0] == 2'd3 ? 2'd2 : lfsr[1:0];
-				off = sz == 2'd2 ? 2'd0 : sz == 2'd1 ? {lfsr[3], 1'b0} : lfsr[3:2];
+				// P214: any offset -- a word at 3 and a long at 1..3 span
+				// two longwords (the second push)
+				off = lfsr[3:2];
 				v   = lfsr ^ 32'h0F0F_1234;
 				bus_size = sz;
-				cur = shadow[(a >> 2) + k];
-				m   = sz == 2'd2 ? 32'hFFFF_FFFF :
-				      sz == 2'd1 ? (32'hFFFF_0000 >> {off, 3'd0}) : (32'hFF00_0000 >> {off, 3'd0});
-				shadow[(a >> 2) + k] = (cur & ~m) |
-				      ((sz == 2'd2 ? v : sz == 2'd1 ? {v[15:0], 16'd0} >> {off, 3'd0} : {v[7:0], 24'd0} >> {off, 3'd0}) & m);
+				begin : span_shadow
+					reg [63:0] cur2, m2, d2;
+					cur2 = {shadow[(a >> 2) + k], shadow[(a >> 2) + k + 1]};
+					m2   = (sz == 2'd2 ? 64'hFFFF_FFFF_0000_0000 :
+					        sz == 2'd1 ? 64'hFFFF_0000_0000_0000 : 64'hFF00_0000_0000_0000) >> {off, 3'd0};
+					d2   = (sz == 2'd2 ? {v, 32'd0} :
+					        sz == 2'd1 ? {v[15:0], 48'd0} : {v[7:0], 56'd0}) >> {off, 3'd0};
+					cur2 = (cur2 & ~m2) | (d2 & m2);
+					shadow[(a >> 2) + k] = cur2[63:32];
+					shadow[(a >> 2) + k + 1] = cur2[31:0];
+					if (m2[31:0] != 0) spans = spans + 1;
+				end
 				xact(1, a + (k << 2) + off, v, q);
 				writes = writes + 1;
 			end
@@ -545,7 +579,7 @@ initial begin
 	$display("tb_line_dma: line ack with FSM busy %0d, adapter request under a line ack %0d", ack_in_mem, under_ack);
 	$display("tb_line_dma: %0d reads, %0d stores, %0d line acks, %0d DMA beats, %0d errors",
 	         reads, writes, line_acks, dma_beats, errors);
-	$display("tb_line_dma: %0d direct pushes", pushes);
+	$display("tb_line_dma: %0d direct pushes, %0d spanning stores", pushes, spans);
 	if (errors == 0) $display("tb_line_dma: PASS");
 	else             $display("tb_line_dma: FAIL");
 	$finish;
