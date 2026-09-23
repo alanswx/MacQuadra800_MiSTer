@@ -86,12 +86,42 @@ check `scratch/<tag>_fit_*/cross.log` (the bridge crossings), not only the .sta 
 - Fixture ladder (Whetstone at writes latency 1): P193 21.66M -> P197 20.73M -> P199 20.61M.
   Hardware needs ~15.25M for parity (1978 KWhet/s).
 
+## Afternoon of 09-23: P198-P212, P205 on hardware 1.703
+
+- Hardware ladder continued: **P205 (`887945b`, seed 25, dev) Mix 1.703** (Whetstone 1495, Dhrystone 20,185,
+  Towers 0.507, Quick 0.506, Permutations 0.757; Bubble/Queens/Puzzle/Matrix/Sieve flat).  Per-test ratios
+  against the real machine sum to 17.03; 1.9 needs +1.94 (Whetstone at parity alone is +1.64).
+- P197's fit stalled in the fitter for 1 h 45 min (stopped); P205's routed in 12 min.  P209's fit: -2.220 ns
+  (congestion at 94 % ALMs) and it carries a P207 bug -- never run.  P212 (`c214e74`) fitting at hand-off.
+- The glue calls: Whetstone spends 6.3M of its clocks in the ROM's SANE-to-FPU glue (FADD/FMUL wrappers at
+  $408EAA4C/$408EAD30).  `docs/P198_P205_CALL_RETURN_FPU_20260923.md` has the per-clock trace and changes.
+- P206-P212 (commit messages have the detail): FPU EXEC/SHR skips, read-after-store for (An)+/-(An) (P207,
+  fixed in c214e74: the source mode must come from the decode record, not ir[5:3]), FPU dispatch on done,
+  forwarded pipe source hint (P209: costs the hint path), fast-ready in a posted store's C_PASS, fetch floor 4,
+  conditional Bcc.W dispatched from retire (Queens -5.7 %).
+- Fixture ladder (Whetstone, writes latency 1): P199 20.61M -> P205 19.17M -> P209 18.35M -> P212 18.05M.
+- **The fixture over-predicts hardware.**  P193 -> P205 is 1.130x in the fixture at `+wlatency=1`, 1.061x at 3,
+  1.040x at 5; hardware gave 1.078x.  An 8-deep store buffer is worth -3.4 % at wlatency 3 and nothing at 1.
+  An Opus agent is building a platform-accurate Whetstone fixture (`scratch/platform_fixture/`: wombat_cpu
+  against quadra800's real memory path, sdram_beat32, sdram.sv and the SDRAM chip model at 33/99 MHz) to find
+  what the real store path costs.
+- Checks for every CPU change (all in `scratch/p198_ret`, which tracks HEAD's RTL):
+  `scripts/cpu/speedometer_suite.sh`, `rtl/ap68040/tb/run_tests.sh` (VASM=...wombat-vasm/vasmm68k_mot; it
+  caught the P207 bug the fixtures missed), `run_dhrystone.py`, `profile_permute.py --pipeline --loads --stores
+  --pea --xstore --lea --latencies 0`, `profile_queens.py --compare --early-drain` (without those two flags the
+  numbers are 17 % off), Whetstone `run_whetstone_wl.py ... --bench tb_w2.sv` with `EXTRA_PLUSARGS=+wlatency=1`:
+  tb_w2 prints `MEMSUM`, a hash of the whole RAM at the end -- it must stay `5892d5df133547e0` (Whetstone has no
+  numerical oracle; FPU changes are checked by it).  `run_whet_tree.py` takes `TREE=` for other trees.
+- Full-machine boot sims (Finder by frame 5400, 0 exceptions): P197, P205.  P212's running
+  (`scratch/sim_p212`).
+
 ## Next
 
-1. Measure P197 on hardware (fit `q800-p197-fit-20260923`), then land/fit P198+P199 from scratch `p198_ret`.
-2. Whetstone (fixture 20.61M, needs ~15.25M): memory states ~35 %, S_DECODE ~8 % (the first
-   instruction after every redirect -- LINK after JSR -- still decodes), S_FETCH ~7 % (the single cache
-   port: fetch vs data; a Harvard split of the instruction side is the structural fix), FPU ~13 %.
-3. The general "memory states are not states" pipelining: P182/P196/P198 are instances (a predicted
-   acknowledge, the next request's hint in it, the cache's `c_hint_away` rules as the safety net).
+1. P212 fit -> hardware (Opus agent, P205's prompt with P212's identity); if the CPU clock is much past -1.7 ns
+   try seeds (record each in the .qsf).
+2. The platform fixture's verdict on the store path (store buffer depth, bridge FIFO, SDRAM row behaviour).
+3. Remaining CPU items: LINK at a JSR target decodes after the push acknowledge (go_pc's resident dispatch
+   bypasses the record dispatch; ~2 % of Permutations); RTD after UNLK (82k Whetstone decodes); `move.l
+   #imm,d16(An)` right after a redirect (queue starvation); the FPU's NORM2/ROUND/WB latency before a dependent
+   FMOVE; a Harvard split of the instruction port (fetches still share the one request port).
 4. Area, after 1.9.
