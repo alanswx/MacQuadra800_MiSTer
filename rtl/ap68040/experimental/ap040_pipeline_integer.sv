@@ -345,7 +345,7 @@ module ap040_pipeline_integer #(
         .raddr_a(ex_src), .raddr_b(read_dst),
         .rdata_a(rf_a), .rdata_b(rf_b),
         .raddr_c(4'd0), .rdata_c(), .raddr_d(4'd0), .rdata_d(),
-        .raddr_e(ex_dst), .rdata_e(rf_old_dst),
+        .raddr_e(ex_dst), .rdata_e(rf_old_dst), .raddr_f(4'd0), .rdata_f(),
         .aux_we(1'b0), .aux_sel(2'd0), .aux_wdata(32'd0),
         .usp_q(), .isp_q(), .msp_q(), .dbg_d0(), .dbg_d1(), .dbg_d2(), .dbg_a0(), .dbg_a7(rf_sp)
     );

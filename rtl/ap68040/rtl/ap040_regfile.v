@@ -42,6 +42,10 @@ module ap040_regfile #(parameter EXTRA_READS = 0)
     output     [31:0] rdata_d,
     input       [3:0] raddr_e,
     output     [31:0] rdata_e,
+    // P196: the queue head's EA register, read every clock (retire-time
+    // source reads); only with EXTRA_READS
+    input       [3:0] raddr_f,
+    output     [31:0] rdata_f,
 
 	// direct stack pointer access for MOVEC/MOVE USP, independent of the
 	// currently active bank (never asserted together with the main write)
@@ -145,6 +149,15 @@ end else begin : no_extra_reads
     assign rdata_c = 32'd0;
     assign rdata_d = 32'd0;
 end endgenerate
+
+// P196: port F, the core's lookahead of the queue head's EA register --
+// present in every configuration (not an EXTRA_READS port)
+(* ramstyle = "MLAB, no_rw_check" *) reg [31:0] bank_f [0:15];
+wire hit_f = pend_we && pend_waddr == raddr_f;
+wire [31:0] q_f = hit_f ? pend_wdata : (rf_written[raddr_f] ? bank_f[raddr_f] : 32'd0);
+assign rdata_f = (raddr_f == 4'd15) ? sp_active : q_f;
+always @(posedge clk)
+    if (nreset && ce && pend_we) bank_f[pend_waddr] <= pend_wdata;
 
 integer i;
 always @(posedge clk) begin

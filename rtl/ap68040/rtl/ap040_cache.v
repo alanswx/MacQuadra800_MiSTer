@@ -148,10 +148,22 @@ localparam ROWW = 2 + 4 + 4*TAGW;
 // one) addresses array k at way (k - w) mod 4; a line-wise read of one way
 // addresses every array at that way and returns the whole 16-byte line in a
 // single cycle.  Same total bits as the plain per-way layout.
-(* ramstyle = "no_rw_check" *) reg [31:0] cdata0 [0:(1<<DIDXW)-1];
-(* ramstyle = "no_rw_check" *) reg [31:0] cdata1 [0:(1<<DIDXW)-1];
-(* ramstyle = "no_rw_check" *) reg [31:0] cdata2 [0:(1<<DIDXW)-1];
-(* ramstyle = "no_rw_check" *) reg [31:0] cdata3 [0:(1<<DIDXW)-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] cdata0_b3 [0:(1<<DIDXW)-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] cdata0_b2 [0:(1<<DIDXW)-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] cdata0_b1 [0:(1<<DIDXW)-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] cdata0_b0 [0:(1<<DIDXW)-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] cdata1_b3 [0:(1<<DIDXW)-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] cdata1_b2 [0:(1<<DIDXW)-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] cdata1_b1 [0:(1<<DIDXW)-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] cdata1_b0 [0:(1<<DIDXW)-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] cdata2_b3 [0:(1<<DIDXW)-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] cdata2_b2 [0:(1<<DIDXW)-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] cdata2_b1 [0:(1<<DIDXW)-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] cdata2_b0 [0:(1<<DIDXW)-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] cdata3_b3 [0:(1<<DIDXW)-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] cdata3_b2 [0:(1<<DIDXW)-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] cdata3_b1 [0:(1<<DIDXW)-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] cdata3_b0 [0:(1<<DIDXW)-1];
 
 // Mirrored data banks read the NEXT word of all four ways on every idle
 // read (P170, from P136 without its live-request look paths): a longword
@@ -160,13 +172,25 @@ localparam ROWW = 2 + 4 + 4*TAGW;
 // one.  Speedometer's Pascal pushes word arguments, so every callee's stack
 // longwords sit at 2 mod 4 and took the registered path (MOVEM 45k, RTS 12k,
 // UNLK 16k acknowledges per Permute(7)).
-(* ramstyle = "no_rw_check" *) reg [31:0] pairdata0 [0:(1<<(DIDXW-1))-1];   // data rows only (P175b)
+(* ramstyle = "no_rw_check" *) reg [7:0] pairdata0_b3 [0:(1<<(DIDXW-1))-1];   // data rows only (P175b)
+(* ramstyle = "no_rw_check" *) reg [7:0] pairdata0_b2 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] pairdata0_b1 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] pairdata0_b0 [0:(1<<(DIDXW-1))-1];
 reg [31:0] pair_q0;
-(* ramstyle = "no_rw_check" *) reg [31:0] pairdata1 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] pairdata1_b3 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] pairdata1_b2 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] pairdata1_b1 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] pairdata1_b0 [0:(1<<(DIDXW-1))-1];
 reg [31:0] pair_q1;
-(* ramstyle = "no_rw_check" *) reg [31:0] pairdata2 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] pairdata2_b3 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] pairdata2_b2 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] pairdata2_b1 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] pairdata2_b0 [0:(1<<(DIDXW-1))-1];
 reg [31:0] pair_q2;
-(* ramstyle = "no_rw_check" *) reg [31:0] pairdata3 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] pairdata3_b3 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] pairdata3_b2 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] pairdata3_b1 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] pairdata3_b0 [0:(1<<(DIDXW-1))-1];
 reg [31:0] pair_q3;
 
 wire [ROWW-1:0] tag_q;
@@ -189,10 +213,22 @@ wire  [1:0] xi_w = c_ihint_addr[3:2];
 // bit): a full-depth mirror is 28 M10K and took the device over its RAM
 // budget, at which point Quartus quietly turned the framework's OSD and
 // palette buffers into 80,000 registers (P175b, first fit).
-(* ramstyle = "no_rw_check" *) reg [31:0] idata0 [0:(1<<(DIDXW-1))-1];
-(* ramstyle = "no_rw_check" *) reg [31:0] idata1 [0:(1<<(DIDXW-1))-1];
-(* ramstyle = "no_rw_check" *) reg [31:0] idata2 [0:(1<<(DIDXW-1))-1];
-(* ramstyle = "no_rw_check" *) reg [31:0] idata3 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] idata0_b3 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] idata0_b2 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] idata0_b1 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] idata0_b0 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] idata1_b3 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] idata1_b2 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] idata1_b1 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] idata1_b0 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] idata2_b3 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] idata2_b2 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] idata2_b1 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] idata2_b0 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] idata3_b3 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] idata3_b2 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] idata3_b1 [0:(1<<(DIDXW-1))-1];
+(* ramstyle = "no_rw_check" *) reg [7:0] idata3_b0 [0:(1<<(DIDXW-1))-1];
 reg [31:0] idata_q0, idata_q1, idata_q2, idata_q3;
 reg  [31:0] data_q0, data_q1, data_q2, data_q3;
 
@@ -245,68 +281,68 @@ dpram #(ROWIW, ROWW) ctag_ram_i
 // read is skipped in that clock (the offer feeds the queue next).
 always @(posedge clk) begin
 	if (ce & cd_we[0] & cd_widx[DIDXW-1]) begin
-		if (cd_be0[3]) idata0[cd_widx[DIDXW-2:0]][31:24] <= cd_wdat0[31:24];
-		if (cd_be0[2]) idata0[cd_widx[DIDXW-2:0]][23:16] <= cd_wdat0[23:16];
-		if (cd_be0[1]) idata0[cd_widx[DIDXW-2:0]][15:8]  <= cd_wdat0[15:8];
-		if (cd_be0[0]) idata0[cd_widx[DIDXW-2:0]][7:0]   <= cd_wdat0[7:0];
+		if (cd_be0[3]) idata0_b3[cd_widx[DIDXW-2:0]] <= cd_wdat0[31:24];
+		if (cd_be0[2]) idata0_b2[cd_widx[DIDXW-2:0]] <= cd_wdat0[23:16];
+		if (cd_be0[1]) idata0_b1[cd_widx[DIDXW-2:0]]  <= cd_wdat0[15:8];
+		if (cd_be0[0]) idata0_b0[cd_widx[DIDXW-2:0]]   <= cd_wdat0[7:0];
 	end
 	if (ce & cd_we[1] & cd_widx[DIDXW-1]) begin
-		if (cd_be1[3]) idata1[cd_widx[DIDXW-2:0]][31:24] <= cd_wdat1[31:24];
-		if (cd_be1[2]) idata1[cd_widx[DIDXW-2:0]][23:16] <= cd_wdat1[23:16];
-		if (cd_be1[1]) idata1[cd_widx[DIDXW-2:0]][15:8]  <= cd_wdat1[15:8];
-		if (cd_be1[0]) idata1[cd_widx[DIDXW-2:0]][7:0]   <= cd_wdat1[7:0];
+		if (cd_be1[3]) idata1_b3[cd_widx[DIDXW-2:0]] <= cd_wdat1[31:24];
+		if (cd_be1[2]) idata1_b2[cd_widx[DIDXW-2:0]] <= cd_wdat1[23:16];
+		if (cd_be1[1]) idata1_b1[cd_widx[DIDXW-2:0]]  <= cd_wdat1[15:8];
+		if (cd_be1[0]) idata1_b0[cd_widx[DIDXW-2:0]]   <= cd_wdat1[7:0];
 	end
 	if (ce & cd_we[2] & cd_widx[DIDXW-1]) begin
-		if (cd_be2[3]) idata2[cd_widx[DIDXW-2:0]][31:24] <= cd_wdat2[31:24];
-		if (cd_be2[2]) idata2[cd_widx[DIDXW-2:0]][23:16] <= cd_wdat2[23:16];
-		if (cd_be2[1]) idata2[cd_widx[DIDXW-2:0]][15:8]  <= cd_wdat2[15:8];
-		if (cd_be2[0]) idata2[cd_widx[DIDXW-2:0]][7:0]   <= cd_wdat2[7:0];
+		if (cd_be2[3]) idata2_b3[cd_widx[DIDXW-2:0]] <= cd_wdat2[31:24];
+		if (cd_be2[2]) idata2_b2[cd_widx[DIDXW-2:0]] <= cd_wdat2[23:16];
+		if (cd_be2[1]) idata2_b1[cd_widx[DIDXW-2:0]]  <= cd_wdat2[15:8];
+		if (cd_be2[0]) idata2_b0[cd_widx[DIDXW-2:0]]   <= cd_wdat2[7:0];
 	end
 	if (ce & cd_we[3] & cd_widx[DIDXW-1]) begin
-		if (cd_be3[3]) idata3[cd_widx[DIDXW-2:0]][31:24] <= cd_wdat3[31:24];
-		if (cd_be3[2]) idata3[cd_widx[DIDXW-2:0]][23:16] <= cd_wdat3[23:16];
-		if (cd_be3[1]) idata3[cd_widx[DIDXW-2:0]][15:8]  <= cd_wdat3[15:8];
-		if (cd_be3[0]) idata3[cd_widx[DIDXW-2:0]][7:0]   <= cd_wdat3[7:0];
+		if (cd_be3[3]) idata3_b3[cd_widx[DIDXW-2:0]] <= cd_wdat3[31:24];
+		if (cd_be3[2]) idata3_b2[cd_widx[DIDXW-2:0]] <= cd_wdat3[23:16];
+		if (cd_be3[1]) idata3_b1[cd_widx[DIDXW-2:0]]  <= cd_wdat3[15:8];
+		if (cd_be3[0]) idata3_b0[cd_widx[DIDXW-2:0]]   <= cd_wdat3[7:0];
 	end
 	if (ce) begin
-		idata_q0 <= idata0[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd0 - xi_w}];
-		idata_q1 <= idata1[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd1 - xi_w}];
-		idata_q2 <= idata2[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd2 - xi_w}];
-		idata_q3 <= idata3[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd3 - xi_w}];
+		idata_q0 <= {idata0_b3[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd0 - xi_w}], idata0_b2[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd0 - xi_w}], idata0_b1[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd0 - xi_w}], idata0_b0[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd0 - xi_w}]};
+		idata_q1 <= {idata1_b3[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd1 - xi_w}], idata1_b2[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd1 - xi_w}], idata1_b1[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd1 - xi_w}], idata1_b0[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd1 - xi_w}]};
+		idata_q2 <= {idata2_b3[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd2 - xi_w}], idata2_b2[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd2 - xi_w}], idata2_b1[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd2 - xi_w}], idata2_b0[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd2 - xi_w}]};
+		idata_q3 <= {idata3_b3[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd3 - xi_w}], idata3_b2[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd3 - xi_w}], idata3_b1[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd3 - xi_w}], idata3_b0[fast_ihit ? {hqi_lo[SETW+3:4], hint_way} : {xi_set, 2'd3 - xi_w}]};
 	end
 end
 
 wire  [DIDXW-1:0] cd_ridx0, cd_ridx1, cd_ridx2, cd_ridx3;
 always @(posedge clk) begin
 	if (ce & cd_we[0]) begin
-		if (cd_be0[3]) cdata0[cd_widx][31:24] <= cd_wdat0[31:24];
-		if (cd_be0[2]) cdata0[cd_widx][23:16] <= cd_wdat0[23:16];
-		if (cd_be0[1]) cdata0[cd_widx][15:8]  <= cd_wdat0[15:8];
-		if (cd_be0[0]) cdata0[cd_widx][7:0]   <= cd_wdat0[7:0];
+		if (cd_be0[3]) cdata0_b3[cd_widx] <= cd_wdat0[31:24];
+		if (cd_be0[2]) cdata0_b2[cd_widx] <= cd_wdat0[23:16];
+		if (cd_be0[1]) cdata0_b1[cd_widx]  <= cd_wdat0[15:8];
+		if (cd_be0[0]) cdata0_b0[cd_widx]   <= cd_wdat0[7:0];
 	end
 	if (ce & cd_we[1]) begin
-		if (cd_be1[3]) cdata1[cd_widx][31:24] <= cd_wdat1[31:24];
-		if (cd_be1[2]) cdata1[cd_widx][23:16] <= cd_wdat1[23:16];
-		if (cd_be1[1]) cdata1[cd_widx][15:8]  <= cd_wdat1[15:8];
-		if (cd_be1[0]) cdata1[cd_widx][7:0]   <= cd_wdat1[7:0];
+		if (cd_be1[3]) cdata1_b3[cd_widx] <= cd_wdat1[31:24];
+		if (cd_be1[2]) cdata1_b2[cd_widx] <= cd_wdat1[23:16];
+		if (cd_be1[1]) cdata1_b1[cd_widx]  <= cd_wdat1[15:8];
+		if (cd_be1[0]) cdata1_b0[cd_widx]   <= cd_wdat1[7:0];
 	end
 	if (ce & cd_we[2]) begin
-		if (cd_be2[3]) cdata2[cd_widx][31:24] <= cd_wdat2[31:24];
-		if (cd_be2[2]) cdata2[cd_widx][23:16] <= cd_wdat2[23:16];
-		if (cd_be2[1]) cdata2[cd_widx][15:8]  <= cd_wdat2[15:8];
-		if (cd_be2[0]) cdata2[cd_widx][7:0]   <= cd_wdat2[7:0];
+		if (cd_be2[3]) cdata2_b3[cd_widx] <= cd_wdat2[31:24];
+		if (cd_be2[2]) cdata2_b2[cd_widx] <= cd_wdat2[23:16];
+		if (cd_be2[1]) cdata2_b1[cd_widx]  <= cd_wdat2[15:8];
+		if (cd_be2[0]) cdata2_b0[cd_widx]   <= cd_wdat2[7:0];
 	end
 	if (ce & cd_we[3]) begin
-		if (cd_be3[3]) cdata3[cd_widx][31:24] <= cd_wdat3[31:24];
-		if (cd_be3[2]) cdata3[cd_widx][23:16] <= cd_wdat3[23:16];
-		if (cd_be3[1]) cdata3[cd_widx][15:8]  <= cd_wdat3[15:8];
-		if (cd_be3[0]) cdata3[cd_widx][7:0]   <= cd_wdat3[7:0];
+		if (cd_be3[3]) cdata3_b3[cd_widx] <= cd_wdat3[31:24];
+		if (cd_be3[2]) cdata3_b2[cd_widx] <= cd_wdat3[23:16];
+		if (cd_be3[1]) cdata3_b1[cd_widx]  <= cd_wdat3[15:8];
+		if (cd_be3[0]) cdata3_b0[cd_widx]   <= cd_wdat3[7:0];
 	end
 	if (ce & cd_rd_en) begin
-		data_q0 <= cdata0[cd_ridx0];
-		data_q1 <= cdata1[cd_ridx1];
-		data_q2 <= cdata2[cd_ridx2];
-		data_q3 <= cdata3[cd_ridx3];
+		data_q0 <= {cdata0_b3[cd_ridx0], cdata0_b2[cd_ridx0], cdata0_b1[cd_ridx0], cdata0_b0[cd_ridx0]};
+		data_q1 <= {cdata1_b3[cd_ridx1], cdata1_b2[cd_ridx1], cdata1_b1[cd_ridx1], cdata1_b0[cd_ridx1]};
+		data_q2 <= {cdata2_b3[cd_ridx2], cdata2_b2[cd_ridx2], cdata2_b1[cd_ridx2], cdata2_b0[cd_ridx2]};
+		data_q3 <= {cdata3_b3[cd_ridx3], cdata3_b2[cd_ridx3], cdata3_b1[cd_ridx3], cdata3_b0[cd_ridx3]};
 	end
 end
 
@@ -697,34 +733,34 @@ wire [1:0] pair_read_word = x_w + 2'd1;
 wire [SETW:0] pair_row = (x_w == 2'd3 && !x_instr) ? x_rowp1 : x_row;   // P178
 always @(posedge clk) begin
     if (ce & cd_we[0] & !cd_widx[DIDXW-1]) begin
-		if (cd_be0[3]) pairdata0[cd_widx[DIDXW-2:0]][31:24] <= cd_wdat0[31:24];
-		if (cd_be0[2]) pairdata0[cd_widx[DIDXW-2:0]][23:16] <= cd_wdat0[23:16];
-		if (cd_be0[1]) pairdata0[cd_widx[DIDXW-2:0]][15:8]  <= cd_wdat0[15:8];
-		if (cd_be0[0]) pairdata0[cd_widx[DIDXW-2:0]][7:0]   <= cd_wdat0[7:0];
+		if (cd_be0[3]) pairdata0_b3[cd_widx[DIDXW-2:0]] <= cd_wdat0[31:24];
+		if (cd_be0[2]) pairdata0_b2[cd_widx[DIDXW-2:0]] <= cd_wdat0[23:16];
+		if (cd_be0[1]) pairdata0_b1[cd_widx[DIDXW-2:0]]  <= cd_wdat0[15:8];
+		if (cd_be0[0]) pairdata0_b0[cd_widx[DIDXW-2:0]]   <= cd_wdat0[7:0];
 	end
     if (ce & cd_we[1] & !cd_widx[DIDXW-1]) begin
-		if (cd_be1[3]) pairdata1[cd_widx[DIDXW-2:0]][31:24] <= cd_wdat1[31:24];
-		if (cd_be1[2]) pairdata1[cd_widx[DIDXW-2:0]][23:16] <= cd_wdat1[23:16];
-		if (cd_be1[1]) pairdata1[cd_widx[DIDXW-2:0]][15:8]  <= cd_wdat1[15:8];
-		if (cd_be1[0]) pairdata1[cd_widx[DIDXW-2:0]][7:0]   <= cd_wdat1[7:0];
+		if (cd_be1[3]) pairdata1_b3[cd_widx[DIDXW-2:0]] <= cd_wdat1[31:24];
+		if (cd_be1[2]) pairdata1_b2[cd_widx[DIDXW-2:0]] <= cd_wdat1[23:16];
+		if (cd_be1[1]) pairdata1_b1[cd_widx[DIDXW-2:0]]  <= cd_wdat1[15:8];
+		if (cd_be1[0]) pairdata1_b0[cd_widx[DIDXW-2:0]]   <= cd_wdat1[7:0];
 	end
     if (ce & cd_we[2] & !cd_widx[DIDXW-1]) begin
-		if (cd_be2[3]) pairdata2[cd_widx[DIDXW-2:0]][31:24] <= cd_wdat2[31:24];
-		if (cd_be2[2]) pairdata2[cd_widx[DIDXW-2:0]][23:16] <= cd_wdat2[23:16];
-		if (cd_be2[1]) pairdata2[cd_widx[DIDXW-2:0]][15:8]  <= cd_wdat2[15:8];
-		if (cd_be2[0]) pairdata2[cd_widx[DIDXW-2:0]][7:0]   <= cd_wdat2[7:0];
+		if (cd_be2[3]) pairdata2_b3[cd_widx[DIDXW-2:0]] <= cd_wdat2[31:24];
+		if (cd_be2[2]) pairdata2_b2[cd_widx[DIDXW-2:0]] <= cd_wdat2[23:16];
+		if (cd_be2[1]) pairdata2_b1[cd_widx[DIDXW-2:0]]  <= cd_wdat2[15:8];
+		if (cd_be2[0]) pairdata2_b0[cd_widx[DIDXW-2:0]]   <= cd_wdat2[7:0];
 	end
     if (ce & cd_we[3] & !cd_widx[DIDXW-1]) begin
-		if (cd_be3[3]) pairdata3[cd_widx[DIDXW-2:0]][31:24] <= cd_wdat3[31:24];
-		if (cd_be3[2]) pairdata3[cd_widx[DIDXW-2:0]][23:16] <= cd_wdat3[23:16];
-		if (cd_be3[1]) pairdata3[cd_widx[DIDXW-2:0]][15:8]  <= cd_wdat3[15:8];
-		if (cd_be3[0]) pairdata3[cd_widx[DIDXW-2:0]][7:0]   <= cd_wdat3[7:0];
+		if (cd_be3[3]) pairdata3_b3[cd_widx[DIDXW-2:0]] <= cd_wdat3[31:24];
+		if (cd_be3[2]) pairdata3_b2[cd_widx[DIDXW-2:0]] <= cd_wdat3[23:16];
+		if (cd_be3[1]) pairdata3_b1[cd_widx[DIDXW-2:0]]  <= cd_wdat3[15:8];
+		if (cd_be3[0]) pairdata3_b0[cd_widx[DIDXW-2:0]]   <= cd_wdat3[7:0];
 	end
     if (ce & cd_rd_en) begin
-        pair_q0 <= pairdata0[{pair_row[SETW-1:0], 2'd0 - pair_read_word}];
-        pair_q1 <= pairdata1[{pair_row[SETW-1:0], 2'd1 - pair_read_word}];
-        pair_q2 <= pairdata2[{pair_row[SETW-1:0], 2'd2 - pair_read_word}];
-        pair_q3 <= pairdata3[{pair_row[SETW-1:0], 2'd3 - pair_read_word}];
+        pair_q0 <= {pairdata0_b3[{pair_row[SETW-1:0], 2'd0 - pair_read_word}], pairdata0_b2[{pair_row[SETW-1:0], 2'd0 - pair_read_word}], pairdata0_b1[{pair_row[SETW-1:0], 2'd0 - pair_read_word}], pairdata0_b0[{pair_row[SETW-1:0], 2'd0 - pair_read_word}]};
+        pair_q1 <= {pairdata1_b3[{pair_row[SETW-1:0], 2'd1 - pair_read_word}], pairdata1_b2[{pair_row[SETW-1:0], 2'd1 - pair_read_word}], pairdata1_b1[{pair_row[SETW-1:0], 2'd1 - pair_read_word}], pairdata1_b0[{pair_row[SETW-1:0], 2'd1 - pair_read_word}]};
+        pair_q2 <= {pairdata2_b3[{pair_row[SETW-1:0], 2'd2 - pair_read_word}], pairdata2_b2[{pair_row[SETW-1:0], 2'd2 - pair_read_word}], pairdata2_b1[{pair_row[SETW-1:0], 2'd2 - pair_read_word}], pairdata2_b0[{pair_row[SETW-1:0], 2'd2 - pair_read_word}]};
+        pair_q3 <= {pairdata3_b3[{pair_row[SETW-1:0], 2'd3 - pair_read_word}], pairdata3_b2[{pair_row[SETW-1:0], 2'd3 - pair_read_word}], pairdata3_b1[{pair_row[SETW-1:0], 2'd3 - pair_read_word}], pairdata3_b0[{pair_row[SETW-1:0], 2'd3 - pair_read_word}]};
         pair_idle_valid <= 1'b1;
     end
 end
@@ -744,7 +780,7 @@ assign c_posting   = post_active;
 assign m_posted    = post_active;   // P195: a spanning store no longer reads its line first
 assign c_line_tag  = iline_tag;
 assign c_line_data = iline_data;
-assign c_rdata = pass_active ? m_rdata : fast_pair_idle ? hint_pair_data : fast_xline_idle ? hint_xline_data : fast_span_ack ? span_extract({sp_w0, sp_w1}, r_size, r_off) : (fast_hit ? fast_data : fast_ihit ? fast_idata : rdata_r);
+assign c_rdata = (pass_active && !post_active) ? m_rdata : fast_pair_idle ? hint_pair_data : fast_xline_idle ? hint_xline_data : fast_span_ack ? span_extract({sp_w0, sp_w1}, r_size, r_off) : (fast_hit ? fast_data : fast_ihit ? fast_idata : rdata_r);
 
 assign rd_accept = (cst == C_IDLE) && !(cinv_req && !cinv_done) &&
                    c_req && !ack_r && !c_write && !bypass &&
@@ -759,6 +795,9 @@ assign rd_accept = (cst == C_IDLE) && !(cinv_req && !cinv_done) &&
 wire xlook_read = (cst == C_LOOK) && r_xline && !xlook && look_hit &&
                   !look_snooped && !snoop_look_row && !inv_wren;
 assign tag_ridx  = (fill_active || (cst == C_TAGW) || post_active || cross_lookup || cross_second) ? r_row :
+                   // P196: a store accepted while the core hints its next access
+                   // looks its tag up at its own row
+                   (c_hint_away && c_write) ? a_row :
                    idle_xline_hit ? {1'b0, a_set + {{(SETW-1){1'b0}},1'b1}} :
                    xlook_read ? {1'b0, r_setB} : x_row;
 wire [4*TAGW-1:0] tags_next = (r_way == 2'd0) ? {tag_q[4*TAGW-1:TAGW], r_tag} :
@@ -1015,7 +1054,26 @@ wire [31:0] hint_data_hit = (hint_word0 & {32{hh0}}) |
     (hint_word2 & {32{!hh0 && !hh1 && hh2}}) |
     (hint_word3 & {32{!hh0 && !hh1 && !hh2}});
 // idle_hit without look_hit (the live translation's tag compare)
-assign fast_hit  = fast_accept && !err_hold && !m_err && fast_lane &&
+// P196: a data read may also hit in its request cycle while a posted store
+// finishes in C_PASS -- its row differing from the store's (whose RAM write
+// may land this clock), the store not line-crossing (the second line is
+// written after C_PASS), no invalidate owed.
+// The store writes only its own bytes (P195), so the read's idle-read data
+// stays right unless a word it takes is one the store writes: the store's
+// word (and the next, spanning) against the read's word (and the next, for
+// the pair and cross-line hits; the cross-line one's second word is word 0
+// of the next row).
+wire [SETW+1:0] pp_sw0 = {r_row[SETW-1:0], r_addr[3:2]};
+wire [SETW+1:0] pp_sw1 = pp_sw0 + {{SETW{1'b0}}, 2'd1};
+wire [SETW+1:0] pp_rw0 = hq_lo[SETW+3:2];
+wire [SETW+1:0] pp_rw1 = pp_rw0 + {{SETW{1'b0}}, 2'd1};
+wire        pp_clash = (pp_rw0 == pp_sw0) || (r_span2 && (pp_rw0 == pp_sw1)) ||
+                       (pp_rw1 == pp_sw0) || (r_span2 && (pp_rw1 == pp_sw1));
+wire        fast_accept_pp = (cst == C_PASS) && post_active && !cross_store && !pass_ci_chk &&
+                             !winv_pend && !ci_inv_pend && !store_inv_lost &&
+                             !(cinv_req && !cinv_done) && !ack_r && !c_write && !c_instr && de &&
+                             !pp_clash;
+assign fast_hit  = (fast_accept || fast_accept_pp) && !err_hold && !m_err && fast_lane &&
                    idle_data_valid && hint_tag_valid &&
                    (idle_data_idx == {1'b0, hq_lo[SETW+3:2]}) &&
                    (hint_tag_idx == {1'b0, hq_lo[SETW+3:4]}) && hint_look_hit &&
@@ -1071,7 +1129,7 @@ wire [31:0] fast_idata = lw_extract(ihint_data_hit, c_size, hqi_lo[1:0]);
 wire hint_pair_lane = hq_lo[3:2] != 3 &&
     ((c_size == `AP040_SZ_L && hq_lo[1:0] != 0) ||
      (c_size == `AP040_SZ_W && hq_lo[1:0] == 3));
-wire fast_pair_idle = fast_accept && !err_hold && !m_err && hint_pair_lane &&
+wire fast_pair_idle = (fast_accept || fast_accept_pp) && !err_hold && !m_err && hint_pair_lane &&
                    idle_data_valid && pair_idle_valid && hint_tag_valid &&
                    (idle_data_idx == {1'b0, hq_lo[SETW+3:2]}) &&
                    (hint_tag_idx == {1'b0, hq_lo[SETW+3:4]}) && hint_look_hit &&
@@ -1117,7 +1175,7 @@ wire [SETW-1:0] hq_setp1 = hq_lo[SETW+3:4] + {{(SETW-1){1'b0}}, 1'b1};
 wire hint_xline_lane = hq_lo[3:2] == 2'd3 && !(&hq_lo[SETW+3:4]) &&
     ((c_size == `AP040_SZ_L && hq_lo[1:0] != 0) ||
      (c_size == `AP040_SZ_W && hq_lo[1:0] == 3));
-wire fast_xline_idle = fast_accept && !err_hold && !m_err && hint_xline_lane &&
+wire fast_xline_idle = (fast_accept || fast_accept_pp) && !err_hold && !m_err && hint_xline_lane &&
                    idle_next_valid && pair_idle_valid && hint_tag_valid && xhint_tag_valid &&
                    (idle_data_idx == {1'b0, hq_lo[SETW+3:2]}) &&
                    (hint_tag_idx == {1'b0, hq_lo[SETW+3:4]}) && hint_look_hit &&

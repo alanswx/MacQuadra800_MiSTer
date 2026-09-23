@@ -7,10 +7,10 @@
 module tb_ap040_regfile;
 reg clk = 0, ce = 0, nreset = 0;
 reg sr_s = 0, sr_m = 0, we = 0, aux_we = 0;
-reg [3:0] waddr = 0, raddr_a = 0, raddr_b = 0, raddr_c = 0, raddr_d = 0, raddr_e = 0;
+reg [3:0] waddr = 0, raddr_a = 0, raddr_b = 0, raddr_c = 0, raddr_d = 0, raddr_e = 0, raddr_f = 0;
 reg [31:0] wdata = 0, aux_wdata = 0;
 reg [1:0] aux_sel = 0;
-wire [31:0] rdata_a, rdata_b, rdata_c, rdata_d, rdata_e, usp_q, isp_q, msp_q;
+wire [31:0] rdata_a, rdata_b, rdata_c, rdata_d, rdata_e, rdata_f, usp_q, isp_q, msp_q;
 wire [31:0] dbg_d0, dbg_d1, dbg_d2, dbg_a0, dbg_a7;
 ap040_regfile #(.EXTRA_READS(1)) dut (.*);
 

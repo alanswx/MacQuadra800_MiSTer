@@ -485,6 +485,7 @@ always @(posedge clk) begin
 end
 `endif
 
+wire [31:0] rsr_base_rf;   // P196: the queue head's EA register (regfile port F)
 ap040_regfile
 `ifdef AP040_EXPERIMENTAL_PIPELINE
 #(.EXTRA_READS(1))
@@ -502,10 +503,12 @@ regfile
     .raddr_c(pipe_src), .rdata_c(pipe_rdata_a),
     .raddr_d(pipe_dst), .rdata_d(pipe_rdata_b),
     .raddr_e(pipe_old_dst_reg), .rdata_e(pipe_old_dst),
+    .raddr_f({1'b1, rd_ir[2:0]}), .rdata_f(rsr_base_rf),
 `else
 	.we(rf_we), .waddr(rf_waddr), .wdata(rf_wdata),
     .raddr_c(4'd0), .rdata_c(), .raddr_d(4'd0), .rdata_d(),
     .raddr_e(4'd0), .rdata_e(),
+    .raddr_f({1'b1, rd_ir[2:0]}), .rdata_f(rsr_base_rf),
 	.raddr_a(rr_a), .rdata_a(rf_rdata_a),
 	.raddr_b(rr_b), .rdata_b(rf_rdata_b),
 `endif
@@ -859,6 +862,7 @@ localparam RK_RTD = 2'd2;
 
 reg  [7:0] r_imm_ret, r_ea_ret, r_m_ret;
 reg        mrd_hinted;   // P182
+reg        st_hinted;    // P196: the hint bus carried this store when it issued
 // P180: PEA d16(An)/d16(PC) pushes from S_EA_D16
 wire pea_d16_push = state == S_EA_D16 && r_ea_ret == S_PEA1;
 reg  [2:0] m_bidx;                // byte index of a split transfer
@@ -2083,7 +2087,7 @@ task mem_issue;
 		if (((!mgo_wr && (state == S_PIPE_START || state == S_PIPE_SRD ||
 		                  state == S_PIPE_DEA || state == S_DECODE ||
 		                  state == S_RET1 || state == S_UNLK1 ||
-		                  state == S_MOVEM_LOOP || retire_move_read || hint_early_read || hint_fpu_read || pipe_load_launch)) ||
+		                  state == S_MOVEM_LOOP || retire_move_read || retire_store_read || hint_early_read || hint_fpu_read || pipe_load_launch)) ||
 		     (mgo_wr && (reg_move_store_prepare || move_store_read_handoff || state == S_EXEC || state == S_PIPE_DEA || state == S_MOVEM_LOOP ||
 		                 // the pushes: BSR.B from decode, BSR.W, JSR, PEA,
 		                 // LINK -- registered data (pc, ea_addr, port A
@@ -2092,7 +2096,8 @@ task mem_issue;
 		                 state == S_JSR1 || state == S_PEA1 || pea_d16_push ||
 		                 state == S_LINK2 || hint_st_fpu || hint_st_fmovem || pipe_load_launch))) &&
 		    mgo_a[31:28] == 4'h0 &&
-            ((!mem_req && !mem_ack) || (mgo_wr && move_store_read_handoff)) &&
+            ((!mem_req && !mem_ack) || (mgo_wr && move_store_read_handoff) ||
+             (!mgo_wr && retire_store_read)) &&
         // A transfer wholly inside 4KB cannot cross either supported MMU
         // page size. Crossing accesses retain delayed issue and byte splitting.
 		    ((mgo_sz == `AP040_SZ_B) ||
@@ -2108,6 +2113,8 @@ task mem_issue;
 			// P182: whether the hint bus carried this read when it issued
 			// (row and word; a false match only costs a held clock)
 			mrd_hinted <= !mgo_wr && !mem_hint_instr &&
+			              (mem_hint_addr[11:2] == mgo_a[11:2]);
+			st_hinted  <= mgo_wr && !mem_hint_instr &&
 			              (mem_hint_addr[11:2] == mgo_a[11:2]);
 		end
 		else m_issued <= 0;
@@ -2946,6 +2953,43 @@ task dispatch_unlk;
 	end
 endtask
 
+// P197: an FPU general op (cpGEN, $F200-$F23F, not an illegal EA) with its
+// command word resident goes straight to S_FPU_DEC, which does all of the
+// decode's work for it from imm; PEA d16(An) into S_EA_D16, which pushes
+// (P180).  PEA is refused when the retiring arm writes An or A7.
+wire        fd_ok = (rd_ir[15:6] == 10'b1111_0010_00) &&
+                    !((rd_ir[5:3] == 3'b111) && (rd_ir[2:0] > 3'b100)) &&
+                    (AP040_HAS_FPU != 0) && (epf_count >= 4'd2) &&
+                    (state != S_DECODE) && !aux_we && !sys_retire;
+wire        pd_ok = (rd_ir[15:3] == 13'b0100_1000_0110_1) && (epf_count >= 4'd2) &&
+                    (state != S_DECODE) && !aux_we && !sys_retire;
+
+task dispatch_fpu;
+	begin
+		epf_pop = 2'd2;
+		pc <= pc + 32'd4;
+		epf_issue = 1;
+		imm   <= {16'd0, rd_w1};
+		state <= S_FPU_DEC;
+	end
+endtask
+
+task dispatch_pea;
+	begin
+		epf_pop = 2'd2;
+		pc <= pc + 32'd4;
+		epf_issue = 1;
+		imm       <= {16'd0, rd_w1};
+		rr_a      <= {1'b1, rd_ir[2:0]};
+		ea_mode   <= 3'b101;
+		ea_rn     <= rd_ir[2:0];
+		ea_size   <= `AP040_SZ_L;
+		ea_pcmode <= 0;
+		r_ea_ret  <= S_PEA1;
+		state     <= S_EA_D16;
+	end
+endtask
+
 task dispatch_dbcc;
 	begin
 		epf_pop = 2'd2;
@@ -3047,7 +3091,25 @@ task apply_record;
                         (n_dst_mode_r == 3'b010 || n_dst_mode_r == 3'b011 ||
                          n_dst_mode_r == 3'b100 || n_dst_mode_r == 3'b101))
                         rr_a <= {1'b1, n_dst_rn_r};
-                end else state <= S_PIPE_START;
+                end
+                else if (retire_store_read &&
+                         !(rfw_now && (rfw_now_a == {1'b1, rd_ir[2:0]}))) begin
+                    // P196: the source read at the retiring store's acknowledge
+                    x_ext <= imm;
+                    if (n_p_dst_v && n_p_dst == DK_REG && n_p_dreg_v) rr_b <= n_p_dreg;
+                    if (rsr_d16) begin
+                        epf_pop = 2'd2;
+                        pc <= pc + 32'd4;
+                    end
+                    mrd(rsr_addr, n_p_ssize, S_PIPE_SDONE);
+                    mem_issue;
+                    mgo = 0;
+                    if (n_p_dst_v && n_p_dst == DK_MEM && n_dst_mode_r_v && n_dst_rn_r_v &&
+                        (n_dst_mode_r == 3'b010 || n_dst_mode_r == 3'b011 ||
+                         n_dst_mode_r == 3'b100 || n_dst_mode_r == 3'b101))
+                        rr_a <= {1'b1, n_dst_rn_r};
+                end
+                else state <= S_PIPE_START;
             end
 			NX_PREGS:  state <= S_PIPE_REGS;
 			NX_IMMF_PSTART: begin
@@ -3731,13 +3793,39 @@ always @(posedge clk) mrd_fresh <= (state != S_MRD) || (m_issued && d_ack);
 // dropped P182's fetch term along with the fetch's use of this bus).
 wire hint_move_store = move_store_read_ready && m_issued && mrd_fresh && mrd_hinted &&
                        mem_fast_ready && !ifr_pres;
-assign mem_hint_away = hint_move_store;
+// P196: the read-after-store handoff.  A store that retires its instruction
+// (S_MWR, r_m_ret == S_NEXT), hinted when it issued and meeting a cache that
+// can post it now, is predicted to be acknowledged in its first clock; in
+// that clock the data hint shows the next instruction's source read -- a
+// record-dispatched op with an (An) or d16(An) source, its base from regfile
+// port F (the queue head's EA register, a write landing now forwarded) --
+// and if the acknowledge does come, apply_record issues that read in place
+// on the same edge instead of passing through S_PIPE_START.  The cache
+// looks the store's tag up at its own row meanwhile (c_hint_away) and may
+// answer the read during the store's C_PASS (fast_accept_pp).
+reg mwr_fresh;
+always @(posedge clk) mwr_fresh <= (state != S_MWR) || (m_issued && d_ack);
+wire [31:0] rsr_base = (rf_we && rf_waddr == {1'b1, rd_ir[2:0]}) ? rf_wdata : rsr_base_rf;
+wire        rsr_d16  = (rd_ir[5:3] == 3'b101);
+wire [31:0] rsr_addr = rsr_d16 ? (rsr_base + sxw(rd_w1)) : rsr_base;
+wire        rsr_head = n_apply_ok && (n_next == NX_PSTART) && n_p_src_v && (n_p_src == SK_MEM) &&
+                       n_src_mode_r_v && n_p_ssize_v &&
+                       ((n_src_mode_r == 3'b010) || ((n_src_mode_r == 3'b101) && epf_ready_pc2));
+wire        hint_rsr = (state == S_MWR) && (r_m_ret == S_NEXT) && m_issued && mwr_fresh &&
+                       st_hinted && mem_fast_ready && !ifr_pres && rsr_head &&
+`ifdef AP040_EXPERIMENTAL_PIPELINE
+                       !pipe_rf_owner && !pipe_write &&
+`endif
+                       !sr[15];
+wire        retire_store_read = hint_rsr && d_ack;
+assign mem_hint_away = hint_move_store || hint_rsr;
 // P175: two hint buses.  The data bus carries the outstanding data request
 // and the data-side hints; the instruction bus carries the presented
 // fetch until it clears, else the redirect targets, else the queue's next
 // fetch.  Each side's idle read in the cache is indexed by its own bus, so
 // a fetch and a data access can both be hinted in the same clock.
 assign mem_hint_addr  = hint_move_store ? move_store_read_addr :
+                        hint_rsr ? rsr_addr :
                         mem_req ? mem_addr_q : hint_addr;
 assign mem_hint_instr = 1'b0;
 // P177: a return-address stack.  The RTS target fetch is issued in the
@@ -9927,7 +10015,12 @@ always @(posedge clk) begin
 		else if (rd_queue_pop && ul_ok &&
 		         !(rfw_now && ((rfw_now_a == {1'b1, rd_ir[2:0]}) || (rfw_now_a == 4'd15))))
 			dispatch_unlk;
+		else if (rd_queue_pop && fd_ok)
+			dispatch_fpu;
 `ifdef AP040_EXPERIMENTAL_LEA
+		else if (rd_queue_pop && pd_ok &&
+		         !(rfw_now && ((rfw_now_a == {1'b1, rd_ir[2:0]}) || (rfw_now_a == 4'd15))))
+			dispatch_pea;
 		else if (rd_queue_pop && ld_ok &&
 		         !(rfw_now && (rfw_now_a == {1'b1, rd_ir[2:0]})))
 			dispatch_lea;
