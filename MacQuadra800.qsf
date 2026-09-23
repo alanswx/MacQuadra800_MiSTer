@@ -484,6 +484,10 @@ source configs/cpu_development.tcl
 # undecided; P229 drops P215 (the associative MMU copies, suspected for the timing) to tell.
 # P229 seed 25 2026-09-23 (f79a2ef: P220 - P215 + P221-P227, no CACHE_TINY): 39,631 ALMs (95 %), routes; CPU clock
 # -1.313 ns (ifr_addr -> epf_data), HDMI +0.530, crossings met.  md5 de85957b0bb9bd86aef76280b139d3c0.
+# P229 on hardware: FAILED like P220 -> bisect in the full-machine sim put the fault on P219 (P232 disables it).
+# P231 (no P214) seed 25: -2.804 ns, not run; seed 27 stopped (P219 still in it).
+# P232 seed 25 2026-09-23 (9644f5a): 39,780 ALMs (95 %), routing overran: CPU clock -17.833 ns (router congestion).
+# Not usable.  CACHE_TINY back in the development profile (the P212+CACHE_TINY boot sim reached the Finder).
 # Posted cross-line cache-store merge, validated on hardware.
 set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_XSTORE=1"
 # Overlap LEA displacement fetch with base selection; checked independently.
