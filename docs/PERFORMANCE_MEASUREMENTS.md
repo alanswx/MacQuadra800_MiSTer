@@ -2038,3 +2038,38 @@ without saving the Machine Record.
 
 Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377 -> P174 1.460 -> P182 1.467 -> P188 1.631 ->
 **P193 1.646**.  Real Quadra 800: 1.897.
+
+## P205 on hardware: Mix 1.703 (2026-09-23, 16:12-16:31)
+
+P205 = P193 + P194-P205 (cache data arrays as byte lanes with byte-enable stores; a read issued in a
+store's acknowledge; FPU/PEA dispatch from retire; RTS issued in UNLK's acknowledge; RTD redirect at its
+pop; four MMU instruction translation copies; instruction-cache hits while a posted store drains; FPU fast
+paths -- normalize skip, (An) stores, chained operand reads; next-request hints on registered
+acknowledges); commit `887945b`, seed 25: 39,109 ALMs, CPU clock **-1.326 ns**, HDMI +0.314, clock
+crossings met (`scratch/p205_batch_fit_20260923/MacQuadra800_p205_batch_887945b.rbf`, md5
+`a98eaf296dd7a20819387d15c2387b4b`, on the MiSTer as `_Unstable/MacQuadra800_p205.rbf`).  A
+**development-profile** build like P193 (no OSD menu, no sound; video normal).  Timing not met on the CPU
+clock (about the same miss as P193's -1.335); it ran cleanly: no corruption symptom, no error dialog,
+boot, five runs, quit and Shut Down to "It is now safe to switch off".  The first hardware run of every
+P194-P205 change.
+
+Boot: Mac OS 8.1 through extension loading to the Finder in under a minute (`boot1..6.png`, about 12 s
+apart).
+
+Five valid Mix runs: **1.695, 1.703, 1.703, 1.703, 1.705** — median **1.703** (+3.5 % on P193), no invalid
+timers.  Per test (median, P193 in brackets): Whetstones 1495 (1387, +7.8 %), Dhrystones 20,185 (19,472,
++3.7 %), Towers 0.507 (0.534, +5.3 %), Quick 0.506 (0.522, +3.2 %), Bubble 0.572 (0.573, +0.2 %), Queens
+0.387 (0.390, +0.8 %), Puzzle 0.698 (0.699, +0.1 %), Permutations 0.757 (0.784, +3.6 %), Int. Matrix
+0.460 (0.460), Sieve 1.018 (1.018).  Run 1 is again the low one (Whetstones 1476 against 1495-1497, Puzzle
+0.702, Int. Matrix 0.461, Sieve 1.019; Mix 1.695); runs 2-5 agree to within 3 ms on every timed test
+(Dhrystones 20,149-20,185, Whetstones 1495.1-1497.5).
+
+The gain is where the P198-P205 note aimed it: Whetstone +7.8 % (the FPU fast paths and the UNLK->RTS /
+RTD handoffs in its glue calls), the call-heavy Towers, Permutations and Dhrystone +3.6-5.3 %, and Quick
+Sort +3.2 %; Bubble, Queens and Puzzle within 3 ms, Int. Matrix and Sieve identical to P193 to the
+millisecond.  The guest menu-bar clock kept step with the MiSTer's wall clock (4:14 at the Finder, 4:30
+at Shut Down; MiSTer 16:14/16:30).  Evidence: `scratch/hardware_p205_20260923/run{1..5}_{start,complete}.png`,
+`mixdlg.png`, `final_halt.png`.  Speedometer quit without saving the Machine Record.
+
+Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377 -> P174 1.460 -> P182 1.467 -> P188 1.631 ->
+P193 1.646 -> **P205 1.703**.  Real Quadra 800: 1.897.
