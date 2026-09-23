@@ -1969,3 +1969,39 @@ on are unchanged to the millisecond.  Evidence: `scratch/hardware_p182_20260923/
 `final_halt.png`.  Speedometer quit without saving the Machine Record.
 
 Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377 -> P174 1.460 -> **P182 1.467**. Real Quadra 800: 1.897.
+
+## P188 on hardware: Mix 1.631 (2026-09-23, 11:53-12:08)
+
+P188 = P182 + P184 (P175b/P177/P175c/P178 back on top, with the P178 hang fix: the cross-line hit's
+next-row write check) + P185/P186 (posted RAM writes through a write FIFO in the SDRAM bridge, pushed
+straight from the store buffer; back-to-back store-buffer drain) + P187/P188 (a spanning store frees the
+data banks once its merge words are held; the bridge's read pointer crosses into clk_sys through one
+register; FIFO eight deep); commit `f64a2d1`, seed 24: 38,735 ALMs, CPU clock **-1.671 ns**, HDMI -0.070,
+clock crossings met (`scratch/p188_span_fit_20260923/MacQuadra800_p188_span_f64a2d1.rbf`, md5
+`695416760b07b215c061b2859a7b3842`, on the MiSTer as `_Unstable/MacQuadra800_p188.rbf`).  A
+**development-profile** build: OSDs, audio output and composite Y/C compiled out (no OSD menu, no sound;
+video normal).  Timing not met on the CPU clock, by more than any earlier build run on hardware (about
+-1.3 ns); it ran cleanly all the same: no corruption symptom, no error dialog, boot, five runs, quit and
+Shut Down to "It is now safe to switch off".
+
+Boot: the first hardware run of the P178 hang fix.  Mac OS 8.1 went through extension loading (the full
+row of about 21 icons, where P178 hung after about 15 with a blank alert) to the Finder in under a minute
+(`boot1..6.png`, 10 s apart).
+
+Five valid Mix runs: **1.619, 1.628, 1.631, 1.631, 1.631** — median **1.631** (+11.2 % on P182), no invalid
+timers.  Per test (median, P182 in brackets): Whetstones 1368 (1183, +15.6 %), Dhrystones 19,219 (16,862,
++14.0 %), Towers 0.566 (0.623, +10.1 %), Quick 0.525 (0.545, +3.8 %), Bubble 0.573 (0.633, +10.5 %),
+Queens 0.394 (0.438, +11.2 %), Puzzle 0.699 (0.768, +9.9 %), Permutations 0.803 (0.978, +21.8 %), Int.
+Matrix 0.455 (0.504, +10.8 %), Sieve 1.011 (1.009, -0.2 %).  Run 1 is again the low one (Whetstones 1352
+against 1367-1369, Int. Matrix 0.463, Sieve 1.019; Mix 1.619); runs 3-5 agree to the millisecond apart from
+Int. Matrix (0.453-0.455).
+
+Unlike P182, the gain is broad: every test but Sieve moved 4-22 %, the loop tests included, which is what
+the posted-write path should do to store-bound code (Whetstone was store-drain bound).  Sieve, flat to
+within 2 ms, and the guest menu-bar clock keeping step with the MiSTer's wall clock (11:54 at boot, 12:07 at
+halt on both) say the gain is not a timer artefact.  Evidence:
+`scratch/hardware_p188_20260923/run{1..5}_{start,complete}.png`, `final_halt.png`.  Speedometer quit
+without saving the Machine Record.
+
+Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377 -> P174 1.460 -> P182 1.467 -> **P188 1.631**.
+Real Quadra 800: 1.897.
