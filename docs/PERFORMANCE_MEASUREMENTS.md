@@ -1948,3 +1948,24 @@ P178 (P175c + P177 + P178, `8ce901c`, 39,386 ALMs, -0.505 ns) **hangs during ext
 hardware** (a blank alert, no disk activity) while every CPU bench passes; being bisected.
 
 Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377 -> **P174 1.460**. Real Quadra 800: 1.897.
+
+## P182 on hardware: Mix 1.467 (2026-09-23, 10:14-10:22)
+
+P182 = P174 + P179-P182 (a memory-to-memory MOVE's destination issued at the source read's acknowledge,
+PEA d16 as LEA, FPU (An) through `S_FPU_AN`, and the MOVE destination store hinted in the source read's
+predicted acknowledge); commit `122dab4`, seed 24: 39,229 ALMs, CPU clock **-0.718 ns**, HDMI +0.029
+(`scratch/p182_storehint_fit_20260922/MacQuadra800_p182_storehint_122dab4.rbf`, md5
+`c625837a40b30e18814926bded40df25`, on the MiSTer as `_Unstable/MacQuadra800_p182.rbf`).  Timing not
+met on the CPU clock; ran cleanly (boot, five runs, quit, Shut Down to "It is now safe to switch off").
+
+Five valid Mix runs: **1.460, 1.466, 1.467, 1.467, 1.467** — median **1.467**, no invalid timers.
+Per test (median, P174 in brackets): Whetstones 1183 (1180, +0.2 %), Dhrystones 16,862 (16,606,
++1.5 %), Towers 0.623 (0.637, +2.2 %), Quick 0.545 (0.552, +1.3 %), Bubble 0.633 (0.633), Queens 0.438
+(0.438), Puzzle 0.768 (0.768), Permutations 0.978 (0.978), Int. Matrix 0.504 (0.504), Sieve 1.009
+(1.009).  Run 1 is the low one (Whetstones 1170 against 1182-1183 in the other four; Mix 1.460).
+
+The gain is confined to the MOVE-heavy tests (Dhrystone, Towers, Quick); the six loop tests from Bubble
+on are unchanged to the millisecond.  Evidence: `scratch/hardware_p182_20260923/run{1..5}_{start,complete}.png`,
+`final_halt.png`.  Speedometer quit without saving the Machine Record.
+
+Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377 -> P174 1.460 -> **P182 1.467**. Real Quadra 800: 1.897.
