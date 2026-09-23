@@ -2889,6 +2889,60 @@ wire        dd_ok = (rd_ir[15:12] == 4'h5) && (rd_ir[7:3] == 5'b11001) &&
                     (epf_count >= 4'd2) && (state != S_DECODE) &&
                     !aux_we && !sys_retire;
 
+// P190: LEA d16(An),Am takes the same dispatch into S_EA_D16, which retires
+// a LEA itself (the forwarded base plus the displacement): the decode cycle
+// goes.  Refused when the retiring arm writes the base on this edge.
+wire        ld_ok = (rd_ir[15:12] == 4'h4) && (rd_ir[8:6] == 3'b111) &&
+                    (rd_ir[5:3] == 3'b101) && (epf_count >= 4'd2) &&
+                    (state != S_DECODE) && !aux_we && !sys_retire;
+
+task dispatch_lea;
+	begin
+		epf_pop = 2'd2;
+		pc <= pc + 32'd4;
+		epf_issue = 1;
+		imm       <= {16'd0, rd_w1};
+		rr_a      <= {1'b1, rd_ir[2:0]};
+		ea_mode   <= 3'b101;
+		ea_rn     <= rd_ir[2:0];
+		ea_size   <= `AP040_SZ_L;
+		ea_pcmode <= 0;
+		r_ea_ret  <= S_LEA1;
+		state     <= S_EA_D16;
+	end
+endtask
+
+// P190: LINK.W An,#d and UNLK An the same way, into S_LINK2 / S_UNLK1 with
+// An on port A, as S_DECODE left them.  Both states read An and A7 unforwarded
+// (rf_rdata_a, dbg_a7), so a retiring arm that writes either on this edge
+// keeps the decode cycle.
+wire        lk_ok = (rd_ir[15:3] == 13'b0100_1110_0101_0) && (epf_count >= 4'd2) &&
+                    (state != S_DECODE) && !aux_we && !sys_retire;
+wire        ul_ok = (rd_ir[15:3] == 13'b0100_1110_0101_1) && (epf_count >= 4'd1) &&
+                    (state != S_DECODE) && !aux_we && !sys_retire;
+
+task dispatch_link;
+	begin
+		epf_pop = 2'd2;
+		pc <= pc + 32'd4;
+		epf_issue = 1;
+		imm     <= {16'd0, rd_w1};
+		br_long <= 0;
+		rr_a    <= {1'b1, rd_ir[2:0]};
+		state   <= S_LINK2;
+	end
+endtask
+
+task dispatch_unlk;
+	begin
+		epf_pop = 2'd1;
+		pc <= pc + 32'd2;
+		epf_issue = 1;
+		rr_a    <= {1'b1, rd_ir[2:0]};
+		state   <= S_UNLK1;
+	end
+endtask
+
 task dispatch_dbcc;
 	begin
 		epf_pop = 2'd2;
@@ -3469,7 +3523,9 @@ wire [31:0] hint_store_addr = hint_st_reg_move ? hint_dst_addr :
                               hint_st_exec  ? dst_addr :
                               hint_st_mwr   ? m_addr_r :
                               (hint_st_fpu || hint_st_fmovem) ? hint_st_fpu_addr :
-                              hint_st_movem ? mm_addr :
+                              // P189: the predecrement form stores at mm_addr - size
+                              hint_st_movem ? (mm_predec ? mm_addr - ((mm_size == `AP040_SZ_L) ? 32'd4 : 32'd2)
+                                                         : mm_addr) :
                               hint_st_pushf ? (dbg_a7_wb - 32'd4) :
                                               (dbg_a7 - 32'd4);
 wire        hint_bcc  = (state == S_DECODE) && (ir[15:12] == 4'h6) &&
@@ -9855,6 +9911,17 @@ always @(posedge clk) begin
 		else if (rd_queue_pop && dd_ok &&
 		         !(rfw_now && (rfw_now_a == {1'b0, rd_ir[2:0]})))
 			dispatch_dbcc;
+		else if (rd_queue_pop && lk_ok &&
+		         !(rfw_now && ((rfw_now_a == {1'b1, rd_ir[2:0]}) || (rfw_now_a == 4'd15))))
+			dispatch_link;
+		else if (rd_queue_pop && ul_ok &&
+		         !(rfw_now && ((rfw_now_a == {1'b1, rd_ir[2:0]}) || (rfw_now_a == 4'd15))))
+			dispatch_unlk;
+`ifdef AP040_EXPERIMENTAL_LEA
+		else if (rd_queue_pop && ld_ok &&
+		         !(rfw_now && (rfw_now_a == {1'b1, rd_ir[2:0]})))
+			dispatch_lea;
+`endif
 
 		// The resident-target dispatch an arm or the lookahead asked for: it
 		// arms the queue and claims the port, so it runs before the fill engine.
