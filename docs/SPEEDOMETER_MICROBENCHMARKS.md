@@ -787,3 +787,43 @@ waiting for an instruction from spending a ready dispatch clock; the previous
 P115 profile covered only missed register-descriptor opportunities. Original
 Whetstone/Dhrystone runs with P113b cache and P105 pipeline are pending, and
 must retain exact cycle counts/captures before interpreting these counters.
+
+## The oracle-checked suite on current RTL (2026-09-22)
+
+Six Speedometer kernels now run against any RTL tree with one command, each
+with an independent Python oracle and a corrupted copy that must fail:
+
+```
+git archive HEAD rtl | tar -x -C <tree>
+scripts/cpu/speedometer_suite.sh <tree> [out-dir] [latency]
+```
+
+| kernel | runner | scope | oracle / control | P174 cycles, latency 3 |
+|---|---|---|---|---:|
+| Towers | `profile_towers.py` (new) | CODE3 0x95f0..0x9887, the whole timed `Towers` call (3 x 16,383 moves) | Python model predicts the final 64 KB image byte for byte; Tower(1,2,13) and MoveThem +2 must fail | 19,495,571 |
+| Puzzle | `profile_puzzle.py` (new) | CODE3 0x8a8a..0x919b, one complete `Puzzle` call; `_NewPtrClear`/`_DisposPtr` served by an A-line handler (29.6k clocks, reported separately) | independent Stanford model: kount 2005, n 77, all 9,220 block words; kount ADDQ #2 must fail | 25,055,903 |
+| Quick Sort | `profile_quick_v2.py` | as `profile_quick.py` | sorted -250..249; duplicated input must fail | 152,808 |
+| Int. Matrix | `profile_matrix_v2.py` | as `profile_matrix.py` | all 1,600 products; A[0][0]+1 must fail | 2,201,816 |
+| Sieve | `profile_sieve_v2.py` (+ `speedometer_fixture_v2.py`) | as `profile_sieve.py` | all 8,191 flags, count 1,899; CLR.B removed must fail | 270,567 |
+| Bubble | `profile_bubble_v2.py` (+ `speedometer_fixture_v2.py`) | as `profile_bubble.py` | sorted -250..249; swap half removed must fail | 2,958,602 |
+
+The v2 runners keep the original kernels, inputs and oracles, and add
+`--rtl-root` (never the live `rtl/`), the production macro set from the
+`.qsf` plus `EXTRA_FLAGS`, a `FIXTURE <k> PASS cycles=` line, a required
+negative control and a `--profile` with sequencer states by name. Towers
+takes the `rtl/` directory itself as `--rtl-root`; the others take its parent.
+Whetstone, Dhrystone, Permutations and Queens run from their own runners
+(`scratch/p179_ea_decode_20260922/`).
+
+Against the hardware (P174 at 33.3 MHz): Towers 0.637 s ~ 21.2M clocks and
+Puzzle 0.768 s ~ 25.6M, so both fixtures cover nearly all of the timed work.
+Where they spend it (P174, latency 3):
+
+- Towers: S_MRD 15.7 %, S_DECODE 14.5 %, S_MWR 13.4 %, S_FETCH 10.6 %; call and
+  return (MOVEM, JSR, RTS, LINK, UNLK) about 42 % of all clocks; latency 0 -> 3
+  adds only 4.6 %: sequencer-bound.
+- Puzzle: Fit 67.6 % of clocks; S_MRD 23.8 %, S_FETCH 16.9 %; Fit's inner loop
+  re-reads its frame arguments (`movea.l $10(a6),a0` alone 17 % of legacy clocks).
+- Sieve: S_PIPE_REGS 39 %; each indexed byte access pays S_PIPE_START +
+  S_PIPE_DEA + S_EA_EXTW2 + the access (`clr.b (a2,d4.w)` about 5 clocks).
+- Bubble: `move.w (a3),(a0,d3.w)` 5 clocks each.
