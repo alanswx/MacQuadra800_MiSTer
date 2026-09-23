@@ -590,25 +590,12 @@ wire  [2:0] bus_wr_bytes = (bus_size == 2'd0) ? 3'd1 : (bus_size == 2'd1) ? 3'd2
 wire  [2:0] bus_wr_end   = {1'b0, bus_addr[1:0]} + bus_wr_bytes;
 wire [31:0] bus_wr_left  = (bus_size == 2'd0) ? {bus_wdata[7:0], 24'd0} :
                            (bus_size == 2'd1) ? {bus_wdata[15:0], 16'd0} : bus_wdata;
-// P214: a store spanning two longwords (Pascal's 2-mod-4 stack longwords,
-// a word at offset 3) is pushed as two byte-enabled longwords on
-// consecutive clocks and acknowledged with the second; it used to take the
-// adapter as two S_MEM beats, ten clocks a store, and filled the store
-// buffer behind it (the platform fixture: 914k such stores per Whetstone
-// loop, the buffer full 15 % of the time).  mem_wq_room means two free
-// entries, and nothing else pushes between the halves.
-reg         wr_split_pend;
-reg  [31:2] wr_split_addr;
-reg   [3:0] wr_split_be;
-reg  [31:0] wr_split_data;
-wire        bus_wr_span  = (bus_wr_end > 3'd4);
 wire bus_wr_direct = (DIRECT_WRITES != 0) && (svc == S_IDLE) && !walker_pend && !cpu_berr &&
-	                 !bus_miss_ack && !bus_line_ack && !bus_adapter_active && !wr_split_pend &&
-	                 !bus_ack_adapter && bus_req && bus_write &&
-	                 (!bus_wr_span || (decode(bus_addr[31:2] + 30'd1) == 3'd0)) &&
+	                 !bus_miss_ack && !bus_line_ack && !bus_adapter_active &&
+	                 !bus_ack_adapter && bus_req && bus_write && (bus_wr_end <= 3'd4) &&
 	                 (decode(bus_addr[31:2]) == 3'd0) && mem_wq_room;
 
-assign bus_req_adapter = bus_req && !bus_line_match && !bus_line_wait && !bus_wr_direct && !wr_split_pend &&
+assign bus_req_adapter = bus_req && !bus_line_match && !bus_line_wait && !bus_wr_direct &&
 	                     !bus_first_miss && !svc_bus_direct && !bus_miss_ack &&
 	                     !bus_line_ack;
 
@@ -662,7 +649,6 @@ always @(posedge clk) begin
 		b_ack        <= 0;
 		b_rdata      <= 0;
 		bus_miss_ack   <= 0;
-		wr_split_pend  <= 0;
 		bus_miss_rdata <= 0;
 		mem_wp_valid   <= 0;
 		mem_wp_addr    <= 0;
@@ -692,16 +678,6 @@ always @(posedge clk) begin
 		bus_miss_ack <= 0;
 		mem_wp_valid <= 0;
 		cpu_berr    <= 0;
-		// P214: the spanning store's second longword, ahead of everything
-		if (wr_split_pend) begin
-			wr_split_pend  <= 0;
-			mem_wp_valid   <= 1;
-			mem_wp_addr    <= wr_split_addr;
-			mem_wp_be      <= wr_split_be;
-			mem_wp_data    <= wr_split_data;
-			bus_miss_ack   <= 1;
-			bus_miss_rdata <= 0;
-		end
 		dma_ack     <= 0;
 		snoop_stb   <= 0;
 		if (!walker_req) walker_armed <= 1;
@@ -754,17 +730,8 @@ always @(posedge clk) begin
 					mem_wp_addr  <= bus_addr[31:2];
 					mem_wp_be    <= (4'b1111 << (3'd4 - bus_wr_bytes)) >> bus_addr[1:0];
 					mem_wp_data  <= bus_wr_left >> {bus_addr[1:0], 3'd0};
-					if (bus_wr_span) begin
-						// the tail: the bytes from the next longword's offset 0
-						wr_split_pend <= 1;
-						wr_split_addr <= bus_addr[31:2] + 30'd1;
-						wr_split_be   <= 4'b1111 << (4'd8 - {1'b0, bus_wr_end});
-						wr_split_data <= bus_wr_left << {3'd4 - {1'b0, bus_addr[1:0]}, 3'd0};
-					end
-					else begin
-						bus_miss_ack   <= 1;
-						bus_miss_rdata <= 0;
-					end
+					bus_miss_ack   <= 1;
+					bus_miss_rdata <= 0;
 				end
 				else if (!walker_pend && line_cpu_match) begin
 					b_ack   <= 1;
