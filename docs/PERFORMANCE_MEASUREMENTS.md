@@ -2005,3 +2005,36 @@ without saving the Machine Record.
 
 Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377 -> P174 1.460 -> P182 1.467 -> **P188 1.631**.
 Real Quadra 800: 1.897.
+
+## P193 on hardware: Mix 1.646 (2026-09-23, 13:05-13:22)
+
+P193 = P188 + P189/P190 (MOVEM's predecrement stores hinted at their own address; LEA d16(An), LINK and
+UNLK dispatched from the previous instruction's retire) + P191-P193 (JSR's target fetch from `S_JSR1` when
+the pop could not raise it; P182's store hint again requires the data channel presented; the FPU's
+add-alignment shift in one clock); commit `970b98c`, seed 25: 38,893 ALMs, CPU clock **-1.335 ns**, HDMI
++0.474, clock crossings met (`scratch/p193_s25_fit_20260923/MacQuadra800_p193_s25_970b98c.rbf`, md5
+`62d1d13b5c5e0e88b8f0709676abaeb6`, on the MiSTer as `_Unstable/MacQuadra800_p193.rbf`).  A
+**development-profile** build like P188 (no OSD menu, no sound; video normal).  Timing not met on the CPU
+clock (a smaller miss than P188's -1.671); it ran cleanly: no corruption symptom, no error dialog, boot,
+five runs, quit and Shut Down to "It is now safe to switch off".
+
+Boot: Mac OS 8.1 through extension loading to the Finder in about 40 s (`boot1..6.png`, 10 s apart).
+
+Five valid Mix runs: **1.639, 1.646, 1.646, 1.647, 1.647** — median **1.646** (+0.9 % on P188), no invalid
+timers.  Per test (median, P188 in brackets): Whetstones 1387 (1368, +1.4 %), Dhrystones 19,472 (19,219,
++1.3 %), Towers 0.534 (0.566, +6.0 %), Quick 0.522 (0.525, +0.6 %), Bubble 0.573 (0.573), Queens 0.390
+(0.394, +1.0 %), Puzzle 0.699 (0.699), Permutations 0.784 (0.803, +2.4 %), Int. Matrix 0.460 (0.455,
+-1.1 %), Sieve 1.018 (1.011, -0.7 %).  Run 1 is again the low one (Whetstones 1371 against 1387-1389,
+Puzzle 0.703, Int. Matrix 0.463, Sieve 1.019; Mix 1.639); runs 2-5 agree to within 3 ms on every timed
+test.
+
+The gain sits in the call-heavy tests (Towers +6 %, Permutations +2.4 %, Dhrystone and Whetstone
++1.3-1.4 %), where LINK/UNLK, JSR and MOVEM register saves live; Bubble and Puzzle are unchanged to the
+millisecond, and Int. Matrix and Sieve are 5-7 ms slower than P188 in every run (small, but consistent
+across all five).  The guest menu-bar clock kept step with the MiSTer's wall clock (1:06 at the
+Finder, 1:21 at Shut Down; MiSTer 13:06/13:22).  Evidence:
+`scratch/hardware_p193_20260923/run{1..5}_{start,complete}.png`, `final_halt.png`.  Speedometer quit
+without saving the Machine Record.
+
+Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377 -> P174 1.460 -> P182 1.467 -> P188 1.631 ->
+**P193 1.646**.  Real Quadra 800: 1.897.
