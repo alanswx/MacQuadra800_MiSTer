@@ -88,10 +88,10 @@ check `scratch/<tag>_fit_*/cross.log` (the bridge crossings), not only the .sta 
 
 ## Next
 
-1. Measure P188 on hardware (expect Whetstone up sharply; also confirms the P178 fix on silicon).
-2. Whetstone after the store fix (fixtures with writes latency 1): memory states still ~36 % of clocks.
-   Hinted reads that miss the one-clock hit: data waiting behind a fetch (164k), misaligned stack
-   longwords (194k), no MMU vouch (185k).  SANE add wrapper 63 clocks/call (a real 040 ~45-50).
-3. The general "memory states are not states" pipelining (the next request registered in a predicted
-   acknowledge clock; P182 is its first instance, the cache's `c_hint_away` guard its safety net).
+1. Measure P197 on hardware (fit `q800-p197-fit-20260923`), then land/fit P198+P199 from scratch `p198_ret`.
+2. Whetstone (fixture 20.61M, needs ~15.25M): memory states ~35 %, S_DECODE ~8 % (the first
+   instruction after every redirect -- LINK after JSR -- still decodes), S_FETCH ~7 % (the single cache
+   port: fetch vs data; a Harvard split of the instruction side is the structural fix), FPU ~13 %.
+3. The general "memory states are not states" pipelining: P182/P196/P198 are instances (a predicted
+   acknowledge, the next request's hint in it, the cache's `c_hint_away` rules as the safety net).
 4. Area, after 1.9.
