@@ -2108,33 +2108,19 @@ always @(posedge clk) begin
 			end
 
 			F_SHR: begin : f_shr
-				// staged right shift with sticky collection
-				reg [6:0] step;
-				if (sh_cnt == 0) fst <= sh_ret;
-				else begin
-					step = (sh_cnt >= 7'd32) ? 7'd32 :
-					       (sh_cnt >= 7'd16) ? 7'd16 :
-					       (sh_cnt >= 7'd8)  ? 7'd8  :
-					       (sh_cnt >= 7'd4)  ? 7'd4  :
-					       (sh_cnt >= 7'd2)  ? 7'd2  : 7'd1;
-					// new {int[66:3], G, R, S}: value shifted by the step,
-					// G/R from the top shifted-out bits, S ORs the rest
-					case (step)
-						7'd32: sh_v <= {32'd0, sh_v[66:35], sh_v[34], sh_v[33],
-						                (sh_v[32:0] != 0)};
-						7'd16: sh_v <= {16'd0, sh_v[66:19], sh_v[18], sh_v[17],
-						                (sh_v[16:0] != 0)};
-						7'd8:  sh_v <= {8'd0, sh_v[66:11], sh_v[10], sh_v[9],
-						                (sh_v[8:0] != 0)};
-						7'd4:  sh_v <= {4'd0, sh_v[66:7], sh_v[6], sh_v[5],
-						                (sh_v[4:0] != 0)};
-						7'd2:  sh_v <= {2'd0, sh_v[66:5], sh_v[4], sh_v[3],
-						                (sh_v[2:0] != 0)};
-						default: sh_v <= {1'd0, sh_v[66:4], sh_v[3], sh_v[2],
-						                  (sh_v[1:0] != 0)};
-					endcase
-					sh_cnt <= sh_cnt - step;
+				// P193: the whole right shift in one clock with sticky
+				// collection -- the staged 32/16/8/4/2/1 loop took up to six
+				// clocks per add alignment (Whetstone's polynomial FADD.X
+				// averaged 8.3 FPU clocks).  Same result: {int, G, R} shift
+				// right by sh_cnt, S ORs every bit shifted out (and itself).
+				reg [66:0] shifted, gone;
+				shifted = sh_v >> sh_cnt;
+				gone    = sh_v & ((67'd1 << sh_cnt) - 67'd1);
+				if (sh_cnt != 0) begin
+					sh_v   <= {shifted[66:1], shifted[0] | (|gone)};
+					sh_cnt <= 7'd0;
 				end
+				fst <= sh_ret;
 			end
 
 			F_PACKI: begin : f_packi

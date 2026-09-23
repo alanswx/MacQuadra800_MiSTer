@@ -36,3 +36,25 @@ in place and hinted, which a dispatch from an arbitrary retiring state would los
 | Dhrystone | 93,854,297 | 93,354,300 | -0.5 % |
 
 All six fixture oracles and the AP68040 self-tests (including `lea_d16`, `lea_fault`) pass.
+
+## P191-P193 (same day)
+
+- **P191, the JSR target fetch from S_JSR1.**  147k of Towers' 196k JSR d16(PC) were dispatched from a
+  store's acknowledge (`S_MWR`), where `bd_go` must not raise the early fetch, so the target fetch went
+  out only from S_JSR2 after the push and S_FETCH waited 2.8 clocks.  S_JSR1 now raises `sgo` (a new
+  `go_pc_t_early` arm, `ea_addr`) behind the push; `issue_ifetch` does nothing when the pop already armed
+  the stream there.  Towers -0.6 %, Whetstone -0.5 %.
+- **P192, P182's store hint needs the data channel presented.**  The P175 merge dropped P182's
+  `!ifr_hint_now` term with the fetch's use of the data hint bus; it also meant "a fetch holds the port,
+  so this read cannot be acknowledged now".  `hint_move_store` requires `!ifr_pres` again.
+  Cycle-neutral on the fixtures (the fetch's registered path takes the data banks anyway).
+- **P193, the FPU's alignment shift in one clock.**  `F_SHR` shifted 32/16/8/4/2/1 bits a clock (up to
+  six clocks per add alignment; Whetstone's polynomial FADD.X averaged 8.3 FPU clocks).  It now shifts
+  the 67-bit {int, G, R, S} vector in one clock, S collecting every bit shifted out -- proved equal to
+  the staged loop on 300,000 random operand/count pairs (counts 0..127).  Whetstone -0.5 %; the FPU
+  self-tests pass.
+
+P190-P193 against P188 (latency 3, writes latency 1 for Whetstone): Towers 17,696,009 -> 16,958,527
+(-4.2 %), Permutations (lat 0) 1,022,062 -> 996,189 (-2.5 %), Whetstone 22,051,732 -> 21,664,729
+(-1.8 %), Dhrystone 93,854,297 -> 93,104,302 (-0.8 %).  All oracles and the AP68040 self-tests pass.
+The P190 fit (seed 24) failed routing at 38,570 ALMs; P193 fits at seed 25.

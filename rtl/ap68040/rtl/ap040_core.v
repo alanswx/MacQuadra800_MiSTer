@@ -2540,6 +2540,9 @@ wire [31:0] go_pc_t_early =
 	((state == S_MWR) && (r_m_ret != S_NEXT)) ? br_tgt :
 	(state == S_DBCC1)                       ? rgo_dbcc_t :
 	(state == S_JMP1)                        ? ea_addr :
+	// P191: a JSR whose target fetch could not go out at the pop (dispatched
+	// from a store's acknowledge, or through S_DECODE) raises it here
+	(state == S_JSR1)                        ? ea_addr :
 	(state == S_FBCC)  ? pc_i + 32'd2 + (ir[6] ? imm : sxw(imm[15:0])) :
 	(state == S_FDBCC) ? pc_i + 32'd4 + sxw(imm[15:0]) :
 	(state == S_DECODE)                      ? rgo_decode_t :
@@ -3723,8 +3726,11 @@ wire        epf_fill_ok     = (epf_fill_floor || epf_fill_idle) && !i_ack_d;
 // the next clock and finishes through the registered lookup.
 reg mrd_fresh;
 always @(posedge clk) mrd_fresh <= (state != S_MRD) || (m_issued && d_ack);
+// P192: and no fetch holds the port -- the arbiter serves a presented fetch
+// first, so the read cannot be acknowledged this clock (the P175 merge had
+// dropped P182's fetch term along with the fetch's use of this bus).
 wire hint_move_store = move_store_read_ready && m_issued && mrd_fresh && mrd_hinted &&
-                       mem_fast_ready;
+                       mem_fast_ready && !ifr_pres;
 assign mem_hint_away = hint_move_store;
 // P175: two hint buses.  The data bus carries the outstanding data request
 // and the data-side hints; the instruction bus carries the presented
@@ -6783,6 +6789,10 @@ always @(posedge clk) begin
 					br_tgt <= ea_addr;
 					// the forwarded A7: see S_BCC_EXT
 					mwr(dbg_a7_wb - 32'd4, `AP040_SZ_L, pc, S_JSR2);
+					// P191: the target fetch now, behind the push, instead of
+					// from S_JSR2 after its acknowledge (issue_ifetch does
+					// nothing when the pop already armed the stream there)
+					if (ifr_avail && !sr[15]) sgo = 1;
 				end
 			end
 
