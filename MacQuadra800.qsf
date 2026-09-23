@@ -454,6 +454,9 @@ source configs/cpu_development.tcl
 # P182 seed 24 2026-09-23 (122dab4): 39,229 ALMs (94 %), routes; CPU clock -0.718 ns (P174 -0.920 ran fine),
 # clk 1 +0.619, HDMI +0.029.  rbf scratch/p182_storehint_fit_20260922/MacQuadra800_p182_storehint_122dab4.rbf.
 # P184 seed 24 2026-09-23 (78f05d7, lite profile): 39,567 ALMs (94 %), routing FAILED (congestion).
+# P186 seed 24 2026-09-23 (3fd022b, development profile): 38,505 ALMs (92 %), routes; CPU clock -1.722 ns, HDMI +0.030,
+# clk 1 +0.563; clk_ram->clk_sys crossing FAILED -1.369 ns (sdram_beat32 wq_rp_handoff -> wq_room -> quadra800's write
+# registers: a falling-edge handoff through logic).  Not run.  P188 resynchronizes the pointer (one register) first.
 # Posted cross-line cache-store merge, validated on hardware.
 set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_XSTORE=1"
 # Overlap LEA displacement fetch with base selection; checked independently.

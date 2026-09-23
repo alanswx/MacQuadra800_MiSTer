@@ -388,6 +388,8 @@ reg   [1:0] r_hway;              // the way the first C_LOOK cycle found
 reg   [1:0] fill_cnt;            // beats completed in this fill (requested word first)
 reg   [2:0] r_fc;                // the fill's own function code (the requester may be gone)
 reg         sline_ready;         // a spanning store's line read has completed
+reg         sp_held;             // ... and its two merge words are held (P187)
+reg  [31:0] sp_h0, sp_h1;
 reg         fill_acked;          // the requester already has its data
 reg  [31:0] r_wdata;             // captured aligned store data for hit update
 reg         ack_r;
@@ -845,8 +847,13 @@ always @(posedge clk) begin
     end
 end
 wire [31:0] store_merge_word = (post_active && posted_word_valid) ? posted_word : data_hit;
+// P187: a spanning store's merge words are captured (sp_h0/sp_h1) in the
+// clock its line read lands, so from then on the data banks are free for
+// the next access's idle read as for any other posted store -- Pascal's
+// 2-mod-4 stack longwords made every such store cost the following read
+// its one-clock hit.
 wire posted_hint_read = (cst == C_PASS) && post_active &&
-    !r_span2 && !cross_store && !pass_ci_chk && !winv_pend &&
+    (!r_span2 || sline_ready) && !cross_store && !pass_ci_chk && !winv_pend &&
     !ci_inv_pend && !store_inv_lost;
 reg idle_data_valid, idle_tag_valid;
 // P178 fix: the pair banks' next-row read (x_rowp1, for the cross-line
@@ -1129,7 +1136,7 @@ wire  [1:0] wr_arr1 = wr_arr + 2'd1;
 wire fast_span_ack = (cst == C_LOOK) && look2 && r_span2 && !r_bank &&
     !c_write && !c_instr && !look_snooped && !snoop_look_row &&
     !err_hold && !m_err;
-wire [63:0] pair_new = span_merge({sp_w0, sp_w1}, r_wdata, r_size, r_off);
+wire [63:0] pair_new = span_merge(sp_held ? {sp_h0, sp_h1} : {sp_w0, sp_w1}, r_wdata, r_size, r_off);
 assign cd_we     = store_pair_write ? ((4'd1 << wr_arr) | (4'd1 << wr_arr1)) :
                    (store_hit_write || fill_beat_write) ? (4'd1 << wr_arr) : 4'd0;
 assign cd_wdat0  = store_pair_write ? (wr_arr1 == 2'd0 ? pair_new[31:0] : pair_new[63:32]) : cd_wdat;
@@ -1181,7 +1188,7 @@ always @(posedge clk) begin
 		fill_hold <= 0; r_wdata <= 0; pass_store_chk <= 0;
 		fill_hold2 <= 0; r_span2 <= 0; look2 <= 0; r_hway <= 0;
 		r_xline <= 0; xlook <= 0; xsnooped <= 0; r_setB <= 0; r_tagB <= 0;
-		fill_cnt <= 0; fill_acked <= 0; r_fc <= 0; sline_ready <= 0;
+		fill_cnt <= 0; fill_acked <= 0; r_fc <= 0; sline_ready <= 0; sp_held <= 0;
 		post_active <= 0; p_addr <= 0; p_wdata <= 0; p_size <= 0; p_fc <= 0;
 		iline_pending <= 0; iline_valid <= 0; iline_way <= 0;
 		iline_tag <= 0; iline_data <= 0; iline_stb <= 0; iline_stb_pend <= 0;
@@ -1358,6 +1365,7 @@ always @(posedge clk) begin
 `endif
 							r_span2 <= store_update2;
 							sline_ready <= 0;
+							sp_held <= 0;
 							// A posted store is acknowledged now and drained
 							// from its captured copy while the core moves on.
 							if (c_post_ok || fast_store) begin
@@ -1446,6 +1454,13 @@ always @(posedge clk) begin
 				if (sline_read) begin
 					r_hway <= hit_way;
 					sline_ready <= 1;
+				end
+				// P187: the line read has landed in data_q this clock; hold the
+				// merge words before an idle read replaces it
+				if (sline_ready && !sp_held) begin
+					sp_h0   <= sp_w0;
+					sp_h1   <= sp_w1;
+					sp_held <= 1;
 				end
 				if (pass_store_chk && r_span2 && m_ack && look_hit && !sline_ready) begin
 					ci_inv_pend <= 1;

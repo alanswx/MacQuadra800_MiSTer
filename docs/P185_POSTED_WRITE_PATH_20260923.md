@@ -63,3 +63,24 @@ and the AP68040 self-tests pass.
 Hardware stores behaved like fixture write latency ~5 (6 clk_sys + the store buffer's gap); with
 P185 + P186 they behave like ~1.  Whetstone at reads 5 / writes 5 with the old store buffer
 27,042,107 -> reads 5 / writes 1 with P186 22,445,865: **-17 %**.
+
+## P186 fit and P188: the read pointer's crossing
+
+The P186 fit (seed 24, development profile) routed at 38,505 ALMs, but the clk_ram -> clk_sys crossing
+report failed at -1.369 ns: `wq_rp_handoff` (captured on clk_ram's falling edge, half a clk_ram period
+before the next clk_sys edge) fed `wq_room` and through it quadra800's direct-write decision and its
+write registers.  P188 copies the handed-off read pointer into one clk_sys register (`wq_rp_sys`) and
+derives full/empty/room from that, so the crossing is a single flop-to-flop hop; the extra clock only
+overstates the fill.  With the room rule unchanged (two free slots), the FIFO grows to eight entries.
+tb_sdram 45/45, 0 protocol errors; tb_memory_path 0 failures; tb_line_dma 0 errors, 4,096 stores in
+9,712 clocks.
+
+## P187: a spanning store frees the data banks once its merge words are held
+
+Whetstone's hinted reads that still missed the one-clock hit (455k a loop, reads 3 / writes 1): 165k of
+them followed a clock in C_PASS whose store spanned two longwords (`r_span2`, Pascal's 2-mod-4 stack
+longwords).  `posted_hint_read` excluded such stores for their whole C_PASS because the merge used the
+line read straight from `data_q`.  The two merge words are now captured (`sp_h0/sp_h1`, `sp_held`) in the
+clock the line read lands, and the idle read is allowed from then on (`!r_span2 || sline_ready`).
+Against P186 (writes latency 1): Whetstone 22,404,233 -> 22,051,732 (-1.6 %), Towers -0.7 %, Dhrystone
+-0.6 %, Permutations (lat 3) -0.7 %; all oracles and the AP68040 self-tests pass.

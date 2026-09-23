@@ -18,7 +18,7 @@
 //    2FF synchronisers while leaving a timed half-cycle on every crossing.
 //    Hardware-tested read latency: 7 -> 5 clk_sys (~212 -> ~151 ns).
 //
-//  * WRITES ARE POSTED, THROUGH A FOUR-ENTRY FIFO.  A write is acknowledged
+//  * WRITES ARE POSTED, THROUGH AN EIGHT-ENTRY FIFO.  A write is acknowledged
 //    as it enters the FIFO (from the beat port, or from the registered push
 //    port quadra800 drives straight from the store buffer), and clk_ram
 //    drains the FIFO back to back.  A read starts only once the FIFO is
@@ -37,7 +37,7 @@
 //   - busy is high while a read is in flight or a write is not yet in the
 //     chip.
 //   - wp_valid pushes one write per cycle with no handshake; the caller
-//     decides it a cycle ahead from wq_room (two or more free slots).
+//     decides it a cycle ahead from wq_room (two or more free slots of eight).
 //
 //  Byte lanes: be[3] is the byte at addr+0 = wdata[31:24] (the machine's
 //  big-endian convention), so the first SDRAM word carries wdata[31:16].
@@ -121,23 +121,31 @@ reg        r_we;
 // toggle across, two controller WRITEs, the completion toggle back -- so
 // the next beat waited ~18 clk_ram (6 clk_sys) per store, and Whetstone's
 // store stream ran at the bridge's round-trip rate.  Writes now enter a
-// four-entry FIFO on clk_sys and are acknowledged there; clk_ram drains it
+// eight-entry FIFO on clk_sys and are acknowledged there; clk_ram drains it
 // back to back and returns its read pointer through the same falling-edge
 // handoff as the toggles.  A read still waits until every queued write has
 // reached the chip (the FIFO is empty and nothing is in flight), so ordering
 // is exactly as before.  Entries are written on clk_sys and read on clk_ram
 // only after the write pointer that publishes them has crossed.
-reg  [26:2] wq_addr [0:3];
-reg  [31:0] wq_data [0:3];
-reg   [3:0] wq_be   [0:3];
-reg   [2:0] wq_wp   = 0;             // clk_sys: next free slot (bit 2 = wrap)
-reg   [2:0] wq_rp   = 0;             // clk_ram: next slot to drain
-reg   [2:0] wq_wp_handoff = 0;       // wq_wp seen on clk_ram's falling edge
-reg   [2:0] wq_rp_handoff = 0;       // wq_rp seen on clk_ram's falling edge
-wire        wq_full  = (wq_wp[1:0] == wq_rp_handoff[1:0]) && (wq_wp[2] != wq_rp_handoff[2]);
-wire        wq_empty = (wq_wp == wq_rp_handoff);
-wire  [2:0] wq_used  = wq_wp - wq_rp_handoff;
-assign wq_room = (wq_used <= 3'd2);
+reg  [26:2] wq_addr [0:7];
+reg  [31:0] wq_data [0:7];
+reg   [3:0] wq_be   [0:7];
+reg   [3:0] wq_wp   = 0;             // clk_sys: next free slot (bit 3 = wrap)
+reg   [3:0] wq_rp   = 0;             // clk_ram: next slot to drain
+reg   [3:0] wq_wp_handoff = 0;       // wq_wp seen on clk_ram's falling edge
+reg   [3:0] wq_rp_handoff = 0;       // wq_rp seen on clk_ram's falling edge
+// The read pointer crosses into clk_sys through one plain register, and
+// everything clk_sys derives from it (full, empty, room) is computed from
+// that register: the falling-edge handoff leaves half a clk_ram period, which
+// the room decision's path into quadra800's write registers did not meet
+// (P186 fit, -1.369 ns).  The extra clock only overstates the fill.
+reg   [3:0] wq_rp_sys = 0;
+always @(posedge clk_sys) wq_rp_sys <= wq_rp_handoff;
+wire        wq_full  = (wq_wp[2:0] == wq_rp_sys[2:0]) && (wq_wp[3] != wq_rp_sys[3]);
+wire        wq_empty = (wq_wp == wq_rp_sys);
+wire  [3:0] wq_used  = wq_wp - wq_rp_sys;
+// two free slots: one for a push already decided, one for this decision
+assign wq_room = (wq_used <= 4'd6);
 assign busy = rbusy || !wq_empty;
 
 // ---- clk_ram side: one burst read, or two 16-bit writes ----------------
@@ -235,10 +243,10 @@ always @(posedge clk_sys) begin
 	// request waits out the clock a push takes the FIFO
 	if (!init && wp_valid) begin
 		if (fill_pending && !line_done_now) fill_poisoned <= 1;
-		wq_addr[wq_wp[1:0]] <= wp_addr;
-		wq_data[wq_wp[1:0]] <= wp_data;
-		wq_be[wq_wp[1:0]]   <= wp_be;
-		wq_wp      <= wq_wp + 3'd1;
+		wq_addr[wq_wp[2:0]] <= wp_addr;
+		wq_data[wq_wp[2:0]] <= wp_data;
+		wq_be[wq_wp[2:0]]   <= wp_be;
+		wq_wp      <= wq_wp + 4'd1;
 		line_valid <= 0;
 	end
 	if (!init && req && !wp_valid && !rbusy && !ack && !fill_pending && !we && line_hit) begin
@@ -250,10 +258,10 @@ always @(posedge clk_sys) begin
 	end
 	else if (!init && req && !wp_valid && we && !rbusy && !ack && !fill_pending && !wq_full) begin
 		// posted into the FIFO: the drain is invisible from here
-		wq_addr[wq_wp[1:0]] <= addr;
-		wq_data[wq_wp[1:0]] <= wdata;
-		wq_be[wq_wp[1:0]]   <= be;
-		wq_wp      <= wq_wp + 3'd1;
+		wq_addr[wq_wp[2:0]] <= addr;
+		wq_data[wq_wp[2:0]] <= wdata;
+		wq_be[wq_wp[2:0]]   <= be;
+		wq_wp      <= wq_wp + 4'd1;
 		line_valid <= 0;
 		ack        <= 1;
 	end
@@ -323,9 +331,9 @@ always @(posedge clk_ram) begin
 			rd_word  <= 0;
 			busy_r   <= 1;
 			wq_act   <= 1;
-			a_ram    <= wq_addr[wq_rp[1:0]];
-			d_ram    <= wq_data[wq_rp[1:0]];
-			be_ram   <= wq_be[wq_rp[1:0]];
+			a_ram    <= wq_addr[wq_rp[2:0]];
+			d_ram    <= wq_data[wq_rp[2:0]];
+			be_ram   <= wq_be[wq_rp[2:0]];
 			we_ram   <= 1;
 		end
 		else if (req_handoff != req_seen) begin
@@ -350,7 +358,7 @@ always @(posedge clk_ram) begin
 			busy_r  <= 0;
 			if (wq_act) begin
 				wq_act <= 0;
-				wq_rp  <= wq_rp + 3'd1;   // the slot is free once it is in the chip
+				wq_rp  <= wq_rp + 4'd1;   // the slot is free once it is in the chip
 			end
 			else ack_tgl <= ~ack_tgl;
 		end
