@@ -2125,3 +2125,32 @@ earlier.  Evidence: `scratch/hardware_p220_20260923/` (`crash_boot1_bomb.png`,
 `crash_retry_progressbar_overrun.png`, `crash_final.png`).  The guest was left at the bomb dialog.
 Next: P229 (P220 without P215, whose request-side compare is suspected for the timing loss) and a
 full-machine boot sim of P220 to separate a timing failure from a logic bug.
+
+## P229 on hardware: FAILED to boot, same symptoms as P220 (2026-09-23, 16:31-16:38 EDT)
+
+P229 = P220 without P215 (the associative MMU data copies) plus the FPU paths P221-P227, commit `f79a2ef`,
+seed 25, normal-size SCSI cache (CACHE_TINY out): 39,631 ALMs, **CPU clock -1.313 ns** (in the range
+P205/P212 ran cleanly at), HDMI +0.530, crossings met
+(`scratch/p229_nop215_fit_20260923/MacQuadra800_p229_nop215_f79a2ef.rbf`, md5
+`de85957b0bb9bd86aef76280b139d3c0`, on the MiSTer as `_Unstable/MacQuadra800_p229.rbf`).  A
+**development-profile** build (no OSD menu, no sound).  Loaded over P220's bomb dialog (user-authorized
+reset); disk `QuadSquad8-pipeline-test-20260919.hda`.
+
+Mac OS 8.1 went through Welcome, the extension parade and the Starting Up bar to the Finder menu bar and
+bombed with **"Finder" error type 41** before any desktop icon drew, about 60 s after launch, on both
+boots (`boot1..6.png`, `crash_boot1_bomb.png`; retry `retry_boot1..7.png`, `crash_retry_bomb.png`).  The
+same corrupted glyph as P220: the dialog's button reads "Rest^rt" (the "a" drawn as a caret-like shape),
+and the menu-bar clock drew only as fragments of its lower edge.  No Speedometer run.
+
+**Control (same session, same disk):** P212 (`_Unstable/MacQuadra800_p212.rbf`, md5 `c829f5a0...`) loaded
+straight after the P229 retry booted the disk to a complete Finder desktop in about 50 s with no disk
+note and nothing unusual (`control_p212_boot1..7.png`), and Special -> Shut Down (`control_menu2.png`,
+Shut Down lit) reached "It is now safe to switch off your Macintosh" (`control_halt.png`).  So the disk
+is intact and the failure is in the RTL P229 shares with P220, not in P215 and not in the -2.6 ns timing
+miss: P214 (spanning stores as two FIFO entries), P216-P220 (MOVEM load chains, pair-hit idle reads,
+read-after-read handoff, idle-read validity fix), or the P221-P227 FPU paths.  P229 fails at a CPU-clock
+slack no worse than P205's, which points at a logic bug rather than timing.  The core was left on P212
+at the safe-halt screen.  Evidence: `scratch/hardware_p229_20260923/`.
+
+Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377 -> P174 1.460 -> P182 1.467 -> P188 1.631 ->
+P193 1.646 -> P205 1.703 -> **P212 1.725** (P220, P229 fail to boot).  Real Quadra 800: 1.897.
