@@ -115,6 +115,26 @@ check `scratch/<tag>_fit_*/cross.log` (the bridge crossings), not only the .sta 
 - Full-machine boot sims (Finder by frame 5400, 0 exceptions): P197, P205.  P212's running
   (`scratch/sim_p212`).
 
+## Evening of 09-23: P212 on hardware 1.725; P214 platform fix; P220 failed on hardware
+
+- **P212 (`c214e74`) Mix 1.725** (Queens +6.3 %, Whetstone +2.7 %).
+- **Platform fixture** (`scripts/cpu/platform_fixture/`, TREE=<dir with rtl/>): Whetstone on quadra800 +
+  sdram_beat32 + sdram.sv + SDRAM model; tracks hardware (P193->P205 1.093x vs 1.078x on hardware; P212 predicted
+  +3.2 %, measured +2.7 %).  It found **P214**: 2-mod-4 longword stores took the adapter at 10 clk_sys; now two FIFO
+  pushes (platform Whetstone -12.8 %).
+- P215 (associative MMU data copies, Dhrystone -4 %), P216-P220 (MOVEM load chains, pair-hit idle reads,
+  read-after-read handoff, **P220 idle-read validity fix -- a latent bug since P198/P205**), P221-P227 (FPU:
+  F_IDLE fast paths, S_FPU_AN inlined, FMOVEM/FMOVE-out handoffs).  Fixture Whetstone 17.08M (P229), platform
+  17.10M (~1860 KWhet/s projected).
+- **P220 (`1a38ef8`, -2.596 ns, CACHE_TINY) failed on hardware**: Finder type-41 bomb twice, corrupted glyph,
+  progress bar drawn past its box.  Suspects: the timing miss (worst path mem_addr_q -> MMU request translation ->
+  epf_data, which P215's request-side compare lengthened), P215-P220 logic, CACHE_TINY (never on hardware before;
+  passes tb_scsi_cache at 16/16/16).  Running: P229 fit (no P215, no CACHE_TINY), boot sims `sim_p220` (P220 RTL)
+  and `sim_tiny212` (P212 RTL + CACHE_TINY).  The MiSTer was left with the P220 guest at the bomb dialog.
+- A P228 variant (request path indexed, hint path associative) FAILED the MMU self-tests: the two sides must
+  agree.  The SCSI-cache bypass (`SCSI_CACHE_OFF`, scratch only) does not find the disk -- not landed.
+- Disk: scratch/ filled the disk (see memory `scratch-disk-hygiene`); delete obj dirs and run.hda after runs.
+
 ## Next
 
 1. P212 fit -> hardware (Opus agent, P205's prompt with P212's identity); if the CPU clock is much past -1.7 ns
