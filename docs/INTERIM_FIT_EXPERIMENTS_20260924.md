@@ -422,3 +422,23 @@ Evidence: `scratch/alu_divsqrt_shared_20260924/RESULTS.md`, `miter.log`,
 Promote this validated candidate for a full-feature fit at seed 21, placement
 effort 1.0. Feature and timing constraints remain unchanged. A separate fused
 borrow arithmetic screen is scratch-only and is not part of this candidate.
+
+## Borrow-derived comparison follow-on, validated but deferred
+
+A separate scratch variant derives each shared DIV/SQRT comparison from a
+70-bit zero-extended difference, using the high borrow bit and the low
+69-bit result. Exact FPU SHA-256:
+`2d53db3ae4a04310add04eeb7919f0219197a98827ed92e410e6d4a4a90f5465`.
+The CPU map measured 25,514 ALMs / 8,966 registers: 162 fewer than the
+integrated shared-stage candidate, 351 fewer than the common-ALU baseline.
+The actual-source recurrence miter passed 100,056 checks; the truncation
+negative failed as expected. The fresh full directed CPU suite with LEA and
+XSTORE enabled exited 0 with all tests passed, including FPU/frame/resume.
+Evidence is in `scratch/alu_divsqrt_shared_borrow_20260924/RESULTS.md` and
+`scratch/cpu_area/p_p_divsqrt_borrow_86d48df/`.
+
+Do not integrate while `interim_mac_divsqrt` is running. That full flow is
+building source 3791bf6 (FPU 78f51d66...), session 90296, wrapper 1765334,
+fitter 1772156. Its fresh full-map estimate is 39,313 ALMs, only 41 fewer
+than the preceding full-map 39,354; isolated CPU savings do not transfer
+one-for-one to the complete design. Final placement/routing/timing pending.
