@@ -361,3 +361,22 @@ The initial `addsub_shared_s21` map failed from a scratch entity-name error
 (ap040_alu_new instead of ap040_alu), not a logic or capacity result. It was
 corrected only in the separate successful run; do not use that failed map
 as area evidence. The active full seed21 build is unaffected.
+
+## Seed21 also congested; controlled placement-effort trial
+
+`interim_mac_onealu_s21` atc61087e is terminal:40,997/41,910ALMs,
+4,156/4,191LABs, placement successful, routing failed16618/170143 with188005
+hold-delay demand. Map stayed39,354ALMs. build3/source-after0/cross77/timing77;
+no freshSTA/RBF. Archive scratch/interim_mac_onealu_s21_fit_20260924.
+Seed21 therefore did not resolve the seed28 routing failure.
+
+The next trial keeps seed21 and all CPU/feature/SDC settings, changing only
+PLACEMENT_EFFORT_MULTIPLIER from reported1.0 to3.0. Installed Quartus17
+Cyclone V DSE explicitly tests1.0/3.0/5.0/10.0 with STANDARD FIT:
+`/home/alans/intelFPGA_lite/quartus/common/tcl/packages/dse/dse-cyclonev-lib.tcl:1187`.
+The installed advisor recommends2-4 for congestion and explains that extra
+placement work can reduce routing demand:
+`/home/alans/intelFPGA_lite/quartus/common/advisors/oa_resource_table.oaw:3524`.
+This is a documented placement-effort experiment, not relaxed timing or a
+guarantee of route success. ROUTER_EFFORT_MULTIPLIER is deprecated/ignored
+according to the installed warning database and is not being changed.

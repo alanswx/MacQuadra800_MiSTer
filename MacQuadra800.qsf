@@ -28,6 +28,8 @@ set_global_assignment -name TIMEQUEST_MULTICORNER_ANALYSIS OFF
 set_global_assignment -name OPTIMIZE_POWER_DURING_FITTING OFF
 set_global_assignment -name FINAL_PLACEMENT_OPTIMIZATION ALWAYS
 set_global_assignment -name FITTER_EFFORT "STANDARD FIT"
+# Sep24: placement fits, routing congests; Cyclone V DSE medium-effort trial.
+set_global_assignment -name PLACEMENT_EFFORT_MULTIPLIER 3.0
 # Speed-first fitting (the stock MiSTer template values).  These were
 # briefly flipped to AGGRESSIVE AREA / TECHNIQUE AREA / duplication OFF as
 # a hedge while the design was over capacity; the block-RAM conversions
