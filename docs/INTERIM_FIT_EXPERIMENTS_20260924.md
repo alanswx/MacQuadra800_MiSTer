@@ -315,3 +315,32 @@ patches were applied: optional ALU port tieoffs in the three standalone
 benches and robust store/cancellation mutations in the oracle runner. These
 are test maintenance and do not alter the synthesizable design. Positive
 and negative validation was completed on their exact scratch contents.
+
+### Read-only hold-delay diagnosis of seed28 failure
+
+The largest hold-summary bucket is1,116.1ns for clk_sys-to-clk_sys, followed
+by video578.6ns andHDMI467.3ns. These are aggregate inserted delays across
+many paths, not single-path requirements. The largest listed individual
+path is hps_io.sd_rrb[2] to io_dout[11],1.950ns. Of the top100 detail rows,
+66 are within sdram_beat32,16 in the FPU,10 end in hps_io,4 at ADB keyboard
+FIFO RAM, and4 in CPU pipeline/core logic. This does not identify a giant
+erroneous single hold constraint.
+
+SDRAM write-queue/request registers are in clk_sys; a_ram/d_ram capture in
+clk_ram. The clocks are related main-PLL outputs at33/99MHz. The loaded SDC
+keeps these outputs in the same group, preserving their timing checks.
+Do not false-path them to make congestion disappear. Dynamic video PLL
+exceptions reflect existing dual-clock memory/2FF CDC boundaries. No SDC
+change was justified by this review, and none was made.
+
+Existing coverage limits: sys_top.sdc uses exclusive groups for several
+concurrently operating independent clocks (semantically imprecise but not
+identified as the source of this hold burden); there are no board-I/O
+input/output delay constraints in the reviewed SDCs. Any eventual STA pass
+must be described within the configured constraints, not as exhaustive
+external-interface timing proof. Hardware validation remains necessary.
+
+Seed21 mapping completed with the same39,354ALM estimate; full fitter is
+active. A separate scratch-only ADD/SUB sharing screen is being evaluated
+as a possible additional area reduction; no new arithmetic change is in
+this build.
