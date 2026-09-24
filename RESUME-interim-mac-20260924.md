@@ -233,3 +233,16 @@ mapped25950ALMs (914 saved versus26864). Exact combined CPU map still pending.
 Evidence and limitations are in docs/INTERIM_FIT_EXPERIMENTS_20260924.md.
 Hardware procedure: docs/INTERIM_HARDWARE_VALIDATION.md. Do not contact MiSTer
 until user says it is free. No fresh RBF from preceding failed full fits.
+
+
+### Pending test-only patch application after active fit
+
+Exact combined fault/IRQ matrix has now passed; see latest consolidated
+experiment notes and scratch/alu_owner_combined_86d48df/RESULTS.md. CPU map
+25,865ALMs; full map39,354ALMs. Full fitter1679113 is active (recheck live).
+After `interim_mac_onealu` is terminal AND its source-after manifest check
+finishes, apply scripts/cpu/pipeline_optional_alu_tb_tieoffs.patch and
+scripts/cpu/pipeline_store_oracle_mutation.patch, then commit/push. Both are
+already validated together in scratch; do not mutate tracked .sv benches
+while the current source manifest is frozen. No synthesizable RTL change
+is involved in these deferred test fixes.

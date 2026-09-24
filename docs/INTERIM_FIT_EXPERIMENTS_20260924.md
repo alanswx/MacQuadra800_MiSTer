@@ -257,3 +257,38 @@ The hardware procedure is preserved in `docs/INTERIM_HARDWARE_VALIDATION.md`.
 It requires current hardware availability and includes separate data-CD and
 audible CD-audio checks, protected-original/disposable-disk handling, and
 explicit limits on historical performance comparisons.
+
+### Exact combined fault/IRQ validation and deferred test maintenance
+
+The exact4f90d54 combined core/pipeline/ALU hashes now pass the complete
+established directed matrix: MOVE standard and d16 seven-case fault tests,
+production P6 and CMP/TST faults, five branch-boundary cases, IRQ handoff,
+and read-ack IRQ. Required event counts match the prototype. Test-only
+FORCE_DECODE remains limited to the specialized IRQ runners. All wrapper
+exits are zero. Evidence is preserved under
+`scratch/alu_owner_combined_86d48df/regress/fault_coverage/`; complete commands,
+hashes, warnings, and scope are in that snapshot's `RESULTS.md`.
+
+Exact combined CPU map:25,865ALMs/8,966registers, an857ALM reduction versus
+shared-shifter-only26,722. Full design map for the active `interim_mac_onealu`
+run estimates39,354ALMs,701 below the prior40,055. Fitting is still pending.
+
+Two tested harness patches are preserved but MUST wait until the active
+full flow and source-after check finish before application:
+
+- `scripts/cpu/pipeline_optional_alu_tb_tieoffs.patch`: three standalone
+  wildcard benches require explicit zero inputs/open outputs for the new
+  optional ALU interface. Their default internal-ALU mode is unchanged.
+- `scripts/cpu/pipeline_store_oracle_mutation.patch`: the prior wrong-An
+  mutation matched an obsolete assignment and did nothing. The corrected
+  mutation changes only the store update and requires exactly one match;
+  the cancellation mutation now requires exactly one match too.
+
+In scratch, prototype modes0-5 each pass8,608 retirements and forwarding
+negative; all8 PEA configurations pass5,006 retirements/1,056 requests and
+both negatives; all8 store configurations pass5,799 retirements/996 stores,
+wrong-An negative, cancellation positive, and cancellation negative. Logs:
+`regress/default_stores/` and other standalone outputs listed in RESULTS.md.
+These fixes do not change synthesizable CPU behavior, but the tracked .sv
+benches are included in the current build integrity manifest and remain
+untouched until that build is terminal.
