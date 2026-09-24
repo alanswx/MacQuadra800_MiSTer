@@ -442,3 +442,23 @@ building source 3791bf6 (FPU 78f51d66...), session 90296, wrapper 1765334,
 fitter 1772156. Its fresh full-map estimate is 39,313 ALMs, only 41 fewer
 than the preceding full-map 39,354; isolated CPU savings do not transfer
 one-for-one to the complete design. Final placement/routing/timing pending.
+
+## Interpreting fitter growth and a deferred settings experiment
+
+Review of the seed21/effort3 report distinguishes ALMs actually used from
+ALMs needed: A=39,778 used, B=1 recoverable, C=1,220 unavailable gives
+A-B+C=40,997 needed. Relative to the 39,354 map estimate, actual used growth
+is 424, not 1,643. Of the unavailable estimate, 1,181 are due to LAB input
+limits and 39 to LAB-wide signal conflicts. Register counts fall from
+29,141 mapped to 28,478 fitted. The 341 logged register duplicates occur
+in register packing even though performance register duplication is off.
+
+The reports do not attribute hold-repair demand to these physical-synthesis
+settings. If the validated borrow reduction still fails routing, one
+controlled setting trial is to turn PHYSICAL_SYNTHESIS_COMBO_LOGIC off while
+leaving PHYSICAL_SYNTHESIS_COMBO_LOGIC_FOR_AREA on and all other settings
+fixed. The former is the performance pass, and the latter is for fitting.
+This is only a proposed experiment: the previous report credits the
+performance pass with an estimated 1,590 ps slack improvement, so removing
+it may hurt timing. Do not relax clock constraints or assume routing will
+improve. No such settings change is part of the active divsqrt build.
