@@ -135,6 +135,20 @@ check `scratch/<tag>_fit_*/cross.log` (the bridge crossings), not only the .sta 
   agree.  The SCSI-cache bypass (`SCSI_CACHE_OFF`, scratch only) does not find the disk -- not landed.
 - Disk: scratch/ filled the disk (see memory `scratch-disk-hygiene`); delete obj dirs and run.hda after runs.
 
+## Night of 09-23/24: the P219 fault, P232 on hardware 1.778
+
+- P220 and P229 failed on hardware (Finder type-41 bomb, corrupted glyph).  Full-machine boot sims bisected it: P216
+  and P216+P217 boot; P216+P217+P219+P220 ends in a Sad Mac 0000000F/00000002 -> **P219 (read-after-read handoff) is
+  the fault**; it is gated off (`hint_rrr = 1'b0 && ...`).  P215 (associative MMU copies) is out for timing;
+  P230's hashed slot index replaces it.  CACHE_TINY was cleared by a P212+CACHE_TINY boot sim.
+- Routing is now the binding constraint: P232 (P214, P216, P217, P220, P221-P227, P230) failed or routed at
+  -9.8..-17.8 ns at 94-95 %.  `SCSI_CACHE_OFF` (development builds only: the SCSI block cache bypassed; boot-simulated
+  to the Finder) plus a seed sweep (`scratch/seed_sweep.sh`): of seeds 23-29 only 28 routes (-2.165 ns).
+- **P232 seed 28 on hardware: Mix 1.778** (P212 1.725): Whetstones 1760 (+14.6 %, the platform fixture predicted
+  ~1850), Queens +8 %, Towers +6.1 %, Quick/Permutations +3 %; **Puzzle 0.878 (-25.8 %) and Int. Matrix 0.511
+  (-11.1 %) regress** on hardware only (fixtures, MMU on or off, show none).  Suspect: SCSI_CACHE_OFF -- a segment
+  load inside the timed test.  A disk-I/O diagnostic run is under way.  With those two at P212's speed the Mix is ~1.83.
+
 ## Next
 
 1. P212 fit -> hardware (Opus agent, P205's prompt with P212's identity); if the CPU clock is much past -1.7 ns
