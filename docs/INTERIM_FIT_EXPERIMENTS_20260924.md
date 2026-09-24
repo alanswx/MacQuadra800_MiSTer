@@ -292,3 +292,26 @@ wrong-An negative, cancellation positive, and cancellation negative. Logs:
 These fixes do not change synthesizable CPU behavior, but the tracked .sv
 benches are included in the current build integrity manifest and remain
 untouched until that build is terminal.
+
+## Common-ALU full fit: placement passes, routing fails
+
+`interim_mac_onealu` at4f90d54 finished build exit3, source-after0, cross77,
+CPU timing77. Final resources: **41,002 / 41,910 ALMs**, **4,155 / 4,191 LABs**.
+Placement succeeded (170137), but routing failed with16684/16618/170143.
+Average interconnect estimate50%, peak82% inX45_Y23..X55_Y34. Diagnostic188005
+reports excessive hold-delay demand;188026 suggests a seed change or
+aggressive routability. ALWAYS routability is already enabled. No fresh
+STA/RBF; archive scratch/interim_mac_onealu_fit_20260924.
+
+Next controlled experiment changes only fitter seed28 to21; CPU RTL,
+features, timing constraints, and all other fitting settings stay unchanged.
+Unlike earlier capacity failures, this failure explicitly reaches placement
+and identifies routing congestion, making a seed trial relevant. A separate
+read-only review will inspect actual hold-delay endpoints rather than
+relaxing constraints. Seed21 is an experiment, not a predicted timing fix.
+
+After the terminal source-after check, the two previously validated test
+patches were applied: optional ALU port tieoffs in the three standalone
+benches and robust store/cancellation mutations in the oracle runner. These
+are test maintenance and do not alter the synthesizable design. Positive
+and negative validation was completed on their exact scratch contents.

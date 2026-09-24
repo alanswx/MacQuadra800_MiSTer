@@ -370,7 +370,8 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # P171b: the queue-bypass forward (epf_fwd_pc) and the refill-buffer fill at acknowledge read the fetch's own
 # address again, and a redirect replaces a speculative fetch the platform has not accepted yet (ifr_avail).
 # Sim vs P170: Permute -7.0 %, Whetstone -1.9 %, Queens -1.5 %, Dhrystone -2.3 %.
-set_global_assignment -name SEED 28
+# Sep24 common-ALU design fits capacity but seed28 cannot route; isolate seed21 trial.
+set_global_assignment -name SEED 21
 # 2026-09-24: NEVER grew the full BRF fit by398 ALMs; retain the better ALWAYS setting.
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
