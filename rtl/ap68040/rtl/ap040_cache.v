@@ -137,7 +137,8 @@ module ap040_cache
 // SETW index bits per bank: 6 = 4 KB (the MC68040 geometry), 8 = 16 KB.
 // Sets, rows ({bank, set}) and data words ({bank, set, way}) derive from it;
 // the tag is everything above the index.
-localparam SETW = 8;
+// Interim peripheral build: 8 KB per bank leaves M10Ks for Mac devices.
+localparam SETW = 7;
 localparam ROWIW = SETW + 1;
 localparam DIDXW = SETW + 3;
 localparam TAGW = 28 - SETW;

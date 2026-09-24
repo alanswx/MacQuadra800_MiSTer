@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Generic development fit of whatever is promoted in this checkout: fit_dev.sh <tag>.
+# Generic archived fit of whatever is promoted in this checkout: fit_dev.sh <tag>.
 # Records the core/cache/pipeline hashes, freezes and re-checks every tracked input,
 # archives fresh reports, the rbf and the cross-domain timing under scratch/<tag>_fit_<date>/.
 set -u
@@ -17,7 +17,7 @@ if [[ -e "$fit_out/start.stamp" ]]; then
   exit 4
 fi
 mkdir -p "$fit_out"
-printf '%s\n' "$tag development fit: CDROM_OFF and ETHERNET_OFF." > "$fit_out/FEATURES.txt"
+{ grep -E '^(set_global_assignment -name VERILOG_MACRO|source configs/)' MacQuadra800.qsf; cat configs/cpu_release_lite.tcl configs/cpu_development.tcl; } > "$fit_out/FEATURES.txt"
 fit_commit=$(git rev-parse HEAD)
 printf '%s\n' "$fit_commit" > "$fit_out/commit.txt"
 
@@ -25,13 +25,13 @@ actual_cache=$(sha256sum rtl/ap68040/rtl/ap040_cache.v | cut -d' ' -f1)
 actual_core=$(sha256sum rtl/ap68040/rtl/ap040_core.v | cut -d' ' -f1)
 actual_pipe=$(sha256sum rtl/ap68040/experimental/ap040_pipeline_integer.sv | cut -d' ' -f1)
 seed=$(grep -E '^set_global_assignment -name SEED' MacQuadra800.qsf | awk '{print $4}')
-printf '%s\n' "core=$actual_core pipeline=$actual_pipe cache=$actual_cache seed=$seed CDROM_OFF=1 ETHERNET_OFF=1" > "$fit_out/IDENTITY_CHECK.txt"
+printf '%s\n' "core=$actual_core pipeline=$actual_pipe cache=$actual_cache seed=$seed (active profile recorded in FEATURES.txt)" > "$fit_out/IDENTITY_CHECK.txt"
 # Burn the run stamp only after all identity and configuration checks pass.
 printf '%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$fit_out/start.stamp"
 
 # Freeze every tracked HDL/QSF/QIP/SDC input before the flow and compare the
 # same complete manifest after all Quartus/STA/report work.
-git ls-files -z '*.v' '*.sv' '*.qip' '*.qsf' '*.sdc' | xargs -0 sha256sum > "$fit_out/tracked_before.sha256"
+git ls-files -z '*.v' '*.sv' '*.qip' '*.qsf' '*.sdc' '*.tcl' | xargs -0 sha256sum > "$fit_out/tracked_before.sha256"
 cp "$fit_out/tracked_before.sha256" "$fit_out/tracked.sha256"
 sha256sum -c "$fit_out/tracked_before.sha256" > "$fit_out/source_check_before.log" 2>&1
 before_rc=$?
@@ -74,7 +74,7 @@ if [[ -f "$fit_summary" && "$fit_summary" -nt "$fit_out/start.stamp" ]] && \
 fi
 . scripts/local.env
 if [[ "$fit_ready" -eq 1 && -n "${QUARTUS_BIN:-}" ]]; then
-  "$QUARTUS_BIN/quartus_sta" -t scripts/cpu/timequest_cross_domain.tcl p163_combined_forward_shared_port_seed25 > "$fit_out/cross.log" 2>&1
+  "$QUARTUS_BIN/quartus_sta" -t scripts/cpu/timequest_cross_domain.tcl ${tag} > "$fit_out/cross.log" 2>&1
   cross_rc=$?
   "$QUARTUS_BIN/quartus_sta" -t scripts/cpu/timequest_worst_paths.tcl "$fit_out/cpu_timing" > "$fit_out/cpu_timing.log" 2>&1
   cpu_rc=$?
@@ -91,15 +91,15 @@ printf '%s\n' "$cross_rc" > "$fit_out/cross.exit"
 printf '%s\n' "$cpu_rc" > "$fit_out/cpu_timing.exit"
 
 # Cross-domain TCL writes these exact files under the current checkout's scratch.
-copy_fresh scratch/cross_sys2ram_p163_combined_forward_shared_port_seed25.txt "$fit_out/cross_sys2ram.txt"
-copy_fresh scratch/cross_ram2sys_p163_combined_forward_shared_port_seed25.txt "$fit_out/cross_ram2sys.txt"
+copy_fresh scratch/cross_sys2ram_${tag}.txt "$fit_out/cross_sys2ram.txt"
+copy_fresh scratch/cross_ram2sys_${tag}.txt "$fit_out/cross_ram2sys.txt"
 copy_fresh "$fit_out/cpu_timing/worst_paths.txt" "$fit_out/worst_paths.txt"
 copy_fresh "$fit_out/cpu_timing/worst_detail.txt" "$fit_out/worst_detail.txt"
 grep -E -n 'RAM|M10K|ALM|Total registers|slack|Slack|Critical Warning|Error' "$fit_out"/*.rpt "$fit_out"/*.summary "$fit_out"/worst_*.txt > "$fit_out/resource_timing_extract.txt" 2>/dev/null || true
 
 # Verify the complete tracked-input manifest after the entire flow, including
 # report generation. A changed tracked HDL/QSF/QIP/SDC file fails the fit.
-git ls-files -z '*.v' '*.sv' '*.qip' '*.qsf' '*.sdc' | xargs -0 sha256sum > "$fit_out/tracked_after.sha256"
+git ls-files -z '*.v' '*.sv' '*.qip' '*.qsf' '*.sdc' '*.tcl' | xargs -0 sha256sum > "$fit_out/tracked_after.sha256"
 if cmp -s "$fit_out/tracked_before.sha256" "$fit_out/tracked_after.sha256"; then
   after_rc=0
 else
