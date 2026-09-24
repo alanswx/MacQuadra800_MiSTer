@@ -55,6 +55,10 @@ little debug logic survives that the full design strips):
 | CPU | ALMs | registers | Mix on hardware |
 |---|---|---|---|
 | 20260919 release (`5b9ad4d`, before the pipeline and fast paths) | 22,323 | 7,390 | ~0.93 |
+| + the integer pipeline (`90b37e4`, 09-19 evening) | 25,291 | 7,903 | (P39 1.105) |
+| `c8c58bf` (09-19) | 25,340 | 7,905 | |
+| `d90c597` (09-20, the P63 era) | 26,167 | 8,176 | P63 1.129 |
+| `53fb722` (09-20) | 26,812 | 8,435 | |
 | P165 (`e655742`) | 27,361 | 8,485 | (P174 1.460) |
 | P193 (`970b98c`) | 28,269 | 8,934 | 1.646 |
 | P212 (`c214e74`) | 28,936 | 8,977 | 1.725 |
@@ -63,7 +67,11 @@ little debug logic survives that the full design strips):
 The 20260919 release fitted the full recipe at 36,914 ALMs (*fit*) with the
 22.3k CPU.  The 7,000 ALMs the CPU gained since (Mix 0.93 -> 1.78) are the
 gap; the P165 -> HEAD speed work is only 2,000 of them, and it bought
-Mix 1.46 -> 1.78.
+Mix 1.46 -> 1.78.  The integer pipeline, landed the same evening as the
+Ethernet release, is 3,000 of them.  The last full-feature build was P63
+(2026-09-20): 41,174 fitted ALMs, CPU clock -1.709 ns, never released; every
+build since has been a development profile.  The non-CPU side has not grown
+(about 14.6k at the Ethernet release, about 13.5k now).
 
 ## Feature ablations: speed cost and area
 
