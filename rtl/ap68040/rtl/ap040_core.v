@@ -388,6 +388,10 @@ wire [31:0] pipe_data, pipe_pc, pipe_next_pc;
 wire [1:0] pipe_words;
 wire [15:0] pipe_opcode;
 wire [4:0] pipe_ccr;
+wire [5:0] pipe_alu_op, pipe_alu_shcnt;
+wire [1:0] pipe_alu_size;
+wire [31:0] pipe_alu_src, pipe_alu_b;
+wire [4:0] pipe_alu_flags_in;
 // A short unsupported boundary should retain the sequencer's fast path.
 // PEA already wins in isolation; other entries need a supported successor.
 // Forced-decode tests deliberately bypass this policy for opcode coverage.
@@ -444,13 +448,16 @@ wire pipe_cancel = pipe_owner && pipe_wb_retire &&
 wire pipe_write = (pipe_owner || pipe_read_retire) && pipe_retire && pipe_we;
 wire pipe_load_launch = pipe_owner && pipe_load_req && !pipe_load_active;
 ap040_pipeline_integer #(
-    .EXTERNAL_STATE(1), .ENABLE_LOADS(PIPE_LOADS), .ENABLE_STORES(PIPE_STORES),
+    .EXTERNAL_STATE(1), .EXTERNAL_ALU(1), .ENABLE_LOADS(PIPE_LOADS), .ENABLE_STORES(PIPE_STORES),
     .ENABLE_PEA(PIPE_PEA), .ENABLE_INDEXLOAD(PIPE_P6), .ENABLE_SHIFTS(PIPE_P6),
     .ENABLE_DISP_LEA(PIPE_P6), .ENABLE_COMPARE(PIPE_COMPARE), .ENABLE_BRANCH(1), .ENABLE_FAST_READ_RETIRE(1)
 ) integer_pipeline (
     .clk(clk), .nreset(nreset), .ce(ce), .flush(pipe_load_abort),
     .kill_younger(pipe_cancel || pipe_branch_taken), .idle(pipe_idle), .empty_after_retire(pipe_empty_after_retire),
     .external_dst(pipe_old_dst), .read_old_dst(pipe_old_dst_reg), .external_a(pipe_rdata_a), .external_b(pipe_rdata_b), .external_sp(dbg_a7_wb), .external_ccr(sr[4:0]),
+    .external_alu_selected(pipe_rf_owner), .external_alu_result(alu_res), .external_alu_flags(alu_fl),
+    .external_alu_fast_flags(alu_fast_fl), .external_alu_fast_ok(alu_fast_ok),
+    .ex_op(pipe_alu_op), .ex_size(pipe_alu_size), .shcnt(pipe_alu_shcnt), .src(pipe_alu_src), .b(pipe_alu_b), .flags_in(pipe_alu_flags_in),
     .read_src(pipe_src), .read_dst(pipe_dst), .in_supported(pipe_supported),
     .next_opcode(epf_data[epf_head]), .next_extension(epf_data[(epf_head + 3'd1) & 3'd7]),
     .next_valid(epf_ready_pc), .next_extension_valid(epf_ready_pc2), .next_supported(pipe_next_supported),
@@ -595,12 +602,27 @@ wire [31:0] alu_a = alu_is_bitop ? (p_dst_mem_bit ? {29'd0, alu_src[2:0]}
 wire [31:0] alu_b = (state == S_SHIFT) ? sh_val : alu_dst;
 wire  [4:0] alu_fin = (state == S_SHIFT) ? sh_fl : sr[4:0];
 
+`ifdef AP040_EXPERIMENTAL_PIPELINE
+wire [5:0] core_alu_op = pipe_rf_owner ? pipe_alu_op : alu_op;
+wire [1:0] core_alu_size = pipe_rf_owner ? pipe_alu_size : op_size;
+wire [5:0] core_alu_shcnt = pipe_rf_owner ? pipe_alu_shcnt : ((state == S_SHIFT) ? sh_cnt : (shift_fire ? shift_cnt : 6'd1));
+wire [31:0] core_alu_a = pipe_rf_owner ? pipe_alu_src : alu_a;
+wire [31:0] core_alu_b = pipe_rf_owner ? pipe_alu_b : alu_b;
+wire [4:0] core_alu_flags_in = pipe_rf_owner ? pipe_alu_flags_in : alu_fin;
+`else
+wire [5:0] core_alu_op = alu_op;
+wire [1:0] core_alu_size = op_size;
+wire [5:0] core_alu_shcnt = (state == S_SHIFT) ? sh_cnt : (shift_fire ? shift_cnt : 6'd1);
+wire [31:0] core_alu_a = alu_a;
+wire [31:0] core_alu_b = alu_b;
+wire [4:0] core_alu_flags_in = alu_fin;
+`endif
 ap040_alu alu
 (
-	.op(alu_op), .size(op_size),
-	.a(alu_a), .b(alu_b),
-	.flags_in(alu_fin),
-	.shcnt((state == S_SHIFT) ? sh_cnt : (shift_fire ? shift_cnt : 6'd1)),
+	.op(core_alu_op), .size(core_alu_size),
+	.a(core_alu_a), .b(core_alu_b),
+	.flags_in(core_alu_flags_in),
+	.shcnt(core_alu_shcnt),
 	.result(alu_res), .flags_out(alu_fl),
 	.fast_flags(alu_fast_fl), .fast_ok(alu_fast_ok)
 );
@@ -2590,7 +2612,14 @@ wire [4:0] pipe_branch_ccr = pipe_retire ? pipe_ccr : sr[4:0];
 wire [4:0] pipe_branch_ccr = sr[4:0];
 `endif
 wire  [4:0] rd_bcc_fl = pipe_drain ? pipe_branch_ccr : (regs_alu_fire && p_flags) ? alu_fast_fl : sr[4:0];
+wire legacy_alu_fast_ok = (alu_op == `AP040_ALU_ADD) || (alu_op == `AP040_ALU_SUB) ||
+    (alu_op == `AP040_ALU_CMP) || (alu_op == `AP040_ALU_MOVE) || (alu_op == `AP040_ALU_TST) ||
+    (alu_op == `AP040_ALU_AND) || (alu_op == `AP040_ALU_OR) || (alu_op == `AP040_ALU_EOR);
+`ifdef AP040_EXPERIMENTAL_PIPELINE
+wire        rd_bcc_fl_ok = !(regs_alu_fire && p_flags) || (pipe_rf_owner ? legacy_alu_fast_ok : alu_fast_ok);
+`else
 wire        rd_bcc_fl_ok = !(regs_alu_fire && p_flags) || alu_fast_ok;
+`endif
 wire        rd_bcc_taken = cond_true_fl(rd_ir[11:8], rd_bcc_fl);
 always @* begin
 	rd_valid = 0; rd_quick = 0; rd_flags = 1; rd_wbsup = 0; rd_sextw = 0;

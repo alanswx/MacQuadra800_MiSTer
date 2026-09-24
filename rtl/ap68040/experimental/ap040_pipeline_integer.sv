@@ -12,7 +12,8 @@ module ap040_pipeline_integer #(
     parameter ENABLE_DISP_LEA = 0,
     parameter ENABLE_COMPARE = 0,
     parameter ENABLE_BRANCH = 0,
-    parameter ENABLE_FAST_READ_RETIRE = 0
+    parameter ENABLE_FAST_READ_RETIRE = 0,
+    parameter EXTERNAL_ALU = 0
 ) (
     input wire clk, nreset, ce, flush,
     // Cancel ID/EX while allowing an accepting WB to commit. A blocked WB
@@ -24,6 +25,17 @@ module ap040_pipeline_integer #(
     // EXTERNAL_STATE uses the owner's one architectural register file and CCR.
     input wire [31:0] external_a, external_b, external_sp, external_dst,
     input wire [4:0] external_ccr,
+    // Optional shared core ALU. EX operations and operands remain registered
+    // pipeline state; only the combinational datapath is externalized.
+    input wire external_alu_selected,
+    input wire [31:0] external_alu_result,
+    input wire [4:0] external_alu_flags, external_alu_fast_flags,
+    input wire external_alu_fast_ok,
+    output reg [5:0] ex_op,
+    output reg [1:0] ex_size,
+    output wire [5:0] shcnt,
+    output wire [31:0] src, b,
+    output wire [4:0] flags_in,
     output wire [3:0] read_src, read_dst, read_old_dst,
     output wire in_supported,
     // Optional owner admission probe uses the same decoder as real issue.
@@ -156,8 +168,6 @@ module ap040_pipeline_integer #(
     endfunction
     reg [31:0] id_pc, ex_pc, wb_pc;
     reg [15:0] id_opcode, ex_opcode, wb_opcode;
-    reg [5:0] ex_op;
-    reg [1:0] ex_size;
     reg [3:0] ex_src, ex_dst, wb_dst;
     reg ex_imm, ex_we, ex_flags, ex_word_src, wb_we;
     reg [31:0] ex_immediate, wb_data;
@@ -355,20 +365,31 @@ module ap040_pipeline_integer #(
     // handles its own delayed MLAB write beneath this bypass.
     wire [31:0] source_full = ex_imm ? ex_immediate :
         (wb_v && wb_we && wb_dst == ex_src) ? wb_data : rf_a;
-    wire [31:0] src = ex_store ? load_wdata : ex_load ? (load_done ? load_value : load_data) : ex_word_src ? {{16{source_full[15]}}, source_full[15:0]} : source_full;
+    assign src = ex_store ? load_wdata : ex_load ? (load_done ? load_value : load_data) : ex_word_src ? {{16{source_full[15]}}, source_full[15:0]} : source_full;
+    assign shcnt = source_full[5:0];
     wire [31:0] dst = (wb_v && wb_we && wb_dst == read_dst) ? wb_data : rf_b;
+    assign b = is_indexcmp(ex_opcode) ? old_dst : dst;
     wire [31:0] old_dst = wb_v && wb_we && wb_dst == ex_dst ? wb_data : rf_old_dst;
     wire [31:0] merge_dst = is_indexload(ex_opcode) ? old_dst : dst;
-    wire [4:0] flags_in = wb_v ? wb_ccr : (EXTERNAL_STATE ? external_ccr : ccr);
+    assign flags_in = wb_v ? wb_ccr : (EXTERNAL_STATE ? external_ccr : ccr);
     wire [31:0] alu_result;
     wire [4:0] alu_flags, alu_fast_flags;
     wire alu_fast_ok;
-    ap040_alu #(.PIPELINE_SUBSET(1)) alu (
-        .op(ex_op), .size(ex_size), .shcnt(source_full[5:0]), .a(src), .b(is_indexcmp(ex_opcode) ? old_dst : dst),
-        .flags_in(flags_in), .result(alu_result), .flags_out(alu_flags),
-        .fast_flags(alu_fast_flags), .fast_ok(alu_fast_ok)
-    );
+    generate if (EXTERNAL_ALU) begin : shared_alu
+        assign alu_result = external_alu_result;
+        assign alu_flags = external_alu_flags;
+        assign alu_fast_flags = external_alu_fast_flags;
+        assign alu_fast_ok = external_alu_fast_ok;
+    end else begin : local_alu
+        ap040_alu #(.PIPELINE_SUBSET(1)) alu (
+            .op(ex_op), .size(ex_size), .shcnt(shcnt), .a(src), .b(b),
+            .flags_in(flags_in), .result(alu_result), .flags_out(alu_flags),
+            .fast_flags(alu_fast_flags), .fast_ok(alu_fast_ok)
+        );
+    end endgenerate
     // synthesis translate_off
+    always @(posedge clk) if (EXTERNAL_ALU && nreset && ce && ex_v && !external_alu_selected)
+        $fatal(1,"pipeline EX work ran without owning the shared ALU");
     always @(posedge clk) if (nreset && ce && !flush && ex_v) begin
         case (ex_op)
             `AP040_ALU_MOVE, `AP040_ALU_TST, `AP040_ALU_ADD, `AP040_ALU_SUB, `AP040_ALU_CMP, `AP040_ALU_AND, `AP040_ALU_OR, `AP040_ALU_EOR, `AP040_ALU_ASL1, `AP040_ALU_ASR1, `AP040_ALU_LSL1, `AP040_ALU_LSR1, `AP040_ALU_ROL1, `AP040_ALU_ROR1, `AP040_ALU_ROXL1, `AP040_ALU_ROXR1: ;

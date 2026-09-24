@@ -210,3 +210,34 @@ stages skipped with exit 77. Archive:
 Keep this shared-shifter change as the best measured full-feature baseline.
 The common-ALU prototype remains separate, pending its area screen and
 production fault/interrupt tests before combining with this baseline.
+
+## Common ALU integration candidate
+
+The isolated common-ALU prototype on the four-way 55ed03e baseline maps at
+25,950 ALMs / 8,966 registers, saving 914 CPU ALMs against 26,864. It shares
+the complete core ALU with the integer pipeline when `pipe_rf_owner` is
+true. The pipeline's standalone default retains its internal subset ALU.
+No pipeline stages, ready signals, or instruction cycles are added.
+
+The legacy fast-operation capability predicate remains separately decoded:
+during a direct pipeline memory retirement, stale legacy decode state can
+still gate branch lookahead even though the pipeline owns the ALU result.
+A simulation assertion checks EX work owns the external ALU. The prototype
+passes a 49,344-case full/subset ALU contract check, the legacy CPU suite,
+all six benchmark kernels with unchanged cycles, directed dependency tests,
+and the fault/IRQ matrix in
+`scratch/alu_owner_shared_20260924/PIPELINE_FAULT_IRQ.md`. Some specialized
+IRQ cases force admission; production P6 and branch tests do not.
+
+The next full-fit candidate combines this ownership change with the existing
+shared shifter from86d48df. Exact combination passes the contract miter and
+production dependency/drain test (742/1086/1086 cycles; all required counts).
+Its six-kernel suite and CPU map continue in parallel with full fitting.
+Added ALU input muxing may affect timing; area/functional tests cannot prove
+clock closure. Do not call this hardware validated.
+
+Combined source: scratch/alu_owner_combined_86d48df. Core SHA256:
+2b92366c91720f49ba7e16b740169b7e6601dc2d833960aa874037b3b265b63e.
+Pipeline SHA256:
+92ea4d96a5b2da0784e65fe2015118e4889353a7df83e4ccca8bf6a1e7059435.
+ALU remains3c7f2f1329d72959718fbf96b8797f8e476123824ce7f328a07e68268903a7b2.
