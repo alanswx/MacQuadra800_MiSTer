@@ -486,3 +486,23 @@ entry and archived candidate `cpu_suite_evidence/`.
 Next full fit: `interim_mac_divsqrt_borrow`, seed 21, placement effort 1.0.
 Keep all features, timing constraints, and physical-synthesis settings fixed
 so this tests only the validated arithmetic reduction.
+
+## F_ADDX sharing screen: validated, small saving, deferred
+
+A scratch-only FPU variant shares the 68-bit F_ADDX addition/subtraction
+through conditional RHS inversion and carry-in. Candidate FPU SHA-256:
+`6fd0a29d37aae9a4878f68872a8623855ba392f447af0141178bc9e43e6063ab`.
+Its CPU map is 25,484 ALMs / 8,966 registers, saving only 30 ALMs versus
+the integrated borrow baseline (25,514). Source-derived miter: 100,064
+checks passed, inverted-carry negative rejected. The complete directed CPU
+suite with LEA/XSTORE passed; fresh logs and hashes are archived under
+`scratch/alu_fpu_addsub_shared_20260924/cpu_suite_evidence/`, with exact
+commands and source identities in that candidate's `RESULTS.md`.
+
+Do not integrate this merely because the map is smaller. The saving is
+small and no full-chip routing benefit is established. Stop additional
+small screens while awaiting the current `interim_mac_divsqrt_borrow` fit.
+That flow builds source 7af6a29, FPU 2d53db3..., at seed 21/effort 1.0;
+session 69047, wrapper 1793732, fitter 1798838. Fresh full map: 39,021 ALMs,
+292 below the preceding 39,313. Tracked inputs stay frozen until the full
+flow and source-after check finish.
