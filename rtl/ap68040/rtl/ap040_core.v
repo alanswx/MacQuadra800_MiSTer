@@ -1284,8 +1284,11 @@ endfunction
 function [31:0] rotl32;
 	input [31:0] v;
 	input [4:0] n;
+	reg [63:0] rotated;
 	begin
-		rotl32 = (n == 0) ? v : ((v << n) | (v >> (6'd32 - {1'b0, n})));
+		// Repeated input makes wraparound part of one barrel selection.
+		rotated = {v, v} << n;
+		rotl32 = rotated[63:32];
 	end
 endfunction
 
@@ -5442,13 +5445,16 @@ always @(posedge clk) begin
 				avail = 4'd8 - {1'b0, epf_ftail[3:1]};
 				room  = 4'd8 - epf_count;
 				n = (avail < room) ? avail : room;
-				for (i = 0; i < 8; i = i + 1) begin : fill_slot
-					reg [2:0] distance, source_word;
-					// Invert the ring destination mapping, leaving one source mux per slot.
-					distance = i[2:0] - epf_fill;
-					source_word = epf_ftail[3:1] + distance;
-					if ({1'b0, distance} < n)
-						epf_data[i] <= mem_line_data[(127 - 16 * source_word) -: 16];
+				begin : rotate_line
+					reg [2:0] rotation, distance;
+					reg [255:0] rotated;
+					rotation = epf_ftail[3:1] - epf_fill;
+					rotated = {mem_line_data, mem_line_data} << {rotation, 4'b0};
+					for (i = 0; i < 8; i = i + 1) begin
+						distance = i[2:0] - epf_fill;
+						if ({1'b0, distance} < n)
+							epf_data[i] <= rotated[(255 - 16*i) -: 16];
+					end
 				end
 				epf_fillw = n;
 				epf_issue = 1;

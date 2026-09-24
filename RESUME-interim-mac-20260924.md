@@ -153,3 +153,15 @@ then bitfield rotate_concat area onbecb472. brf_barrel_screen owns line-fill
 barrel area; its two BRF barrel forms grew193/121ALMs and are rejected.
 alu_rotate_sharing owns shared4-op integer rotate datapath equivalence and
 CPU area on01e7d41. No hardware access; user still reservesMiSTer.
+
+## Next full-feature candidate: interim_mac_muxshare
+
+Promoted exact scratch/combined_area_20260924/tree CPU source:
+BRFbanked +barrellinefill +sharedALUrotates +bitfieldconcat. CombinedCPUarea
+26864/8966regs vsBRF27879/8966, saves1015. Production matches mapped snapshot.
+All features unchanged; routabilityALWAYS. Luna interim_validation owns
+launch/monitor forinterim_mac_muxshare. Luna alu_rotate_sharing owns final
+exactcombinedCPU/six-kernel validation (the prior3-way test omittedbitfield).
+Compilation and final regressions may overlap; nohardware untilpassed and
+user freesMiSTer. Luna brf_barrel_screen tests combinedlogicalshift+rotate
+as a possible later area improvement; notincluded inthisfullfit.

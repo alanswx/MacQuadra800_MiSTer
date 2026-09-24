@@ -73,3 +73,18 @@ whitespace-clean ALU hash72ec6209972d51f6ffd52c4f914de6c7e93c21c7686130e890b2f53
 Evidence: scratch/cpu_area/{rolshare_miter,p_rolshare_01e7d41,tree_rolshare}.
 Luna is testing combined BRF + barrel line-fill + shared rotates before
 promotion. A separate shared logical/arithmetic shifter is still screening.
+
+## Combined candidate for full fitting
+
+BRF + barrel line-fill + shared ALU rotates + bitfield concat rotate maps
+at26,864 ALMs/8,966 regs:1,015 belowBRF-only27,879. This is108 fewer ALMs
+saved than adding the independent225+718+180 estimates. Source snapshot:
+scratch/combined_area_20260924/tree; report:
+scratch/cpu_area/p_brf_linebar_alushare_rotconcat_sep24.
+
+Promoted this exact combination for a full-feature fit, interim_mac_muxshare,
+withALWAYS routability setting restored. Standalone equivalence checks pass
+for each change; integrated regression of the exact combination is running
+in parallel with fitting. The previously tested combined candidate omitted
+only the bitfield-concat change. No hardware gate is satisfied by compilation.
+The separate logical/arithmetic shifter is not included.
