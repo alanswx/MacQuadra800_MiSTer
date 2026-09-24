@@ -344,3 +344,20 @@ Seed21 mapping completed with the same39,354ALM estimate; full fitter is
 active. A separate scratch-only ADD/SUB sharing screen is being evaluated
 as a possible additional area reduction; no new arithmetic change is in
 this build.
+
+### Shared ADD/SUB arithmetic rejected
+
+The scratch shared-adder prototype passed1,363,280 differential vectors in
+both PIPELINE_SUBSET modes, including exhaustive byte pairs/X/Z states for
+ADD/ADDX/SUB/SUBX/CMP, word/long edges, and50,000 random word/long cases.
+A deliberate borrow-polarity mutation failed. However, the valid CPU map
+`addsub_shared_s21b` grew from25,865 to25,890ALMs (+25), with8,966registers
+unchanged. Reject this candidate; no production arithmetic change.
+
+Evidence: scratch/alu_addsub_20260924/README.md, miter/positive.log,
+miter/mutation.log, mapped_alu.v; CPU map scratch/cpu_area/p_addsub_shared_s21b.
+Mapped ALU SHA256 acb40351d37f08d3d0fe0941c34a0ca8773c57b595b1d0f270b7b33e76883f28.
+The initial `addsub_shared_s21` map failed from a scratch entity-name error
+(ap040_alu_new instead of ap040_alu), not a logic or capacity result. It was
+corrected only in the separate successful run; do not use that failed map
+as area evidence. The active full seed21 build is unaffected.
