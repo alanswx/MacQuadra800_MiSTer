@@ -39,3 +39,10 @@ regression is assigned to Luna with explicit line-offer path counters,
 because the basic CPU program bench does not exercise that sideband.
 The real-cache six-kernel harness must exercise it and preserve BRF-only
 cycle counts and oracle results before the combined candidate is fitted.
+
+Combined BRF+static line-fill validation completed: full CPU self-tests and
+all six fixture oracles/negative controls pass. Every cycle count matches
+BRF-only. Each fixture's bound monitor sees nonzero fills and wrapped
+writes (Sieve has1 wrap). Source and evidence:
+scratch/brf_linefill_20260924/{tree,cpu_tests/run.log,suite,line_fill_cov.sv}.
+This candidate remains scratch until the active fitter experiment ends.

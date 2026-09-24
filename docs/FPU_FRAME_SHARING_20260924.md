@@ -34,3 +34,7 @@ than29,024 baseline. Reject promotion. Successful map report/log under
 scratch/cpu_area/p_fsave_shared_sep24 and
 scratch/interim_fsave_shared_decode_20260924/area/fsave_map.log.
 FRESTORE-only remains independent and pending.
+
+FRESTORE-only also grew:29,151 ALMs/8,966 registers,127 above baseline.
+Reject promotion. Report scratch/cpu_area/p_frestore_shared_sep24;
+log scratch/interim_fsave_shared_decode_20260924/area/frestore_map.log.
