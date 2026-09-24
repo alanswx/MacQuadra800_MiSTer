@@ -173,3 +173,21 @@ The completed packing review found only one recoverable ALM and 1,075 ALMs
 unavailable from LAB input limits. Prior register-packing experiments did
 not improve density, so the next full fit retains existing fitter settings.
 All normal Mac features and current cache sizes remain enabled unchanged.
+
+### Five-way simulation checks complete
+
+The exact production ALU hash 3c7f2f1329d72959718fbf96b8797f8e476123824ce7f328a07e68268903a7b2
+passed all six production-macro fixtures at RAM latency three. Every oracle
+and required negative control passed; cycles and line-fill coverage counts
+match the four-way results above. Evidence:
+`scratch/alu_shared_fourway_20260924/results.txt` and its wrapper logs and
+per-fixture identities. This completes these simulation checks, not timing
+or hardware validation.
+
+The full-feature `interim_mac_shiftshare` build is running from source
+86d48df77b6944c682a6f3e24b7163a42f5f11b0, archive
+`scratch/interim_mac_shiftshare_fit_20260924`. Tracked HDL remains frozen.
+
+Additional directed pipeline fault/IRQ baseline results on 55ed03e are
+recorded in `docs/PIPELINE_BASELINE_VALIDATION_20260924.md`. They distinguish
+exact production admission from specialized tests using FORCE_DECODE.
