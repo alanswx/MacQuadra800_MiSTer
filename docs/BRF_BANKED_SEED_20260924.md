@@ -1,6 +1,6 @@
 # Branch refill seed mux experiment
 
-Status: scratch prototype, not promoted. CPU source baseline b421ab7;
+Status: promoted for full-feature fitting after regression and area screening. CPU source baseline b421ab7;
 normal-feature integration baseline becb472. Patch:
 `scripts/cpu/brf_banked_seed.patch`.
 
@@ -39,3 +39,11 @@ uses its own synthesis settings; do not subtract the saving from full
 fitter utilization as a prediction. Full CPU regression and full-feature
 fit/timing remain required. The normal full-feature baseline failed at
 43,806 / 41,910 ALMs, a 1,896-ALM deficit.
+
+Promotion gate: full AP68040 self-tests with LEA/XSTORE passed; the six
+integer kernel oracles and their negative controls passed at RAM latency3.
+Exact tested and synthesized core SHA256:
+2ff751a8fb9997bf0b664254c0757454c20bcd90a68f1baf4319490b40788e1a.
+Logs: scratch/brf_banked_20260924/cpu_tests/run.log and speedometer/.
+Only BRF mux RTL is promoted; all normal feature settings remain enabled.
+Next full-design archive tag: interim_mac_brfbank. No hardware result yet.

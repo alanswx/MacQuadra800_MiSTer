@@ -103,3 +103,10 @@ Luna interim_validation owns BRF regressions and sequential independent
 CPU area screens for the frame variants and static line-fill. Nothing is
 promoted to production RTL until evidence supports it. No main fit is now
 running. MiSTer remains reserved by user; no hardware access.
+
+BRF screen complete:27879 ALMs/8966 regs vs29024/8966 baseline, saves1145.
+CPU self-tests and six integer oracles+negative controls pass. Promoted
+only the banked BRF mux; source hash and evidence in
+ docs/BRF_BANKED_SEED_20260924.md. Next full-feature fit tag
+interim_mac_brfbank. Luna owns launch/monitor plus separate area screens.
+No performance claim until timing and hardware tests.
