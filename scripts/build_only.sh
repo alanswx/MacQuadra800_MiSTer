@@ -108,6 +108,8 @@ if grep -qE '^[[:space:]]*set_global_assignment -name VERILOG_MACRO "SCSI_TRACE=
     log "    The tracer takes over the guest serial port. Do not release this build."
 fi
 
+BUILD_START="${LOG%.log}.start"
+touch "$BUILD_START"
 touch output_files/.compile_in_progress
 if [ "$CHECK_ONLY" = 1 ]; then
 	# A fresh clone has no build_id.v because it is generated and ignored.
@@ -136,17 +138,17 @@ rm -f output_files/.compile_in_progress
 # Print the "* Status :" line from a Quartus stage summary, if present.
 stage_status() {
     local label="$1" file="output_files/$2"
-    if [ -r "$file" ]; then
+    if [ -r "$file" ] && [ "$file" -nt "$BUILD_START" ]; then
         local line; line=$(grep -m1 -E 'Status[[:space:]]*:' "$file" | sed 's/[[:space:]]\{2,\}/ /g')
         printf '  %-22s %s\n' "$label" "${line:-<no status line>}"
     else
-        printf '  %-22s %s\n' "$label" "(no $file)"
+        printf '  %-22s %s\n' "$label" "(no fresh $file for this run)"
     fi
 }
 # Worst-case (minimum) slack across the STA summary, if parseable.
 worst_slack() {
     local file="output_files/$REV.sta.summary"
-    [ -r "$file" ] || return 1
+    [ -r "$file" ] && [ "$file" -nt "$BUILD_START" ] || return 1
     awk '
         /[Ss]lack/ { v=""; for (i=1;i<=NF;i++) if ($i ~ /^-?[0-9]+\.[0-9]+$/) v=$i
                      if (v!="") { if (!seen || v+0 < min+0) { min=v; seen=1 } } }
@@ -175,17 +177,19 @@ echo "$hr"           | tee -a "$LOG"
             else
                 printf '  %-22s met — worst slack +%s ns\n' "Timing (STA)" "$SLK"
             fi
-        elif [ -r "output_files/$REV.sta.summary" ]; then
+        elif [ -r "output_files/$REV.sta.summary" ] && [ "output_files/$REV.sta.summary" -nt "$BUILD_START" ]; then
             printf '  %-22s see output_files/%s.sta.summary\n' "Timing (STA)" "$REV"
+        else
+            printf '  %-22s not generated for this run\n' "Timing (STA)"
         fi
         # Assembler writes the .sof/.rbf directly (this flow emits no .asm.summary),
         # so the artifact below IS the proof of a successful assembly.
-        if [ -f "output_files/$RBF_NAME" ]; then
+        if [ -f "output_files/$RBF_NAME" ] && [ "output_files/$RBF_NAME" -nt "$BUILD_START" ]; then
             SZ=$(stat -c %s "output_files/$RBF_NAME" 2>/dev/null || stat -f %z "output_files/$RBF_NAME" 2>/dev/null)
             MT=$(date -r "output_files/$RBF_NAME" '+%Y-%m-%d %H:%M:%S' 2>/dev/null)
             printf '  %-22s output_files/%s  (%s bytes, %s)\n' "Artifact" "$RBF_NAME" "${SZ:-?}" "${MT:-?}"
         else
-            printf '  %-22s output_files/%s  *** MISSING ***\n' "Artifact" "$RBF_NAME"
+            printf '  %-22s output_files/%s  *** NO FRESH ARTIFACT ***\n' "Artifact" "$RBF_NAME"
         fi
     fi
     printf '  %-22s exit=%s\n' "Quartus flow" "$RC"
@@ -215,12 +219,15 @@ elif [ "$TIMING_BAD" = 1 ]; then
     log "        deploy_screenshot.sh will refuse it. Re-fit (e.g. a different"
     log "        SEED in the .qsf) or reduce the critical path first."
     RC=1
+elif [ "$CHECK_ONLY" != 1 ] && [ -z "$SLK_OUT" ]; then
+    log "RESULT: FAILED — no fresh, parseable timing result for this run."
+    RC=1
 elif [ "$CHECK_ONLY" = 1 ]; then
     log "RESULT: check passed (Analysis & Synthesis only; no .rbf produced)"
-elif [ -f "output_files/$RBF_NAME" ]; then
+elif [ -f "output_files/$RBF_NAME" ] && [ "output_files/$RBF_NAME" -nt "$BUILD_START" ]; then
     log "RESULT: OK — output_files/$RBF_NAME ready. Deploy with: bash scripts/deploy_screenshot.sh"
 else
-    log "RESULT: flow returned 0 but output_files/$RBF_NAME is missing — check $LOG"
+    log "RESULT: flow returned 0 but output_files/$RBF_NAME is missing or stale — check $LOG"
     RC=1
 fi
 exit "$RC"

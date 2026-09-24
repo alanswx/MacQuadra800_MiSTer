@@ -71,3 +71,35 @@ balanced-mode/AREA technique). Return to the better synthesis settings.
 Tag interim_mac_normal establishes the actual untrimmed resource baseline.
 Luna is preparing shared FPU frame sequencing in scratch with correctness
 tests; no production RTL edits during this fit.
+
+## Full-feature fit result and structural screens
+
+Normal-feature becb472 failed at 43,806 / 41,910 ALMs (1,896 over),
+4,427 / 4,191 LABs. Fitter finished Sep24 16:13:04; flow exit3;
+source_check_after.exit=0. Archive: scratch/interim_mac_normal_fit_20260924.
+No fresh RBF or STA. Cross-domain timing correctly skipped (exit77).
+Synthesis estimated42,349, understating fitter demand by1,457 ALMs.
+Do not use the stale P232 artifact/timing printed by the old build wrapper.
+
+After flow termination, build_only.sh was fixed to report only fresh stage
+summaries, timing and RBFs. Missing/unparseable fresh timing fails the full
+build verdict. Five mocked-flow cases pass via scripts/cpu/test_build_reporting.py:
+failed flow with stale output, nominal flow with stale output, absent timing,
+negative timing and fresh successful output. These test reporting, not Quartus.
+
+Independent scratch reductions preserve CPU cycles and feature switches:
+- BRF banked seed mux: scripts/cpu/brf_banked_seed.patch. Controlled CPU
+  baseline becb472 measured29,024 ALMs/8,966 registers; candidate pending.
+- FRESTORE and FSAVE sharing: scripts/cpu/{frestore,fsave}_shared.patch.
+  Directed frame/resume tests pass as detailed in docs/FPU_FRAME_SHARING_20260924.md.
+- Static destination line-fill: scripts/cpu/line_fill_static.patch. Invert
+  queue slot mapping so each slot uses one source mux instead of dynamic
+  source and destination selections. Exact original/new blocks passed589,824
+  comparisons over all fill/tail/count positions and128 random payloads,
+  including unchanged slots; planted wrong rotation fails. Evidence under
+  scratch/line_fill_static_20260924. Full CPU tests and area still pending.
+
+Luna interim_validation owns BRF regressions and sequential independent
+CPU area screens for the frame variants and static line-fill. Nothing is
+promoted to production RTL until evidence supports it. No main fit is now
+running. MiSTer remains reserved by user; no hardware access.
