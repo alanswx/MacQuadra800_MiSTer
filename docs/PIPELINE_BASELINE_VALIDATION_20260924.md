@@ -18,3 +18,26 @@ Tools: Icarus Verilog 12.0; VASM `/home/alans/mister/MacQuadra800_fixtures/womba
 - `pipeline_read_completion_irq.py` exact production flags plus its built-in test-only `PIPELINE_FORCE_DECODE` admission override. PASS read-ack IRQ boundary: 3 injections and 3 cancels. Run: `evidence/ipb55d_readirq/`.
 
 No production sources or build files were edited for these tests. Coverage limitation: this establishes directed bus-fault and IRQ paths on the real CPU bench; it is not a full pipeline fault matrix or hardware test. In particular, `pipeline_p6_faults.py`'s original `FORCE_DECODE` mode alone would not establish production memory-entry P6 behavior, which is why the production-flags variant is also preserved.
+
+
+## Corrected dependency/drain monitor
+
+`scripts/cpu/pipeline_drain_edges.py` previously counted final retirement
+only in `pipe_owner`, missing direct memory-read retirement in `S_MRD`.
+Its original coverage assertion fails on the unchanged 55ed03e baseline.
+The corrected test includes `pipe_read_retire`, enables the production
+COMPARE macro, and separately verifies indexed MOVEA writes c080 to A2
+before TST.L (A2) launches a read at c080. The dependency token is reset
+between bench phases and consumed after each dependent read. DBcc, CMP,
+and JSR following-instruction coverage and the next-edge idle assertion
+remain required.
+
+Both baseline and the scratch common-ALU prototype pass all three phases
+at 742/1086/1086 cycles, with 12 drain edges and three instances of each
+required dependency/boundary. A deliberate c081 expected-address mutation
+fails on the actual c080 read, demonstrating the new address assertion.
+This is a test-harness correction; the common-ALU prototype is not promoted.
+
+Evidence: scratch/alu_owner_{baseline,shared}_20260924/regress/drain_final/
+and scratch/alu_owner_shared_20260924/regress/drain_negative/. Corrected
+script SHA256: 89a8c4363e00d614d08d733db86a160776e03116c826d3271bbc345f11080a25.

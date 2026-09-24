@@ -53,22 +53,38 @@ failed:
 (d/'monitor.sv').write_text('''`timescale 1ns/1ps
 `define C tb_ap040_program.dut.core
 module drain_monitor;
-integer edges=0; integer tst=0, dbcc=0, cmp=0, call=0;
-reg check_empty=0;
-always @(posedge tb_ap040_program.clk) if(tb_ap040_program.nreset && `C.ce) begin
+integer edges=0; integer dbcc=0, cmp=0, call=0; integer indexed_a2=0, dependent_tst_addr=0;
+reg check_empty=0, have_indexed_a2=0;
+always @(posedge tb_ap040_program.clk) begin
+ if(!tb_ap040_program.nreset) begin check_empty=0; have_indexed_a2=0; end
+ else if(`C.ce) begin
  if(check_empty && !`C.pipe_idle) $fatal(1,"pipeline work remained after final WB handoff");
  check_empty=0;
- if(`C.pipe_owner && `C.pipe_retire && `C.pipe_empty_after_retire && !`C.pipe_input && !`C.pipe_cancel) begin
+ // The first indexed MOVEA load must retire c080 into A2 before the TST.L (A2)
+ // read is launched. The test's BPL then checks the TST's N flag architecturally.
+ if(`C.pipe_read_retire && `C.pipe_opcode == 16'h2470) begin
+  if(!`C.pipe_we || `C.pipe_wdst != 4'ha || `C.pipe_data !== 32'h0000c080)
+   $fatal(1,"indexed A2 load retired wrong data/destination dst=%h data=%h",`C.pipe_wdst,`C.pipe_data);
+  have_indexed_a2=1; indexed_a2++;
+ end
+ if(`C.pipe_load_launch && `C.pipe_load_opcode == 16'h4a92) begin
+  if(!have_indexed_a2) $fatal(1,"dependent TST read launched before indexed A2 load retirement");
+  if(`C.pipe_load_addr !== 32'h0000c080) $fatal(1,"dependent TST used wrong A2 effective address %h",`C.pipe_load_addr);
+  have_indexed_a2=0; dependent_tst_addr++;
+ end
+ if((`C.pipe_owner || `C.pipe_read_retire) && `C.pipe_retire && `C.pipe_empty_after_retire && !`C.pipe_input && !`C.pipe_cancel) begin
   edges++;
+  // These are the following instructions at the final retirement boundary.
   if(`C.epf_ready_pc) case(`C.epf_data[`C.epf_head])
-   16'h4a92:tst++;16'h51cb:dbcc++;16'h0c83:cmp++;16'h4eba:call++;
+   16'h51cb:dbcc++;16'h0c83:cmp++;16'h4eba:call++;
   endcase
   check_empty=1;
  end
+ end
 end
 final begin
- $display("DRAIN edges=%0d tst=%0d dbcc=%0d cmp=%0d call=%0d",edges,tst,dbcc,cmp,call);
- if(tst<3 || dbcc<3 || cmp<3 || call<3) $fatal(1,"final WB dependency coverage missing");
+ $display("DRAIN edges=%0d indexed_a2=%0d dependent_tst_addr=%0d dbcc=%0d cmp=%0d call=%0d",edges,indexed_a2,dependent_tst_addr,dbcc,cmp,call);
+ if(indexed_a2<3 || dependent_tst_addr<3 || dbcc<3 || cmp<3 || call<3) $fatal(1,"final WB dependency coverage missing");
 end
 endmodule
 ''')
@@ -79,6 +95,7 @@ run(['python3',r/'rtl/ap68040/tb/bin2hex.py',d/'test.bin',d/'test.hex'],'hex.log
 units=('ap040_tg68k_compat','ap040_bus16_adapter','ap040_bus_timeout','ap040_alu','ap040_muldiv','ap040_mmu','ap040_cache','ap040_fpu','ap040_walker_cdc','primitives/dpram')
 sources=[r/'rtl/ap68040/tb/tb_ap040_program.v',d/'monitor.sv',exp/'handoff_monitor.sv',rtl/'ap040_core.v',rtl/'ap040_regfile.v',exp/'ap040_pipeline_integer.sv',*[rtl/(u+'.v') for u in units]]
 flags=['-DAP040_EXPERIMENTAL_'+x for x in ('XSTORE','LEA','PIPELINE','PIPELINE_LOADS','PIPELINE_STORES','PIPELINE_PEA','PIPELINE_P6')]+['-DAP040_PIPELINE_MEMORY_ENTRY','-DAP040_PIPELINE_EARLY_DRAIN']
+flags += ['-DAP040_PIPELINE_COMPARE']
 run(['iverilog','-g2012','-I',rtl,'-s','tb_ap040_program','-s','handoff_monitor','-s','drain_monitor',*flags,'-o',d/'test.vvp',*sources],'compile.log')
 run(['vvp',d/'test.vvp','+prog='+str(d/'test.hex')],'run.log')
 s=(d/'run.log').read_text();assert 'ALL TESTS PASSED' in s and 'FAIL:' not in s,s[-2000:];print(s[-1800:])
