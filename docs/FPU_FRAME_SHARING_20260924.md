@@ -28,3 +28,9 @@ Area is unmeasured. Shared decode introduces index arithmetic and muxing;
 shorter source does not establish smaller logic. Separate CPU synthesis
 experiments will screen both against the frozen becb472 baseline before
 considering full-design fitting. Timing and hardware remain untested.
+
+FSAVE-only CPU synthesis result:29,063 ALMs/8,966 registers,39 ALMs larger
+than29,024 baseline. Reject promotion. Successful map report/log under
+scratch/cpu_area/p_fsave_shared_sep24 and
+scratch/interim_fsave_shared_decode_20260924/area/fsave_map.log.
+FRESTORE-only remains independent and pending.

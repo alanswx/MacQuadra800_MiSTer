@@ -47,3 +47,8 @@ Exact tested and synthesized core SHA256:
 Logs: scratch/brf_banked_20260924/cpu_tests/run.log and speedometer/.
 Only BRF mux RTL is promoted; all normal feature settings remain enabled.
 Next full-design archive tag: interim_mac_brfbank. No hardware result yet.
+
+Full-feature fit01e7d41 completed Sep24 16:28:56 and failed at43,338 /
+41,910 ALMs,4,380 /4,191 LABs. Actual saving468 ALMs versus43,806 baseline,
+not the1,145 CPU-only estimate. Source manifest passes; no new RBF or STA.
+Archive scratch/interim_mac_brfbank_fit_20260924. Fresh map estimate41,471.

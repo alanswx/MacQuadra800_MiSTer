@@ -124,3 +124,18 @@ real-cache bench to prove line-offer execution and require identical cycles
 against BRF-only. FSAVE, FRESTORE and rotate area screens remain queued.
 Rotate single-barrel prototype passes33792 standalone equivalence cases
 including all one-hot inputs/shifts; patch tracked but no measured saving.
+
+## BRF full-fit result and controlled packing experiment
+
+BRF01e7d41 full fit failed43,338 ALMs (1,428 over),4,380 LABs, Sep24 16:28:56.
+Sourceafter0; build3; cross77. Actual full-design saving468, map estimate
+41,471. CPU-only savings are not directly transferable. FSAVE-only grows39
+ALMs (29,063) and is rejected. Other structural screens still running.
+
+Next full fit changes only FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION from
+ALWAYS to NEVER, tag interim_mac_brfdense. This tests whether forced
+routability optimization contributes to post-map packing growth; it is an
+inference, not a documented area guarantee. Intel standard-edition guide
+https://www.intel.com/programmable/technical-pdfs/683230.pdf describes the
+option's routing/speed tradeoff. No RTL, feature, clock or cache-size change.
+Luna owns launch and monitoring, plus separate area/regression screens.

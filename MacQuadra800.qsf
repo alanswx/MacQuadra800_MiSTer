@@ -371,7 +371,8 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # address again, and a redirect replaces a speculative fetch the platform has not accepted yet (ifr_avail).
 # Sim vs P170: Permute -7.0 %, Whetstone -1.9 %, Queens -1.5 %, Dhrystone -2.3 %.
 set_global_assignment -name SEED 28
-set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
+# 2026-09-24: controlled packing experiment on BRF banked RTL; all features retained.
+set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION NEVER
 #
 # 2026-09-08: the release recipe.  Alan's 5aa596f AP68040 is +20 % logic and
 # the design no longer fits with speed-directed synthesis; all-area
