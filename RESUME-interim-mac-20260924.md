@@ -210,3 +210,26 @@ Luna brf_barrel_screen owns common-ALU area measurement and results;
 interim_validation is assigned its production fault/IRQ tests (coordinate
 before launch). alu_rotate_sharing is preparing a local-only hardware
 validation checklist. MiSTer still belongs to the user until freed.
+
+
+## Active build: common ALU plus shared shifter
+
+Current production source4f90d5409fbef11f481477035cb298f1fd1ce20b shares the
+legacy and pipeline ALU under existing pipe_rf_owner, retaining a separate
+legacy fast-operation capability decode. No instruction cycles added.
+Core SHA2b92366c91720f49ba7e16b740169b7e6601dc2d833960aa874037b3b265b63e;
+pipeline SHA92ea4d96a5b2da0784e65fe2015118e4889353a7df83e4ccca8bf6a1e7059435;
+ALU SHA3c7f2f1329d72959718fbf96b8797f8e476123824ce7f328a07e68268903a7b2.
+
+Luna interim_validation launched `interim_mac_onealu` exactly once, session
+54089, wrapper1672843 / quartus_sh1672886 / map1673012. Recheck live processes,
+not these stale identifiers alone. Archive scratch/interim_mac_onealu_fit_20260924.
+Freeze tracked HDL/QSF/QIP/SDC/TCL while this flow runs.
+
+Exact combined contract and drain tests pass; all six Speedometer fixtures
+pass with unchanged cycles and all required negative controls. Prototype
+without shared logical shifter passed full directed fault/IRQ matrix and
+mapped25950ALMs (914 saved versus26864). Exact combined CPU map still pending.
+Evidence and limitations are in docs/INTERIM_FIT_EXPERIMENTS_20260924.md.
+Hardware procedure: docs/INTERIM_HARDWARE_VALIDATION.md. Do not contact MiSTer
+until user says it is free. No fresh RBF from preceding failed full fits.

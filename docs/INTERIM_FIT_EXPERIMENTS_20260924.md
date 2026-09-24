@@ -241,3 +241,19 @@ Combined source: scratch/alu_owner_combined_86d48df. Core SHA256:
 Pipeline SHA256:
 92ea4d96a5b2da0784e65fe2015118e4889353a7df83e4ccca8bf6a1e7059435.
 ALU remains3c7f2f1329d72959718fbf96b8797f8e476123824ce7f328a07e68268903a7b2.
+
+### Exact common-ALU/shared-shifter fixtures completed
+
+The combined candidate promoted at4f90d54 passes all six production-macro
+fixtures at RAM latency three, with the same cycle counts as the preceding
+candidates. All six required negative controls passed, including Puzzle's
+KOUNT increment mutation (expected2005 becomes4010). Evidence:
+`scratch/alu_owner_combined_86d48df/regress/speedometer/*.log` and per-fixture
+identities. Combined contract miter evidence is `contract_miter.log` in
+that snapshot: 49,344 checks pass. Full fit `interim_mac_onealu` is running
+from4f90d5409fbef11f481477035cb298f1fd1ce20b; no timing claim yet.
+
+The hardware procedure is preserved in `docs/INTERIM_HARDWARE_VALIDATION.md`.
+It requires current hardware availability and includes separate data-CD and
+audible CD-audio checks, protected-original/disposable-disk handling, and
+explicit limits on historical performance comparisons.
