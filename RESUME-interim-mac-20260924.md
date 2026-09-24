@@ -307,3 +307,29 @@ effort did not solve congestion. Next scratch investigation: share the FPU
 divider/square-root arithmetic stages without changing their three-digit
 iterations or cycle counts. This is an unproven candidate, not integrated RTL.
 The latency-increasing one-digit alternative remains deferred.
+
+## Share FPU DIV/SQRT stages without changing latency
+
+The divider and square-root engine now share three 69-bit compare/subtract/
+select stages. DIV retains its 65-bit recurrence truncation, initial integer
+quotient step, and terminal count 23; SQRT retains its 69-bit recurrence and
+terminal count 22. Both still calculate three result bits per iteration.
+Final normalization/GRS logic, state, counters, and registers are unchanged.
+
+Candidate FPU SHA-256:
+`78f51d66b20c4a28d08f632559fa786d8c8e3a5280c35c7713460834384b0889`.
+CPU-only map: 25,676 ALMs / 8,966 registers, saving 189 ALMs versus the exact
+combined common-ALU baseline (25,865). No new map warning codes.
+
+Actual-source recurrence miter passed 100,056 comparisons, including random
+high bits and directed thresholds; a stage-2 truncation mutation failed with
+18,580 mismatches. The full directed CPU suite passed with LEA/XSTORE enabled,
+including FPU arithmetic/exceptions, saved frames, and BUSY resume tests.
+This is not exhaustive floating-point proof or full-chip timing evidence.
+Evidence: `scratch/alu_divsqrt_shared_20260924/RESULTS.md`, `miter.log`,
+`negative.log`, and `cpu_suite_evidence/`; CPU map in
+`scratch/cpu_area/p_p_divsqrt_shared_86d48df/`.
+
+Promote this validated candidate for a full-feature fit at seed 21, placement
+effort 1.0. Feature and timing constraints remain unchanged. A separate fused
+borrow arithmetic screen is scratch-only and is not part of this candidate.

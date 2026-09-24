@@ -310,6 +310,26 @@ reg  [63:0] acc_lo;           // multiply accumulator low / dividend feed
 reg  [66:0] qv;               // divide quotient / sqrt root
 reg  [68:0] srem;             // sqrt remainder
 reg [131:0] srad;             // sqrt radicand feed
+
+// DIV and SQRT are mutually exclusive states. Share their three wide
+// compare/subtract/select stages while preserving three result bits per cycle.
+wire divsqrt_sqrt = (fst == F_SQRTL);
+wire [68:0] divsqrt_denom = {4'd0, 1'b0, a_m};
+wire [68:0] divsqrt_num1 = divsqrt_sqrt ? {srem[66:0], srad[131:130]} :
+                                               {4'd0, acc_hi[63:0], 1'b0};
+wire [68:0] divsqrt_sub1 = divsqrt_sqrt ? {1'b0, qv[65:0], 2'b01} : divsqrt_denom;
+wire divsqrt_q1 = divsqrt_num1 >= divsqrt_sub1;
+wire [68:0] divsqrt_rem1 = divsqrt_q1 ? divsqrt_num1 - divsqrt_sub1 : divsqrt_num1;
+wire [68:0] divsqrt_num2 = divsqrt_sqrt ? {divsqrt_rem1[66:0], srad[129:128]} :
+                                               {4'd0, divsqrt_rem1[63:0], 1'b0};
+wire [68:0] divsqrt_sub2 = divsqrt_sqrt ? {1'b0, qv[64:0], divsqrt_q1, 2'b01} : divsqrt_denom;
+wire divsqrt_q2 = divsqrt_num2 >= divsqrt_sub2;
+wire [68:0] divsqrt_rem2 = divsqrt_q2 ? divsqrt_num2 - divsqrt_sub2 : divsqrt_num2;
+wire [68:0] divsqrt_num3 = divsqrt_sqrt ? {divsqrt_rem2[66:0], srad[127:126]} :
+                                               {4'd0, divsqrt_rem2[63:0], 1'b0};
+wire [68:0] divsqrt_sub3 = divsqrt_sqrt ? {1'b0, qv[63:0], divsqrt_q1, divsqrt_q2, 2'b01} : divsqrt_denom;
+wire divsqrt_q3 = divsqrt_num3 >= divsqrt_sub3;
+wire [68:0] divsqrt_rem3 = divsqrt_q3 ? divsqrt_num3 - divsqrt_sub3 : divsqrt_num3;
 reg   [6:0] loop_n;
 reg [127:0] mul_pd;           // registered DSP full product (F_MULT)
 reg   [3:0] op_kind;          // 0 none, 1 add, 2 mul, 3 div, 4 sqrt
@@ -1827,8 +1847,6 @@ always @(posedge clk) begin
 			end
 
 			F_DIVL: begin : f_divl
-				reg [64:0] r2a, rem1, r2b, rem2, r2c, rem3;
-				reg        q1, q2, q3;
 				if (loop_n == 7'd23) begin
 					if (qv[66]) begin
 						a_m <= qv[66:3];
@@ -1855,25 +1873,13 @@ always @(posedge clk) begin
 					// three restoring fraction bits per cycle (66 = 3 x 22):
 					// the remainder shifts left with zeros entering, exactly
 					// three former one-bit iterations cascaded combinationally
-					r2a = {acc_hi[63:0], 1'b0};
-					q1 = (r2a >= {1'b0, a_m});
-					rem1 = q1 ? (r2a - {1'b0, a_m}) : r2a;
-					r2b = {rem1[63:0], 1'b0};
-					q2 = (r2b >= {1'b0, a_m});
-					rem2 = q2 ? (r2b - {1'b0, a_m}) : r2b;
-					r2c = {rem2[63:0], 1'b0};
-					q3 = (r2c >= {1'b0, a_m});
-					rem3 = q3 ? (r2c - {1'b0, a_m}) : r2c;
-					acc_hi <= rem3;
-					qv <= {qv[63:0], q1, q2, q3};
+					acc_hi <= divsqrt_rem3[64:0];
+					qv <= {qv[63:0], divsqrt_q1, divsqrt_q2, divsqrt_q3};
 					loop_n <= loop_n + 7'd1;
 				end
 			end
 
 			F_SQRTL: begin : f_sqrtl
-				reg [68:0] r2a, rem1, r2b, rem2, r2c, rem3;
-				reg [68:0] trial1, trial2, trial3;
-				reg        q1, q2, q3;
 				if (loop_n == 7'd22) begin
 					a_m <= qv[65:2];
 					grs <= {qv[1], qv[0], (srem != 69'd0)};
@@ -1884,21 +1890,9 @@ always @(posedge clk) begin
 					// three result digits per cycle (66 = 3 x 22): each trial
 					// folds the earlier digits into the partial root, exactly
 					// three former one-digit steps cascaded combinationally
-					r2a = {srem[66:0], srad[131:130]};
-					trial1 = {1'b0, qv[65:0], 2'b01};
-					q1 = (r2a >= trial1);
-					rem1 = q1 ? (r2a - trial1) : r2a;
-					r2b = {rem1[66:0], srad[129:128]};
-					trial2 = {1'b0, qv[64:0], q1, 2'b01};
-					q2 = (r2b >= trial2);
-					rem2 = q2 ? (r2b - trial2) : r2b;
-					r2c = {rem2[66:0], srad[127:126]};
-					trial3 = {1'b0, qv[63:0], q1, q2, 2'b01};
-					q3 = (r2c >= trial3);
-					rem3 = q3 ? (r2c - trial3) : r2c;
 					srad <= {srad[125:0], 6'b000000};
-					srem <= rem3;
-					qv <= {qv[63:0], q1, q2, q3};
+					srem <= divsqrt_rem3;
+					qv <= {qv[63:0], divsqrt_q1, divsqrt_q2, divsqrt_q3};
 					loop_n <= loop_n + 7'd1;
 				end
 			end
