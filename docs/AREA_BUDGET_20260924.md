@@ -137,3 +137,19 @@ onto one set of shifters, build exception frames with shared temporaries,
 and share the per-family scratch registers; each change is gated by a
 differential random-operand test against the current core as well as the
 CPU self-tests.
+
+## First structural cut: the bitfield register form on the memory stages
+
+The register form of BFxxx had its own extract, mask and insert stages
+(S_BF_X2/S_BF_X3) duplicating the memory form's (S_BF_M2/S_BF_M3), and two
+rotators.  It now rotates into the 40-bit work window and runs the memory
+form's stages, and one rotator serves both directions (right by n is left by
+-n).  Checked by a differential random test
+(`scripts/cpu/bitfield_diff_gen.py`: 32 seeds x 85 cases, register and
+memory forms, immediate and Dn offsets and widths, every result, CCR and
+memory window compared against the old core over the three
+tb_ap040_program phases; a planted rotate-direction bug is caught) and the
+CPU self-tests (all pass).  **29,366 -> 29,105 ALMs (-261)**, a quarter of
+the family's 1,136: the rest is the field logic itself.  At that yield the
+structural route is worth roughly 1,000-1,500 ALMs over all the rare
+families, not the 4-5k the release recipe needs.

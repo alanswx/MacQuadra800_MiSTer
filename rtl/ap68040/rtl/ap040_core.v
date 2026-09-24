@@ -1138,6 +1138,10 @@ reg [39:0] bf_t40;              // shifted window (mem) / rotated reg (reg form)
 reg [31:0] bf_field;            // extracted field, right aligned
 reg [31:0] bf_ones;             // width ones mask, right aligned
 reg [39:0] bf_maskl;            // field mask, left aligned in the work domain
+// One rotator for both register-form rotations: left by the offset into the
+// work domain (S_BF_REGX), and back out, left by -offset (S_BF_X4).
+wire [31:0] bf_rot = rotl32((state == S_BF_REGX) ? dst_val : bf_t40[39:8],
+                            (state == S_BF_REGX) ? bf_off[4:0] : 5'd0 - bf_off[4:0]);
 reg [31:0] cas_dc;
 
 // access error (format $7) context and EA register-update rollback
@@ -8685,58 +8689,16 @@ always @(posedge clk) begin
 			end
 
 			S_BF_REGX: begin
-				// stage 1: rotate the operand so the field is left aligned
-				bf_t40 <= {rotl32(dst_val, bf_off[4:0]), 8'd0};
-				state <= S_BF_X2;
-			end
-
-			S_BF_X2: begin
-				// stage 2: extract the field; precompute width masks
-				bf_field <= (bf_w == 6'd32) ? bf_t40[39:8]
-				                            : (bf_t40[39:8] >> (6'd32 - bf_w));
-				bf_ones <= (bf_w == 6'd32) ? 32'hFFFF_FFFF
-				                           : ((32'd1 << bf_w) - 32'd1);
-				bf_maskl <= {((bf_w == 6'd32) ? 32'hFFFF_FFFF
-				                              : (32'hFFFF_FFFF << (6'd32 - bf_w))), 8'd0};
-				state <= S_BF_X3;
-			end
-
-			S_BF_X3: begin : bf_x3
-				reg [31:0] nf, newr;
-				nf = bf_newf(ir[10:8], bf_field, bf_du & bf_ones, bf_ones);
-				sr[3] <= (ir[10:8] == 3'd7) ? nf[bf_w - 6'd1] : bf_field[bf_w - 6'd1];
-				sr[2] <= (ir[10:8] == 3'd7) ? (nf == 32'd0) : (bf_field == 32'd0);
-				sr[1] <= 0;
-				sr[0] <= 0;
-				case (ir[10:8])
-					3'd0: fetch_next;                              // BFTST
-					3'd1: begin rfw({1'b0, x_ext[14:12]}, bf_field); fetch_next; end
-					3'd3: begin                                    // BFEXTS
-						rfw({1'b0, x_ext[14:12]},
-						    bf_field | (bf_field[bf_w - 6'd1] ? ~bf_ones : 32'd0));
-						fetch_next;
-					end
-					3'd5: begin : bfffo_x                          // BFFFO
-						// left-aligned field = window AND left mask: no shifter
-						reg [31:0] al;
-						al = bf_t40[39:8] & bf_maskl[39:8];
-						rfw({1'b0, x_ext[14:12]},
-						    bf_off + {26'd0, (al == 32'd0) ? bf_w : clz32(al)});
-						fetch_next;
-					end
-					default: begin                                 // CHG/CLR/SET/INS
-						// stage 3: place the new field, still left aligned
-						newr = (bf_t40[39:8] & ~bf_maskl[39:8]) |
-						       (((bf_w == 6'd32) ? nf : (nf << (6'd32 - bf_w))) & bf_maskl[39:8]);
-						bf_t40[39:8] <= newr;
-						state <= S_BF_X4;
-					end
-				endcase
+				// stage 1: rotate the operand so the field is left aligned,
+				// then share the memory form's extract/insert stages
+				bf_t40 <= {bf_rot, 8'd0};
+				state <= S_BF_M2;
 			end
 
 			S_BF_X4: begin
-				// stage 4: rotate back and write the register
-				rfw({1'b0, d_rn}, rotr32(bf_t40[39:8], bf_off[4:0]));
+				// stage 4: rotate back (the shared rotator turns right by
+				// rotating left by -offset) and write the register
+				rfw({1'b0, d_rn}, bf_rot);
 				fetch_next;
 			end
 
@@ -8820,7 +8782,7 @@ always @(posedge clk) begin
 						// stage 3: substitute the new field, still left aligned
 						bf_t40 <= (bf_t40 & ~bf_maskl) |
 						          ((({nf, 8'd0}) << (6'd32 - bf_w)) & bf_maskl);
-						state <= S_BF_M4;
+						state <= (d_mode == 3'b000) ? S_BF_X4 : S_BF_M4;
 					end
 				endcase
 			end
