@@ -88,3 +88,45 @@ for each change; integrated regression of the exact combination is running
 in parallel with fitting. The previously tested combined candidate omitted
 only the bitfield-concat change. No hardware gate is satisfied by compilation.
 The separate logical/arithmetic shifter is not included.
+
+## Exact four-way regression completed
+
+The full-feature fit candidate at source commit
+55ed03eb901f1ed1222bc599ee59a9ff104bb544 passed its integrated simulation
+checks. The legacy CPU suite exited 0: 28 positive tests and three expected
+negative controls. This suite does not enable the experimental pipeline;
+its IRQ and fault tests must not be presented as pipeline coverage.
+
+All six Speedometer kernel fixtures enable the production experimental
+pipeline macros, including memory entry, compare, and early drain. Each
+passed its output oracle and negative control. Controlled RAM latency was
+three cycles; observed cycles were unchanged:
+
+| Kernel | Cycles |
+| --- | ---: |
+| Towers | 16,076,616 |
+| Puzzle | 22,780,447 |
+| Quick | 141,278 |
+| Matrix | 2,198,407 |
+| Sieve | 271,364 |
+| Bubble | 2,958,987 |
+
+Each fixture exercised accepted line offers, nonempty queue fills, and
+wrapped destinations. Sieve has only one wrapped destination, so the
+standalone exhaustive queue-fill equivalence check remains important.
+These tests use a controlled memory responder, not the complete Mac memory
+system, and do not establish hardware timing or a Speedometer score.
+
+Evidence: scratch/alu_rotate_linefill_bitfield_20260924/results_four_way.txt,
+cpu_tests/run_tests.wrapper.log, fixtures/speedometer_suite.wrapper.log,
+and per-fixture identity.json and logs in that same directory. Core SHA256:
+a309fd758e9f38f08be9bfa4fe6e707f18e81cf195757740809b6c82d39b3dc0.
+ALU SHA256:
+72ec6209972d51f6ffd52c4f914de6c7e93c21c7686130e890b2f5369660b93e.
+
+The separate logical/arithmetic shifter maps at 27,756 ALMs on the banked
+BRF baseline (123 fewer). Combined with shared rotates it maps at 27,028
+versus 27,161 for shared rotates alone, an incremental 133-ALM reduction.
+This change is not in the current full fit. Exact integration with all four
+current reductions is being tested and measured separately; do not add
+independent area savings as though they were guaranteed full-fit savings.
