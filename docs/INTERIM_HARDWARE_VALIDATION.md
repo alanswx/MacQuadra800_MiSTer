@@ -141,5 +141,18 @@ fixtures are ready in `scratch/interim_hardware_preflight_20260924/fixtures/`:
 The fixture directory contains `build_hfs_fixture.sh`; generation and checks
 are recorded in `scratch/interim_hardware_preflight_20260924/asset_discovery.md`.
 HFS volume timestamps mean a rebuild may have a different whole-image hash.
-No fixtures have been transferred or mounted yet. Local validation does not
-prove the guest CD path; mount/open/copy and audio tests remain required.
+The three fixtures have been transferred to
+`/media/fat/games/MacQuadra800/interim-validation-20260924/` on verified
+mister.local (10.3.89.233); all destination SHA-256 values match the local
+files. That directory was absent before creation. No slots, core, Main, or
+HDAs were changed. Transfer evidence is in
+`scratch/interim_hardware_preflight_20260924/fixture_transfer.md`.
+Local validation does not prove the guest CD path; mount/open/copy and audio
+tests remain required.
+
+The installed Main binary SHA-256 is
+`6db4851b939dbef32297c3fcce47d37531daddf5214e9a28a54412afd6586fd0`.
+It does not match local named Main binaries, but contains the distinctive
+`macquadra800`, `Mac CD: cmd`, and `Quadra 800 SONIC` markers. This supports
+the required capabilities without establishing exact source provenance or
+functional success. See `scratch/interim_hardware_preflight_20260924/main_identity.md`.
