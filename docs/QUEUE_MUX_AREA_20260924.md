@@ -29,3 +29,13 @@ negative.log}. Quartus may already optimize the old form; area is unknown.
 Luna owns independent CPU synthesis screens. Promote only measured useful
 changes with CPU regression evidence, then check the full-feature fit and
 timing; CPU-only savings do not predict full fitter utilization exactly.
+
+Static line-fill synthesis completed Sep24 16:23:53: 28,853 ALMs and8,966
+registers versus29,024 and8,966 in the identical becb472 CPU baseline.
+Saving171 ALMs. RTL tree comparison confirms only ap040_core.v differs.
+Reports: scratch/cpu_area/p_line_fill_static_sep24. Memory296,960 bits,
+13 DSPs; no storage growth. Not yet promoted: combined BRF+line-fill
+regression is assigned to Luna with explicit line-offer path counters,
+because the basic CPU program bench does not exercise that sideband.
+The real-cache six-kernel harness must exercise it and preserve BRF-only
+cycle counts and oracle results before the combined candidate is fitted.

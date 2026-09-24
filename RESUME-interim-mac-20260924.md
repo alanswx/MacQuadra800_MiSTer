@@ -110,3 +110,17 @@ only the banked BRF mux; source hash and evidence in
  docs/BRF_BANKED_SEED_20260924.md. Next full-feature fit tag
 interim_mac_brfbank. Luna owns launch/monitor plus separate area screens.
 No performance claim until timing and hardware tests.
+
+## Live BRF fit and next candidate (Sep24 16:24)
+
+Luna launched interim_mac_brfbank from01e7d41 in session82016;
+quartus_sh1561502 and fitter1567473 confirmed live. No production RTL
+changes while active. Archive scratch/interim_mac_brfbank_fit_20260924.
+
+Static line-fill standalone CPU area screen passed at28853 ALMs/8966 regs,
+saving171 versus29024. See docs/QUEUE_MUX_AREA_20260924.md. Luna is preparing
+combined BRF+line-fill regressions from01e7d41 plus that patch; instrument
+real-cache bench to prove line-offer execution and require identical cycles
+against BRF-only. FSAVE, FRESTORE and rotate area screens remain queued.
+Rotate single-barrel prototype passes33792 standalone equivalence cases
+including all one-hot inputs/shifts; patch tracked but no measured saving.
