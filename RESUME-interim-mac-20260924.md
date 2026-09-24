@@ -264,3 +264,21 @@ at launch. Recheck live processes. Archive scratch/interim_mac_onealu_s21_fit_20
 Freeze tracked HDL/settings until the full flow and integrity check finish.
 Luna brf_barrel_screen is investigating actual hold-delay endpoints read-only.
 MiSTer remains unavailable until user says it is free.
+
+
+## Active placement-effort trial after second routing failure
+
+Seed21 trial is terminal:40,997ALMs/4,156LABs, placement successful but
+routing congested, noSTA/RBF, source-after0. Shared ADD/SUB scratch candidate
+was rejected (+25ALMs); no production arithmetic changes.
+
+Current source24e6b4e311a000f3e0db08bc897867c4e5651ed2 retains seed21 and
+raises only PLACEMENT_EFFORT_MULTIPLIER to3.0, supported by installed Quartus17
+CycloneV DSE/advisor. CPU/feature/timing settings otherwise unchanged.
+Luna interim_validation owns `interim_mac_onealu_s21p3`, session28412,
+wrapper1726589/quartus_sh1726632/map1726705 at launch. Recheck live processes.
+Archive scratch/interim_mac_onealu_s21p3_fit_20260924. Freeze tracked HDL and
+settings through complete flow/source-after check. CPU hashes remain
+2b92366c... /92ea4d96... /3c7f2f13... (full hashes above).
+Hold-delay review justified no SDC relaxation; related33/99MHz SDRAM crossings
+must remain timed. Current goal and hardware availability are unchanged.
