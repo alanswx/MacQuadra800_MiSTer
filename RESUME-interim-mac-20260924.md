@@ -282,3 +282,12 @@ settings through complete flow/source-after check. CPU hashes remain
 2b92366c... /92ea4d96... /3c7f2f13... (full hashes above).
 Hold-delay review justified no SDC relaxation; related33/99MHz SDRAM crossings
 must remain timed. Current goal and hardware availability are unchanged.
+
+## Hardware availability update during placement-effort trial
+
+The user now says: "the fpga is ready when you are - replace whatever is running".
+This supersedes the earlier hardware-unavailable status. Deployment remains to
+verified mister.local (10.3.89.233), with the disposable test disk and the original
+image protected. Wait for the current full flow, source integrity check, and
+fresh artifact/timing review before deploying. Fitter PID1730547 was live at
+7m13 elapsed when this update was recorded; no fresh RBF yet.

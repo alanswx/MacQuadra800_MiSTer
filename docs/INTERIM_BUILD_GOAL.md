@@ -18,7 +18,7 @@ Aim to retain performance near 1.8 Speedometer, but do not make achieving 1.8 or
 
 ## Operating constraints
 
-Use Luna for routine builds, simulations, monitoring, and hardware operation where practical. Preserve ongoing Quartus jobs; concurrent builds require separate project directories. Use MiSTer hardware only when the user confirms it is available. The latest availability state is that the user is using it. Commit and push meaningful progress to origin/add-ethernet.
+Use Luna for routine builds, simulations, monitoring, and hardware operation where practical. Preserve ongoing Quartus jobs; concurrent builds require separate project directories. Use MiSTer hardware only when the user confirms it is available. The latest availability state is that the FPGA is free; the user explicitly authorized replacing whatever is running. Use the disposable test disk and protect the original image. Commit and push meaningful progress to origin/add-ethernet.
 
 ## Follow-on work, after the interim build
 
