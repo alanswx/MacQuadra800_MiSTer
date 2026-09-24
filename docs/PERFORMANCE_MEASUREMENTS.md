@@ -2154,3 +2154,47 @@ at the safe-halt screen.  Evidence: `scratch/hardware_p229_20260923/`.
 
 Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377 -> P174 1.460 -> P182 1.467 -> P188 1.631 ->
 P193 1.646 -> P205 1.703 -> **P212 1.725** (P220, P229 fail to boot).  Real Quadra 800: 1.897.
+
+## P232 on hardware: Mix 1.778 (2026-09-24, 06:28-06:44)
+
+P232 = P212 + P214 (spanning stores pushed as two FIFO entries), MOVEM load chains, cache fast-path
+fixes, FPU speedups and an MMU slot hash, with the P219 read-after-read handoff (the P220/P229 boot
+fault) **disabled**; commit `479d914` + seed 28, 38,967 ALMs, **CPU clock -2.165 ns** (the only seed of
+six that routed; P212 ran cleanly at -1.446, P188 at -1.671), HDMI +0.123, clk_ram +0.602, crossings met
+(`scratch/p232s_s28_fit_20260924/MacQuadra800_p232s_s28_479d914.rbf`, md5
+`9e95e885a2567a53a1fa8e43a1a4d24d`, on the MiSTer as `_Unstable/MacQuadra800_p232.rbf`).  A
+**development-profile** build (no OSD menu, no sound) **with the SCSI block cache bypassed**
+(SCSI_CACHE_OFF).  Loaded over the Apple IIgs core (user-authorized); disk
+`QuadSquad8-pipeline-test-20260919.hda`.  It ran cleanly: none of the P220/P229 symptoms (no Finder
+type-41 bomb, the "a" glyph and "Restart" button intact, the Starting Up bar inside its box), no bomb,
+no error dialog, no garbled icon; boot, five runs, quit, and Shut Down to "It is now safe to switch off".
+
+Boot: Mac OS 8.1 through the Starting Up bar (`boot2.png`) to the complete Finder desktop in about 65 s
+(`boot1..6.png`, about 15 s apart) -- no slower than P212's 40-50 s by enough to notice at this
+sampling, despite the bypassed SCSI cache.  Speedometer took about 40 s on its splash screen and needed
+an Escape to move on to the registration nag (`speedo_splash*.png`, `speedo_nag.png`).
+
+Five valid Mix runs: **1.767, 1.778, 1.778, 1.777, 1.778** — median **1.778** (+3.1 % on P212), no invalid
+timers.  Per test (median, P212 in brackets): Whetstones 1760 (1535, **+14.6 %**), Dhrystones 20,320
+(20,270, +0.2 %), Towers 0.474 (0.503, +6.1 %), Quick 0.491 (0.506, +3.1 %), Bubble 0.570 (0.572, +0.4 %),
+Queens 0.337 (0.364, +8.0 %), **Puzzle 0.878 (0.698, 25.8 % slower)**, Permutations 0.733 (0.757,
++3.3 %), **Int. Matrix 0.511 (0.460, 11.1 % slower)**, Sieve 1.017 (1.018, +0.1 %).  Run 1 is again the
+low one (Whetstones 1733 against 1759-1762, Puzzle 0.881, Int. Matrix 0.513, Sieve 1.018; Mix 1.767);
+runs 2-5 agree to within 4 ms on every timed test (Dhrystones 20,319.9-20,323.3, Whetstones
+1758.8-1761.6, Puzzle 0.878 in all four, Int. Matrix 0.508-0.512).
+
+Two regressions against P212, both steady across all five runs (so a performance change, not a
+corruption symptom): **Puzzle** 0.698 -> 0.878 and **Int. Matrix** 0.460 -> 0.511.  Everything else
+gains: Whetstone +14.6 % (the FPU speedups), Queens +8.0 %, Towers +6.1 %, Permutations +3.3 %, Quick
++3.1 %.  Without the two regressions the Mix would be about 1.83 (Puzzle and Int. Matrix at P212's
+ratios).  The guest menu-bar clock (UTC hour, as for P212) kept step with the MiSTer's wall clock (6:29 at
+the Finder, 6:40 at the fifth run's end, 6:43 at Shut Down; MiSTer 06:29/06:40/06:43); its script font
+draws 0, 8 and 9 as "C", "E" and "S" (P212's `menu.png` at 17:49 shows the same "9"), which is not
+corruption.  Evidence: `scratch/hardware_p232_20260924/run{1..5}_{start,complete}.png`,
+`run{2..5}_dlg.png`, `mixdlg.png`, `menu.png` (Shut Down lit before the click), `final_halt.png`.
+Speedometer quit without saving the Machine Record (`quit*.png`).  The core was left at the safe-halt
+screen.
+
+Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377 -> P174 1.460 -> P182 1.467 -> P188 1.631 ->
+P193 1.646 -> P205 1.703 -> P212 1.725 (P220, P229 fail to boot) -> **P232 1.778**.  Real Quadra 800:
+1.897.
