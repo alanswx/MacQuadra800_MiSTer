@@ -246,3 +246,21 @@ scripts/cpu/pipeline_store_oracle_mutation.patch, then commit/push. Both are
 already validated together in scratch; do not mutate tracked .sv benches
 while the current source manifest is frozen. No synthesizable RTL change
 is involved in these deferred test fixes.
+
+
+## Routing failure and active seed21 experiment
+
+`interim_mac_onealu` at4f90d54 is terminal. Placement succeeded with41,002
+ALMs and4,155LABs, but routing congestion (16618/188005/170143) prevented
+completion. No freshSTA/RBF. build3/source-after0/cross77/cpu-timing77.
+The deferred testbench/oracle patches above have NOW BEEN APPLIED and
+committed; do not apply them again.
+
+Current production commit c61087eefd285a32449148721fad2af1ab595416 changes
+only fitter seed28 to21 for the FPGA design; CPU/features/SDC unchanged.
+Test-only compatibility fixes are included. Luna interim_validation owns
+`interim_mac_onealu_s21`, session3447, wrapper1700830/quartus_sh1700873/map1700962
+at launch. Recheck live processes. Archive scratch/interim_mac_onealu_s21_fit_20260924.
+Freeze tracked HDL/settings until the full flow and integrity check finish.
+Luna brf_barrel_screen is investigating actual hold-delay endpoints read-only.
+MiSTer remains unavailable until user says it is free.
