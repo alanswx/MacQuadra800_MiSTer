@@ -186,3 +186,27 @@ single-ALU ownership in scratch and checking a directed drain-monitor
 coverage failure against baseline. Luna interim_validation is reviewing
 packing overhead after the terminal fit. No production RTL was changed
 following 55ed03e. MiSTer remains unavailable until the user frees it.
+
+
+## Latest result: shared-shifter fit and validation
+
+Production RTL is 86d48df: five-way candidate, shared logical/arithmetic
+shifter added. ALU SHA256 3c7f2f1329d72959718fbf96b8797f8e476123824ce7f328a07e68268903a7b2;
+core SHA unchanged a309fd758e9f38f08be9bfa4fe6e707f18e81cf195757740809b6c82d39b3dc0.
+ALU differential miter, legacy CPU suite, and all six production-pipeline
+fixtures pass; fixture cycles unchanged. CPU-only map 26,722 ALMs.
+
+Full `interim_mac_shiftshare` fit is terminal: 41,764 / 41,910 ALMs but
+4,226 / 4,191 LABs (35 too many), build exit3, source-after0, cross/timing77.
+No fresh STA or RBF. Retain this best full-feature baseline.
+
+The corrected pipeline dependency monitor was committed at17e9ca1. It
+covers direct memory retirement and checks indexed-load A2 forwarding to
+TST, including reset/consume of its dependency token and a negative address
+control. Separate fault/IRQ baseline evidence on55ed03e is recorded in
+docs/PIPELINE_BASELINE_VALIDATION_20260924.md with exact macro limitations.
+
+Luna brf_barrel_screen owns common-ALU area measurement and results;
+interim_validation is assigned its production fault/IRQ tests (coordinate
+before launch). alu_rotate_sharing is preparing a local-only hardware
+validation checklist. MiSTer still belongs to the user until freed.

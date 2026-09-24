@@ -191,3 +191,22 @@ The full-feature `interim_mac_shiftshare` build is running from source
 Additional directed pipeline fault/IRQ baseline results on 55ed03e are
 recorded in `docs/PIPELINE_BASELINE_VALIDATION_20260924.md`. They distinguish
 exact production admission from specialized tests using FORCE_DECODE.
+
+## Full five-way fit result
+
+`interim_mac_shiftshare` at source 86d48df finished with build exit 3.
+Mapping estimated 40,055 ALMs; final ALMs needed were **41,764 / 41,910**,
+but the design requires **4,226 / 4,191 LABs**, so error 170012 still prevents
+fitting. Relative to the four-way result, this removes 294 fitted ALMs and
+26 LABs. The remaining deficit is 35 LABs, despite 146 ALMs of reported
+headroom. ALM utilization alone is therefore not an adequate success gate.
+
+Final placed ALMs were 40,592, with one recoverable by dense packing and
+1,173 unavailable (53 from LAB-wide conflicts, 1,120 from LAB input limits).
+Source-after integrity passed. No fresh STA/RBF; crossing and CPU timing
+stages skipped with exit 77. Archive:
+`scratch/interim_mac_shiftshare_fit_20260924`.
+
+Keep this shared-shifter change as the best measured full-feature baseline.
+The common-ALU prototype remains separate, pending its area screen and
+production fault/interrupt tests before combining with this baseline.
