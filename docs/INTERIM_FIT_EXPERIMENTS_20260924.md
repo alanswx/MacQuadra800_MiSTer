@@ -22,6 +22,10 @@ no new timing result was produced. Archives live under scratch/<tag>_fit_2026092
 | Shared FSAVE payload | 29,024 | 29,063 | Reject: grows39 |
 | Shared FRESTORE payload | 29,024 | 29,151 | Reject: grows127 |
 | Explicit barrel after BRF bank selection | 27,879 | 28,072 | Reject: grows193 |
+| Full-width explicit barrel after BRF banks | 27,879 | 28,000 | Reject: grows121 |
+| Barrel queue line-fill | 29,024 | 28,799 | Useful:54 below static line-fill |
+| FPU sticky barrel | 27,879 | 27,979 | Reject: grows100 |
+| Shared integer ALU rotates | 27,879 | 27,161 | Useful:718 smaller; combined tests pending |
 
 All completed CPU screens retain8,966 registers. Exact settings and source
 paths are in scratch/cpu_area/p_<tag>/cpu.qsf, with summaries in results.txt.
@@ -53,3 +57,19 @@ correctly reports no fresh map/STA/RBF. ALWAYS is restored. Static line-fill
 is now promoted on top of banked BRF after exact combined regression; no
 other scratch arithmetic change is integrated and no new fit is launched
 until the remaining area screens guide the next candidate.
+
+Shared integer rotates are preserved as scripts/cpu/alu_rotate_shared.patch.
+One33-bit rotate datapath serves ROL/ROR/ROXL/ROXR. Right rotations become
+left rotations by container-width minus amount; the container includes X
+only for ROX. Existing result masks and carry/extend choices remain in their
+operation arms. No clocked state or instruction latency changes.
+
+The differential miter checks both PIPELINE_SUBSET modes, all byte inputs,
+all counts0..63, both X states (flags[4]), word/long one-hot patterns and
+randomized data/flags. A wrong-direction mutation fails. Candidate adds
+op-dependent muxing before the barrel, so timing must still be measured.
+Map-exact ALU hash d6ce0e32a62c19794d165ec6099e5e0ad9281cd2a73785e5dbf1e95cc2b8579f;
+whitespace-clean ALU hash72ec6209972d51f6ffd52c4f914de6c7e93c21c7686130e890b2f5369660b93e.
+Evidence: scratch/cpu_area/{rolshare_miter,p_rolshare_01e7d41,tree_rolshare}.
+Luna is testing combined BRF + barrel line-fill + shared rotates before
+promotion. A separate shared logical/arithmetic shifter is still screening.
