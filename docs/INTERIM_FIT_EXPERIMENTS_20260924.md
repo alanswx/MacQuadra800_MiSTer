@@ -151,3 +151,25 @@ Next measurements are the exact five-way shared-shifter combination and
 an optional common ALU for pipeline and legacy execution. The latter needs
 additional ownership, dependency, fault, and interrupt validation before
 promotion. A read-only review of packing overhead is also in progress.
+
+## Five-way shared-shifter candidate
+
+Adding the shared logical/arithmetic shifter to 55ed03e maps at 26,722 ALMs
+and 8,966 registers, saving 142 estimated CPU ALMs versus 26,864. The exact
+candidate passed 323,296 differential ALU comparisons and the legacy CPU
+suite (28 positives, three expected negative controls). Six production-
+pipeline Speedometer fixtures are running in parallel with full fitting;
+this is not yet a fully validated candidate or a fitted artifact.
+
+The only post-map change corrects an obsolete ASR comment. Mapped ALU SHA256:
+7e83d5118b76ab6500fb86d261c5db9fdec948d0d276e379802f109ad032a277.
+Production/fixture ALU SHA256:
+3c7f2f1329d72959718fbf96b8797f8e476123824ce7f328a07e68268903a7b2.
+Core remains a309fd758e9f38f08be9bfa4fe6e707f18e81cf195757740809b6c82d39b3dc0.
+Evidence: scratch/alu_shared_fourway_20260924/{miter,cpu_tests,fixtures}
+and scratch/cpu_area/p_alushared5_55ed03e.
+
+The completed packing review found only one recoverable ALM and 1,075 ALMs
+unavailable from LAB input limits. Prior register-packing experiments did
+not improve density, so the next full fit retains existing fitter settings.
+All normal Mac features and current cache sizes remain enabled unchanged.

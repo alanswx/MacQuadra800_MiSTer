@@ -42,6 +42,15 @@ module ap040_alu #(parameter PIPELINE_SUBSET = 0)
 wire f_x = flags_in[4];
 wire f_z = flags_in[2];
 
+function [31:0] reverse32;
+	input [31:0] value;
+	integer bit_index;
+	begin
+		for (bit_index = 0; bit_index < 32; bit_index = bit_index + 1)
+			reverse32[bit_index] = value[31-bit_index];
+	end
+endfunction
+
 // size-dependent views
 wire [5:0]  nbits = (size == `AP040_SZ_B) ? 6'd8 : (size == `AP040_SZ_W) ? 6'd16 : 6'd32;
 wire [31:0] szmask = (size == `AP040_SZ_B) ? 32'h0000_00FF :
@@ -50,6 +59,15 @@ wire [31:0] am = a & szmask;
 wire [31:0] bm = b & szmask;
 wire        a_msb = (size == `AP040_SZ_B) ? a[7]  : (size == `AP040_SZ_W) ? a[15] : a[31];
 wire        b_msb = (size == `AP040_SZ_B) ? b[7]  : (size == `AP040_SZ_W) ? b[15] : b[31];
+wire shift_left = (op == `AP040_ALU_ASL1) || (op == `AP040_ALU_LSL1);
+wire shift_arithmetic = (op == `AP040_ALU_ASR1);
+wire shift_signfill = shift_arithmetic && b_msb;
+wire [31:0] shift_input = shift_left ? reverse32(bm) :
+	(shift_signfill ? (bm | ~szmask) : bm);
+wire signed [32:0] shift_signed_input = {shift_signfill, shift_input};
+wire [31:0] shift_right_result = shift_signed_input >>> shcnt;
+wire [31:0] shared_shift_result =
+	(shift_left ? reverse32(shift_right_result) : shift_right_result) & szmask;
 
 function res_msb;
 	input [31:0] r;
@@ -319,7 +337,7 @@ always @* begin
 			rot = ((rotate_in << rotate_left) | (rotate_in >> (rotate_width - rotate_left))) & rotate_mask;
 			case (op)
 				`AP040_ALU_ASL1, `AP040_ALU_LSL1: begin
-					r = (bm << n) & szmask;
+					r = shared_shift_result;
 					c = (n <= nbits) && (((bm >> (nbits - n)) & 32'd1) != 0);
 					x2 = c;
 					if (op == `AP040_ALU_ASL1) begin
@@ -332,16 +350,13 @@ always @* begin
 					end
 				end
 				`AP040_ALU_LSR1: begin
-					r = bm >> n;
+					r = shared_shift_result;
 					c = (n <= nbits) && (((bm >> (n - 6'd1)) & 32'd1) != 0);
 					x2 = c;
 				end
 				`AP040_ALU_ASR1: begin
-					// unsigned formulation: shift, then OR the sign fill
-					// (an embedded >>> would lose its signedness to the
-					// surrounding unsigned expression context)
-					r = (bm >> ne) |
-					    (b_msb ? ((~(szmask >> ne)) & szmask) : 32'd0);
+					// Sign-extend for arithmetic shifts before the shared signed right shift.
+					r = shared_shift_result;
 					c = (n >= nbits) ? b_msb
 					                 : (((bm >> (n - 6'd1)) & 32'd1) != 0);
 					x2 = c;
