@@ -318,18 +318,21 @@ wire [68:0] divsqrt_denom = {4'd0, 1'b0, a_m};
 wire [68:0] divsqrt_num1 = divsqrt_sqrt ? {srem[66:0], srad[131:130]} :
                                                {4'd0, acc_hi[63:0], 1'b0};
 wire [68:0] divsqrt_sub1 = divsqrt_sqrt ? {1'b0, qv[65:0], 2'b01} : divsqrt_denom;
-wire divsqrt_q1 = divsqrt_num1 >= divsqrt_sub1;
-wire [68:0] divsqrt_rem1 = divsqrt_q1 ? divsqrt_num1 - divsqrt_sub1 : divsqrt_num1;
+wire [69:0] divsqrt_diff1 = {1'b0, divsqrt_num1} - {1'b0, divsqrt_sub1};
+wire divsqrt_q1 = !divsqrt_diff1[69];
+wire [68:0] divsqrt_rem1 = divsqrt_q1 ? divsqrt_diff1[68:0] : divsqrt_num1;
 wire [68:0] divsqrt_num2 = divsqrt_sqrt ? {divsqrt_rem1[66:0], srad[129:128]} :
                                                {4'd0, divsqrt_rem1[63:0], 1'b0};
 wire [68:0] divsqrt_sub2 = divsqrt_sqrt ? {1'b0, qv[64:0], divsqrt_q1, 2'b01} : divsqrt_denom;
-wire divsqrt_q2 = divsqrt_num2 >= divsqrt_sub2;
-wire [68:0] divsqrt_rem2 = divsqrt_q2 ? divsqrt_num2 - divsqrt_sub2 : divsqrt_num2;
+wire [69:0] divsqrt_diff2 = {1'b0, divsqrt_num2} - {1'b0, divsqrt_sub2};
+wire divsqrt_q2 = !divsqrt_diff2[69];
+wire [68:0] divsqrt_rem2 = divsqrt_q2 ? divsqrt_diff2[68:0] : divsqrt_num2;
 wire [68:0] divsqrt_num3 = divsqrt_sqrt ? {divsqrt_rem2[66:0], srad[127:126]} :
                                                {4'd0, divsqrt_rem2[63:0], 1'b0};
 wire [68:0] divsqrt_sub3 = divsqrt_sqrt ? {1'b0, qv[63:0], divsqrt_q1, divsqrt_q2, 2'b01} : divsqrt_denom;
-wire divsqrt_q3 = divsqrt_num3 >= divsqrt_sub3;
-wire [68:0] divsqrt_rem3 = divsqrt_q3 ? divsqrt_num3 - divsqrt_sub3 : divsqrt_num3;
+wire [69:0] divsqrt_diff3 = {1'b0, divsqrt_num3} - {1'b0, divsqrt_sub3};
+wire divsqrt_q3 = !divsqrt_diff3[69];
+wire [68:0] divsqrt_rem3 = divsqrt_q3 ? divsqrt_diff3[68:0] : divsqrt_num3;
 reg   [6:0] loop_n;
 reg [127:0] mul_pd;           // registered DSP full product (F_MULT)
 reg   [3:0] op_kind;          // 0 none, 1 add, 2 mul, 3 div, 4 sqrt

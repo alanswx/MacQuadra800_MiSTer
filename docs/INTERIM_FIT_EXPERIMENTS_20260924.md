@@ -462,3 +462,27 @@ This is only a proposed experiment: the previous report credits the
 performance pass with an estimated 1,590 ps slack improvement, so removing
 it may hurt timing. Do not relax clock constraints or assume routing will
 improve. No such settings change is part of the active divsqrt build.
+
+## Shared-stage full fit failed; promote validated borrow reduction
+
+`interim_mac_divsqrt`, source 3791bf6, is terminal: placement succeeded but
+routing failed congestion (16618/188026/170143/11802). The fitter reports
+41,077 ALMs needed, comprising 39,910 actually used, 2 recoverable and 1,169
+unavailable; 4,165/4,191 LABs and 28,437 registers. Routing average/peak was
+71.7%/95.0%. The fresh map estimate was 39,313. No STA or fresh RBF exists.
+Source-after passed; build exit 3, crossing/timing exits 77. Evidence is
+`scratch/interim_mac_divsqrt_fit_20260924`. The lower CPU map count did not
+translate to better full placement/routing; retain that limitation explicitly.
+
+Promote the independently tested borrow variant FPU SHA
+`2d53db3ae4a04310add04eeb7919f0219197a98827ed92e410e6d4a4a90f5465`.
+It replaces each shared comparison/subtraction pair with one zero-extended
+70-bit subtraction; the borrow bit supplies the unsigned comparison. It
+passed the recurrence miter, mutation control, and full directed CPU suite
+with LEA/XSTORE enabled. CPU map is 25,514 ALMs (162 below the preceding
+shared-stage variant), with 8,966 registers. See the preceding validation
+entry and archived candidate `cpu_suite_evidence/`.
+
+Next full fit: `interim_mac_divsqrt_borrow`, seed 21, placement effort 1.0.
+Keep all features, timing constraints, and physical-synthesis settings fixed
+so this tests only the validated arithmetic reduction.
