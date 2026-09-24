@@ -223,6 +223,25 @@ localparam CACHE_SECT0 = 32, CACHE_SECT1 = 32;
 `else
 localparam CACHE_SECT0 = 64, CACHE_SECT1 = 48;
 `endif
+`ifdef SCSI_CACHE_OFF
+// SCSI_CACHE_OFF=1 (development builds only, configs/cpu_development.tcl): no
+// block cache -- the engine talks to hps_io directly as it did before
+// rtl/scsi_cache.sv.  The engine's block count is meaningful only for a CD
+// pass-through read; a disk transfer is one block.  Guest disk I/O is slower;
+// the CPU benchmarks do not touch the disk.  Boot-simulated to the Finder
+// (scratch/sim_scoff2, 2026-09-23).
+assign io_lba         = e_io_lba;
+assign io_blk_cnt     = e_io_rd[2] ? e_io_blk_cnt : 6'd0;
+assign io_rd          = e_io_rd;
+assign io_wr          = e_io_wr;
+assign e_io_ack       = io_ack;
+assign e_sd_buff_addr = sd_buff_addr;
+assign e_sd_buff_dout = sd_buff_dout;
+assign sd_buff_din    = e_sd_buff_din;
+assign e_sd_buff_wr   = sd_buff_wr;
+assign cache_hits     = 16'd0;
+assign cache_misses   = 16'd0;
+`else
 scsi_cache #(.SECT0(CACHE_SECT0), .SECT1(CACHE_SECT1), .SECT2(16), .PF_DEPTH(8), .CACHE_CD(CACHE_CD_SLOT)) scsi_cache (
 	.clk(clk),
 	.nreset(nreset),
@@ -253,6 +272,7 @@ scsi_cache #(.SECT0(CACHE_SECT0), .SECT1(CACHE_SECT1), .SECT2(16), .PF_DEPTH(8),
 	.stat_hits(cache_hits),
 	.stat_misses(cache_misses)
 );
+`endif
 
 // any block transfer in flight between the machine and the HPS -- on either
 // side of the cache: a request strobe up, or an ack still streaming.  Holds

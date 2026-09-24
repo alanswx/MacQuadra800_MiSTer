@@ -488,6 +488,8 @@ source configs/cpu_development.tcl
 # P231 (no P214) seed 25: -2.804 ns, not run; seed 27 stopped (P219 still in it).
 # P232 seed 25 2026-09-23 (9644f5a): 39,780 ALMs (95 %), routing overran: CPU clock -17.833 ns (router congestion).
 # Not usable.  CACHE_TINY back in the development profile (the P212+CACHE_TINY boot sim reached the Finder).
+# P232 + CACHE_TINY seed 25 2026-09-23 (be552ad): 39,417 ALMs (94 %), CPU clock -9.753 ns, clk_ram -0.311 (congestion).
+# Not usable.  Next: SCSI_CACHE_OFF (the block cache bypassed) in the development profile instead of CACHE_TINY.
 # Posted cross-line cache-store merge, validated on hardware.
 set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_XSTORE=1"
 # Overlap LEA displacement fetch with base selection; checked independently.
