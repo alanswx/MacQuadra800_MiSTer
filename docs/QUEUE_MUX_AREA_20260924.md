@@ -46,3 +46,8 @@ BRF-only. Each fixture's bound monitor sees nonzero fills and wrapped
 writes (Sieve has1 wrap). Source and evidence:
 scratch/brf_linefill_20260924/{tree,cpu_tests/run.log,suite,line_fill_cov.sv}.
 This candidate remains scratch until the active fitter experiment ends.
+
+Static line-fill is now promoted on top of BRF, after the failed fitter
+setting experiment ended. Production core matches the tested combined
+snapshot byte-for-byte. No extra cycles or feature cuts; combined physical
+savings and timing still need a new fit.

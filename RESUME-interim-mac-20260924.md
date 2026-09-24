@@ -139,3 +139,17 @@ inference, not a documented area guarantee. Intel standard-edition guide
 https://www.intel.com/programmable/technical-pdfs/683230.pdf describes the
 option's routing/speed tradeoff. No RTL, feature, clock or cache-size change.
 Luna owns launch and monitoring, plus separate area/regression screens.
+
+## Density result; combined BRF+line-fill promoted
+
+brfdense e5f189e failed43,736 ALMs,398 worse thanALWAYS; sourceafter0/build3.
+Finished Sep24 16:37:50. Restore ALWAYS and promote tested static line-fill
+on top of BRF (core matches scratch/brf_linefill_20260924/tree). Both full
+CPU and6kernel oracles/negatives pass with identical cycles, monitor covers
+actual nonzero/wrapped line offers in all6. No new mainfit running.
+
+Remaining workers: interim_validation owns FPUshiftjam map (session92017),
+then bitfield rotate_concat area onbecb472. brf_barrel_screen owns line-fill
+barrel area; its two BRF barrel forms grew193/121ALMs and are rejected.
+alu_rotate_sharing owns shared4-op integer rotate datapath equivalence and
+CPU area on01e7d41. No hardware access; user still reservesMiSTer.

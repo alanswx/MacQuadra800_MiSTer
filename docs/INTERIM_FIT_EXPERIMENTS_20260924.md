@@ -8,7 +8,7 @@ is reserved by the user. No candidate in this table has produced a new RBF.
 | --- | --- | ---: | --- |
 | Normal feature baseline | becb472 | 43,806 | 1,896 over capacity |
 | Banked BRF seed mux | 01e7d41 | 43,338 | 1,428 over capacity |
-| Same BRF RTL, forced routability optimization disabled | e5f189e | pending | Running, interim_mac_brfdense |
+| Same BRF RTL, forced routability optimization disabled | e5f189e | 43,736 | Reject:398 larger than BRF ALWAYS |
 
 Capacity is41,910 ALMs. The BRF change saves468 ALMs in the full design,
 although standalone CPU synthesis saved1,145. Do not add standalone savings
@@ -18,7 +18,7 @@ no new timing result was produced. Archives live under scratch/<tag>_fit_2026092
 | Independent CPU screen | Baseline ALMs | Candidate ALMs | Decision |
 | --- | ---: | ---: | --- |
 | Banked BRF seed | 29,024 | 27,879 | Promoted and full-fit measured |
-| Static queue line-fill destinations | 29,024 | 28,853 | Useful; combined CPU tests pass |
+| Static queue line-fill destinations | 29,024 | 28,853 | Promoted after combined CPU tests pass |
 | Shared FSAVE payload | 29,024 | 29,063 | Reject: grows39 |
 | Shared FRESTORE payload | 29,024 | 29,151 | Reject: grows127 |
 | Explicit barrel after BRF bank selection | 27,879 | 28,072 | Reject: grows193 |
@@ -46,3 +46,10 @@ all128 shift counts, all67 one-hot inputs, and1,024 random67-bit operands.
 A missing final sticky contribution fails the negative control. Evidence:
 scratch/fpu_shift_jam_20260924/{prepare.py,tb.sv,equivalence.log,negative.log}.
 CPU integration and area are pending.
+
+The NEVER fitter experiment finished Sep24 16:37:50, sourceafter0/build3.
+It reused unchanged synthesis through Quartus smart compilation; the wrapper
+correctly reports no fresh map/STA/RBF. ALWAYS is restored. Static line-fill
+is now promoted on top of banked BRF after exact combined regression; no
+other scratch arithmetic change is integrated and no new fit is launched
+until the remaining area screens guide the next candidate.

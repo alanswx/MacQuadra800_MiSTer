@@ -5442,10 +5442,14 @@ always @(posedge clk) begin
 				avail = 4'd8 - {1'b0, epf_ftail[3:1]};
 				room  = 4'd8 - epf_count;
 				n = (avail < room) ? avail : room;
-				for (i = 0; i < 8; i = i + 1)
-					if (i < n)
-						epf_data[epf_fill + i[2:0]] <=
-							mem_line_data[(127 - 16 * (epf_ftail[3:1] + i[2:0])) -: 16];
+				for (i = 0; i < 8; i = i + 1) begin : fill_slot
+					reg [2:0] distance, source_word;
+					// Invert the ring destination mapping, leaving one source mux per slot.
+					distance = i[2:0] - epf_fill;
+					source_word = epf_ftail[3:1] + distance;
+					if ({1'b0, distance} < n)
+						epf_data[i] <= mem_line_data[(127 - 16 * source_word) -: 16];
+				end
 				epf_fillw = n;
 				epf_issue = 1;
 			end
