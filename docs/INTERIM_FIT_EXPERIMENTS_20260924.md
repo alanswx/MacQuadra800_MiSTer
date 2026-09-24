@@ -380,3 +380,19 @@ placement work can reduce routing demand:
 This is a documented placement-effort experiment, not relaxed timing or a
 guarantee of route success. ROUTER_EFFORT_MULTIPLIER is deprecated/ignored
 according to the installed warning database and is not being changed.
+
+## Placement effort 3.0 failed routing; resume structural reduction
+
+`interim_mac_onealu_s21p3` (source `24e6b4e`) completed in 19m51s.
+The report confirms effort 3.0; placement succeeded with 40,997/41,910 ALMs
+and 4,156/4,191 LABs, but routing failed (16618/188026/170143/11802).
+Average interconnect usage was 55.7%, peak 82.8% (vertical peak 105.5%).
+There is no fresh STA or RBF. The post-flow source check passed; crossing and
+timing analysis correctly skipped with exit 77. Archive:
+`scratch/interim_mac_onealu_s21p3_fit_20260924`.
+
+Restore placement effort 1.0 for subsequent RTL trials. Additional placement
+effort did not solve congestion. Next scratch investigation: share the FPU
+divider/square-root arithmetic stages without changing their three-digit
+iterations or cycle counts. This is an unproven candidate, not integrated RTL.
+The latency-increasing one-digit alternative remains deferred.
