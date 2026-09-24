@@ -2,6 +2,11 @@
 
 ## Active goal — approved wording
 
+The refined goal and completion criteria are recorded in
+[docs/INTERIM_BUILD_GOAL.md](docs/INTERIM_BUILD_GOAL.md), updated at the
+user's request on September 24. Use that document for the current scope
+and follow-on sequence.
+
 Produce a fitted MacQuadra800 build with normal MiSTer functionality,
 Ethernet, CD-ROM/CD audio, and disk caching enabled. Preserve CPU
 correctness and retain speed enhancements wherever practical. Validate
