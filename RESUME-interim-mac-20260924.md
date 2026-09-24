@@ -40,3 +40,16 @@ integer oracle fixtures and negative controls passed. Restore load/store
 macros and try AGGRESSIVE AREA mode plus HIGH register packing. No RTL
 behavior change from tested 314d64e. Tag interim_mac_aggressive.
 MiSTer is in use by user: ask for availability when a candidate is ready.
+
+## Normal-feature target replaces the release-lite target
+
+Latest user goal explicitly includes normal sys/MiSTer features. Prior
+release-lite candidates do not fulfill it. Remove the release-lite source
+and re-enable bilinear downscaling, adaptive filtering and ALSA; keep
+Ethernet, CD, CD audio, SCSI cache, 512x384, OSDs, Y/C, shadowmask, video
+measurement and audio filter. Keep CPU SETW=7 and all speed macros.
+Aggressive-area/high-packing b421ab7 failed at 42,168 ALMs (18 worse than
+balanced-mode/AREA technique). Return to the better synthesis settings.
+Tag interim_mac_normal establishes the actual untrimmed resource baseline.
+Luna is preparing shared FPU frame sequencing in scratch with correctness
+tests; no production RTL edits during this fit.
