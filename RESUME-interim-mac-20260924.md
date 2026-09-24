@@ -1,5 +1,23 @@
 # Interim Mac build — 2026-09-24
 
+## Active goal — approved wording
+
+Produce a fitted MacQuadra800 build with normal MiSTer functionality,
+Ethernet, CD-ROM/CD audio, and disk caching enabled. Preserve CPU
+correctness and retain speed enhancements wherever practical. Validate
+resource usage, timing, boot/shutdown, and peripheral operation; measure
+Speedometer over five valid hardware runs, aiming as close to 1.8 as
+possible. Prefer structural area reductions before sacrificing performance.
+Report any timing exceptions, feature omissions, or performance losses
+explicitly. Report and exclude invalid timer results.
+
+1.8 is a performance target, not a condition that prevents delivery of the
+full-feature interim build. Memory-placement analysis and disk profiling
+follow as separate phases. User approved this wording in the conversation.
+The goal tool cannot edit the stored objective text; use these approved
+acceptance criteria alongside the existing active goal.
+
+
 User priority: fit with Ethernet, CD-ROM/CD audio, disk cache, audio output,
 OSDs and Y/C; then review global memory placement, profile disk and plan disk work.
 FPGA is available again, but verify guest state before deployment.
