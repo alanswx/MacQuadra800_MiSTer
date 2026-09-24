@@ -30,3 +30,13 @@ loads/stores; these instructions retain their sequencer implementations.
 Keep all restored peripherals and CACHE_SMALL. Full-design area saving and
 correctness/performance need fresh verification; prior CPU-only estimate
 was 216 ALMs, not a guarantee of fitting. Tag interim_mac_seqmem.
+
+## Concurrent-project authorization and aggressive-area experiment
+
+User explicitly permits separate projects to build simultaneously (2026-09-24);
+never kill unrelated Quartus processes. Same-checkout builds remain exclusive.
+Seqmem d562e9a failed at 42,180 ALMs, 30 worse than AREA baseline; its six
+integer oracle fixtures and negative controls passed. Restore load/store
+macros and try AGGRESSIVE AREA mode plus HIGH register packing. No RTL
+behavior change from tested 314d64e. Tag interim_mac_aggressive.
+MiSTer is in use by user: ask for availability when a candidate is ready.

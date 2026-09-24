@@ -36,7 +36,7 @@ set_global_assignment -name FITTER_EFFORT "STANDARD FIT"
 # needed: it fit at 81% but missed setup by 0.947 ns (Fmax 32.0 vs the
 # 33.0 MHz clock).  Do not re-apply the area knobs without a fit that
 # actually needs them.
-set_global_assignment -name OPTIMIZATION_MODE BALANCED
+set_global_assignment -name OPTIMIZATION_MODE "AGGRESSIVE AREA"
 set_global_assignment -name ALLOW_POWER_UP_DONT_CARE ON
 set_global_assignment -name QII_AUTO_PACKED_REGISTERS NORMAL
 set_global_assignment -name ROUTER_LCELL_INSERTION_AND_LOGIC_DUPLICATION ON
@@ -57,7 +57,7 @@ set_global_assignment -name ROUTER_CLOCKING_TOPOLOGY_ANALYSIS ON
 set_global_assignment -name ECO_OPTIMIZE_TIMING ON
 set_global_assignment -name PERIPHERY_TO_CORE_PLACEMENT_AND_ROUTING_OPTIMIZATION ON
 set_global_assignment -name PHYSICAL_SYNTHESIS_ASYNCHRONOUS_SIGNAL_PIPELINING ON
-set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
+set_global_assignment -name ALM_REGISTER_PACKING_EFFORT HIGH
 # Fitter seed. At 82% ALM utilisation the placement is marginal enough that the
 # 99 MHz clk_ram (SDRAM) domain's HOLD slack swings with the netlist: seed 1 gave
 # +0.449 and +0.464 ns on two builds, then -0.122 ns on 2026-08-30 after an
@@ -503,10 +503,9 @@ set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_XSTORE=1"
 set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_LEA=1"
 # P6 candidate: broaden the resident integer/memory stream at authentic 33 MHz.
 set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_PIPELINE=1"
-# Interim area candidate: use sequencer fallback for pipeline loads/stores.
-# CPU-only ablation saved 216 ALMs; full-design fit and regressions pending.
-#set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_PIPELINE_LOADS=1"
-#set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_PIPELINE_STORES=1"
+# Seqmem full fit cost 30 more ALMs; restore pipeline loads/stores.
+set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_PIPELINE_LOADS=1"
+set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_PIPELINE_STORES=1"
 set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_PIPELINE_PEA=1"
 # P6 memory-entry trial: avoid unrestricted entry's measured Mix regression.
 set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_PIPELINE_P6=1"

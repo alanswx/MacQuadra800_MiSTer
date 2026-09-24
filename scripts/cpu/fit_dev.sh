@@ -8,8 +8,29 @@ tag="${1:?tag}"
 fit_out="$repo/scratch/${tag}_fit_$(date +%Y%m%d)"
 cd "$repo" || exit 1
 
-if pgrep -x 'quartus_.*' >/dev/null 2>&1; then
-  echo 'Quartus process already active; refusing to start.' >&2
+# User 2026-09-24: independent projects may run concurrently; never kill them.
+# Preserve exclusive ownership of this checkout, including report generation.
+exec 9>"$repo/.git/archived-fit.lock"
+flock -n 9 || { echo 'Another archived Mac fit owns this checkout.' >&2; exit 3; }
+build_args=()
+if [[ "${2:-}" == --allow-other-projects ]]; then
+  python3 - "$repo" <<'CHECK_PROCESSES'
+import pathlib, sys
+repo = pathlib.Path(sys.argv[1]).resolve()
+for proc in pathlib.Path('/proc').iterdir():
+    if not proc.name.isdigit(): continue
+    try:
+        if not (proc / 'comm').read_text().strip().startswith('quartus_'): continue
+        cmd = (proc / 'cmdline').read_bytes().replace(b'\0', b' ').decode()
+        if (proc / 'cwd').resolve() == repo or 'MacQuadra800' in cmd:
+            sys.exit('Mac Quartus process already active: ' + proc.name + ' ' + cmd)
+    except (FileNotFoundError, PermissionError, ProcessLookupError):
+        continue
+CHECK_PROCESSES
+  [[ $? -eq 0 ]] || exit 3
+  build_args=(--no-wait)
+elif pgrep -x 'quartus_.*' >/dev/null 2>&1; then
+  echo 'Quartus process active; use --allow-other-projects only with authorization.' >&2
   exit 3
 fi
 if [[ -e "$fit_out/start.stamp" ]]; then
@@ -48,7 +69,7 @@ copy_fresh() {
 # Build in the current checkout. Keep going after failure so fresh map/fit/STA
 # reports are still archived and every exit status is recorded.
 set +e
-bash scripts/build_only.sh > "$fit_out/build.log" 2>&1
+bash scripts/build_only.sh "${build_args[@]}" > "$fit_out/build.log" 2>&1
 build_rc=$?
 printf '%s\n' "$build_rc" > "$fit_out/build.exit"
 
