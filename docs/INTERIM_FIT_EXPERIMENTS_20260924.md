@@ -130,3 +130,24 @@ versus 27,161 for shared rotates alone, an incremental 133-ALM reduction.
 This change is not in the current full fit. Exact integration with all four
 current reductions is being tested and measured separately; do not add
 independent area savings as though they were guaranteed full-fit savings.
+
+## Full four-way fit result
+
+`interim_mac_muxshare`, source 55ed03e, finished with build exit 3. Mapping
+estimated 40,434 ALMs; fitting required **42,058 / 41,910 ALMs** and
+**4,252 / 4,191 LABs**. Error 170012 reports insufficient LABs. This saves
+1,280 fitted ALMs versus the banked-BRF-only attempt (43,338), but remains
+148 ALMs and 61 LABs over capacity. Those deficits are different resource
+constraints; removing 148 estimated ALMs alone does not guarantee a fit.
+
+Source integrity passed (source_check_after=0). No fresh STA or RBF was
+produced; crossing and CPU timing stages were skipped (exit 77). Reports,
+exit files, and source manifests are archived in
+`scratch/interim_mac_muxshare_fit_20260924`. Existing output RBF files must
+not be mistaken for this candidate. Exact integrated simulations passed as
+recorded above; hardware validation remains pending a fitted artifact.
+
+Next measurements are the exact five-way shared-shifter combination and
+an optional common ALU for pipeline and legacy execution. The latter needs
+additional ownership, dependency, fault, and interrupt validation before
+promotion. A read-only review of packing overhead is also in progress.

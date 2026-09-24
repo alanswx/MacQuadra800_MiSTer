@@ -170,3 +170,19 @@ exactcombinedCPU/six-kernel validation (the prior3-way test omittedbitfield).
 Compilation and final regressions may overlap; nohardware untilpassed and
 user freesMiSTer. Luna brf_barrel_screen tests combinedlogicalshift+rotate
 as a possible later area improvement; notincluded inthisfullfit.
+
+
+## Latest result: four-way mux-sharing fit
+
+The full-feature `interim_mac_muxshare` build at 55ed03e is terminal:
+42,058 / 41,910 ALMs, 4,252 / 4,191 LABs; fitter failed, no fresh STA/RBF.
+Source-after check passed. Exact four-way legacy CPU tests and six
+production-pipeline Speedometer fixtures passed with unchanged cycles.
+See docs/INTERIM_FIT_EXPERIMENTS_20260924.md for evidence and coverage limits.
+
+Luna alu_rotate_sharing is testing/mapping the exact five-way combination
+with shared logical/arithmetic shifts. Luna brf_barrel_screen is evaluating
+single-ALU ownership in scratch and checking a directed drain-monitor
+coverage failure against baseline. Luna interim_validation is reviewing
+packing overhead after the terminal fit. No production RTL was changed
+following 55ed03e. MiSTer remains unavailable until the user frees it.
