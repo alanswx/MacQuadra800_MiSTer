@@ -101,3 +101,24 @@ miter; CPU-only map25782 ALMs (-173 from candidate1, +268 from baseline),
 registers/RAM unchanged. Address-only fallback passed active loops with a
 one-issue_ifetch-per-edge assertion; its map is running in a separate DB.
 Neither fallback is promoted. Full fit remains on6bd3c33.
+
+## First fit terminal; smaller replacement selected
+
+`brf_dgo_seed21_20260925` failed routing congestion after16m31 overall,
+11m14 fitter. Estimated/required40865ALMs, placed39438, LAB4178/4191,
+509M10Ks,27986regs. No freshRBF/STA; old output RBF is still the installed
+4687167a... artifact. Source-after manifest passed. Do not mistake placement
+success for fit/timing success and do not repeat this larger candidate blindly.
+
+The address-only fallback maps25463ALMs (-51 vs baseline25514),8966regs,
+296960block bits,4352MLAB bits. It passed active loop/IRQ equivalence including
+same cycle counts and a test-only at-most-one-issue_ifetch assertion. Full
+legacy fallback tests are now running. This smaller core replaces the rejected
+early-payload duplication; opcode-sharing variant remains scratch-only.
+
+SDRAM ready-bit candidate passes87direct invariant checks,174chip-model checks
+with identical baseline latency summaries, registered-first-miss64reads plus
+2048mixed ops, and lineDMA20512reads/5381stores/11423DMA beats with zero errors.
+A standalone area screen is running before deciding whether to combine it
+with the address-only core in the next full fit. Current installed core stays
+unchanged; Luna disk profiler retains hardware ownership.
