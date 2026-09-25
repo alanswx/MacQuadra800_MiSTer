@@ -4,4 +4,14 @@
 
 An exhaustive per-bank transition check covered 25 legal transitions across 10 reachable age/row states, including tick, close, ACT/reopen, and init overriding concurrent state updates. The SDRAM chip-model test passed 174 checks with no protocol errors. The posted/non-posted memory-path modes, the dedicated `tb_memory_path_registered_first_miss` bench (64 integrated sequential reads plus 2,048 mixed posted-write/read operations), and the DMA integration test also passed. Full logs, proof source, and the isolated map are retained under `scratch/sdram_age_shift_20260924/`.
 
-Quartus 17.0.2 standalone bridge synthesis changed from 618 estimated ALMs/958 registers to 624/974 (+6 ALMs, +16 registers). The unchanged posted-write queue still maps to 488 MLAB bits in 61 MLAB cells; no M10K blocks were added. This area result and functional regressions do not establish a timing improvement. The first full fit on this candidate used seed 21 and took 15m20s total: placement completed at 40,173 ALMs (96%, 28,018 registers, 509/553 RAM blocks), but routing terminated for congestion after 4m58s. The wrapper exited 1; no fresh RBF was produced, and the older output RBF remained untouched. A single seed-28 retry is authorized with identical RTL, SDC, and feature assignments.
+Quartus 17.0.2 standalone bridge synthesis changed from 618 estimated ALMs/958 registers to 624/974 (+6 ALMs, +16 registers). The unchanged posted-write queue still maps to 488 MLAB bits in 61 MLAB cells; no M10K blocks were added. This area result and functional regressions do not establish a timing improvement. The first full fit on this candidate used seed 21 and took 15m20s total: placement used 39,193 actual ALMs, with 40,173 ALMs estimated needed (96%, 28,018 registers, 509/553 RAM blocks), but routing terminated for congestion after 4m58s. The wrapper exited 1; no fresh RBF was produced, and the older output RBF remained untouched. A single seed-28 retry is authorized with identical RTL, SDC, and feature assignments.
+
+
+The first seed-28 retry crashed in Quartus analytical placement after reusing
+synthesis. A fresh-database retry then ended with execution status 143 during
+fitting, with no established cause and no terminal timing result. The current
+`interim_mac_ageshift_s28detached` retry uses the same source `cd8da29`, seed,
+and configuration with detached execution. As of 2026-09-25 03:52 UTC its
+fitter was observed alive; no timing improvement is yet established. See the
+[recovery checkpoint](../RESUME-fit-recovery-20260924.md) for process and archive
+identities. The previously fitted source `15a1449` remains installed.

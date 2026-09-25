@@ -1,25 +1,50 @@
 # Power-loss recovery and next-step strategy
 
-## Latest checkpoint: Ethernet packets pass; clean seed-28 retry active
+## Latest checkpoint: detached timing retry; peripheral validation in progress
 
-Source15a1449 remains the installed full-feature build, median Speedometer
-1.828. Ethernet guest10.3.231.233 passed 1,000/1,000 1,400-byte pings with
-zero packet loss (03:01:17–03:04:38 UTC). `/tmp/CORENAME` confirms MacQuadra800;
-the websocket's FM-7 label is stale. Installed Main has no mac_eth_stats path
-string/file, so DMA/RPC counters remain unverified. Luna interim_validation
-owns FTP integrity, CD data/audio, OSD and shutdown checks; these are pending.
-The guest returned from Speedometer to Finder. Durable benchmark and ping
-records: docs/INTERIM_WQMLAB_HARDWARE_20260925.md.
+At 2026-09-25 03:52 UTC, source `15a1449` remains the installed full-feature
+build, with five-run Speedometer median **1.828**. Its CPU/RAM/HDMI setup
+misses remain **-2.406/-0.697/-0.426 ns**; it is not a timing-clean release.
+Ethernet passed 1,000/1,000 1,400-byte pings without loss. Fetch downloaded
+10,485,760 bytes from the local test server; round-trip upload/hash verification
+is still pending. Do not treat a correct byte count as proof of integrity.
+Luna `interim_validation` owns all hardware input and the remaining FTP, CD
+data/audio, OSD, and shutdown checks. Root must coordinate before taking input.
+The user has not yet answered the pending request to listen during CD audio.
 
-Age-shift seed21 source84fcbf5 failed routing: 39,193 actual placed ALMs,
-40,173 estimated needed, 4,176/4,191 LABs, no freshRBF/STA. Source-after passed.
-Seed28 sourcecd8da29 then crashed in Quartus fitter after Smart Compilation
-reused synthesis (1m56s); this is a tool crash, not a timing result. Source-after
-passed again. Crash/archive: scratch/interim_mac_ageshift_s28_crash_20260924/.
-Generated db/incremental_db were preserved there; no source or feature change.
-A fresh-database retry of the SAME source and seed is now active under tag
-interim_mac_ageshift_s28clean (session43839, sh2040054/map2040135 verified).
-Check actual processes on resume; no new artifact or timing pass yet.
+The active timing experiment is `interim_mac_ageshift_s28detached`, source
+`cd8da29`, with identical RTL/QSF to the preceding seed-28 attempts. Its
+archive is `scratch/interim_mac_ageshift_s28detached_fit_20260924/`; start
+stamp is 2026-09-25T03:31:43Z. Fitter PID **2077758** was directly observed
+alive at 14m47s elapsed. Monitor: Luna `alu_rotate_sharing`. Recheck actual
+processes on resume; no new RBF or timing result is established. Keep RTL,
+QSF, QIP, SDC and build Tcl inputs frozen until the wrapper is terminal and
+source-after checks have been inspected. Documentation edits are safe.
+
+Prior age-shift attempts, all distinct from the installed working artifact:
+
+- Seed 21 (`84fcbf5`) failed routing: 39,193 actual placed ALMs, 40,173
+  estimated needed, 4,176/4,191 LABs. No fresh RBF/STA; source-after passed.
+- Seed 28 (`cd8da29`) crashed in Quartus after reusing synthesis, at 1m56s.
+  Source-after passed. Archive: `scratch/interim_mac_ageshift_s28_crash_20260924/`.
+- Fresh-database `interim_mac_ageshift_s28clean` completed synthesis but its
+  execution session ended with status 143 while fitting. Neither operator
+  reports killing it; cause is unknown, not an established design failure.
+  No wrapper terminal markers or new RBF/STA were produced. A manual source
+  manifest comparison passed. Partial databases and the stale in-progress
+  marker are preserved beneath that attempt's `partial_db_archive/`.
+- The current retry uses detached execution to survive loss of the launching
+  session. Do not restart it merely because a tool observation times out.
+
+If the current attempt routes, archive the fresh artifact, inspect timing and
+cross-domain reports, and compare against the installed source before choosing
+hardware deployment. If it fails, retain the fitted 1.828 artifact and finish
+its peripheral validation; do not begin an open-ended seed sweep. Evaluate
+whether to revert the unproven age encoding only after the flow terminates.
+
+Durable benchmark and ping evidence:
+[hardware report](docs/INTERIM_WQMLAB_HARDWARE_20260925.md).
+The older checkpoints below are chronological history, not live process state.
 
 ## Hardware checkpoint: five valid runs, median 1.828
 
