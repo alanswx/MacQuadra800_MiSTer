@@ -1,4 +1,10 @@
-# BRF early-payload experiment (2026-09-25)
+# BRF timing experiments (2026-09-25)
+
+Current status: three full fits failed routing, no new RBF/STA and no timing
+pass. The current production CPU is the strictly validated X-default address
+form; a one-hot row selector is being screened in scratch. Historical early
+payload results below are retained for traceability, not as the current design.
+The authoritative next-build plan is in RESUME-timing-closure-20260925.md.
 
 Candidate `6bd3c33` moves the resident-redirect (`dgo`) branch-refill data selector to the early target `dbrf_a_early`. The existing `brf_seed_req` remains the final write enable, and non-`dgo` callers retain the generic seed selector. The final seed write remains after queue append/line-offer writes. The source is committed for a measured full fit; no new hardware artifact has been deployed.
 
@@ -39,5 +45,25 @@ is guarded by that request. The unspecified value is a per-edge blocking
 temporary, not retained state. Its isolated map is 25,410 ALMs, 8,966 registers,
 296,960 block-memory bits and 4,352 MLAB bits. The active pipeline test matches
 baseline cycles and checks 15,045 seed requests / 119,313 seeded words. Full
-strict legacy replay passes as described above. Full fitting/timing remains
-pending; area savings alone do not establish routability or timing closure.
+strict legacy replay passes as described above. The combined full fit subsequently failed routing; area savings alone do not
+establish routability or timing closure.
+
+## Terminal fit results and later scratch screens
+
+The address-only plus SDRAM-ready fit failed routing (39,875 required ALMs,
+4,190 LABs). The X-default plus SDRAM-ready fit also failed routing (40,009
+required ALMs, 4,184 LABs). Both source-after manifests passed; neither has
+routed timing evidence. Full archives are scratch/brf_addr_tras_seed21_20260925_fit_20260925/
+and scratch/brf_dc_tras_seed21_20260925_fit_20260925/.
+
+A scratch mgo_a-default-X experiment passed active pipeline checks on65,370
+memory-command entries but increased isolated CPU area76ALMs, so it was
+rejected; its stopped legacy replay is incomplete. A scratch one-hot four-row
+BRF data selector passes8,320 generic alignment cases and is currently in an
+isolated map. Neither is promoted. Consult the handoff and scratch README for
+completion status; do not turn a pending screen into a claimed pass.
+
+The one-hot row candidate also passes a no-request hold check with unknown
+seed address/count (exit0). Exact commands are in its scratch README; the
+source difference is preserved as scripts/cpu/refill_row_onehot.patch against
+the current X-default CPU. Full legacy/active regression awaits a useful map.

@@ -1,267 +1,234 @@
-# Timing closure and parallel disk profiling — September 25
+# Resume here: timing closure and disk profiling, 2026-09-25
 
-## Current checkpoint
+## Current state — authoritative checkpoint
 
-The second fit, `brf_addr_tras_seed21_20260925` on `aff6dfd`, failed routing
-congestion after successful placement. Its fresh fit summary reports 39,875
-ALMs needed (95%), 28,006 registers and 509 M10Ks. Source-after checks passed;
-no fresh RBF or timing result exists. Its full map was 38,640 ALMs.
+User requested a crash-safe checkpoint because credits are nearly exhausted.
+Branch: `add-ethernet`. Latest code change: `a75b300`; progress through
+`0995724` was pushed before this documentation checkpoint. No new full fit is
+running. The latest three full fits all failed routing; **no new RBF or timing
+pass exists**. Do not deploy the stale `output_files/MacQuadra800.rbf` as new.
 
-The next selected CPU is the validated unused-address-X variant, retaining
-the tested SDRAM ready bits. Its CPU-only map is 25,410 ALMs (-104 versus
-baseline, -53 versus address-only), with unchanged registers/memory. Active
-loop/IRQ and full strict legacy replay passed. It leaves only the unused
-per-cycle temporary address unspecified; every consuming request sets a known
-address. No state/output is assigned X. Seed, clocks and all features remain.
+One isolated CPU-only map is running in a separate scratch project:
 
-Disk profiling is complete; MiSTer remains on the original tested core at the
-Speedometer completion dialog, using the disposable disk. The first larger
-early-payload fit also failed routing and will not be retried.
+- Candidate: `scratch/brf_row_onehot_20260925/ap040_core.v`.
+- SHA256: `a54b34f16b92c092d6243b5db2d26e8201d8c4ab43d14fceacf34d8bf81e7443`.
+- Project: `scratch/cpu_area/p_brf_row_onehot_0995724_20260925/`.
+- Snapshot: `scratch/cpu_area/snap_brf_row_onehot_20260925/`.
+- Last observed main map PID: **2605711** (helper 2606265).
+- Read `scratch/brf_row_onehot_20260925/MAP_STATUS.md`, its README, project
+  `map.log`/`cpu.map.rpt`, and `scratch/cpu_area/results.txt` for completion.
+- Luna `alu_rotate_sharing` owns mapping; `interim_validation` owns its tests.
+  Do not blindly kill a process or assume the PID still identifies this job.
 
-User requested continued timing work and a new PR once timing passes. Existing
-PR #6 is ready for review and preserves the tested interim artifact; do not
-advance its branch with unvalidated timing experiments. Progress remains on
-`add-ethernet`, with a new review branch to be created after timing closure.
+Production source currently contains the **X-default BRF address CPU** plus
+**SDRAM ready bits**. Neither combination has routed successfully. No hardware
+change occurred during this timing task. No PR for these timing experiments
+has been created: the user's gate is **create it once timing passes**.
 
-Baseline source HEAD before this task: `165e2a7`; build inputs match fitted
-`15a1449`. Installed RBF SHA256:
-`4687167a16beb4077b970bf1cb46f0ba08a2fac724d2367f5d91e1390045da6c`.
-CPU/RAM/HDMI setup: -2.406/-0.697/-0.426 ns. All Mac features remain enabled.
-Do not weaken clock constraints or mask functional paths to claim closure.
+## User authorization and operating rules
 
-## First candidate: early resident branch-refill payload
+- Continue timing closure with all Mac features; then create a new PR to Dani.
+- Commit and push progress to `origin/add-ethernet`.
+- Use Luna for builds, simulations and hardware operations. User specifically
+  requested parallel Luna disk profiling; that work is now complete.
+- Independent Quartus projects may run concurrently in separate directories.
+  Never share a build DB, blindly kill Quartus, or use git worktrees.
+- During a full fit, freeze **all tracked** HDL/QSF/QIP/SDC/Tcl inputs, including
+  test fixtures: `scripts/cpu/fit_dev.sh` manifests all of them. Docs/Python/sh
+  edits are safe. Wait for wrapper and post-fit reports before changing inputs.
+- Read CLAUDE.md and BUILD.md. Old Windows/address/default-cache details are
+  stale; current user instructions and this checkpoint take precedence.
+- Local sandbox execution previously failed with bwrap; commands used
+  `sandbox_permissions=require_escalated` with specific justifications.
+- Physical CD-audio listening and OSD checks are explicitly deferred by user.
+  A/UX is unavailable and deferred to Dani. Do not ask about them again.
 
-`rtl/ap68040/rtl/ap040_core.v` prepares the dgo refill lane words and count
-from `dbrf_a_early` outside the clocked process. The final seed write keeps
-`brf_seed_req`, then selects the early payload for dgo and retains the existing
-generic payload for other callers. Seed writes remain after append/line offer,
-with their existing priority. No new architectural cycle is intended.
+## Repository and PR boundary
 
-Archived tested-artifact CPU path is `ifr_addr[16] -> epf_data[6][0]`,
-28 logic levels, 71% interconnect, setup -2.406 ns. Use
-`scratch/interim_mac_wqmlab_fit_20260924/cpu_timing/worst_detail.txt`.
-The untracked root `worst_detail.txt` is a DIFFERENT build (-0.862 ns);
-do not use it as the installed core's report.
+Existing PR: https://github.com/danifunker/MacQuadra800_MiSTer/pull/6
+It is ready for review, not merged at last check. Its branch
+`alanswx:cpu-full-feature-interim-20260925` is **frozen** at
+`165e2a72da8c3d2c4827ec2ddf46c3650b081e64`. Do not push experiments there.
+Refresh upstream/main and PR state before creating the later timing PR; if #6
+is still unmerged, explicitly explain overlap/dependency.
 
-This candidate is not yet validated or fitted. Separate early payload logic
-may cost too much area or move the critical path; no improvement is claimed.
-Luna interim_validation owns scratch equivalence/regression tests; Luna
-alu_rotate_sharing owns sequential baseline/candidate CPU mapping. Root owns
-RTL and full-fit launch decisions. Never kill Quartus blindly.
+Leave these unrelated untracked files alone:
+`cr_ie_info.json`, `docs/disk-speed-vs-minimig-ao486.md`,
+`docs/scsi-ddr3-disk-plan.md`, `worst_detail.txt`, `worst_paths.txt`.
+The root worst-path reports are from an older different build; they are NOT
+the installed artifact's timing evidence. Old untracked disk plans also contain
+stale cache assumptions; do not adopt their redesign conclusions blindly.
 
-## Parallel disk profiling
+## Installed, tested baseline
 
-User explicitly authorized a Luna profiler. Agent luna_disk_profile owns
-hardware on mister.local (10.3.89.233), current disposable HDA only. It must
-coordinate before core replacement/shutdown; root must coordinate before
-new build deployment. No Main replacement/restart or mounted HDA hashing.
-Physical audio/OSD checks remain deferred; A/UX remains Dani's check.
+- Built source: `15a14497817ad8479bad91bf47d97e2163124d63`; inputs match
+  baseline `165e2a7`.
+- RBF: `test-builds/MacQuadra800_interim_20260925_15a1449.rbf`.
+- SHA256: `4687167a16beb4077b970bf1cb46f0ba08a2fac724d2367f5d91e1390045da6c`.
+- Installed at `/media/fat/_Unstable/MacQuadra800.rbf`.
+- Correct archive: `scratch/interim_mac_wqmlab_fit_20260924/`.
+- Fitted required ALMs 40,651; placed 40,489; LABs 4,182/4,191; M10K 509/553.
+- Setup CPU **−2.406 ns**, SDRAM **−0.697 ns**, HDMI **−0.426 ns**.
+  Holds positive, minimum +0.200 ns. Full map estimate 38,816 ALMs.
+- CPU path: `cpu_timing/worst_detail.txt` inside that archive,
+  `ifr_addr[16] → epf_data[6][0]`, 28 levels, 71% routing, through MMU/cache
+  acknowledgement and refill address/row selection.
+- RAM detail: `scratch/timequest_wq_interim_mac_wqmlab/ram_domain_worst_setup.rpt`,
+  worst `bank_age[0][1] → chip`. Older five-bit age-shift design failed routing;
+  do not repeat it without new evidence.
+- Normal Ethernet/CD-ROM/CD-audio/video/OSD paths enabled. I/D caches 8 KiB;
+  hard-disk cache 32 sectors with aligned 8-sector groups; CD bypasses cache.
+- Seed 21; CPU 33 MHz, SDRAM 99 MHz. Do not relax clocks or false-path
+  functional paths to manufacture a pass.
 
-Baseline disk Performance Rating .565 versus real 3.443, FPU average .681
-versus real 1.011. New profile goes in `docs/DISK_PROFILE_20260925.md` with
-measurements/limits, without editing RTL or selecting a disk redesign yet.
+Speedometer CPU mix five-run median **1.828** (fresh single 1.816), versus real
+Quadra reference **1.897**. FPU average .681 versus real 1.011. Earlier Disk
+rating .565 versus real 3.443; new repeated Disk+Math runs .589/.585.
+These ratings are not MB/s. Comparison and photos:
+`docs/perf/INTERIM_VS_REAL_QUADRA800_20260925.md`,
+`docs/perf/real_quadra800.jpg`, `docs/perf/speedometerrealquadra.png`.
 
-## Next decisions
+## Hardware state
 
-1. Check equivalence including no-seed dgo, count masks, wrapping and queue
-   write priority; distinguish active pipeline coverage from legacy coverage.
-2. Reject excessive area growth before a full fit. If plausible, commit exact
-   inputs, build with durable logs and manifests, and archive all timing paths.
-3. Address measured remaining CPU, SDRAM and HDMI failures in turn. Prior
-   SDRAM five-bit age shift failed routing twice; do not repeat blindly.
-4. After passing setup/hold and crossing checks, coordinate hardware ownership,
-   test boot/peripherals and performance with the disposable disk, then open
-   the requested timing-fix PR. Keep user-deferred physical checks explicit.
+Only `mister.local` / **10.3.89.233** is authorized. Never stale .143/.92.
+Only mounted disposable HDA:
+`/media/fat/games/MacQuadra800/QuadSquad8-pipeline-test-20260919.hda`.
+Protect original `QuadSquad8.hda`. Last observed guest: Speedometer completion
+modal on original tested core after Disk+Math; **not shut down**. Look first
+before interacting. Prefer normal shutdown before deploying the eventual core.
+No Main restart/replacement, mounted-image hashing, or original-disk writes.
 
-## Candidate 1 screen and full-fit decision
+Main PID at profiling:31518, start ticks12925872; FD5 identifies disposable HDA.
+Main binary SHA256:
+`6db4851b939dbef32297c3fcce47d37531daddf5214e9a28a54412afd6586fd0`.
+Exact matching source revision unknown. Empty CD slot4 was restored earlier;
+no CD changes in this task. Physical audio/OSD and A/UX remain deferred.
+Baseline hardware passed boot/shutdown/input/clocks, Ethernet ping/FTP hash,
+CD data and CD-audio transport controls; see prior handoff for evidence.
 
-Focused extracted seed miter passed 55,296 cases, including dgo and generic
-payloads, wrap, count masks, overlapping writes and no-seed no-op. Wrong-lane
-negative control is rejected. Corrected generic alignment fixture passed
-8,320 cases on both baseline and candidate. The old fixture incorrectly
-modeled a 128-byte rather than 64-byte refill buffer. Full CPU regressions
-are still running; no hardware deployment is authorized by these checks alone.
+## Timing experiments and evidence
 
-CPU-only map: baseline 25,514 ALMs, candidate 25,955 (+441), both 8,966
-registers, 296,960 block-memory bits and 4,352 MLAB bits. Candidate core SHA256
-`4c7f8685` prefix; full hashes in `scratch/dgo_area_sources.sha256`.
-A single full fit is selected to measure actual path improvement and routability.
-Area growth is a real risk with 4,182/4,191 LABs occupied in the baseline.
-Do not start a blind seed sweep if it fails. Preserve this candidate's reports
-before evaluating a shared-selector alternative.
+| Candidate | Isolated CPU ALMs | Full map ALMs | Full outcome |
+|---|---:|---:|---|
+| Tested baseline | 25,514 | 38,816 | Routed; timing failures above |
+| Early duplicated dgo payload, `6bd3c33` | 25,955 | 39,075 | Routing congestion |
+| Address-only carrier + SDRAM ready, `aff6dfd` | 25,463 | 38,640 | Routing congestion |
+| X-default carrier + SDRAM ready, `8cbbe45` | 25,410 | 38,824 | Routing congestion |
+| X-default + mgo address-X (scratch) | 25,486 | — | Rejected area growth |
+| X-default + one-hot row (scratch) | Pending | — | Current isolated screen |
 
-## Full fit launched
+Full archives:
+- `scratch/brf_dgo_seed21_20260925_fit_20260925/`: first larger candidate,
+  required40,865 ALMs, placed39,438, LAB4,178; failed after16m31 overall.
+- `scratch/brf_addr_tras_seed21_20260925_fit_20260925/`: required39,875,
+  placed39,463, LAB4,190, regs28,006; final routing65.6% average/91.1% peak.
+- `scratch/brf_dc_tras_seed21_20260925_fit_20260925/`: source8cbbe45,
+  required40,009, placed39,555, LAB4,184, regs28,001; final routing58.9%/87.6%.
+  Early47%/75% figures are estimates, not the final utilization.
+All failed wrappers preserved reports, source-after checks passed, and STA
+was correctly skipped on unrouted databases. All use509 M10Ks. Do not confuse
+lower total ALMs with routability: nearly every LAB is occupied.
 
-Source `6bd3c330f6a82594cc9cfe6fb699c45b00f6ca01`, tag
-`brf_dgo_seed21_20260925`, seed21 unchanged. Detached wrapper PID2434701;
-Quartus flow PID2434745 at launch. Archive
-`scratch/brf_dgo_seed21_20260925_fit_20260925/`, wrapper output
-`scratch/brf_dgo_seed21_20260925_wrapper.out`. Pre-build source manifest passed.
-Luna alu_rotate_sharing monitors; do not edit build inputs while running.
+Current CPU SHA256:
+`6dface16365ae0c0d820897ffb8dfcfd7ef9161a63f3ed64b273fb7933d47a0f`.
+Only the unused per-edge `brf_seed_a` default becomes X; every consuming
+request assigns a known address. It is not architectural state. Full strict
+legacy replay and active pipeline tests pass. Active test checks15,045 requests /
+119,313 seeded words, same phase cycles138988/161098/161098.
 
-Active production-macro loops/IRQ test baseline and candidate passed with
-identical phase cycle counts 138988/161098/161098 and matching 15030 dgo seed
-events and 13796 dgo/fill overlaps. Integrated dgo-no-seed coverage is zero;
-the focused miter covers its no-write guard. Candidate full legacy suite still
-pending at this checkpoint. No measured timing improvement yet.
+Current SDRAM SHA256:
+`a7117892cc6b319f5ea3f7a03a91227ff2e63705381e38ee319536768146f7ae`.
+Keeps numeric age counters and adds8 ready bits, invariant ready == age>=5.
+Standalone622ALMs/966regs vs618/958, same488MLABbits. Passes87 invariant checks,
+174 chip-model checks, registered-first-miss64reads+2048mixedops and line-DMA
+20,512reads/5,381stores/11,423DMAbeats. No measured routed timing improvement.
+Original SDRAM available via `git show 165e2a7:rtl/sdram.sv`, SHA256
+`f4994aeb153e69c9fd5893acf75c0d5744424f7f23683f89b917f6d921a2e7e0`.
 
-## Validation and alternatives checkpoint
+Detailed validation: `docs/TIMING_BRF_EARLY_20260925.md` and
+`docs/TIMING_SDRAM_READY_20260925.md`.
+Legacy test runner previously hid vvp failures through tee/grep. Commit501fbbe
+fixes simulator status checks and has a7-case runner regression. **Only strict
+replays are authoritative** for current/address-only CPU. Initial X test wrongly
+required every program to seed BRF and failed zero-coverage LEA programs; those
+masked logs are invalid. Corrected strict replay allows zero coverage but checks
+every actual request. Addresses/log paths are in the validation document.
 
-Both full legacy CPU suites passed. Integrated active pipeline priority checks
-passed with identical cycles, 15030 dgo seeds, 13796 fill overlaps and109534
-seeded slots checked. Initial focused-miter assertion/wrapper had a delta-cycle
-sampling/reporting bug; the corrected strict reusable CLI now independently
-passes all55296 cases and rejects the intended lane mutation. Root reran it
-successfully; use only those final results, not the intermediate report.
+Other rejected/scratch alternatives:
+- Opcode sharing25,782ALMs, greater than baseline; no full fit.
+- mgo address-X SHA c66f58c9…: active65,370 memory-command checks passed, but
+  +76ALMs; strict legacy was deliberately stopped and is **incomplete**, not PASS.
+- Count-X (`brf_seed_n`) is not selected: decode_dbcc_brf_now reads it outside
+  the request guard. Requires stronger same-stream/caller proof.
+- One-hot row candidate preserves row arithmetic, rotation, count and write
+  priority. Generic8,320-case equivalence and no-request hold with unknown address/count
+  pass. Full regression is not run. Reconstructable patch is preserved at
+  `scripts/cpu/refill_row_onehot.patch` against current CPU; do not apply it
+  blindly or promote based on an unfinished map/test.
 
-Opcode-sharing variant in scratch passed active loops/priority and strict
-miter; CPU-only map25782 ALMs (-173 from candidate1, +268 from baseline),
-registers/RAM unchanged. Address-only fallback passed active loops with a
-one-issue_ifetch-per-edge assertion; its map is running in a separate DB.
-Neither fallback is promoted. Full fit remains on6bd3c33.
+## Concrete next steps
 
-## First fit terminal; smaller replacement selected
+1. Inspect active one-hot CPU map and validation results. If area grows, reject.
+   If useful, finish active pipeline/strict CPU tests before promotion. Archive
+   source hashes and results; no assertion is a substitute for a routed fit.
+2. **Isolate CPU from SDRAM in the next full fit.** Restore only rtl/sdram.sv
+   from165e2a7, retaining validated X-BRF CPU (or one-hot only if it earns
+   promotion). Both latest failed fits combined CPU/SDRAM changes. This can
+   establish routed CPU path evidence; original RAM timing may still fail.
+   Do not claim this step closes all timing.
+3. Commit exact inputs; confirm no same-project Quartus flow. Launch detached
+   `bash scripts/cpu/fit_dev.sh <unique-tag>` with durable logs. The script
+   archives identity, pre/post manifests and fresh reports. Use its
+   `--allow-other-projects` only for separate authorized projects. Record launch
+   source/tag/PID immediately. Freeze tracked HDL/config/fixtures until wrapper
+   and post-fit reports end.
+4. If routing fails again, use fit packing/congestion and independently screened
+   area changes to select the next step. Avoid repeating rejected larger muxes
+   or blind seed walks. If routed but timing fails, use **new** CPU/RAM/HDMI
+   critical paths to choose a targeted change; do not extrapolate old paths.
+5. After routing, archive setup/hold for every clock, CPU↔RAM crossings and
+   explicit worst CPU/RAM/HDMI path details. Also run corrected supplemental
+   MLAB collector `scratch/timequest_wq_hierarchy_20260925.tcl` with a unique
+   tag. Original `*sdram_beat32:sdr|wq_mem*` pattern missed the `altdpram:`
+   hierarchy; corrected `|*wq_mem*` collects it. Do not change timing constraints.
+6. Only after timing passes, coordinate MiSTer ownership, inspect/shut down guest,
+   copy/hash/load exact fresh artifact, validate boot/peripherals and five CPU
+   Speedometer runs against1.828 median. Preserve deferred physical checks.
+7. Create new PR to Dani with exact source/artifact/timing/tests and limitations.
+   Keep PR6 frozen. Then advance disk work below. No new PR yet.
 
-`brf_dgo_seed21_20260925` failed routing congestion after16m31 overall,
-11m14 fitter. Estimated/required40865ALMs, placed39438, LAB4178/4191,
-509M10Ks,27986regs. No freshRBF/STA; old output RBF is still the installed
-4687167a... artifact. Source-after manifest passed. Do not mistake placement
-success for fit/timing success and do not repeat this larger candidate blindly.
+## Disk profiling complete; ready for the next phase
 
-The address-only fallback maps25463ALMs (-51 vs baseline25514),8966regs,
-296960block bits,4352MLAB bits. It passed active loop/IRQ equivalence including
-same cycle counts and a test-only at-most-one-issue_ifetch assertion. Full
-legacy fallback tests are now running. This smaller core replaces the rejected
-early-payload duplication; opcode-sharing variant remains scratch-only.
+Authoritative report: `docs/DISK_PROFILE_20260925.md`.
+Raw counters, screenshots, live-device evidence and reproducible scripts:
+`docs/perf/disk_profile_20260925/`. No profiling process remains active and no
+host test file remains. Guest/core unchanged.
 
-SDRAM ready-bit candidate passes87direct invariant checks,174chip-model checks
-with identical baseline latency summaries, registered-first-miss64reads plus
-2048mixed ops, and lineDMA20512reads/5381stores/11423DMA beats with zero errors.
-A standalone area screen is running before deciding whether to combine it
-with the address-only core in the next full fit. Current installed core stays
-unchanged; Luna disk profiler retains hardware ownership.
+- Disk+Math ratings .589/.585. Second run's sampling was armed correctly;
+  first run missed workload and is not attributable measurement evidence.
+- Live HDA opened O_RDWR|O_SYNC; actual exFAT mount is sync/dirsync. Dropping
+  O_SYNC alone would not remove synchronous mount behavior.
+- During sampled run, device wrote4,596,736bytes in3,682 completed writes;
+  Main write activity spanned roughly22seconds. Device and process totals are
+  aggregate, not per-HDA latency or guest bandwidth. Physical reads stayed
+  flat; cached reads remain possible. Exact running Main source is unknown.
+- Exclusive temporary host-file test, same4MiB per size: 512B writes31.327s,
+  4KiB3.636s, 16KiB1.426s. File and directory removed. One pass per size;
+  strong batch-size effect, not proof of the guest bottleneck.
+- Controlled existing-cache simulation with fixed4ms backend: eight sequential
+  sectors at10/100µs post-write idle gaps became one8-sector request; at200µs/
+  1ms became eight single-sector requests. FLUSH_IDLE4096 is122.88µs at bench
+  clock33.333MHz. Request-start intervals include about23µs engine data phase;
+  they are NOT idle-counter quiet intervals. Counts and written data checked.
+  Fixed-latency/backpressure assumptions limit the conclusion; no real guest
+  cadence was measured. Reproducer `profile_scsi_cache_gap.py` emits only
+  ignored scratch HDL; checked and original raw logs are preserved.
 
-## Second candidate: address carrier plus SDRAM ready bits
-
-Standalone SDRAM bridge map: baseline 618 ALMs / 958 registers, ready-bit
-candidate 622 ALMs / 966 registers (+4 / +8). Both retain 488 MLAB bits in
-61 MLAB cells and zero M10Ks. Evidence: `scratch/sdram_ready_area_20260925/`.
-The tested ready-bit controller is now promoted alongside the smaller
-address-only CPU. CPU source SHA324abb6e... and SDRAM source SHAa7117892...
-match the separately validated snapshots. No constraints/features changed.
-The next full fit will use this combined candidate, with its exact source
-commit recorded at launch. Address-only full legacy suite remains pending;
-no hardware deployment until correctness and timing checks complete.
-
-## Second full fit running
-
-Source `aff6dfd09dc755fd826cebd92ffc8485747bb440`; tag
-`brf_addr_tras_seed21_20260925`; detached wrapper PID 2486252.
-Archive: `scratch/brf_addr_tras_seed21_20260925_fit_20260925/`.
-Preflight: `scratch/brf_addr_tras_seed21_20260925_preflight.txt`.
-Tracked input precheck passed. Core SHA `324abb6e...6a19b89`, SDRAM SHA
-`a7117892...8146f7ae`, queue SHA `6b49355a...f5f9937ba`. Seed 21 and normal
-feature settings unchanged. No earlier Quartus job was active at launch.
-Luna alu_rotate_sharing monitors and will archive corrected MLAB hierarchy
-coverage and all clock/crossing reports if fitting succeeds. Inputs frozen.
-
-Luna disk profiler completed a Disk+Math run (CPU/Graphics unchecked), one
-iteration: Disk 0.589, Math 20.873. Its sampler missed the workload, so no I/O
-attribution is claimed. Another run is planned with sampling armed first.
-MiSTer still runs the original tested artifact and disposable disk.
-
-The address-only full legacy CPU suite has now passed with its test-only
-one-issue_ifetch-per-edge assertion. Updated evidence is in
-`docs/TIMING_BRF_EARLY_20260925.md` and
-`docs/TIMING_SDRAM_READY_20260925.md`. Combined candidate fit remains running;
-no timing result is claimed.
-
-## Disk profile preserved
-
-`docs/DISK_PROFILE_20260925.md` and `docs/perf/disk_profile_20260925/` now
-preserve two Disk+Math ratings (0.589/0.585), synchronized Main/device counters,
-actual O_SYNC descriptor flags, screenshots, and instrumentation limits.
-Run2 observed 4596736 device bytes written, 3682 device writes, 14019ms summed
-write time and 15728ms I/O time; these are device aggregates, not guest bandwidth
-or measured Main blocking time. Physical read counters were flat. No bottleneck
-is proven yet. Luna is now measuring backend write batch-size cost with a new
-exclusive temporary host file, never an HDA, while the guest is idle.
-
-## Strict CPU test-runner revalidation
-
-Luna found that the legacy shell runner piped vvp through tee and grep -q,
-which could hide a simulator failure after a pass banner. Root changed the
-runner to wait for vvp, require exit0 plus the positive marker and reject fatal
-or failure markers. Negative controls require a nonzero exit and their intended
-TEST FAILED diagnostic. Seven mocked runner cases pass, including a pass banner
-followed by a fatal. No HDL/configuration changed. Luna is replaying the existing
-compiled address-only and X-variant suites with strict exit checks; prior
-aggregate banners alone are provisional until that replay completes.
-
-## Disk profiling complete; fallback strict replay passed
-
-Host-only O_SYNC overwrite tests on a unique temporary file measured the same
-4 MiB in 31.327 seconds at 512-byte writes, 3.636 seconds at 4 KiB writes, and
-1.426 seconds at 16 KiB writes. The file/directory were removed successfully.
-The actual filesystem is mounted sync/dirsync; removing O_SYNC alone would
-not make it asynchronous. These are single-pass host backend measurements,
-not guest throughput. Next disk investigation should measure actual request
-and flush batch sizes before choosing a coalescing change or DDR redesign.
-Evidence and limits: docs/DISK_PROFILE_20260925.md.
-
-The unused-address-X fallback's strict legacy replay completed exit 0 with all
-positive tests and three intended negative controls passing. Source SHA256
-6dface16365ae0c0d820897ffb8dfcfd7ef9161a63f3ed64b273fb7933d47a0f; logs and
-explicit replay script in scratch/brf_unused_address_dc_20260925/legacy_check_retry/.
-This supersedes the invalid initial masked-fatal run. Address-only replay is
-still pending; the current full fit continues unchanged on aff6dfd.
-
-## Third candidate selected after routing failure
-
-Promoted exact validated core SHA256
-`6dface16365ae0c0d820897ffb8dfcfd7ef9161a63f3ed64b273fb7933d47a0f`,
-restoring address assignment inside the hit guard and making only its unused
-default a synthesis don't-care. SDRAM remains the tested ready-bit controller.
-The second fit's archive completed with build exit 3, source-after exit 0, and
-STA skipped correctly for the unrouted design. Average estimated routing use
-was 47%, peak 75% at X45_Y11–X55_Y22. Next full fit will test this smaller form;
-there is no timing-improvement claim from CPU-only area or simulation results.
-
-Both address-only and X-default strict legacy replays are now complete with
-exit 0; all positive tests and all three intended negative controls passed.
-The next fit source is `a75b300`, tag `brf_dc_tras_seed21_20260925`.
-
-## Third full fit launched
-
-Tag `brf_dc_tras_seed21_20260925`; wrapper PID 2570932; source HEAD at launch
-`8cbbe45edff83d6c3fb0920e64ab490b05ae8f63` (docs follow-up to RTL a75b300).
-Archive `scratch/brf_dc_tras_seed21_20260925_fit_20260925/`; source precheck 0.
-Luna alu_rotate_sharing owns monitoring and post-fit reporting. Inputs frozen.
-If successful, collect CPU/RAM/HDMI setup and hold path details, crossings,
-and corrected MLAB hierarchy reports before any new build overwrites the DB.
-
-Previous failure used 4,190/4,191 LABs and 39,463 actual placed ALMs despite
-39,875 required ALMs (95%). Final reported routing usage was 65.6% average,
-91.1% peak; the earlier 47%/75% numbers were router estimates. Thus logic-block
-packing/routing remains a concern even when total ALMs decrease. Its archived
-RESULTS.md records the terminal details. No new RBF exists.
-
-Additional parallel work is scratch-only: interim_validation is evaluating one
-further refill mux simplification, and luna_disk_profile is measuring existing
-cache flush grouping under controlled simulated write arrival gaps. Neither
-is authorized to alter frozen production build inputs.
-
-## Current map and rejected memory-carrier screen
-
-Third full map passed at 38,824 ALMs, 28,662 registers, unchanged 4,840 MLAB
-bits and 3,730,024 total block-memory bits. This is +184 ALMs versus second
-candidate and +8 versus the tested baseline; isolated CPU savings did not
-translate to full-project savings. The fitter remains active; preserve it.
-
-Scratch-only `mgo_a` default-X candidate SHA256
-`c66f58c928feb50b41340d29ad9ba15dda13de6ab1159db7902c4008e4cad7a3`
-passed active loops/IRQ (same cycles; 65,370 mem_issue entries with known address),
-but CPU-only map 25,486 ALMs is +76 versus X-BRF. Rejected for area; no production
-promotion. Map at scratch/cpu_area/p_mgo_address_dc_86c50_20260925/.
-The separate brf_seed_n-X proposal is not selected: decode_dbcc_brf_now consumes
-that count outside the seed-request guard, requiring a stronger caller proof.
+After timing closure: measure real engine write/data completion cadence,
+platform request LBA/count/ack, cache dirty/idle state or equivalent low-overhead
+Main per-call sizes/durations. Use controlled guest read/write workloads with
+known boundaries and cache conditions. Then test batching/coalescing within
+existing transport/cache while preserving ordering, coherence and durability.
+Do not jump to a DDR disk cache or change the timeout solely from this model.
+Broader SDRAM/DDR/VRAM/ROM/L1 placement tradeoffs remain a later analysis;
+no memory-layout change or disk fix has been implemented in this task.

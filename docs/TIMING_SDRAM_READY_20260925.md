@@ -40,3 +40,14 @@ source; both use 488 MLAB bits (61 cells) and no M10K. The controller source was
 promoted with the address-only CPU fallback in commit `aff6dfd`. This small
 increase in mapped controller resources is not a fitted timing result, and the
 full-fit RAM timing gate remains necessary.
+
+## Full-fit outcome and next decision
+
+Both combined full fits (`brf_addr_tras_seed21_20260925` on aff6dfd and
+`brf_dc_tras_seed21_20260925` on 8cbbe45) failed routing congestion. Neither
+produced routed STA or a new RBF, so there is no demonstrated timing benefit
+and no hardware validation of this controller. Source-after checks passed.
+The next planned full fit restores the original tested numeric-age controller
+to isolate the CPU timing change. The ready-bit controller remains preserved
+and simulation-validated, but should only return based on measured path evidence.
+See RESUME-timing-closure-20260925.md for the current build/PR plan.
