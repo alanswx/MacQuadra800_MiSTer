@@ -29,7 +29,15 @@ with 38,816 estimated ALMs (-205 vs39,021), 28,651 registers (-491) and
 STA result yet. Recheck actual processes after
 reconnecting; these recorded IDs are not proof of continued liveness. Freeze all tracked HDL/QSF/QIP/SDC inputs through the wrapper's
 source-after check. The full map/fit must confirm actual savings and MLAB use,
-then all setup/hold and related SDRAM crossings must be reviewed. Existing
+then all setup/hold and related SDRAM crossings must be reviewed.
+After a successful full flow, also run (from project root, never against a live
+or failed fit database) `quartus_sta -t
+scratch/sdram_wq_memory_review_20260924/timequest_wq.tcl interim_mac_wqmlab`.
+This scratch supplement was reviewed and checked against installed Quartus help,
+but has not yet run on a fitted netlist. It requires clock/capture collections
+and nonempty setup/hold paths, logs optional MLAB endpoint coverage, and writes
+`scratch/timequest_wq_interim_mac_wqmlab/`. Empty endpoint/path sets require
+investigation; they are not a timing pass. Luna fit operator has this follow-up. Existing
 hardware gates and disposable-disk authorization below remain in force.
 
 ## Previous result: replacement failed routing; structural screens active
