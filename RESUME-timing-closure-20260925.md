@@ -122,3 +122,15 @@ with identical baseline latency summaries, registered-first-miss64reads plus
 A standalone area screen is running before deciding whether to combine it
 with the address-only core in the next full fit. Current installed core stays
 unchanged; Luna disk profiler retains hardware ownership.
+
+## Second candidate: address carrier plus SDRAM ready bits
+
+Standalone SDRAM bridge map: baseline 618 ALMs / 958 registers, ready-bit
+candidate 622 ALMs / 966 registers (+4 / +8). Both retain 488 MLAB bits in
+61 MLAB cells and zero M10Ks. Evidence: `scratch/sdram_ready_area_20260925/`.
+The tested ready-bit controller is now promoted alongside the smaller
+address-only CPU. CPU source SHA324abb6e... and SDRAM source SHAa7117892...
+match the separately validated snapshots. No constraints/features changed.
+The next full fit will use this combined candidate, with its exact source
+commit recorded at launch. Address-only full legacy suite remains pending;
+no hardware deployment until correctness and timing checks complete.

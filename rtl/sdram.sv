@@ -166,6 +166,8 @@ reg        refresh_old = 0;
 (* ramstyle = "logic" *) reg  [7:0] row_open = 0;
 (* ramstyle = "logic" *) reg [12:0] open_row [0:7];
 (* ramstyle = "logic" *) reg  [2:0] bank_age [0:7];
+// Registered predicate, equivalent to bank_age >= 5 after each edge.
+(* ramstyle = "logic" *) reg [7:0] bank_tras_ready;
 integer age_i;
 
 wire  [1:0] req_bank = addr[24:23];
@@ -173,21 +175,24 @@ wire [12:0] req_row  = addr[22:10];
 wire  [2:0] req_bank_idx = {addr[26], req_bank};
 wire  [2:0] saved_bank_idx = {saved_chip, saved_bank};
 wire req_page_hit = row_open[req_bank_idx] && open_row[req_bank_idx] == req_row;
-wire req_tras_ok  = bank_age[req_bank_idx] >= 3'd5;
-wire all_tras_ok  = (!row_open[0] || bank_age[0] >= 3'd5) &&
-	                 (!row_open[1] || bank_age[1] >= 3'd5) &&
-	                 (!row_open[2] || bank_age[2] >= 3'd5) &&
-	                 (!row_open[3] || bank_age[3] >= 3'd5) &&
-	                 (!row_open[4] || bank_age[4] >= 3'd5) &&
-	                 (!row_open[5] || bank_age[5] >= 3'd5) &&
-	                 (!row_open[6] || bank_age[6] >= 3'd5) &&
-	                 (!row_open[7] || bank_age[7] >= 3'd5);
+wire req_tras_ok  = bank_tras_ready[req_bank_idx];
+wire all_tras_ok  = (!row_open[0] || bank_tras_ready[0]) &&
+	                 (!row_open[1] || bank_tras_ready[1]) &&
+	                 (!row_open[2] || bank_tras_ready[2]) &&
+	                 (!row_open[3] || bank_tras_ready[3]) &&
+	                 (!row_open[4] || bank_tras_ready[4]) &&
+	                 (!row_open[5] || bank_tras_ready[5]) &&
+	                 (!row_open[6] || bank_tras_ready[6]) &&
+	                 (!row_open[7] || bank_tras_ready[7]);
 
 always @(posedge clk) begin
 	refresh_count <= refresh_count+1'b1;
-	for (age_i = 0; age_i < 8; age_i = age_i + 1)
+	for (age_i = 0; age_i < 8; age_i = age_i + 1) begin
 		if (row_open[age_i] && bank_age[age_i] != 3'd7)
 			bank_age[age_i] <= bank_age[age_i] + 1'b1;
+        if (row_open[age_i] && bank_age[age_i] >= 3'd4)
+            bank_tras_ready[age_i] <= 1'b1;
+    end
 
 	data_ready_delay <= data_ready_delay>>1;
 	if(data_ready_delay[0]) ready <= 1;
@@ -317,6 +322,7 @@ always @(posedge clk) begin
 						row_open[req_bank_idx] <= 1;
 						open_row[req_bank_idx] <= req_row;
 						bank_age[req_bank_idx] <= 0;
+                    bank_tras_ready[req_bank_idx] <= 0;
 						state              <= STATE_WAIT;
 					end
 				end
@@ -354,7 +360,7 @@ always @(posedge clk) begin
 			// An explicit precharge may not precede tRAS.  Requests and refresh
 			// remain latched while the saturating per-bank age counters finish.
 			STATE_RPRE_RAS: begin
-				if (bank_age[saved_bank_idx] >= 3'd5) begin
+				if (bank_tras_ready[saved_bank_idx]) begin
 					command                <= CMD_PRECHARGE;
 					chip                   <= saved_chip;
 					SDRAM_BA               <= saved_bank;
@@ -396,6 +402,7 @@ always @(posedge clk) begin
 				row_open[saved_bank_idx] <= 1;
 				open_row[saved_bank_idx] <= saved_row;
 				bank_age[saved_bank_idx] <= 0;
+                    bank_tras_ready[saved_bank_idx] <= 0;
 				state                  <= STATE_WAIT;
 			end
 
@@ -484,6 +491,7 @@ always @(posedge clk) begin
 			state         <= STATE_STARTUP;
 			refresh_count <= startup_refresh_max - sdram_startup_cycles;
 			row_open      <= 0;
+            bank_tras_ready <= 8'hff;
 			bank_age[0]   <= 7;
 			bank_age[1]   <= 7;
 			bank_age[2]   <= 7;
