@@ -47,7 +47,34 @@ The pipeline costs about 1,700 ALMs (CPU-only synthesis).  Fits so far:
 |---|---|---|---|
 | A (morning) | pipeline + SCSI cache | 39,626 (95 %) | routed after 2 h, CPU −2.76 ns |
 | P1 | pipeline + cache off, 8 KB | 39,323 (94 %) | **router fails** |
-| P2 s21 / s23, P3 s21 | P1 + the three release-lite framework trims (`MISTER_BYPASS_AUDIO_FILTER`, `MISTER_DISABLE_VIDEO_CALC`, `VIDEO_512_OFF`, ~1,065 ALMs); P3 also without PIPELINE_LOADS/STORES | | running (scratch/fitP2_*, fitP3_s21) |
+| P2 s21 | P1 + the three release-lite framework trims (`MISTER_BYPASS_AUDIO_FILTER`, `MISTER_DISABLE_VIDEO_CALC`, `VIDEO_512_OFF`; map 38,139 -> 37,113) | 38,375 (92 %) | **routes**; CPU −2.499, HDMI −0.171, SDRAM +0.359 |
+| P2 s23 | same | 38,393 | router fails |
+| P3 s21 | P2 without PIPELINE_LOADS/STORES | 38,022 | routes; CPU −7.293 (a bad draw) |
+| P4 s21 | P2 + the read acknowledge that ignores `buffer_req` (`wombat_store_buffer.sv`, logically equivalent) | 38,346 | routes; CPU −2.545, HDMI −0.078, SDRAM +0.619 |
+| P4 s23 | same | 38,341 | router fails |
+
+**Area is solved:** with the SCSI cache off and the three framework trims,
+the pipeline build routes at 91-92 %, where the timing-clean builds sit.
+**Timing is not:** the CPU clock misses by ~2.5 ns.
+
+- In P2 the worst path ran from `ifr_addr` through the MMU translation copy
+  (`u_hit`), the cache, the store buffer's `buffer_req` (the RAM/VRAM window
+  decode), `ifr_ack`, and the core's issue logic to `mem_addr_q`.
+- P4's read-acknowledge change takes `buffer_req` off every read path.
+  `tb_store_buffer` gives identical results with and without it (the same
+  pre-existing T4 failures on HEAD); the memory-path and line-DMA benches pass.
+  That family is gone from P4's report.
+- The new worst family starts at the cache tag RAM: the one-clock hit, then
+  `c_rdata`, the ALU, the flags, the next-instruction decision, and finally
+  `rr_b` and `epf_data`.  It is the family P241/P242 shortened (at 2-28 %
+  kernel cost).
+
+Ways forward: shorten that family at a measured cycle cost (the pipeline is
+worth ~10 %, a cut that costs 2-3 % would still net ~1.78); more seeds (the
+spread is wide, −2.5 to −7.3 plus router failures); or the disk-target
+commands to Main for more slack.  The P4 read-ack change is worth keeping in
+any build.  Scratch projects: `scratch/fitP2_s21`, `fitP4_s21`
+(`cpu_paths40.txt`, `cpu_top300.txt` in each).
 
 If those still do not route, the next room would come from moving the
 disk-target commands (INQUIRY, MODE SENSE, READ CAPACITY, sense) to Main,
