@@ -127,9 +127,39 @@ reg        r_we;
 // reached the chip (the FIFO is empty and nothing is in flight), so ordering
 // is exactly as before.  Entries are written on clk_sys and read on clk_ram
 // only after the write pointer that publishes them has crossed.
-reg  [26:2] wq_addr [0:7];
-reg  [31:0] wq_data [0:7];
-reg   [3:0] wq_be   [0:7];
+wire [60:0] wq_q;
+wire wq_push_bus = !init && !wp_valid && req && we && !rbusy && !ack && !fill_pending && !wq_full;
+wire wq_push = !init && (wp_valid || wq_push_bus);
+wire [60:0] wq_push_data = wp_valid ? {wp_addr, wp_data, wp_be} : {addr, wdata, be};
+// The queue slot is only consumed after publication through wq_wp_handoff.
+// Explicit asynchronous MLAB read preserves the existing capture edge.
+`ifdef VERILATOR
+// Behavioral counterpart for queue simulation: synchronous write, asynchronous
+// read. It intentionally models settled post-write data; it does not assert a
+// device-level mixed-port collision guarantee. The direct Quartus primitive
+// branch below is what synthesis and the actual-primitive test exercise.
+reg [60:0] wq_mem_model [0:7];
+integer wq_model_i;
+initial for (wq_model_i = 0; wq_model_i < 8; wq_model_i = wq_model_i + 1) wq_mem_model[wq_model_i] = 61'd0;
+always @(posedge clk_sys) if (wq_push) wq_mem_model[wq_wp[2:0]] <= wq_push_data;
+assign wq_q = wq_mem_model[wq_rp[2:0]];
+`else
+altdpram #(
+    .width(61), .widthad(3), .numwords(8),
+    .intended_device_family("Cyclone V"), .ram_block_type("MLAB"),
+    .indata_aclr("OFF"), .wraddress_aclr("OFF"), .wrcontrol_aclr("OFF"),
+    .indata_reg("INCLOCK"), .wraddress_reg("INCLOCK"),
+    .wrcontrol_reg("INCLOCK"), .rdaddress_reg("UNREGISTERED"),
+    .rdcontrol_reg("UNREGISTERED"), .outdata_reg("UNREGISTERED"),
+    .read_during_write_mode_mixed_ports("NEW_DATA")
+) wq_mem (
+    .wren(wq_push), .data(wq_push_data), .wraddress(wq_wp[2:0]),
+    .inclock(clk_sys), .inclocken(1'b1),
+    .rden(1'b1), .rdaddress(wq_rp[2:0]),
+    .wraddressstall(1'b0), .rdaddressstall(1'b0), .byteena(1'b1),
+    .outclock(1'b1), .outclocken(1'b1), .aclr(1'b0), .sclr(1'b0), .q(wq_q)
+);
+`endif
 reg   [3:0] wq_wp   = 0;             // clk_sys: next free slot (bit 3 = wrap)
 reg   [3:0] wq_rp   = 0;             // clk_ram: next slot to drain
 reg   [3:0] wq_wp_handoff = 0;       // wq_wp seen on clk_ram's falling edge
@@ -243,9 +273,6 @@ always @(posedge clk_sys) begin
 	// request waits out the clock a push takes the FIFO
 	if (!init && wp_valid) begin
 		if (fill_pending && !line_done_now) fill_poisoned <= 1;
-		wq_addr[wq_wp[2:0]] <= wp_addr;
-		wq_data[wq_wp[2:0]] <= wp_data;
-		wq_be[wq_wp[2:0]]   <= wp_be;
 		wq_wp      <= wq_wp + 4'd1;
 		line_valid <= 0;
 	end
@@ -258,9 +285,6 @@ always @(posedge clk_sys) begin
 	end
 	else if (!init && req && !wp_valid && we && !rbusy && !ack && !fill_pending && !wq_full) begin
 		// posted into the FIFO: the drain is invisible from here
-		wq_addr[wq_wp[2:0]] <= addr;
-		wq_data[wq_wp[2:0]] <= wdata;
-		wq_be[wq_wp[2:0]]   <= be;
 		wq_wp      <= wq_wp + 4'd1;
 		line_valid <= 0;
 		ack        <= 1;
@@ -331,9 +355,9 @@ always @(posedge clk_ram) begin
 			rd_word  <= 0;
 			busy_r   <= 1;
 			wq_act   <= 1;
-			a_ram    <= wq_addr[wq_rp[2:0]];
-			d_ram    <= wq_data[wq_rp[2:0]];
-			be_ram   <= wq_be[wq_rp[2:0]];
+			a_ram    <= wq_q[60:36];
+			d_ram    <= wq_q[35:4];
+			be_ram   <= wq_q[3:0];
 			we_ram   <= 1;
 		end
 		else if (req_handoff != req_seen) begin

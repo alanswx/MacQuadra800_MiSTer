@@ -1,6 +1,29 @@
 # Power-loss recovery and next-step strategy
 
-## Current result: replacement failed routing; structural screens active
+## Latest candidate: MLAB write queue promoted; full fit to launch
+
+The exact candidate `rtl/sdram_beat32.sv` SHA256
+`6b49355a45b6e3d81d603d0542139a45854223c71c295ac8515c26cf5f9937ba`
+replaces the eight-entry register-array write FIFO with explicit asynchronous-
+read MLAB. Standalone map saves 270 estimated ALMs and 488 registers. The
+normal SDRAM, registered-first-miss memory path, and line/DMA integration
+regressions all pass against this source. Details: `docs/sdram-write-queue-mlab.md`.
+
+A focused Intel primitive wrap test and queue slot-age monitor remain pending.
+They may run alongside the full compile, but must pass before any deployment.
+A narrower actual-primitive edge-write test already passed. No cycle, queue
+capacity, feature macro, QSF setting, or SDC constraint changes accompany this
+candidate. The previous routing failure remains the latest terminal full fit;
+there is still no fresh full-feature RBF or hardware result.
+
+Next full-flow tag: `interim_mac_wqmlab`, launched by Luna `alu_rotate_sharing`
+after this progress commit. Recheck actual processes and archive before treating
+it as active. Freeze all tracked HDL/QSF/QIP/SDC inputs through the wrapper's
+source-after check. The full map/fit must confirm actual savings and MLAB use,
+then all setup/hold and related SDRAM crossings must be reviewed. Existing
+hardware gates and disposable-disk authorization below remain in force.
+
+## Previous result: replacement failed routing; structural screens active
 
 This section supersedes all live-build statements below. The
 `interim_mac_borrow_nospeedphys` flow from `fa4fd9d` finished in 17m06s with
