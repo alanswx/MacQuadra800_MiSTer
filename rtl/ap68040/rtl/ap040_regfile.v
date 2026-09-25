@@ -12,7 +12,7 @@
 // byte and word register destinations.                                     //
 //--------------------------------------------------------------------------//
 
-module ap040_regfile
+module ap040_regfile #(parameter EXTRA_READS = 0)
 (
 	input             clk,
 	input             ce,
@@ -32,6 +32,20 @@ module ap040_regfile
 	output     [31:0] rdata_a,
 	input       [3:0] raddr_b,
 	output     [31:0] rdata_b,
+
+    // Optional independent pipeline reads share the same pending write and
+    // stack-bank selection. Extra MLAB mirrors keep ownership selection out
+    // of the sequencer's operand-to-ALU timing path.
+    input       [3:0] raddr_c,
+    output     [31:0] rdata_c,
+    input       [3:0] raddr_d,
+    output     [31:0] rdata_d,
+    input       [3:0] raddr_e,
+    output     [31:0] rdata_e,
+    // P196: the queue head's EA register, read every clock (retire-time
+    // source reads); only with EXTRA_READS
+    input       [3:0] raddr_f,
+    output     [31:0] rdata_f,
 
 	// direct stack pointer access for MOVEC/MOVE USP, independent of the
 	// currently active bank (never asserted together with the main write)
@@ -107,6 +121,43 @@ wire [31:0] q_b = hit_b ? pend_wdata
                         : (rf_written[raddr_b[3:0]] ? bank_b[raddr_b[3:0]] : 32'd0);
 assign rdata_a = (raddr_a == 4'd15) ? sp_active : q_a;
 assign rdata_b = (raddr_b == 4'd15) ? sp_active : q_b;
+
+generate if (EXTRA_READS) begin : extra_reads
+    (* ramstyle = "MLAB, no_rw_check" *) reg [31:0] bank_c [0:15];
+    (* ramstyle = "MLAB, no_rw_check" *) reg [31:0] bank_d [0:15];
+    (* ramstyle = "MLAB, no_rw_check" *) reg [31:0] bank_e [0:15];
+    wire hit_e = pend_we && pend_waddr == raddr_e;
+    wire [31:0] q_e = hit_e ? pend_wdata : (rf_written[raddr_e] ? bank_e[raddr_e] : 32'd0);
+    assign rdata_e = raddr_e == 15 ? sp_active : q_e;
+    wire hit_c = pend_we && (pend_waddr == raddr_c);
+    wire hit_d = pend_we && (pend_waddr == raddr_d);
+    wire [31:0] q_c = hit_c ? pend_wdata
+                           : (rf_written[raddr_c] ? bank_c[raddr_c] : 32'd0);
+    wire [31:0] q_d = hit_d ? pend_wdata
+                           : (rf_written[raddr_d] ? bank_d[raddr_d] : 32'd0);
+    assign rdata_c = (raddr_c == 4'd15) ? sp_active : q_c;
+    assign rdata_d = (raddr_d == 4'd15) ? sp_active : q_d;
+    always @(posedge clk) begin
+        if (nreset && ce && pend_we) begin
+            bank_c[pend_waddr] <= pend_wdata;
+            bank_e[pend_waddr] <= pend_wdata;
+            bank_d[pend_waddr] <= pend_wdata;
+        end
+    end
+end else begin : no_extra_reads
+    assign rdata_e = 32'd0;
+    assign rdata_c = 32'd0;
+    assign rdata_d = 32'd0;
+end endgenerate
+
+// P196: port F, the core's lookahead of the queue head's EA register --
+// present in every configuration (not an EXTRA_READS port)
+(* ramstyle = "MLAB, no_rw_check" *) reg [31:0] bank_f [0:15];
+wire hit_f = pend_we && pend_waddr == raddr_f;
+wire [31:0] q_f = hit_f ? pend_wdata : (rf_written[raddr_f] ? bank_f[raddr_f] : 32'd0);
+assign rdata_f = (raddr_f == 4'd15) ? sp_active : q_f;
+always @(posedge clk)
+    if (nreset && ce && pend_we) bank_f[pend_waddr] <= pend_wdata;
 
 integer i;
 always @(posedge clk) begin

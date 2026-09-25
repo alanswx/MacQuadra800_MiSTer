@@ -91,3 +91,4 @@ __pycache__/
 verilator/obj_dir_*/
 scripts/guest/*.png
 verilator/sim/mac/
+verilator/run.hda

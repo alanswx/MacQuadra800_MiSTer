@@ -1241,3 +1241,985 @@ with increment 13's write-side MMU verdict and the posted-store lane in
 play under a paging Unix.  Operator notes: A/UX does not register a button
 press without pointer motion (press with a 1-pixel jiggle); `menu.sh item`
 misreads the first row under the panel's top border on A/UX.
+
+
+## 23. Pipeline-task installed-core baseline (2026-09-19, mister.local)
+
+Five valid Speedometer 4.02 Mix runs on the installed core, unchanged Main,
+Ethernet-on CFG `40 00 00 00`, authentic 33 MHz, and 32 MB RAM:
+**0.924 / 0.928 / 0.927 / 0.927 / 0.928**. Median **0.927**, mean **0.9268**.
+No invalid timer outlier was observed in these five runs. Per-test values,
+approximate wall intervals and screenshots are recorded in
+`scratch/hardware_pipeline_baseline_20260919/baseline_results.md`.
+
+Installed RBF SHA-256:
+`5299e49bf64eb3868a88b620e61353bf8ab393d53df93075eb713eb1ca36c1d1`.
+Main SHA-256:
+`0ac8b44069a9201723dcdbc3bf3a84e1963d2bec347e5065c2625e71bd3986cd`.
+The original QuadSquad8 image was cleanly shut down and preserved; these tests
+use the verified disposable `QuadSquad8-pipeline-test-20260919.hda` copy.
+Its pre-boot SHA-256 matched the original:
+`224c5be7d031c4c5448745d29ce9717c22bcc310361888bb0e20f2c521c83e2a`.
+The fitted refill-load candidate remains a separate measurement, pending here.
+
+
+Refill-load candidate `f7b8e1f` completed five valid hardware runs:
+**0.922 / 0.926 / 0.924 / 0.926 / 0.925**. Median **0.925**, mean **0.9246**,
+versus installed mean 0.9268 (about 0.24% lower, within observed run spread).
+No useful Speedometer gain is established; no invalid timer outlier occurred.
+Candidate SHA-256 is
+`174967e7be8bfa72a90c96420909274258a49e61357a0af15b99a76c185b24b8`.
+Main/CFG/clock/RAM were unchanged. It booted and reached clean shutdown;
+`candidate_clean_halt.png` and `candidate_results.md` are in the same evidence
+directory. This was a performance experiment, not the complete release gate.
+
+
+## 24. Posted cross-line cache stores (2026-09-19, mister.local)
+
+XSTORE candidate c328ae7 completed five valid Speedometer 4.02 Mix runs:
+**0.993 / 0.997 / 0.997 / 0.997 / 0.997**. Median **0.997**, mean **0.9962**,
+range 0.993–0.997, no observed invalid timer result. Versus the refill-load
+candidate median 0.925, this is **7.78% higher** (mean improvement 7.74%).
+The installed-core baseline median was 0.927. This is useful hardware progress,
+not achievement of the 1.8 goal or completion of the full release gate.
+
+Authentic 33 MHz, 32 MB, unchanged Main and Ethernet-on CFG `40 00 00 00`,
+all ten tests at iteration 1, verified disposable disk. RBF SHA-256:
+`e7d26efcb9ac22b7ef4cb2b284b405ba32fdedc3012c2d87ef4bb57af00fa4d3`.
+Screenshots, timings and per-test report:
+`scratch/hardware_xstore_20260919/xstore_results.md`. Fit evidence:
+`scratch/xstore_fit_20260919/`. Boot and clean shutdown passed (`final_halt.png` in the evidence directory).
+The Linux MiSTer and remote service remained running; only the guest halted.
+A/UX and CD audio have not been checked on this build.
+
+
+## 25. LEA displacement overlap (2026-09-19, mister.local)
+
+XSTORE+LEA candidate94d922f: five valid Mix runs **1.000 /1.005 /1.005 /1.006 /1.005**,
+median **1.005**, mean **1.0042**, no invalid timer result. +0.80% median vs XSTORE
+0.997. Authentic33MHz,32MB, unchanged Main/CFG and disposable disk. Full per-test
+seconds, Whetstones/Dhrystones and screenshots:
+`scratch/hardware_lea_20260919/lea_results.md`. Boot and guest clean shutdown
+passed; host MiSTer and remote services remained running. Original disk remained
+untouched/unmounted. RBF SHA-256:
+`d3bd1b96b48f95b9b3b665d1c74a8e973eb7cf54e9efac18943f5cbafbf4d04c`.
+A/UX and CD audio are not yet tested on this candidate; this is not a release.
+The1.8goal remains unmet.
+
+
+## 26. P4 resident-PEA pipeline trial (2026-09-19, mister.local)
+
+Candidate `6e852a6`: five valid Mix runs **1.002 / 1.006 / 1.005 / 1.005 / 1.004**.
+Median **1.005**, mean **1.0044**, range1.002–1.006; no invalid timer result.
+The prior LEA candidate had median1.005 and mean1.0042: **no overall Mix gain**
+is established. Permutations improved from1.326–1.329 to1.301–1.303seconds;
+Towers stayed0.915seconds in all five runs. This matches a narrow kernel gain,
+not broad enough pipeline coverage to approach the1.8goal.
+
+Authentic33MHz,32MB, Ethernet-on CFG `40 00 00 00`, unchanged Main, disposable
+Mac OS8.1 image; all ten tests at iteration1. Boot and clean shutdown passed;
+Linux MiSTer and remote stayed running, original disk untouched/unmounted.
+The final run screenshot was independently inspected: Mix1.004, all ten tests,
+“The tests are done!” and32768K. Full report/screenshots:
+`scratch/hardware_p4_20260919/p4_results.md`, `run1_complete.png` through
+`run5_complete.png`, `final_halt.png`.
+
+RBF SHA-256 `25c41c76545eb38b767df72145080d19b37577862816fcbb7250f864950ec2be`.
+This is explicitly a **timing-marginal experiment**: CPU setup -0.357ns;
+38,185ALMs91%,491RAM,43DSP. Hold+.223ns, SDRAM+.478ns, clock crossings
++.478/+.843ns. Cache RAM inference preserved. A/UX and CD audio remain unchecked;
+this trial is not release-qualified and does not satisfy the1.8goal.
+
+
+## 27. P5 independent pipeline RF ports (2026-09-19, mister.local)
+
+Candidate `e12d882`: five valid Mix runs **1.002 / 1.005 / 1.006 / 1.006 / 1.006**.
+Median **1.006**, mean **1.0050**, no invalid timer result. This establishes no
+substantial Mix gain over P4 (median1.005). Authentic33MHz,32MB, Ethernet-on,
+unchanged Main and disposable Mac OS8.1 disk; all ten tests at iteration1.
+Boot and clean shutdown passed; original disk remained untouched/unmounted.
+The final screenshot was independently inspected: Mix1.006, all ten tests at
+iteration1, completion dialog and32768K. Full report and screenshots:
+`scratch/hardware_p5_20260919/p5_results.md`, `run1_complete.png` through
+`run5_complete.png`.
+
+RBF SHA-256 `4449b3c51a3e991515afe0440ce2da5aeab2d6175fbcda210f344d8841f037b1`.
+Full compile/fit succeeded:38,320ALMs91%,26,325registers,491RAM,43DSP.
+CPU setup+.532ns, SDRAM setup+.665ns, hold+.202ns, crossings+1.016/+.532ns.
+HDMI setup **-.091ns**: this remains an experimental, non-release bitstream.
+New RF banks inferred as512bitMLABs; cache M10Ks preserved.
+A/UX testing is explicitly deferred to Dani per user instruction; no A/UX
+validation is claimed. CD audio is still unchecked. The1.8goal remains unmet.
+
+
+## 28. P6 broader unrestricted pipeline (2026-09-19, mister.local)
+
+Candidate `d83e238`: five valid Mix scores **0.959 / 0.963 / 0.962 / 0.964 / 0.963**.
+Median **0.963**, mean **0.9622**, range0.959–0.964. No invalid timer result.
+This is a consistent **4.27% median regression** from P5's1.006 despite improved
+Towers time (0.885–0.887s vs0.914–0.915s). Quick Sort, Bubble, Queens, Puzzle,
+Sieve and Dhrystones regress. Broader supported instruction coverage with
+unrestricted entry is not an accepted performance improvement.
+
+Authentic33MHz,32MB, Ethernet-on CFG40000000, unchanged Main, disposable disk;
+all ten tests at iteration1. Boot and final clean halt passed; MiSTer and remote
+services remain running. Original disk remained untouched/unmounted. Final run
+screenshot independently inspected: completed ten-test run, Mix0.963,32768K.
+Full per-test table, screenshots and final halt:
+`scratch/hardware_p6_20260919/p6_results.md`.
+
+RBF SHA256 `67a88e021a00722fed025cb261eb766ef3cb3f22c9c6200d77cb529fba935af0`.
+All timing passed:39,631ALMs95%,491RAM,43DSP; CPU+.252ns,HDMI+.089,SDRAM+.741,
+hold+.241; crossings+.741/+.914. Source identities and artifact were verified.
+No A/UX validation (explicitly deferred to Dani); CD/audio remains unchecked.
+P6 is not released, and the1.8goal remains unmet.
+
+## 29. P6 targeted entry recovers the regression, without a net gain
+
+Candidate90b37e4, authentic33MHz/32MB/Ethernet on, same Main and disposable
+Mac image, Speedometer4.02 all10tests iteration1:
+
+| Run | Mix | Timer status |
+| --- | ---: | --- |
+| 1 | 0.998 | Valid |
+| 2 | 1.003 | Valid |
+| 3 | 1.003 | Valid |
+| 4 | 1.004 | Valid |
+| 5 | 1.004 | Valid |
+
+Median1.003, mean1.0024, no invalid timer results. This recovers the unrestricted
+P6median0.963 regression, but does not meaningfully improve P5median1.006.
+It does not meet the1.8goal. Full table and screenshots:
+`scratch/hardware_p6entry_20260919/p6entry_results.md`.
+
+RBF SHA256 `d35e6b42edb653aab94cb95f6a5a92eefea8d8cf9b640d679a5b7055ca95df68`.
+39,603ALMs94%,491RAM,43DSP; CPU+.904ns,SDRAM+.608,hold+.208,
+HDMI-.187(TNS-.568); crossings+.608/+.904. Source and archive hashes checked.
+Marginal HDMI experiment, not release-qualified.
+
+Boot and benchmark execution passed. The operator used same-core reload to
+recover application/navigation state after run5; the original benchmark
+session was NOT cleanly shut down. An unclean-boot warning was dismissed,
+and the subsequent fresh boot reached a clean halt (`final_halt.png`).
+No crash was reported, but this does not prove clean post-benchmark shutdown.
+Original disk untouched; disposable remains selected. No CD/audio validation;
+A/UX explicitly deferred to Dani. No new Main was installed.
+
+
+## 30. P7 indexed compare and early retirement handoff (2026-09-19)
+
+Date: 2026-09-19
+Core: `/media/fat/_Unstable/MacQuadra800_p7compare_1c04a43.rbf`
+RBF SHA256: `702e23482a2203befc88b190446b68bfe182ef37a4c848057a866875305d9700`
+Quartus: 39,559 ALMs (94%); CPU setup **-0.012 ns**, HDMI +0.308 ns, SDRAM +0.424 ns, hold +0.220 ns, crossings +0.462/+0.790 ns. CPU timing is marginal, so this trial is experimental and not release-qualified.
+Main SHA256: `0ac8b44069a9201723dcdbc3bf3a84e1963d2bec347e5065c2625e71bd3986cd`
+CFG: `40 00 00 00` (33 MHz, 32 MB, Ethernet on)
+Disk: disposable `QuadSquad8-pipeline-test-20260919.hda`, pre-boot SHA256 `224c5be7d031c4c5448745d29ce9717c22bcc310361888bb0e20f2c521c83e2a`; original remained untouched and unmounted.
+All runs used Speedometer 4.02 Benchmark Mix, all ten tests, Iteration 1.
+
+| Run | Wall interval | Whetstones/sec | Dhrystones/sec | Towers | Quick Sort | Bubble | Queens | Puzzle | Permutations | Int. Matrix | Sieve | Mix | Status |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| 1 | ~52 s (22:23:44–22:24:36Z) | 806.420 | 12244.889 | 0.875 | 0.764 | 0.866 | 0.582 | 1.448 | 1.294 | 0.935 | 1.163 | 1.011 | valid |
+| 2 | ~56 s (22:24:58–22:25:54Z) | 809.544 | 12256.995 | 0.875 | 0.764 | 0.864 | 0.581 | 1.441 | 1.300 | 0.927 | 1.163 | 1.013 | valid |
+| 3 | ~57 s (22:26:13–22:27:10Z) | 811.391 | 12246.416 | 0.878 | 0.762 | 0.865 | 0.581 | 1.440 | 1.297 | 0.925 | 1.163 | 1.014 | valid |
+| 4 | ~58 s (22:27:29–22:28:27Z) | 811.225 | 12234.960 | 0.875 | 0.765 | 0.866 | 0.581 | 1.443 | 1.296 | 0.923 | 1.164 | 1.013 | valid |
+| 5 | ~58 s (22:28:47–22:29:45Z) | 810.149 | 12252.157 | 0.876 | 0.763 | 0.866 | 0.582 | 1.443 | 1.296 | 0.929 | 1.161 | 1.013 | valid |
+
+Mix mean: **1.0128**; median: **1.013**; range: **1.011–1.014**. No invalid results or timer outliers.
+
+Completion screenshots: `run1_complete.png` through `run5_complete.png`; each shows “The tests are done!” and all ten tests at Iteration 1. Direct `grab.sh` was used for captures.
+
+The median1.013 improves on targeted-entry1.003 by about1.0%, and on
+P5's1.006 by about0.7%. The1.8goal remains unachieved. The next admission/
+branch-handoff optimization is a separate candidate and is not represented
+by these results.
+
+Boot and five benchmark executions passed. No guest responsiveness failure
+was observed. However, the operator reloaded while Speedometer remained
+active instead of completing the Finder shutdown path from the measured
+session. The following boot displayed an unclean-shutdown warning
+(`reload2.png`); `final_halt.png` verifies only the subsequent recovery
+boot's shutdown. Post-benchmark clean shutdown therefore remains unproven.
+Future trials must attempt application quit and Finder shutdown before
+using recovery. Original disk and Main preserved. A/UX deferred to Dani;
+CD transport/audio remains unchecked.
+
+### Additional P7 shutdown verification
+
+A separate sixth valid run scored1.009. It is not substituted into the
+original five-run series. The operator then quit Speedometer using the
+correct Command-Q sequence, explicitly saved Machine Record
+`P7compare-extra-20260919`, verified Finder foreground, and selected normal
+Finder shutdown without a recovery reload. The first capture,
+`extra_final_halt.png`, was black and was rejected as insufficient evidence.
+The fresh `current_after_halt.png` visibly reads “It is now safe to switch
+off your Macintosh”; the primary agent independently viewed that image.
+This proves clean post-benchmark shutdown for this additional P7 session.
+Direct mouse navigation was used; no mac_shutdown.sh success is claimed.
+The original five sessions retain their documented shutdown limitation.
+
+Artifacts remain in `scratch/hardware_p7compare_20260919/`. Guest is now at
+the visible safe-halt screen, Main and remote service remain running, and
+the disposable disk remains selected. CD/audio and deferred A/UX status
+are unchanged. Score1.8 and positive CPU timing remain unmet.
+
+
+## P7 handoff hardware measurements, 2026-09-19
+
+
+Date: 2026-09-19  
+Core: `/media/fat/_Unstable/MacQuadra800_p7handoff_f2b2770.rbf`  
+RBF SHA256: `e12627b49d97fd2efd41433c058e1c28906c7959317a63c52544cd655b26759e`  
+Quartus: 39,591 ALMs (94%), 26,347 registers, 491 RAM, 43 DSP. CPU setup **-0.862 ns**, HDMI -0.069 ns, SDRAM +0.727 ns, hold +0.201 ns, crossings +0.771/+0.611 ns. CPU timing is substantially marginal; this is experimental and cannot establish timing correctness or release qualification.  
+Main SHA256: `0ac8b44069a9201723dcdbc3bf3a84e1963d2bec347e5065c2625e71bd3986cd`  
+CFG: `40 00 00 00` (33 MHz, 32 MB, Ethernet on)  
+Disk: disposable `QuadSquad8-pipeline-test-20260919.hda`, pre-boot SHA256 `224c5be7d031c4c5448745d29ce9717c22bcc310361888bb0e20f2c521c83e2a`; original remained untouched and unmounted.  
+All runs used Speedometer 4.02 Benchmark Mix, all ten tests, Iteration 1.
+
+| Run | Wall interval | Whetstones/sec | Dhrystones/sec | Towers | Quick Sort | Bubble | Queens | Puzzle | Permutations | Int. Matrix | Sieve | Mix | Status |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| 1 | ~54 s (23:11:24–23:12:18Z) | 805.701 | 12249.719 | 0.877 | 0.762 | 0.816 | 0.581 | 1.423 | 1.295 | 0.934 | 1.136 | 1.020 | valid |
+| 2 | ~58 s (23:12:41–23:13:39Z) | 810.135 | 12260.891 | 0.874 | 0.761 | 0.821 | 0.581 | 1.414 | 1.295 | 0.928 | 1.131 | 1.023 | valid |
+| 3 | ~59 s (23:14:00–23:14:59Z) | 812.279 | 12262.923 | 0.874 | 0.765 | 0.817 | 0.582 | 1.412 | 1.296 | 0.925 | 1.130 | 1.024 | valid |
+| 4 | ~58 s (23:15:53–23:16:51Z) | 809.730 | 12266.218 | 0.874 | 0.761 | 0.815 | 0.581 | 1.421 | 1.298 | 0.924 | 1.132 | 1.023 | valid |
+| 5 | ~58 s (23:17:12–23:18:10Z) | 809.474 | 12249.485 | 0.874 | 0.761 | 0.816 | 0.582 | 1.421 | 1.297 | 0.931 | 1.132 | 1.022 | valid |
+
+Mix mean: **1.0224**; median: **1.023**; range: **1.020–1.024**. No invalid results, timer anomalies, or observed instability.
+
+Completion screenshots: `run1_complete.png` through `run5_complete.png`; each shows “The tests are done!” and all ten tests at Iteration 1.
+
+## Normal quit and shutdown
+
+After run 5, I dismissed the completion dialog and used the correct Command-Q sequence (`down:56 raw:16 up:56`). The Machine Record save flow was completed by selecting New via Tab navigation, creating `P7handoff-extra-20260919`, and submitting it. `finder_after_quit.png` verifies Finder foreground. The documented Finder shutdown menu was then used. The first `final_halt.png` capture was an early black frame; the later `final_halt_visible.png` visibly reads “It is now safe to switch off your Macintosh.” The disk descriptor was at position 50688 afterward. MiSTer host PID 19392 and remote service PID 763 remained running. No reload recovery was used.
+
+The CPU setup slack of -0.862 ns is a major timing limitation; the successful boot, benchmark completion, and normal shutdown do not establish timing correctness.
+
+The operator quit Speedometer, saved its Machine Record, verified Finder,
+and performed normal shutdown without reloading. Root independently inspected
+run5_complete.png (Mix 1.022 and completion dialog) and final_halt_visible.png
+("It is now safe to switch off your Macintosh"). A/UX remains delegated to
+Dani by the user; CD/audio regression is outstanding. The 1.8 goal is not met.
+
+
+## P9 combined hardware measurements, 2026-09-19
+
+
+Date: 2026-09-19  
+Core: `/media/fat/_Unstable/MacQuadra800_p9combined_28b164d.rbf`  
+RBF SHA256: `811ec3339671f6eb03d59fd302257e98ecfed1f64dc1bc169d4f83c4d61a292a`  
+Quartus: timing met; 39,782 ALMs (95%), 26,340 registers, 491 RAM, 43 DSP; CPU +1.084 ns, HDMI +0.071 ns, SDRAM +0.643 ns, hold +0.229 ns, crossings +0.941/+1.084 ns.  
+Main SHA256: `0ac8b44069a9201723dcdbc3bf3a84e1963d2bec347e5065c2625e71bd3986cd`  
+CFG: `40 00 00 00` (33 MHz, 32 MB, Ethernet on)  
+Disk: disposable `QuadSquad8-pipeline-test-20260919.hda`, pre-boot SHA256 `224c5be7d031c4c5448745d29ce9717c22bcc310361888bb0e20f2c521c83e2a`; original remained untouched and unmounted.  
+All runs used Speedometer 4.02 Benchmark Mix, all ten tests, Iteration 1.
+
+| Run | Wall interval | Whetstones/sec | Dhrystones/sec | Towers | Quick Sort | Bubble | Queens | Puzzle | Permutations | Int. Matrix | Sieve | Mix | Status |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| 1 | ~55 s (23:33:47–23:34:42Z) | 804.588 | 12270.817 | 0.865 | 0.753 | 0.796 | 0.581 | 1.423 | 1.284 | 0.934 | 1.136 | 1.025 | valid |
+| 2 | ~58 s (23:35:03–23:36:01Z) | 813.355 | 12270.477 | 0.865 | 0.752 | 0.796 | 0.582 | 1.420 | 1.283 | 0.929 | 1.132 | 1.029 | valid |
+| 3 | ~61 s (23:36:20–23:37:21Z) | 811.523 | 12278.899 | 0.866 | 0.752 | 0.796 | 0.580 | 1.418 | 1.286 | 0.925 | 1.129 | 1.029 | valid |
+| 4 | ~58 s (23:37:42–23:38:40Z) | 812.130 | 12260.345 | 0.867 | 0.751 | 0.797 | 0.580 | 1.421 | 1.283 | 0.924 | 1.131 | 1.029 | valid |
+| 5 | ~60 s (23:39:08–23:40:08Z) | 812.089 | 12274.493 | **0.140** | 0.752 | 0.799 | 0.581 | 1.418 | 1.285 | 0.930 | 1.132 | **1.410** | **invalid timer outlier** |
+| 6 replacement | ~57 s (23:40:31–23:41:28Z) | 811.796 | 12263.275 | 0.865 | 0.754 | 0.796 | 0.580 | 1.416 | 1.283 | 0.927 | 1.132 | 1.029 | valid |
+
+Valid Mix mean: **1.0282**; median: **1.029**; range: **1.025–1.029**. Run 5 is excluded because Towers 0.140 sec is inconsistent with every other run and produced an aggregate 1.410. No other anomalies or instability observed.
+
+Completion screenshots: `run1_complete.png` through `run6_complete.png`; each shows “The tests are done!” and all ten tests at Iteration 1.
+
+Root independently inspected run6_complete.png (valid Mix1.029, Towers0.865,
+completion dialog) and run5_complete.png (Towers0.140, Mix1.410). The outlier
+is excluded rather than counted as progress. Post-benchmark normal shutdown
+completed after the quit/save flow. Root independently inspected
+`final_halt_visible2.png`, which displays "It is now safe to switch off
+your Macintosh". The operator reports no recovery reload.
+A/UX remains deferred to Dani and CD/audio regression is outstanding.
+
+
+## P12 spanning cache hardware measurements, 2026-09-19
+
+
+Date: 2026-09-19  
+Core: `/media/fat/_Unstable/MacQuadra800_p12span_1fb24fc.rbf`  
+RBF SHA256: `94b446a15e8edcba4bd0576efc5161842e2299f8613a1f415a71bbe33458689b`  
+Quartus: timing met; 39,897 ALMs (95%), 26,335 registers, 491 RAM, 43 DSP; CPU +0.366 ns, HDMI +0.093 ns, SDRAM +0.633 ns, hold +0.242 ns, crossings +0.670/+0.366 ns.  
+Main SHA256: `0ac8b44069a9201723dcdbc3bf3a84e1963d2bec347e5065c2625e71bd3986cd`  
+CFG: `40 00 00 00` (33 MHz, 32 MB, Ethernet on)  
+Disk: disposable `QuadSquad8-pipeline-test-20260919.hda`, pre-boot SHA256 `224c5be7d031c4c5448745d29ce9717c22bcc310361888bb0e20f2c521c83e2a`; original remained untouched and unmounted.  
+All runs used Speedometer 4.02 Benchmark Mix, all ten tests, Iteration 1.
+
+| Run | Wall interval | Whetstones/sec | Dhrystones/sec | Towers | Quick Sort | Bubble | Queens | Puzzle | Permutations | Int. Matrix | Sieve | Mix | Status |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| 1 | ~54 s (23:50:01–23:50:55Z) | 814.576 | 12332.214 | 0.854 | 0.743 | 0.795 | 0.576 | 1.392 | 1.256 | 0.907 | 1.135 | 1.038 | valid |
+| 2 | ~61 s (23:51:21–23:52:22Z) | 828.679 | 12313.915 | 0.854 | 0.746 | 0.796 | 0.575 | 1.387 | 1.253 | 0.903 | 1.130 | 1.043 | valid |
+| 3 | ~59 s (23:52:43–23:53:42Z) | 825.985 | 12324.098 | 0.853 | 0.744 | 0.795 | 0.576 | 1.377 | 1.258 | 0.897 | 1.130 | 1.043 | valid |
+| 4 | ~58 s (23:54:04–23:55:02Z) | 827.286 | 12323.764 | 0.853 | 0.743 | 0.794 | 0.576 | 1.388 | 1.257 | 0.897 | 1.130 | 1.044 | valid |
+| 5 | ~58 s (23:55:27–23:56:25Z) | 827.348 | 12318.040 | 0.854 | 0.742 | 0.796 | 0.575 | 1.387 | 1.254 | 0.902 | 1.130 | 1.043 | valid |
+
+Mix mean: **1.0422**; median: **1.043**; range: **1.038–1.044**. No invalid results, timer anomalies, or observed instability.
+
+Completion screenshots: `run1_complete.png` through `run5_complete.png`; each shows “The tests are done!” and all ten tests at Iteration 1.
+
+## Normal quit and shutdown
+
+After run 5, the completion dialog was dismissed and Speedometer was quit with `down:56 raw:16 up:56`. The Machine Record save flow created `P12span-record-20260919`; `finder_after_quit2.png` verifies Finder foreground. Finder was then shut down normally. The later `final_halt_visible2.png` visibly shows “It is now safe to switch off your Macintosh.” The HDA descriptor ended at position 50688. MiSTer host PID 20899 and remote service PID 763 remained running; no reload recovery was used.
+
+Root independently viewed run5_complete.png and final_halt_visible2.png. The five-run median1.043 is still below1.8. A/UX remains deferred to Dani; CD/audio regression remains outstanding.
+
+
+## P13 cross-line cache candidate — 2026-09-19
+
+Candidate: `MacQuadra800_p13cross_ef4f71d.rbf`
+
+SHA256: `e97fc787dd8d4f6d81acdaf8f39b369de9a88d6cf428441b03104084500679e8`
+
+Configuration: authentic 33 MHz, 32 MB, Ethernet on (`CFG 40 00 00 00`).
+
+Disk: disposable `QuadSquad8-pipeline-test-20260919.hda`; original QuadSquad8 image remained unmounted and untouched.
+
+Timing: CPU +0.757 ns, HDMI +0.135 ns, SDRAM +0.200 ns, hold minimum +0.238 ns; crossings +0.200/+0.757 ns.
+
+
+All five runs completed all ten Iteration 1 tests and showed the normal completion screen. No timer-invalid outliers occurred.
+
+| Run | Whetstones/s | Dhrystones/s | Towers | Quick | Bubble | Queens | Puzzle | Permutations | Int Matrix | Sieve | Mix | Approx. wall time |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 830.322 | 12320.271 | .850 | .745 | .794 | .573 | 1.371 | 1.246 | .892 | 1.133 | 1.047 | ~54 s |
+| 2 | 836.069 | 12333.768 | .851 | .741 | .798 | .573 | 1.368 | 1.245 | .889 | 1.129 | 1.050 | ~61 s |
+| 3 | 834.891 | 12327.002 | .850 | .743 | .797 | .575 | 1.367 | 1.245 | .884 | 1.134 | 1.049 | ~60 s |
+| 4 | 836.091 | 12332.159 | .850 | .744 | .794 | .574 | 1.364 | 1.246 | .885 | 1.131 | 1.050 | ~60 s |
+| 5 | 836.079 | 12309.995 | .851 | .741 | .795 | .574 | 1.362 | 1.249 | .881 | 1.134 | 1.050 | ~60 s |
+
+Mix mean: 1.0492; median: 1.050; range: 1.047–1.050.
+
+Evidence screenshots: `run1_complete.png` through `run5_complete2.png` (run 5 refreshed capture; `run5_complete.png` is retained). No screenshots were taken during timed intervals.
+
+## Shutdown
+
+Speedometer was quit through Command-Q after dismissing the completion dialog. The Machine Record save flow was completed with unique record name `P13cross-record-20260920`, then Finder was verified. The first local vmouse path was unavailable; the documented remote command was then used successfully:
+
+`ssh root@mister.local 'python3 /media/fat/Scripts/q800tools/vmouse.py home m:111,-10 0.5 down 0.8 m:13,66 6 up'`
+
+`final_halt_visible2.png` visibly reads “It is now safe to switch off your Macintosh.” `shutdown_early2.png` and `final_halt_visible2.png` are the shutdown evidence. The MiSTer Main process and remote input service were left running; the guest is at the safe halt screen.
+
+
+## P26 within-page unaligned operands — 2026-09-19
+
+Artifact `MacQuadra800_p26unaligned_c8c58bf.rbf`, SHA256 `2702dabbd7400e31aaf5953d24615bdb841507173f938b49c98a89bf6dfc5316`. Authentic 33MHz/32MB/Ethernet (`CFG 40 00 00 00`); disposable QuadSquad8 pipeline disk only, original untouched. Timing: CPU +0.775ns, HDMI +0.113ns, SDRAM +0.668ns, hold +0.205ns, crossings +1.186/+0.775ns.
+
+Five valid Speedometer 4.02 Benchmark Mix Iteration 1 runs completed. Before each run, the previous completion screen was dismissed with Return, Benchmark Mix was reopened with Command-B, a distinct Run Set start dialog was captured, then Return started the timed run. Each completion showed “The tests are done!”. No timer anomalies or display instability.
+
+|Run|Whetstones/s|Dhrystones/s|Towers|Quick|Bubble|Queens|Puzzle|Permutations|Int Matrix|Sieve|Mix|
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+|1|858.691|12498.262|.823|.733|.791|.567|1.307|1.204|.833|1.130|1.075|
+|2|863.601|12500.993|.823|.731|.791|.564|1.304|1.206|.832|1.126|1.078|
+|3|865.328|12502.572|.824|.730|.792|.565|1.307|1.205|.830|1.127|1.079|
+|4|864.835|12494.280|.824|.732|.793|.564|1.303|1.205|.832|1.128|1.078|
+|5|865.283|12490.310|.824|.730|.791|.564|1.302|1.205|.828|1.128|1.079|
+
+Mix mean 1.0778; median 1.078; range 1.075–1.079. Start-dialog evidence: `run1_start.png` through `run5_start.png`. Completion evidence: `run1_complete.png` through `run5_complete.png`.
+
+Normal Cmd-Q/save flow completed with unique record `P26unaligned-record-20260920`, Finder verified. `final_halt_visible.png` visibly reads “It is now safe to switch off your Macintosh.” Main PID 24086 and remote service PID 763 remained running; original disk stayed unmounted.
+
+Root independently viewed all five completion images, run2 start dialog and final safe halt. Accepted median1.078, mean1.0778; improvement2.667% overP13median1.050. Goal1.8 remains unmet. A/UX deferred toDani; CD/audio regression outstanding.
+
+
+## P18 stack prefetch — repaired five-run measurement
+
+SHA256 `06b58fcab57712e6d2bffeab7fcc897ed33bafad8875b525f3c5c5ff6ac931f7`. CPU +0.612 ns; HDMI -0.173 ns (experimental, not release-ready); SDRAM +0.949 ns.
+
+Authentic 33 MHz, 32 MB, Ethernet on; disposable test disk only. Original captures 2 and 4 were stale results, not new benchmark runs, and are excluded. Valid runs are 1, 3, 5, 6 and 7. No timer anomalies were observed in those five runs.
+
+| Run | Whetstones/s | Dhrystones/s | Towers | Quick | Bubble | Queens | Puzzle | Permutations | Int Matrix | Sieve | Mix |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 831.563 | 12366.895 | .843 | .748 | .795 | .572 | 1.371 | 1.234 | .889 | 1.133 | 1.049 |
+| 3 | 838.315 | 12393.180 | .844 | .746 | .795 | .572 | 1.371 | 1.230 | .887 | 1.129 | 1.052 |
+| 5 | 839.315 | 12383.815 | .845 | .747 | .794 | .572 | 1.369 | 1.232 | .884 | 1.128 | 1.053 |
+| 6 | 832.810 | 12401.827 | .844 | .747 | .794 | .572 | 1.376 | 1.230 | .887 | 1.132 | 1.050 |
+| 7 | 838.712 | 12405.534 | .844 | .745 | .795 | .572 | 1.362 | 1.230 | .884 | 1.129 | 1.053 |
+
+Median **1.052**; mean **1.0514**; range 1.049–1.053. Root independently reviewed all valid completion images and `final_halt_repair3.png` under `scratch/hardware_p18stack_20260919`. Normal quit/save and shutdown completed. These results do not exceed P26’s accepted median of 1.078.
+
+
+## P24 stack prefetch and BRA — repaired five-run measurement
+
+SHA256 `86f6cc7824c20c3320f774be04baa163d1eb64236f27e8220a69fc0c20e23604`. CPU +0.518 ns; HDMI +0.119 ns; SDRAM +0.804 ns.
+
+Authentic 33 MHz, 32 MB, Ethernet on; disposable test disk only. Original captures 2 and 4 were stale results, not new benchmark runs, and are excluded. Valid runs are 1, 3, 5, 6 and 7. No timer anomalies were observed in those five runs.
+
+| Run | Whetstones/s | Dhrystones/s | Towers | Quick | Bubble | Queens | Puzzle | Permutations | Int Matrix | Sieve | Mix |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 830.267 | 12379.482 | .843 | .749 | .798 | .573 | 1.372 | 1.233 | .891 | 1.133 | 1.047 |
+| 3 | 838.742 | 12382.315 | .843 | .751 | .795 | .573 | 1.368 | 1.233 | .887 | 1.129 | 1.052 |
+| 5 | 836.961 | 12373.775 | .845 | .750 | .795 | .572 | 1.365 | 1.233 | .887 | 1.133 | 1.051 |
+| 6 | 832.561 | 12375.753 | .844 | .748 | .793 | .571 | 1.375 | 1.230 | .889 | 1.131 | 1.049 |
+| 7 | 839.080 | 12404.587 | .840 | .748 | .793 | .572 | 1.361 | 1.234 | .883 | 1.129 | 1.054 |
+
+Median **1.051**; mean **1.0506**; range 1.047–1.054. Root independently reviewed all valid completion images and `final_halt_repair.png` under `scratch/hardware_p24stackbra_20260919`. Normal quit/save and shutdown completed. These results do not exceed P26’s accepted median of 1.078.
+
+
+## P33 MOVE destination overlap: verified hardware result
+
+Artifact `MacQuadra800_p33move_32fb678.rbf`, SHA256 `c9b2e3a57e98dfa98bdf9d34c6660c4f8f4bf5759fdd03c789b7087d36aa7e35`. Authentic 33MHz/32MB/Ethernet (`CFG 40 00 00 00`); disposable disk only, original untouched. Timing clean: CPU +0.546ns, HDMI +0.292ns, SDRAM +0.376ns, crossings +0.376/+0.546ns.
+
+Five valid Benchmark Mix Iteration 1 runs used the corrected protocol: each prior completion was dismissed, a new Run Set dialog was captured, Return started the run, and completion showed “The tests are done!”. No anomalies.
+
+|Run|Whetstones/s|Dhrystones/s|Towers|Quick|Bubble|Queens|Puzzle|Permutations|Int Matrix|Sieve|Mix|
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+|1|858.083|12524.905|.821|.721|.783|.565|1.307|1.204|.836|1.129|1.078|
+|2|866.388|12505.755|.819|.721|.782|.565|1.303|1.204|.833|1.147|1.080|
+|3|864.288|12521.204|.819|.721|.780|.565|1.297|1.209|.828|1.121|1.083|
+|4|864.998|12512.296|.820|.721|.782|.565|1.293|1.204|.818|1.121|1.085|
+|5|864.205|12513.279|.823|.720|.781|.564|1.291|1.204|.817|1.120|1.085|
+
+Mix mean 1.0822; median 1.083; range 1.078–1.085. Start screenshots: `run1_start.png`–`run5_start.png`; completion screenshots: `run1_complete.png`–`run5_complete.png`.
+
+Normal Cmd-Q/save completed with unique record `P33move-record-20260920`. `final_halt2.png` visibly confirms “It is now safe to switch off your Macintosh.” Main and remote input services were left running; original disk remained untouched.
+
+Root visually verified all five completion screenshots, each with the completion dialog, and `final_halt2.png`. Median improves from P26 1.078 to 1.083 (0.46%). The 1.8 target remains unmet.
+
+
+## P39 64-byte refill: verified marginal hardware trial
+
+Artifact `MacQuadra800_p39refill64_26b644c.rbf`, SHA256 `b5c7c63cd425a4c4ff18b34705c0e43bce0ca0fbdf0d80217424dbde23bb8c92`. Authentic 33MHz/32MB/Ethernet (`CFG 40 00 00 00`); disposable disk only, original untouched. **Marginal/non-release timing:** CPU -3.701ns (TNS -655.169), HDMI +0.088ns, SDRAM +0.203ns, hold +0.247ns, crossings sys→ram +0.203ns / ram→sys +0.326ns.
+
+Despite the CPU timing miss, P39 booted responsively and completed five independently started Benchmark Mix Iteration 1 runs. Each run had a distinct captured Run Set dialog, Return start, and new “The tests are done!” completion screen. No timer anomalies, display instability, or guest correctness symptoms were observed.
+
+|Run|Whetstones/s|Dhrystones/s|Towers|Quick|Bubble|Queens|Puzzle|Permutations|Int Matrix|Sieve|Mix|
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+|1|858.835|12521.540|.823|.668|.767|.564|1.192|1.206|.797|1.117|1.102|
+|2|862.207|12530.985|.821|.667|.769|.565|1.190|1.209|.798|1.113|1.104|
+|3|865.016|12524.770|.821|.666|.768|.565|1.184|1.206|.794|1.116|1.106|
+|4|866.916|12498.678|.821|.666|.768|.564|1.191|1.208|.794|1.115|1.106|
+|5|866.947|12498.203|.821|.666|.768|.565|1.191|1.207|.794|1.119|1.105|
+
+Mix mean 1.1046; median 1.105; range 1.102–1.106. Start evidence: `run1_start.png`–`run5_start.png`; completion evidence: `run1_complete.png`–`run5_complete.png`.
+
+Normal Cmd-Q/save completed with unique record `P39refill64-record-20260920`. `final_halt2.png` visibly confirms “It is now safe to switch off your Macintosh.” Main and remote input services remained running; original disk remained untouched.
+
+Root reviewed all five completion images, run2_start.png and final_halt2.png. Median gain over P33 is 2.03%. Timing numbers above were corrected against the P39 archive; the operator report initially carried P18 hold/crossing values. This is an experimental result with failed CPU timing, not a release qualification.
+
+
+## P63 pipeline ALU subset — five runs and clean shutdown reviewed
+
+Full-feature artifact `MacQuadra800_p63subset_6fbe313.rbf`, SHA256
+`5dafc05bb5a47a3c6cbb31ef5e0e7f826d8aa32a9ed110d1c3af27532b1cf587`.
+Root verified the fresh4555188-byte archive, source check0, fit success, and
+cross report0. Timing remains non-release: CPU-1.709ns (TNS-108.544),
+HDMI-.213ns (TNS-2.190), SDRAM+.478ns, minimum hold+.242ns,
+sys→RAM+2.325ns and RAM→sys+.827ns.
+
+Root independently reviewed all five fresh Run Set/completion pairs under
+`scratch/hardware_p63subset_20260920`; each has all ten tests, iteration1.
+No apparent timer anomalies in the five complete results; none excluded.
+The eight integer columns below are elapsed seconds, not normalized ratings.
+
+|Run|Whetstones/s|Dhrystones/s|Towers|Quick|Bubble|Queens|Puzzle|Permutations|Int Matrix|Sieve|Mix|
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+|1|886.444|13099.083|.808|.657|.767|.530|1.158|1.198|.796|1.116|1.126|
+|2|892.296|13115.146|.808|.661|.767|.530|1.152|1.198|.790|1.114|1.129|
+|3|892.790|13119.623|.806|.657|.768|.532|1.150|1.199|.788|1.114|1.130|
+|4|890.927|13122.870|.806|.657|.768|.531|1.152|1.201|.793|1.114|1.129|
+|5|894.604|13087.288|.806|.657|.768|.531|1.153|1.200|.786|1.116|1.130|
+
+Median1.129, mean1.1288, range1.126–1.130. Median gain over P39's1.105 is
+2.17%. This is below the1.8goal. No claim that ALU specialization alone caused
+the gain: P63 also includes the previously unmeasured P52/P57 CPU changes.
+
+Root reviewed `shutdown_attempt.png`: normal safe-shutdown message. Operator
+confirmed the remote RBF hash matches the archive and slot0 stayed on
+`games/MacQuadra800/QuadSquad8-pipeline-test-20260919.hda`; original untouched.
+Prior readiness was33MHz/32MB/Ethernet and completion screens show32768K.
+The persisted deployment record was reviewed: authentic 33 MHz, 32 MB,
+CFG `40 00 00 00`, matching RBF hash, disposable slot-0 disk, original untouched.
+This full-feature trial is separate from the active CD/Ethernet-disabled
+build, whose hardware score is not yet measured.
+
+
+## P63 development build without CD/Ethernet — five benchmark pairs reviewed
+
+Artifact `scratch/p63devnocdnet_fit_20260920/MacQuadra800_p63devnocdnet_29190fe.rbf`,
+SHA256 `f877992fd51c01324393ccf36ead3d6c678e24b7e1c2f771a859106301a405ed`.
+Same CPU as full-feature P63; CD/audio and Ethernet omitted. This is a separate
+development baseline and is not release-qualified (CPU setup -0.862 ns,
+HDMI -0.268 ns). Deployment/configuration identity record and `shutdown.png` subsequently
+reviewed: authentic 33 MHz, 32 MB, matching artifact identity, disposable slot-0
+disk, original untouched, and a clean safe-to-switch-off screen.
+
+Root visually reviewed all five independent start/completion pairs under
+`scratch/hardware_p63devnocdnet_20260920`: all ten tests selected, iteration one,
+32768K reported, fresh completion results. No apparent invalid timers and no
+runs excluded; the operator also reported five valid runs with no exclusions.
+
+| Run | Benchmark Mix |
+|---|---:|
+| 1 | 1.118 |
+| 2 | 1.122 |
+| 3 | 1.123 |
+| 4 | 1.123 |
+| 5 | 1.122 |
+
+Median **1.122**, mean **1.1216**, range **1.118–1.123**. Full-feature P63's
+median was 1.129; this trial provides no evidence of a performance improvement
+from omitting the devices. The measured benefit is build time and available
+logic: 21m56 versus 24m54, and 39,411 versus 41,174 fitted ALMs. Neither a
+repeatable 12% build-time saving nor a causal explanation for the small score
+difference is established by this single pair of builds.
+
+
+## P64 MOVE overlap, development profile — five runs and clean shutdown reviewed
+
+Artifact `scratch/p64devmove_fit_20260920/MacQuadra800_p64devmove_7952a01.rbf`,
+SHA256 `f2e82be0096b553150ef3bace8888f6a5454947a6d75f6ae954be6c69cec60cc`,
+4,512,768 bytes. Authentic33MHz/32MB, CD/audio and Ethernet compiled out.
+Remote hash and disposable slot0 recorded by operator; original disk untouched.
+Root reviewed all five independent all-ten-test/iteration1 start/completion pairs,
+deployment record, and safe-shutdown screenshot in
+`scratch/hardware_p64devmove_20260920`. No invalid timers observed or reported;
+no runs excluded. Timing-failed experimental test, not release-qualified:
+CPU setup-0.068ns, HDMI+0.288, SDRAM+0.278, holdminimum+0.245;
+fitted39,302ALMs94%, source/cross/detailedSTA checks0.
+
+Integer test columns below are elapsed seconds, not normalized ratings.
+
+| Run | KWhet/s | Dhry/s | Towers | Quick | Bubble | Queens | Puzzle | Permute | Int.Matrix | Sieve | Mix |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 896.196 | 13188.450 | .794 | .650 | .767 | .539 | 1.175 | 1.255 | .800 | 1.114 | 1.127 |
+| 2 | 903.966 | 13187.855 | .793 | .649 | .767 | .539 | 1.168 | 1.255 | .795 | 1.111 | 1.131 |
+| 3 | 903.807 | 13188.095 | .793 | .649 | .767 | .539 | 1.166 | 1.255 | .792 | 1.110 | 1.132 |
+| 4 | 903.305 | 13188.554 | .794 | .649 | .767 | .539 | 1.167 | 1.255 | .792 | 1.111 | 1.131 |
+| 5 | 904.047 | 13187.410 | .794 | .649 | .767 | .539 | 1.167 | 1.255 | .793 | 1.112 | 1.131 |
+
+Median**1.131**, mean**1.1304**, range**1.127–1.132**. Versus same-feature
+P63dev median1.122, the observed median gain is about0.8%. Towers and Quick
+improve consistently; this remains far below1.8. Full-feature P63median1.129
+is a different feature configuration and cannot isolate the MOVE change.
+
+## P70 short divider — five hardware runs, 2026-09-20
+
+P64 MOVE core plus short divider, authentic33MHz/32MB, CD/audio and Ethernet
+omitted. Artifact `scratch/p70devdivide_fit_20260920/MacQuadra800_p70devdivide_9a76b04.rbf`,
+SHA256 `94ed1c2e58b636d458cb848cb130fbaaeb9cb498dce1f451a83f0ad32b06021e`,
+4,520,576bytes. Operator deployment record confirms matching remote hash/size,
+CFG40000000, disposable slot0 and original disk untouched. Root reviewed all
+five fresh all-ten/iteration1 setup/result pairs and final safe-shutdown image.
+No observed or reported invalid timers; no exclusions.
+
+| Run | KWhet/s | Dhry/s | Towers | Quick | Bubble | Queens | Puzzle | Permute | Int.Matrix | Sieve | Mix |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 897.054 | 13243.977 | .793 | .644 | .766 | .538 | 1.175 | 1.254 | .796 | 1.113 | 1.129 |
+| 2 | 904.887 | 13244.029 | .793 | .643 | .766 | .538 | 1.169 | 1.254 | .794 | 1.111 | 1.133 |
+| 3 | 904.722 | 13243.819 | .793 | .643 | .766 | .538 | 1.165 | 1.254 | .794 | 1.112 | 1.133 |
+| 4 | 904.908 | 13244.748 | .793 | .643 | .766 | .538 | 1.172 | 1.254 | .792 | 1.109 | 1.133 |
+| 5 | 904.395 | 13243.819 | .793 | .643 | .766 | .538 | 1.171 | 1.254 | .791 | 1.109 | 1.133 |
+
+Integer columns are elapsed seconds. Median1.133, mean1.1322, range1.129–1.133.
+Compared with same-feature P64median1.131, the observed median difference is
+about0.18%; this is a small effect and far below the1.8goal. Not a release:
+CPU+.158ns, HDMI+.022ns, sys→RAM−.054ns, RAM→sys+1.225ns, holdminimum+.248ns.
+Evidence: `scratch/hardware_p70devdivide_20260920/deployment_record.md` and images.
+
+## P120 and P124 on hardware, and where the remaining time is (2026-09-21, evening)
+
+Both are CD-less, Ethernet-less development builds (`CDROM_OFF`, `ETHERNET_OFF`), 33 MHz, 32 MB,
+`QuadSquad8-pipeline-test-20260919.hda`, Speedometer 4.02 Benchmark Mix, all ten tests, one iteration.
+
+| build | tree | fit | five Mix runs | median |
+|---|---|---|---|---|
+| P120 (empty-pipeline admission) | `a102f76`, seed 25 | 39,814 ALMs, CPU clock +0.273 ns, HDMI -0.335 | five valid, mean 1.3124 (`scratch/hardware_p120_20260921/`; run 3 re-read for this note: KWhetstones 1060.4, Dhrystones 15,710) | **1.313** |
+| P124 (spanning-read acknowledge in the cache) on P120 | `88466cc`, seed 23 | 39,795 ALMs, CPU clock **-0.188 ns**, clk_ram +0.483 | 1.335, 1.340, 1.340, 1.341, 1.341; no invalid timer (`scratch/hardware_p124_20260921b/`) | **1.340** |
+
+P124 run 5: KWhetstones 1090.98 (3.709), Dhrystones 15,802.9 (0.914), Towers 0.690 s, Quick 0.581,
+Bubble 0.666, Queens 0.462, Puzzle 0.915, Permutations 1.063 (0.765), Int. Matrix 0.609 (1.322), Sieve 1.026 (1.337).
+Its simulation screen had promised -2.8 % Whetstone and -4.2 % Dhrystone clocks; hardware gave +2.9 % and +0.6 %.
+
+### Against the real Quadra 800 (`docs/perf/real_quadra800.jpg`, Mix 1.897)
+
+Ratings (the Mix is their arithmetic mean), P120 run 3:
+
+| test | real | P120 | P120 / real | Mix points missing |
+|---|---:|---:|---:|---:|
+| Whetstone | 6.727 | 3.605 | 54 % | 0.312 |
+| Permutations | 1.315 | 0.744 | 57 % | 0.057 |
+| Dhrystone | 1.447 | 0.909 | 63 % | 0.054 |
+| Towers | 1.364 | 0.912 | 67 % | 0.045 |
+| Queens | 1.315 | 0.864 | 66 % | 0.045 |
+| Puzzle | 1.367 | 1.152 | 84 % | 0.021 |
+| Bubble | 1.343 | 1.139 | 85 % | 0.020 |
+| Quick Sort | 1.340 | 1.209 | 90 % | 0.013 |
+| Int. Matrix | 1.344 | 1.261 | 94 % | 0.008 |
+| Sieve | 1.409 | 1.335 | 95 % | 0.007 |
+
+Whetstone alone is 53 % of the gap (matching it gives 1.63; matching everything else gives 1.59), so ~1.9 needs
+Whetstone at about 1.9x and the call-heavy integer tests at about 1.5x. Loop-and-array code is within 10 %.
+
+### The Permutations kernel, P162 core + P124 cache, in `profile_permute.py`
+
+One Permute(7) (8,660 calls): **1,303,949 clocks at memory latency 0, 1,315,902 at 3, 1,631,486 at 8**; the real
+machine needs about 817,000 (0.619 s / 25 x 33 MHz); hardware P124 about 1,403,000. So the caches and the posted
+store already hide nearly all memory latency for this code, and the cost is the sequencer's own structure. At latency 0:
+
+| state | clocks | share |
+|---|---:|---:|
+| S_MWR | 281,310 | 21.6 % |
+| S_MRD | 212,364 | 16.3 % |
+| S_EXPERIMENT_PIPE | 202,209 | 15.5 % |
+| S_DECODE | 134,516 | 10.3 % |
+| S_FETCH | 129,260 | 9.9 % |
+| S_PIPE_START | 83,644 | 6.4 % |
+| S_MOVEM_LOOP | 69,280 | 5.3 % |
+
+Split of the two memory states (`scratch/permute_p165_phases_20260921/`, a scratch copy of the bench with four
+counters per state): of S_MWR's 281k, **130k are the clock that only observes `d_ack`**, 59k an issue clock, **68k
+waiting because a fetch-queue read owns the single memory port**, 25k waiting for the acknowledge. Of S_MRD's 212k,
+130k are the acknowledge clock and 78k waiting. The two acknowledge clocks are 20 % of the kernel and the port
+contention another 5 %: those, not RAM latency, are what separates the call-heavy tests from the real machine.
+
+## P165b on hardware: Mix 1.364 (2026-09-22, 00:20-00:36)
+
+P165 = the P162 core (the whole P137..P162 chain) + the P124 cache + the P120 pipeline. At seed 23 it
+**failed to route** at 40,003 ALMs (peak interconnect 84 % in one region), so the development headroom
+profile from the profile branch was ported (`configs/cpu_development.tcl`, sourced by the qsf: OSDs, audio
+path, IIR, video measurement, Y/C, shadowmask, 512x384 retarget out) and the same RTL refitted as **P165b**:
+37,045 ALMs (88 %), 469 RAM blocks, CPU clock **-0.145 ns**, clk_ram +0.605, HDMI +0.264
+(`scratch/p165b_devprofile_fit_20260921`, rbf `MacQuadra800_p165b_devprofile_b39fedd.rbf`, sha256 `133f493f1d4f7659...`).
+
+Five valid Mix runs: **1.359, 1.364, 1.365, 1.364, 1.365** — median **1.364**, mean 1.3634.
+A sixth run was invalid (Int. Matrix 0.521 s and Sieve 0.024 s, aggregate 6.868; `run5_INVALID_timer.png`):
+the same short-last-tests anomaly as before, excluded and replaced. Whetstones 1131-1143 (P124: 1091),
+Dhrystones 15,970 (15,803), Towers 0.685, Quick 0.579, Bubble 0.656, Queens 0.462, Puzzle 0.896-0.900,
+Permutations 1.062, Int. Matrix 0.607-0.610, Sieve 1.027-1.030.
+
+The same sources in the Whetstone fixture: 26,310,962 loop clocks against P124's 27,949,845 (-5.9 %);
+hardware Whetstones +4.5 %. Mix +1.8 % over P124, +3.9 % over P120.
+
+Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364. Real Quadra 800: 1.897.
+
+## P168 (P162 core + P136 cache + profile): fits, misses the CPU clock by 6.8 ns (2026-09-22)
+
+37,454 ALMs (89 %), 489 RAM blocks; CPU clock **-6.798 ns**, HDMI -0.982, clk_ram +0.689
+(`scratch/p168_p162core_p136cache_fit_20260921/`). The worst paths all run from the MMU's ATC RAM into
+the fetch queue (`atc_ram ... -> ap040_core epf_data[*]`): P136's parallel span read puts the live
+translation in front of the queue's ring write, the same class as P147/P150's -19 ns. The headroom
+profile did not change that (P136 had missed by 5.5 ns at 96 %), so it is a design fault, not
+placement. In simulation the cache is worth -6.8 % on Permute(7) at latency 0 (1,303,949 -> 1,215,081),
+i.e. the misaligned-stack effect is real and worth having -- but through a path that does not touch
+the live translation. Not deployed; the tree is back at P165 (P124 cache).
+
+## P171 on hardware: Mix 1.377 (2026-09-22, 12:50-13:03)
+
+P171 = P170 (P124 cache + the hinted pair hit) + the split fetch/data request channels with the idle-slot
+supply policy (floor 3, idle fill to 6; commit `d17f794`, seed 24). 37,091 ALMs (89 %), 489 RAM blocks,
+CPU clock **-1.231 ns** (the in-place dispatch chain ATC -> need_walk -> cache response -> ALU compare ->
+branch dispatch -> `ifr_addr` enable; 1.6 ns of it is the final route), clk_ram +0.399, HDMI +0.005
+(`scratch/p171_split_idle3_fit_20260922`, rbf `MacQuadra800_p171_split_idle3_d17f794.rbf`, sha256
+`7167dee7ef47a7e9...`, on the MiSTer as `_Unstable/MacQuadra800_p171.rbf`).  Timing not met; run as a measurement.
+
+Five valid Mix runs: **1.372, 1.377, 1.377, 1.377, 1.376** — median **1.377**, mean 1.3758, no invalid
+timers.  Per test (median, P165b in brackets): Whetstones 1162 (1142, +1.8 %), Dhrystones 15,904 (15,970,
+-0.4 %), Towers 0.663 (0.685, +3.3 %), Quick 0.574 (0.579), Bubble 0.655 (0.656), Queens 0.466 (0.462,
+-0.9 %), **Puzzle 0.964 (0.896, -7.5 %)**, Permutations 1.028 (1.062, +3.3 %), Int. Matrix 0.560 (0.608,
++8.7 %), **Sieve 1.055 (1.029, -2.6 %)**.
+
+So the split channel is a per-test trade on hardware: the fetch-bound tests gain, the data-bound short
+loops (Puzzle, Sieve, Queens) lose -- the data access that follows a fetch waits behind it at the one
+port and loses its hint.  The simulation fixtures (Permute -5.7 %, Whetstone -1.1 %) saw only the gains;
+neither Puzzle nor Sieve has a working fixture (the exact-Sieve monitor is stale against the regfile).
+
+Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377. Real Quadra 800: 1.897.
+
+## P174 on hardware: Mix 1.460 (2026-09-22, 19:14-19:24)
+
+P174 = P171b + the one-clock instruction hit (`fast_ihit`, `docs/P174_FAST_INSTRUCTION_HIT_20260922.md`),
+with the OSDs, audio out and Y/C back (`configs/cpu_release_lite.tcl`); commit `c152ac4`, seed 24:
+39,441 ALMs (94 %), CPU clock **-0.920 ns**, HDMI +0.009, clk_ram met
+(`scratch/p174_ihit_fit_20260922/MacQuadra800_p174_ihit_01ebd7b.rbf`, md5 `89deb24e...`, on the MiSTer as
+`_Unstable/MacQuadra800_p174.rbf`).  Timing not met on the CPU clock; ran cleanly.
+
+Five valid Mix runs: **1.454, 1.460, 1.460, 1.461, 1.460** — median **1.460**, no invalid timers.
+Per test (median, P171 in brackets): Whetstones 1180 (1162, +1.5 %), Dhrystones 16,606 (15,904,
++4.4 %), Towers 0.637 (0.663, +4.1 %), Quick 0.552 (0.574, +4.0 %), Bubble 0.633 (0.655, +3.5 %),
+Queens 0.438 (0.466, +6.4 %), **Puzzle 0.768 (0.964, +25 %)**, Permutations 0.978 (1.028, +5.1 %),
+Int. Matrix 0.504 (0.560, +11 %), Sieve 1.009 (1.055, +4.6 %).
+
+Every test gained, and the two the split channel had hurt (Puzzle, Sieve) most of all: the two-clock
+fetch that every instruction fetch took before was what the data accesses of those loops waited behind.
+
+P178 (P175c + P177 + P178, `8ce901c`, 39,386 ALMs, -0.505 ns) **hangs during extension loading on
+hardware** (a blank alert, no disk activity) while every CPU bench passes; being bisected.
+
+Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377 -> **P174 1.460**. Real Quadra 800: 1.897.
+
+## P182 on hardware: Mix 1.467 (2026-09-23, 10:14-10:22)
+
+P182 = P174 + P179-P182 (a memory-to-memory MOVE's destination issued at the source read's acknowledge,
+PEA d16 as LEA, FPU (An) through `S_FPU_AN`, and the MOVE destination store hinted in the source read's
+predicted acknowledge); commit `122dab4`, seed 24: 39,229 ALMs, CPU clock **-0.718 ns**, HDMI +0.029
+(`scratch/p182_storehint_fit_20260922/MacQuadra800_p182_storehint_122dab4.rbf`, md5
+`c625837a40b30e18814926bded40df25`, on the MiSTer as `_Unstable/MacQuadra800_p182.rbf`).  Timing not
+met on the CPU clock; ran cleanly (boot, five runs, quit, Shut Down to "It is now safe to switch off").
+
+Five valid Mix runs: **1.460, 1.466, 1.467, 1.467, 1.467** — median **1.467**, no invalid timers.
+Per test (median, P174 in brackets): Whetstones 1183 (1180, +0.2 %), Dhrystones 16,862 (16,606,
++1.5 %), Towers 0.623 (0.637, +2.2 %), Quick 0.545 (0.552, +1.3 %), Bubble 0.633 (0.633), Queens 0.438
+(0.438), Puzzle 0.768 (0.768), Permutations 0.978 (0.978), Int. Matrix 0.504 (0.504), Sieve 1.009
+(1.009).  Run 1 is the low one (Whetstones 1170 against 1182-1183 in the other four; Mix 1.460).
+
+The gain is confined to the MOVE-heavy tests (Dhrystone, Towers, Quick); the six loop tests from Bubble
+on are unchanged to the millisecond.  Evidence: `scratch/hardware_p182_20260923/run{1..5}_{start,complete}.png`,
+`final_halt.png`.  Speedometer quit without saving the Machine Record.
+
+Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377 -> P174 1.460 -> **P182 1.467**. Real Quadra 800: 1.897.
+
+## P188 on hardware: Mix 1.631 (2026-09-23, 11:53-12:08)
+
+P188 = P182 + P184 (P175b/P177/P175c/P178 back on top, with the P178 hang fix: the cross-line hit's
+next-row write check) + P185/P186 (posted RAM writes through a write FIFO in the SDRAM bridge, pushed
+straight from the store buffer; back-to-back store-buffer drain) + P187/P188 (a spanning store frees the
+data banks once its merge words are held; the bridge's read pointer crosses into clk_sys through one
+register; FIFO eight deep); commit `f64a2d1`, seed 24: 38,735 ALMs, CPU clock **-1.671 ns**, HDMI -0.070,
+clock crossings met (`scratch/p188_span_fit_20260923/MacQuadra800_p188_span_f64a2d1.rbf`, md5
+`695416760b07b215c061b2859a7b3842`, on the MiSTer as `_Unstable/MacQuadra800_p188.rbf`).  A
+**development-profile** build: OSDs, audio output and composite Y/C compiled out (no OSD menu, no sound;
+video normal).  Timing not met on the CPU clock, by more than any earlier build run on hardware (about
+-1.3 ns); it ran cleanly all the same: no corruption symptom, no error dialog, boot, five runs, quit and
+Shut Down to "It is now safe to switch off".
+
+Boot: the first hardware run of the P178 hang fix.  Mac OS 8.1 went through extension loading (the full
+row of about 21 icons, where P178 hung after about 15 with a blank alert) to the Finder in under a minute
+(`boot1..6.png`, 10 s apart).
+
+Five valid Mix runs: **1.619, 1.628, 1.631, 1.631, 1.631** — median **1.631** (+11.2 % on P182), no invalid
+timers.  Per test (median, P182 in brackets): Whetstones 1368 (1183, +15.6 %), Dhrystones 19,219 (16,862,
++14.0 %), Towers 0.566 (0.623, +10.1 %), Quick 0.525 (0.545, +3.8 %), Bubble 0.573 (0.633, +10.5 %),
+Queens 0.394 (0.438, +11.2 %), Puzzle 0.699 (0.768, +9.9 %), Permutations 0.803 (0.978, +21.8 %), Int.
+Matrix 0.455 (0.504, +10.8 %), Sieve 1.011 (1.009, -0.2 %).  Run 1 is again the low one (Whetstones 1352
+against 1367-1369, Int. Matrix 0.463, Sieve 1.019; Mix 1.619); runs 3-5 agree to the millisecond apart from
+Int. Matrix (0.453-0.455).
+
+Unlike P182, the gain is broad: every test but Sieve moved 4-22 %, the loop tests included, which is what
+the posted-write path should do to store-bound code (Whetstone was store-drain bound).  Sieve, flat to
+within 2 ms, and the guest menu-bar clock keeping step with the MiSTer's wall clock (11:54 at boot, 12:07 at
+halt on both) say the gain is not a timer artefact.  Evidence:
+`scratch/hardware_p188_20260923/run{1..5}_{start,complete}.png`, `final_halt.png`.  Speedometer quit
+without saving the Machine Record.
+
+Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377 -> P174 1.460 -> P182 1.467 -> **P188 1.631**.
+Real Quadra 800: 1.897.
+
+## P193 on hardware: Mix 1.646 (2026-09-23, 13:05-13:22)
+
+P193 = P188 + P189/P190 (MOVEM's predecrement stores hinted at their own address; LEA d16(An), LINK and
+UNLK dispatched from the previous instruction's retire) + P191-P193 (JSR's target fetch from `S_JSR1` when
+the pop could not raise it; P182's store hint again requires the data channel presented; the FPU's
+add-alignment shift in one clock); commit `970b98c`, seed 25: 38,893 ALMs, CPU clock **-1.335 ns**, HDMI
++0.474, clock crossings met (`scratch/p193_s25_fit_20260923/MacQuadra800_p193_s25_970b98c.rbf`, md5
+`62d1d13b5c5e0e88b8f0709676abaeb6`, on the MiSTer as `_Unstable/MacQuadra800_p193.rbf`).  A
+**development-profile** build like P188 (no OSD menu, no sound; video normal).  Timing not met on the CPU
+clock (a smaller miss than P188's -1.671); it ran cleanly: no corruption symptom, no error dialog, boot,
+five runs, quit and Shut Down to "It is now safe to switch off".
+
+Boot: Mac OS 8.1 through extension loading to the Finder in about 40 s (`boot1..6.png`, 10 s apart).
+
+Five valid Mix runs: **1.639, 1.646, 1.646, 1.647, 1.647** — median **1.646** (+0.9 % on P188), no invalid
+timers.  Per test (median, P188 in brackets): Whetstones 1387 (1368, +1.4 %), Dhrystones 19,472 (19,219,
++1.3 %), Towers 0.534 (0.566, +6.0 %), Quick 0.522 (0.525, +0.6 %), Bubble 0.573 (0.573), Queens 0.390
+(0.394, +1.0 %), Puzzle 0.699 (0.699), Permutations 0.784 (0.803, +2.4 %), Int. Matrix 0.460 (0.455,
+-1.1 %), Sieve 1.018 (1.011, -0.7 %).  Run 1 is again the low one (Whetstones 1371 against 1387-1389,
+Puzzle 0.703, Int. Matrix 0.463, Sieve 1.019; Mix 1.639); runs 2-5 agree to within 3 ms on every timed
+test.
+
+The gain sits in the call-heavy tests (Towers +6 %, Permutations +2.4 %, Dhrystone and Whetstone
++1.3-1.4 %), where LINK/UNLK, JSR and MOVEM register saves live; Bubble and Puzzle are unchanged to the
+millisecond, and Int. Matrix and Sieve are 5-7 ms slower than P188 in every run (small, but consistent
+across all five).  The guest menu-bar clock kept step with the MiSTer's wall clock (1:06 at the
+Finder, 1:21 at Shut Down; MiSTer 13:06/13:22).  Evidence:
+`scratch/hardware_p193_20260923/run{1..5}_{start,complete}.png`, `final_halt.png`.  Speedometer quit
+without saving the Machine Record.
+
+Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377 -> P174 1.460 -> P182 1.467 -> P188 1.631 ->
+**P193 1.646**.  Real Quadra 800: 1.897.
+
+## P205 on hardware: Mix 1.703 (2026-09-23, 16:12-16:31)
+
+P205 = P193 + P194-P205 (cache data arrays as byte lanes with byte-enable stores; a read issued in a
+store's acknowledge; FPU/PEA dispatch from retire; RTS issued in UNLK's acknowledge; RTD redirect at its
+pop; four MMU instruction translation copies; instruction-cache hits while a posted store drains; FPU fast
+paths -- normalize skip, (An) stores, chained operand reads; next-request hints on registered
+acknowledges); commit `887945b`, seed 25: 39,109 ALMs, CPU clock **-1.326 ns**, HDMI +0.314, clock
+crossings met (`scratch/p205_batch_fit_20260923/MacQuadra800_p205_batch_887945b.rbf`, md5
+`a98eaf296dd7a20819387d15c2387b4b`, on the MiSTer as `_Unstable/MacQuadra800_p205.rbf`).  A
+**development-profile** build like P193 (no OSD menu, no sound; video normal).  Timing not met on the CPU
+clock (about the same miss as P193's -1.335); it ran cleanly: no corruption symptom, no error dialog,
+boot, five runs, quit and Shut Down to "It is now safe to switch off".  The first hardware run of every
+P194-P205 change.
+
+Boot: Mac OS 8.1 through extension loading to the Finder in under a minute (`boot1..6.png`, about 12 s
+apart).
+
+Five valid Mix runs: **1.695, 1.703, 1.703, 1.703, 1.705** — median **1.703** (+3.5 % on P193), no invalid
+timers.  Per test (median, P193 in brackets): Whetstones 1495 (1387, +7.8 %), Dhrystones 20,185 (19,472,
++3.7 %), Towers 0.507 (0.534, +5.3 %), Quick 0.506 (0.522, +3.2 %), Bubble 0.572 (0.573, +0.2 %), Queens
+0.387 (0.390, +0.8 %), Puzzle 0.698 (0.699, +0.1 %), Permutations 0.757 (0.784, +3.6 %), Int. Matrix
+0.460 (0.460), Sieve 1.018 (1.018).  Run 1 is again the low one (Whetstones 1476 against 1495-1497, Puzzle
+0.702, Int. Matrix 0.461, Sieve 1.019; Mix 1.695); runs 2-5 agree to within 3 ms on every timed test
+(Dhrystones 20,149-20,185, Whetstones 1495.1-1497.5).
+
+The gain is where the P198-P205 note aimed it: Whetstone +7.8 % (the FPU fast paths and the UNLK->RTS /
+RTD handoffs in its glue calls), the call-heavy Towers, Permutations and Dhrystone +3.6-5.3 %, and Quick
+Sort +3.2 %; Bubble, Queens and Puzzle within 3 ms, Int. Matrix and Sieve identical to P193 to the
+millisecond.  The guest menu-bar clock kept step with the MiSTer's wall clock (4:14 at the Finder, 4:30
+at Shut Down; MiSTer 16:14/16:30).  Evidence: `scratch/hardware_p205_20260923/run{1..5}_{start,complete}.png`,
+`mixdlg.png`, `final_halt.png`.  Speedometer quit without saving the Machine Record.
+
+Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377 -> P174 1.460 -> P182 1.467 -> P188 1.631 ->
+P193 1.646 -> **P205 1.703**.  Real Quadra 800: 1.897.
+
+## P212 on hardware: Mix 1.725 (2026-09-23, 17:30-17:53)
+
+P212 = P205 + P206-P212 (FPU fast paths -- EXEC/SHR skips, dispatch on done; read-after-store for
+(An)+/-(An) sources, the source mode taken from the record; a forwarded source-address hint; fast-ready
+prediction during a posted store's C_PASS; fetch floor 4; conditional Bcc.W dispatched at the previous
+instruction's retire); commit `c214e74`, seed 25: 39,413 ALMs, CPU clock **-1.446 ns**, HDMI +0.504,
+clock crossings met (`scratch/p212_batch_fit_20260923/MacQuadra800_p212_batch_c214e74.rbf`, md5
+`c829f5a0045b7a7d464536227b3e59f0`, on the MiSTer as `_Unstable/MacQuadra800_p212.rbf`).  A
+**development-profile** build like P205 (no OSD menu, no sound; video normal).  Timing not met on the CPU
+clock (a little more than P205's -1.326); it ran cleanly: no corruption symptom, no bomb, no error
+dialog, boot, five runs, quit, a Restart and a second boot, and Shut Down to "It is now safe to switch
+off".  The first hardware run of every P206-P212 change.
+
+Boot: Mac OS 8.1 through extension loading to the Finder in about 40 s (`boot1..6.png`, about 13 s
+apart).  The first Special-menu walk landed one row high and chose Restart (operator error, not the
+core); the guest went through an orderly restart and booted to the Finder again in under 50 s
+(`restart_boot1..5.png`) with nothing unusual, then Shut Down reached the safe-halt screen.
+
+Five valid Mix runs: **1.716, 1.725, 1.725, 1.725, 1.726** — median **1.725** (+1.3 % on P205), no invalid
+timers.  Per test (median, P205 in brackets): Whetstones 1535 (1495, +2.7 %), Dhrystones 20,270 (20,185,
++0.4 %), Towers 0.503 (0.507, +0.8 %), Quick 0.506 (0.506), Bubble 0.572 (0.572), Queens 0.364 (0.387,
++6.3 %), Puzzle 0.698 (0.698), Permutations 0.757 (0.757), Int. Matrix 0.460 (0.460), Sieve 1.018
+(1.018).  Run 1 is again the low one (Whetstones 1514 against 1535-1537, Quick 0.507, Puzzle 0.702, Int.
+Matrix 0.461, Sieve 1.019; Mix 1.716); runs 2-5 agree to within 3 ms on every timed test (Dhrystones
+20,269.2-20,269.8, Whetstones 1534.6-1536.5, Int. Matrix 0.457-0.460).
+
+The gain is narrow: Queens +6.3 % (0.387 -> 0.364, identical in all five runs -- the conditional Bcc.W
+dispatch and read-after-store are the likely source), Whetstone +2.7 % (the FPU EXEC/SHR skips), Towers
++0.8 % and Dhrystone +0.4 %; Quick, Bubble, Puzzle, Permutations, Int. Matrix and Sieve are identical to
+P205 to the millisecond.  The guest menu-bar clock kept step with the MiSTer's wall clock (5:32 at the
+Finder, 5:53 at Shut Down; MiSTer 17:32/17:53).  Evidence:
+`scratch/hardware_p212_20260923/run{1..5}_{start,complete}.png`, `run{2..5}_dlg.png`, `mixdlg.png`,
+`menu5.png` (Shut Down lit before the click), `final_halt.png`.  Speedometer quit without saving the
+Machine Record.
+
+Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377 -> P174 1.460 -> P182 1.467 -> P188 1.631 ->
+P193 1.646 -> P205 1.703 -> **P212 1.725**.  Real Quadra 800: 1.897.
+
+## P220 on hardware: FAILED to boot (2026-09-23, 15:56-16:01 EDT)
+
+P220 = P212 + P214 (spanning stores pushed as two FIFO entries) + P215-P220 (associative MMU data copies,
+MOVEM load chains, pair-hit idle reads, read-after-read handoff, idle-read validity fix), commit `1a38ef8`,
+seed 25, CACHE_TINY: 39,078 ALMs, **CPU clock -2.596 ns** (the largest miss run so far), HDMI +0.366,
+crossings met (md5 `08ff68f8a5363005afd09f5b98d968ce`).  Mac OS 8.1 reached the Finder menu bar and bombed
+with "Finder error type 41" on both boots; the bomb dialog's "Restart" drew as "Rest^rt" (a corrupted
+glyph) and on the retry the "Starting Up" progress bar was drawn past its box to the screen edge (seen by
+the user at the display as well).  No Speedometer run.  The build that ran P212's disk cleanly two hours
+earlier.  Evidence: `scratch/hardware_p220_20260923/` (`crash_boot1_bomb.png`,
+`crash_retry_progressbar_overrun.png`, `crash_final.png`).  The guest was left at the bomb dialog.
+Next: P229 (P220 without P215, whose request-side compare is suspected for the timing loss) and a
+full-machine boot sim of P220 to separate a timing failure from a logic bug.
+
+## P229 on hardware: FAILED to boot, same symptoms as P220 (2026-09-23, 16:31-16:38 EDT)
+
+P229 = P220 without P215 (the associative MMU data copies) plus the FPU paths P221-P227, commit `f79a2ef`,
+seed 25, normal-size SCSI cache (CACHE_TINY out): 39,631 ALMs, **CPU clock -1.313 ns** (in the range
+P205/P212 ran cleanly at), HDMI +0.530, crossings met
+(`scratch/p229_nop215_fit_20260923/MacQuadra800_p229_nop215_f79a2ef.rbf`, md5
+`de85957b0bb9bd86aef76280b139d3c0`, on the MiSTer as `_Unstable/MacQuadra800_p229.rbf`).  A
+**development-profile** build (no OSD menu, no sound).  Loaded over P220's bomb dialog (user-authorized
+reset); disk `QuadSquad8-pipeline-test-20260919.hda`.
+
+Mac OS 8.1 went through Welcome, the extension parade and the Starting Up bar to the Finder menu bar and
+bombed with **"Finder" error type 41** before any desktop icon drew, about 60 s after launch, on both
+boots (`boot1..6.png`, `crash_boot1_bomb.png`; retry `retry_boot1..7.png`, `crash_retry_bomb.png`).  The
+same corrupted glyph as P220: the dialog's button reads "Rest^rt" (the "a" drawn as a caret-like shape),
+and the menu-bar clock drew only as fragments of its lower edge.  No Speedometer run.
+
+**Control (same session, same disk):** P212 (`_Unstable/MacQuadra800_p212.rbf`, md5 `c829f5a0...`) loaded
+straight after the P229 retry booted the disk to a complete Finder desktop in about 50 s with no disk
+note and nothing unusual (`control_p212_boot1..7.png`), and Special -> Shut Down (`control_menu2.png`,
+Shut Down lit) reached "It is now safe to switch off your Macintosh" (`control_halt.png`).  So the disk
+is intact and the failure is in the RTL P229 shares with P220, not in P215 and not in the -2.6 ns timing
+miss: P214 (spanning stores as two FIFO entries), P216-P220 (MOVEM load chains, pair-hit idle reads,
+read-after-read handoff, idle-read validity fix), or the P221-P227 FPU paths.  P229 fails at a CPU-clock
+slack no worse than P205's, which points at a logic bug rather than timing.  The core was left on P212
+at the safe-halt screen.  Evidence: `scratch/hardware_p229_20260923/`.
+
+Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377 -> P174 1.460 -> P182 1.467 -> P188 1.631 ->
+P193 1.646 -> P205 1.703 -> **P212 1.725** (P220, P229 fail to boot).  Real Quadra 800: 1.897.
+
+## P232 on hardware: Mix 1.778 (2026-09-24, 06:28-06:44)
+
+P232 = P212 + P214 (spanning stores pushed as two FIFO entries), MOVEM load chains, cache fast-path
+fixes, FPU speedups and an MMU slot hash, with the P219 read-after-read handoff (the P220/P229 boot
+fault) **disabled**; commit `479d914` + seed 28, 38,967 ALMs, **CPU clock -2.165 ns** (the only seed of
+six that routed; P212 ran cleanly at -1.446, P188 at -1.671), HDMI +0.123, clk_ram +0.602, crossings met
+(`scratch/p232s_s28_fit_20260924/MacQuadra800_p232s_s28_479d914.rbf`, md5
+`9e95e885a2567a53a1fa8e43a1a4d24d`, on the MiSTer as `_Unstable/MacQuadra800_p232.rbf`).  A
+**development-profile** build (no OSD menu, no sound) **with the SCSI block cache bypassed**
+(SCSI_CACHE_OFF).  Loaded over the Apple IIgs core (user-authorized); disk
+`QuadSquad8-pipeline-test-20260919.hda`.  It ran cleanly: none of the P220/P229 symptoms (no Finder
+type-41 bomb, the "a" glyph and "Restart" button intact, the Starting Up bar inside its box), no bomb,
+no error dialog, no garbled icon; boot, five runs, quit, and Shut Down to "It is now safe to switch off".
+
+Boot: Mac OS 8.1 through the Starting Up bar (`boot2.png`) to the complete Finder desktop in about 65 s
+(`boot1..6.png`, about 15 s apart) -- no slower than P212's 40-50 s by enough to notice at this
+sampling, despite the bypassed SCSI cache.  Speedometer took about 40 s on its splash screen and needed
+an Escape to move on to the registration nag (`speedo_splash*.png`, `speedo_nag.png`).
+
+Five valid Mix runs: **1.767, 1.778, 1.778, 1.777, 1.778** — median **1.778** (+3.1 % on P212), no invalid
+timers.  Per test (median, P212 in brackets): Whetstones 1760 (1535, **+14.6 %**), Dhrystones 20,320
+(20,270, +0.2 %), Towers 0.474 (0.503, +6.1 %), Quick 0.491 (0.506, +3.1 %), Bubble 0.570 (0.572, +0.4 %),
+Queens 0.337 (0.364, +8.0 %), **Puzzle 0.878 (0.698, 25.8 % slower)**, Permutations 0.733 (0.757,
++3.3 %), **Int. Matrix 0.511 (0.460, 11.1 % slower)**, Sieve 1.017 (1.018, +0.1 %).  Run 1 is again the
+low one (Whetstones 1733 against 1759-1762, Puzzle 0.881, Int. Matrix 0.513, Sieve 1.018; Mix 1.767);
+runs 2-5 agree to within 4 ms on every timed test (Dhrystones 20,319.9-20,323.3, Whetstones
+1758.8-1761.6, Puzzle 0.878 in all four, Int. Matrix 0.508-0.512).
+
+Two regressions against P212, both steady across all five runs (so a performance change, not a
+corruption symptom): **Puzzle** 0.698 -> 0.878 and **Int. Matrix** 0.460 -> 0.511.  Everything else
+gains: Whetstone +14.6 % (the FPU speedups), Queens +8.0 %, Towers +6.1 %, Permutations +3.3 %, Quick
++3.1 %.  Without the two regressions the Mix would be about 1.83 (Puzzle and Int. Matrix at P212's
+ratios).  The guest menu-bar clock (UTC hour, as for P212) kept step with the MiSTer's wall clock (6:29 at
+the Finder, 6:40 at the fifth run's end, 6:43 at Shut Down; MiSTer 06:29/06:40/06:43); its script font
+draws 0, 8 and 9 as "C", "E" and "S" (P212's `menu.png` at 17:49 shows the same "9"), which is not
+corruption.  Evidence: `scratch/hardware_p232_20260924/run{1..5}_{start,complete}.png`,
+`run{2..5}_dlg.png`, `mixdlg.png`, `menu.png` (Shut Down lit before the click), `final_halt.png`.
+Speedometer quit without saving the Machine Record (`quit*.png`).  The core was left at the safe-halt
+screen.
+
+Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377 -> P174 1.460 -> P182 1.467 -> P188 1.631 ->
+P193 1.646 -> P205 1.703 -> P212 1.725 (P220, P229 fail to boot) -> **P232 1.778**.  Real Quadra 800:
+1.897.
+
+
+## Full-feature interim build: Mix 1.828 (2026-09-25)
+
+Source `15a1449`, normal QSF, seed 21, with Ethernet, CD-ROM/CD audio, OSD,
+composite output and hard-disk caching compiled in. The eight-entry SDRAM
+posted-write FIFO uses MLAB storage; CPU reductions and speed enhancements
+are retained. Full route and assembly succeeded. Setup timing remains
+negative: CPU −2.406 ns, SDRAM −0.697 ns, HDMI −0.426 ns; all reported hold
+slacks pass. This is an exploratory timing-marginal build.
+
+Five valid all-ten/one-iteration hardware runs on the disposable disk scored
+**1.817, 1.828, 1.829, 1.829, 1.827**, median **1.828**. This is +2.8% against
+P232's development/cache-off median 1.778, and 96.4% of the photographed real
+Quadra 800 score 1.897. Different build profiles prevent attributing the change
+to one optimization. The real reference has 120 MiB RAM; this guest has 32 MiB.
+
+Median absolute results: 1800.066 KWhetstones/s, 20047.480 Dhrystones/s;
+Towers 0.475 s, Quick 0.502 s, Bubble 0.574 s, Queens 0.339 s, Puzzle 0.716 s,
+Permutations 0.704 s, Matrix 0.474 s, Sieve 1.022 s. Every completion screenshot was
+visually reviewed; OCR repeatedly misread the digit 8 in the aggregate score.
+The raw screenshots, full per-run table, artifact SHA256, timing exceptions
+and evolving peripheral-validation record are in
+[the detailed hardware report](INTERIM_WQMLAB_HARDWARE_20260925.md).
+The benchmark milestone alone is not the complete hardware acceptance gate.

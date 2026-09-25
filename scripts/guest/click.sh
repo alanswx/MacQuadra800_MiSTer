@@ -15,6 +15,24 @@ cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)" || exit 1
 WS="python scripts/mister_ws.py --host $MISTER_HOST --delay 0.02"
 P=scratch/guest
 
+# A timed-out observer may leave this walker alive. Never let another walker
+# fight it for the pointer; children inherit the lock until they also exit.
+mkdir -p "$P"
+exec 9>"$P/click.lock"
+if ! flock -n 9; then
+    echo "Another mouse navigation is still running; wait for its process to finish." >&2
+    exit 4
+fi
+release_mouse() {
+    local click_status=$?
+    trap - EXIT
+    $WS mousebtn:left_up >/dev/null 2>&1 || true
+    exit "$click_status"
+}
+trap release_mouse EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 TX=${1:?target x}; TY=${2:?target y}; MODE=${3:-click}
 TOL=3
 

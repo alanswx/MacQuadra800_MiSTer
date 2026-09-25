@@ -32,7 +32,8 @@ module quadra800
 	// within ten received frames although every frame and descriptor in RAM is byte-exact --
 	// Apple's driver marks a recycled receive descriptor with $FF in the top byte of its
 	// length longword, and a stale cached copy of that longword is a 4 GB length.
-	parameter SONIC_SNOOP   = 1
+	parameter SONIC_SNOOP   = 1,
+	parameter DIRECT_WRITES = 1               // store-buffer RAM writes push straight into the bridge FIFO
 )
 (
 	input         clk,
@@ -59,6 +60,12 @@ module quadra800
 	output reg  [1:0] mem_memsel,             // 0 RAM, 1 ROM, 2 VRAM
 	input      [31:0] mem_rdata,
 	input             mem_ack,
+	// posted RAM writes straight into the bridge's write FIFO (2026-09-23)
+	output reg        mem_wp_valid,
+	output reg [31:2] mem_wp_addr,
+	output reg  [3:0] mem_wp_be,
+	output reg [31:0] mem_wp_data,
+	input             mem_wq_room,
 	input             mem_line_valid,
 	input      [26:4] mem_line_tag,
 	input     [127:0] mem_line_data,
@@ -207,11 +214,34 @@ localparam CACHE_CD_SLOT = 1;
 `endif
 // CACHE_SMALL=1 in the qsf halves the disk windows (32/32/16 sectors): the tag
 // bitmaps and their muxes shrink with them -- the area lever for CPU builds.
-`ifdef CACHE_SMALL
+// CACHE_TINY=1 halves them again (16/16/16, 24 M10K instead of 40): the RAM
+// lever for CPU builds whose cache mirrors need the blocks (2026-09-22).
+`ifdef CACHE_TINY
+localparam CACHE_SECT0 = 16, CACHE_SECT1 = 16;
+`elsif CACHE_SMALL
 localparam CACHE_SECT0 = 32, CACHE_SECT1 = 32;
 `else
 localparam CACHE_SECT0 = 64, CACHE_SECT1 = 48;
 `endif
+`ifdef SCSI_CACHE_OFF
+// SCSI_CACHE_OFF=1 (development builds only, configs/cpu_development.tcl): no
+// block cache -- the engine talks to hps_io directly as it did before
+// rtl/scsi_cache.sv.  The engine's block count is meaningful only for a CD
+// pass-through read; a disk transfer is one block.  Guest disk I/O is slower;
+// the CPU benchmarks do not touch the disk.  Boot-simulated to the Finder
+// (scratch/sim_scoff2, 2026-09-23).
+assign io_lba         = e_io_lba;
+assign io_blk_cnt     = e_io_rd[2] ? e_io_blk_cnt : 6'd0;
+assign io_rd          = e_io_rd;
+assign io_wr          = e_io_wr;
+assign e_io_ack       = io_ack;
+assign e_sd_buff_addr = sd_buff_addr;
+assign e_sd_buff_dout = sd_buff_dout;
+assign sd_buff_din    = e_sd_buff_din;
+assign e_sd_buff_wr   = sd_buff_wr;
+assign cache_hits     = 16'd0;
+assign cache_misses   = 16'd0;
+`else
 scsi_cache #(.SECT0(CACHE_SECT0), .SECT1(CACHE_SECT1), .SECT2(16), .PF_DEPTH(8), .CACHE_CD(CACHE_CD_SLOT)) scsi_cache (
 	.clk(clk),
 	.nreset(nreset),
@@ -242,6 +272,7 @@ scsi_cache #(.SECT0(CACHE_SECT0), .SECT1(CACHE_SECT1), .SECT2(16), .PF_DEPTH(8),
 	.stat_hits(cache_hits),
 	.stat_misses(cache_misses)
 );
+`endif
 
 // any block transfer in flight between the machine and the HPS -- on either
 // side of the cache: a request strobe up, or an ack still streaming.  Holds
@@ -567,7 +598,37 @@ wire [31:0] bus_line_data = (bus_addr[3:2] == 2'd0) ? mem_line_data[127:96] :
 	                        (bus_addr[3:2] == 2'd2) ? mem_line_data[63:32]  :
 	                                                          mem_line_data[31:0];
 
-assign bus_req_adapter = bus_req && !bus_line_match && !bus_line_wait &&
+// A RAM write inside one longword -- the store buffer's drain -- goes
+// straight into the bridge's write FIFO: registered here, acknowledged next
+// clock through bus_miss_ack, with no wombat_bus32 beat and no S_MEM wait.
+// It used to take the adapter, S_MEM and the bridge's registered
+// completion in turn, about six clocks a store, which is what bounded
+// Whetstone's store stream on hardware.  Every RAM read (CPU, walker, SONIC
+// DMA) waits in the bridge until the FIFO has drained, and a push drops the
+// retained line, so ordering is the bridge's as before.
+wire  [2:0] bus_wr_bytes = (bus_size == 2'd0) ? 3'd1 : (bus_size == 2'd1) ? 3'd2 : 3'd4;
+wire  [2:0] bus_wr_end   = {1'b0, bus_addr[1:0]} + bus_wr_bytes;
+wire [31:0] bus_wr_left  = (bus_size == 2'd0) ? {bus_wdata[7:0], 24'd0} :
+                           (bus_size == 2'd1) ? {bus_wdata[15:0], 16'd0} : bus_wdata;
+// P214: a store spanning two longwords (Pascal's 2-mod-4 stack longwords,
+// a word at offset 3) is pushed as two byte-enabled longwords on
+// consecutive clocks and acknowledged with the second; it used to take the
+// adapter as two S_MEM beats, ten clocks a store, and filled the store
+// buffer behind it (the platform fixture: 914k such stores per Whetstone
+// loop, the buffer full 15 % of the time).  mem_wq_room means two free
+// entries, and nothing else pushes between the halves.
+reg         wr_split_pend;
+reg  [31:2] wr_split_addr;
+reg   [3:0] wr_split_be;
+reg  [31:0] wr_split_data;
+wire        bus_wr_span  = (bus_wr_end > 3'd4);
+wire bus_wr_direct = (DIRECT_WRITES != 0) && (svc == S_IDLE) && !walker_pend && !cpu_berr &&
+	                 !bus_miss_ack && !bus_line_ack && !bus_adapter_active && !wr_split_pend &&
+	                 !bus_ack_adapter && bus_req && bus_write &&
+	                 (!bus_wr_span || (decode(bus_addr[31:2] + 30'd1) == 3'd0)) &&
+	                 (decode(bus_addr[31:2]) == 3'd0) && mem_wq_room;
+
+assign bus_req_adapter = bus_req && !bus_line_match && !bus_line_wait && !bus_wr_direct && !wr_split_pend &&
 	                     !bus_first_miss && !svc_bus_direct && !bus_miss_ack &&
 	                     !bus_line_ack;
 
@@ -585,7 +646,7 @@ always @(posedge clk) begin
 	end
 end
 
-wire cpu_want = walker_pend || bus_first_miss ||
+wire cpu_want = walker_pend || bus_first_miss || bus_wr_direct ||
                 (b_req && !b_ack && !cpu_berr && !line_cpu_wait);
 wire dma_take = (SONIC != 0) && dma_req && !dma_ack && !walker_pend &&
                 (dma_turn || !cpu_want);
@@ -621,7 +682,12 @@ always @(posedge clk) begin
 		b_ack        <= 0;
 		b_rdata      <= 0;
 		bus_miss_ack   <= 0;
+		wr_split_pend  <= 0;
 		bus_miss_rdata <= 0;
+		mem_wp_valid   <= 0;
+		mem_wp_addr    <= 0;
+		mem_wp_be      <= 0;
+		mem_wp_data    <= 0;
 		cpu_berr     <= 0;
 		mem_req      <= 0;
 		mem_write    <= 0;
@@ -644,7 +710,18 @@ always @(posedge clk) begin
 		walker_berr <= 0;
 		b_ack       <= 0;
 		bus_miss_ack <= 0;
+		mem_wp_valid <= 0;
 		cpu_berr    <= 0;
+		// P214: the spanning store's second longword, ahead of everything
+		if (wr_split_pend) begin
+			wr_split_pend  <= 0;
+			mem_wp_valid   <= 1;
+			mem_wp_addr    <= wr_split_addr;
+			mem_wp_be      <= wr_split_be;
+			mem_wp_data    <= wr_split_data;
+			bus_miss_ack   <= 1;
+			bus_miss_rdata <= 0;
+		end
 		dma_ack     <= 0;
 		snoop_stb   <= 0;
 		if (!walker_req) walker_armed <= 1;
@@ -691,6 +768,23 @@ always @(posedge clk) begin
 					mem_wdata      <= 0;
 					mem_memsel     <= MSEL_RAM;
 					svc            <= S_MEM;
+				end
+				else if (bus_wr_direct) begin
+					mem_wp_valid <= 1;
+					mem_wp_addr  <= bus_addr[31:2];
+					mem_wp_be    <= (4'b1111 << (3'd4 - bus_wr_bytes)) >> bus_addr[1:0];
+					mem_wp_data  <= bus_wr_left >> {bus_addr[1:0], 3'd0};
+					if (bus_wr_span) begin
+						// the tail: the bytes from the next longword's offset 0
+						wr_split_pend <= 1;
+						wr_split_addr <= bus_addr[31:2] + 30'd1;
+						wr_split_be   <= 4'b1111 << (4'd8 - {1'b0, bus_wr_end});
+						wr_split_data <= bus_wr_left << {3'd4 - {1'b0, bus_addr[1:0]}, 3'd0};
+					end
+					else begin
+						bus_miss_ack   <= 1;
+						bus_miss_rdata <= 0;
+					end
 				end
 				else if (!walker_pend && line_cpu_match) begin
 					b_ack   <= 1;

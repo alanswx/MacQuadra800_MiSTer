@@ -8,8 +8,8 @@
 #   bash scripts/guest/type.sh -r ''                    # just Return
 #
 # The guest sees a US-layout ADB keyboard, so the mapping below is the US
-# layout of the Linux keycodes mister_ws.py forwards. Pacing is 0.12 s per
-# key: faster than that and the ADB poll starts dropping characters.
+# layout of the Linux keycodes mister_ws.py forwards. Pacing is 0.30 s per
+# key to leave margin for ADB polling during interactive hardware validation.
 set -u
 cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)" || exit 1
 . scripts/local.env
@@ -50,4 +50,4 @@ PY
 ) || exit 2
 
 [ -n "$ARGS" ] || exit 0
-exec python scripts/mister_ws.py --host "$MISTER_HOST" --port "${MISTER_HTTP_PORT:-8182}" --delay 0.12 $ARGS
+exec python scripts/mister_ws.py --host "$MISTER_HOST" --port "${MISTER_HTTP_PORT:-8182}" --delay 0.30 $ARGS

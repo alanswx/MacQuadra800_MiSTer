@@ -102,16 +102,19 @@ quadra800-fastboot.rom.hex: ../releases/quadra800.rom ../docs/tools/make-fastboo
 	xxd -p -c4 .fastboot.tmp.rom > $@
 	rm .fastboot.tmp.rom
 
-$(VOUT): $(V_SRC) $(C_SRC) Makefile
+SIM_HEADERS = sim_control.h cpu_dispatch_observer.h ../scripts/fixtures/speedometer_timing_observer/adapter.inc ../scripts/fixtures/speedometer_timing_observer/speedometer_observer.h
+$(VOUT): $(V_SRC) $(C_SRC) $(SIM_HEADERS) Makefile
 	$V -cc $(V_OPT) -LDFLAGS "$(LDFLAGS)" -exe --trace --Mdir ./obj_dir \
 		$(V_DEFINE) $(V_INC) $(TOP) -CFLAGS "$(CFLAGS)" $(V_SRC) $(C_SRC)
 	@touch $(VOUT)
 
-$(EXE): $(VOUT)
+$(EXE): $(VOUT) $(SIM_HEADERS)
 	@# verilator's Vemu.mk has no dep tracking for our C sources: evict
 	@# any object older than its source before the inner make.
 	@for f in $(C_SRC); do o=obj_dir/$$(basename $${f%.*}).o; \
 		[ -e $$o ] && [ $$f -nt $$o ] && rm -f $$o obj_dir/Vemu || true; done
+	@for f in $(SIM_HEADERS); do \
+		[ -e obj_dir/sim_main.o ] && [ $$f -nt obj_dir/sim_main.o ] && rm -f obj_dir/sim_main.o || true; done
 	(cd obj_dir; make -f Vemu.mk)
 
 # Directed unit test for the EASC (rtl/easc.sv). Runs in seconds and does not

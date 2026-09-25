@@ -310,6 +310,29 @@ reg  [63:0] acc_lo;           // multiply accumulator low / dividend feed
 reg  [66:0] qv;               // divide quotient / sqrt root
 reg  [68:0] srem;             // sqrt remainder
 reg [131:0] srad;             // sqrt radicand feed
+
+// DIV and SQRT are mutually exclusive states. Share their three wide
+// compare/subtract/select stages while preserving three result bits per cycle.
+wire divsqrt_sqrt = (fst == F_SQRTL);
+wire [68:0] divsqrt_denom = {4'd0, 1'b0, a_m};
+wire [68:0] divsqrt_num1 = divsqrt_sqrt ? {srem[66:0], srad[131:130]} :
+                                               {4'd0, acc_hi[63:0], 1'b0};
+wire [68:0] divsqrt_sub1 = divsqrt_sqrt ? {1'b0, qv[65:0], 2'b01} : divsqrt_denom;
+wire [69:0] divsqrt_diff1 = {1'b0, divsqrt_num1} - {1'b0, divsqrt_sub1};
+wire divsqrt_q1 = !divsqrt_diff1[69];
+wire [68:0] divsqrt_rem1 = divsqrt_q1 ? divsqrt_diff1[68:0] : divsqrt_num1;
+wire [68:0] divsqrt_num2 = divsqrt_sqrt ? {divsqrt_rem1[66:0], srad[129:128]} :
+                                               {4'd0, divsqrt_rem1[63:0], 1'b0};
+wire [68:0] divsqrt_sub2 = divsqrt_sqrt ? {1'b0, qv[64:0], divsqrt_q1, 2'b01} : divsqrt_denom;
+wire [69:0] divsqrt_diff2 = {1'b0, divsqrt_num2} - {1'b0, divsqrt_sub2};
+wire divsqrt_q2 = !divsqrt_diff2[69];
+wire [68:0] divsqrt_rem2 = divsqrt_q2 ? divsqrt_diff2[68:0] : divsqrt_num2;
+wire [68:0] divsqrt_num3 = divsqrt_sqrt ? {divsqrt_rem2[66:0], srad[127:126]} :
+                                               {4'd0, divsqrt_rem2[63:0], 1'b0};
+wire [68:0] divsqrt_sub3 = divsqrt_sqrt ? {1'b0, qv[63:0], divsqrt_q1, divsqrt_q2, 2'b01} : divsqrt_denom;
+wire [69:0] divsqrt_diff3 = {1'b0, divsqrt_num3} - {1'b0, divsqrt_sub3};
+wire divsqrt_q3 = !divsqrt_diff3[69];
+wire [68:0] divsqrt_rem3 = divsqrt_q3 ? divsqrt_diff3[68:0] : divsqrt_num3;
 reg   [6:0] loop_n;
 reg [127:0] mul_pd;           // registered DSP full product (F_MULT)
 reg   [3:0] op_kind;          // 0 none, 1 add, 2 mul, 3 div, 4 sqrt
@@ -362,6 +385,22 @@ function op_in_hw;
 				op_in_hw = 1;
 			default:
 				op_in_hw = 0;
+		endcase
+	end
+endfunction
+
+// P206: the binary arithmetic ops F_EXEC only dispatches to F_BIN (its other
+// work -- SNaN quieting, FABS/FNEG, the FCMP datatype check, the unimplemented
+// capture -- never applies to them with a normal source): 1 add/sub, 2 mul,
+// 3 div, 0 for anything else.
+function [1:0] fast_bin_kind;
+	input [6:0] op;
+	begin
+		case (op)
+			7'h22, 7'h62, 7'h66, 7'h28, 7'h68, 7'h6C: fast_bin_kind = 2'd1;
+			7'h23, 7'h27, 7'h63, 7'h67:               fast_bin_kind = 2'd2;
+			7'h20, 7'h24, 7'h60, 7'h64:               fast_bin_kind = 2'd3;
+			default:                                  fast_bin_kind = 2'd0;
 		endcase
 	end
 endfunction
@@ -889,6 +928,13 @@ always @(posedge clk) begin
 						    frame_tag_x(fr_src_e, fr_src_m),
 						    1'b1, 1'b0);   // T, not packed
 					end
+					else if (src_fmt == 3'd2) begin
+						// P222: the raw extended store F_SRC would make next
+						// clock (it sets no status bits and needs no trap check)
+						dout <= {fr_src_s, fr_src_e, 16'd0, fr_src_m};
+						done <= 1; fpu_used <= 1;
+						r_op <= 7'h7F;
+					end
 					else begin
 						{a_s, a_e, a_m, a_t} <=
 							unpack_x(fr_src_s, fr_src_e, fr_src_m);
@@ -941,7 +987,15 @@ always @(posedge clk) begin
 					else begin
 					{a_s, a_e, a_m, a_t} <=
 						unpack_x(fr_src_s, fr_src_e, fr_src_m);
-					fst <= F_EXEC;
+					if (fr_src_m[63] && fr_src_e != 15'h7FFF && fast_bin_kind(opmode) != 2'd0) begin
+						// P206: as from F_SRC -- a normal source of a binary
+						// op is dispatched to F_BIN directly
+						op_kind <= {2'd0, fast_bin_kind(opmode)};
+						grs <= 3'd0;
+						e_w <= $signed({3'd0, fr_src_e});
+						fst <= F_BIN;
+					end
+					else fst <= F_EXEC;
 					end
 				end
 				else begin
@@ -958,6 +1012,18 @@ always @(posedge clk) begin
 						    {32'd0, din[63:0]}, 3'd7,
 						    {32'd0, din[63:32], din[95:64]}, 3'd0,
 						    1'b0, 1'b1);   // packed -> E1, stag 7
+					end
+					else if (src_fmt == 3'd2 && din[63] && din[94:80] != 15'h7FFF &&
+					         fast_bin_kind(opmode) != 2'd0) begin
+						// P221: a normal extended memory source of a binary op
+						// is unpacked here (what F_SRC would do next clock; it
+						// cannot be an unsupported type) and goes to F_BIN
+						{a_s, a_e, a_m, a_t} <= unpack_x(din[95], din[94:80], din[63:0]);
+						r_stag  <= frame_tag_x(din[94:80], din[63:0]);
+						op_kind <= {2'd0, fast_bin_kind(opmode)};
+						grs     <= 3'd0;
+						e_w     <= $signed({3'd0, din[94:80]});
+						fst     <= F_BIN;
 					end
 					else begin
 						a_t <= T_NUM;   // provisional; F_SRC classifies
@@ -1290,7 +1356,20 @@ always @(posedge clk) begin
 								r_stag <= frame_tag_x(r_din[94:80], r_din[63:0]);
 								{a_s, a_e, a_m, a_t} <=
 									unpack_x(r_din[95], r_din[94:80], r_din[63:0]);
-								fst <= F_NORM;
+								// P202: with the explicit integer bit set the
+								// operand is normalized (or an infinity/NaN,
+								// which F_NORM passes straight on): its F_NORM
+								// clock would change nothing
+								if (r_din[63] && r_din[94:80] != 15'h7FFF && !r_unimp && !r_resume &&
+								    fast_bin_kind(r_op) != 2'd0) begin
+									// P206: a normal source of a binary op goes
+									// straight to F_BIN (F_EXEC's dispatch here)
+									op_kind <= {2'd0, fast_bin_kind(r_op)};
+									grs <= 3'd0;
+									e_w <= $signed({3'd0, r_din[94:80]});
+									fst <= F_BIN;
+								end
+								else fst <= r_din[63] ? F_EXEC : F_NORM;
 							end
 						end
 					endcase
@@ -1548,7 +1627,8 @@ always @(posedge clk) begin
 							sh_v <= {aswap ? b_m : a_m, 3'd0};
 							sh_cnt <= (d > 17'd66) ? 7'd67 : d[6:0];
 							sh_ret <= F_ADDX;
-							fst <= F_SHR;
+							// P206: equal exponents need no alignment clock
+							fst <= (d == 17'd0) ? F_ADDX : F_SHR;
 						end
 					end
 					4'd2: begin : bin_mul
@@ -1770,8 +1850,6 @@ always @(posedge clk) begin
 			end
 
 			F_DIVL: begin : f_divl
-				reg [64:0] r2a, rem1, r2b, rem2, r2c, rem3;
-				reg        q1, q2, q3;
 				if (loop_n == 7'd23) begin
 					if (qv[66]) begin
 						a_m <= qv[66:3];
@@ -1798,25 +1876,13 @@ always @(posedge clk) begin
 					// three restoring fraction bits per cycle (66 = 3 x 22):
 					// the remainder shifts left with zeros entering, exactly
 					// three former one-bit iterations cascaded combinationally
-					r2a = {acc_hi[63:0], 1'b0};
-					q1 = (r2a >= {1'b0, a_m});
-					rem1 = q1 ? (r2a - {1'b0, a_m}) : r2a;
-					r2b = {rem1[63:0], 1'b0};
-					q2 = (r2b >= {1'b0, a_m});
-					rem2 = q2 ? (r2b - {1'b0, a_m}) : r2b;
-					r2c = {rem2[63:0], 1'b0};
-					q3 = (r2c >= {1'b0, a_m});
-					rem3 = q3 ? (r2c - {1'b0, a_m}) : r2c;
-					acc_hi <= rem3;
-					qv <= {qv[63:0], q1, q2, q3};
+					acc_hi <= divsqrt_rem3[64:0];
+					qv <= {qv[63:0], divsqrt_q1, divsqrt_q2, divsqrt_q3};
 					loop_n <= loop_n + 7'd1;
 				end
 			end
 
 			F_SQRTL: begin : f_sqrtl
-				reg [68:0] r2a, rem1, r2b, rem2, r2c, rem3;
-				reg [68:0] trial1, trial2, trial3;
-				reg        q1, q2, q3;
 				if (loop_n == 7'd22) begin
 					a_m <= qv[65:2];
 					grs <= {qv[1], qv[0], (srem != 69'd0)};
@@ -1827,21 +1893,9 @@ always @(posedge clk) begin
 					// three result digits per cycle (66 = 3 x 22): each trial
 					// folds the earlier digits into the partial root, exactly
 					// three former one-digit steps cascaded combinationally
-					r2a = {srem[66:0], srad[131:130]};
-					trial1 = {1'b0, qv[65:0], 2'b01};
-					q1 = (r2a >= trial1);
-					rem1 = q1 ? (r2a - trial1) : r2a;
-					r2b = {rem1[66:0], srad[129:128]};
-					trial2 = {1'b0, qv[64:0], q1, 2'b01};
-					q2 = (r2b >= trial2);
-					rem2 = q2 ? (r2b - trial2) : r2b;
-					r2c = {rem2[66:0], srad[127:126]};
-					trial3 = {1'b0, qv[63:0], q1, q2, 2'b01};
-					q3 = (r2c >= trial3);
-					rem3 = q3 ? (r2c - trial3) : r2c;
 					srad <= {srad[125:0], 6'b000000};
-					srem <= rem3;
-					qv <= {qv[63:0], q1, q2, q3};
+					srem <= divsqrt_rem3;
+					qv <= {qv[63:0], divsqrt_q1, divsqrt_q2, divsqrt_q3};
 					loop_n <= loop_n + 7'd1;
 				end
 			end
@@ -2108,33 +2162,19 @@ always @(posedge clk) begin
 			end
 
 			F_SHR: begin : f_shr
-				// staged right shift with sticky collection
-				reg [6:0] step;
-				if (sh_cnt == 0) fst <= sh_ret;
-				else begin
-					step = (sh_cnt >= 7'd32) ? 7'd32 :
-					       (sh_cnt >= 7'd16) ? 7'd16 :
-					       (sh_cnt >= 7'd8)  ? 7'd8  :
-					       (sh_cnt >= 7'd4)  ? 7'd4  :
-					       (sh_cnt >= 7'd2)  ? 7'd2  : 7'd1;
-					// new {int[66:3], G, R, S}: value shifted by the step,
-					// G/R from the top shifted-out bits, S ORs the rest
-					case (step)
-						7'd32: sh_v <= {32'd0, sh_v[66:35], sh_v[34], sh_v[33],
-						                (sh_v[32:0] != 0)};
-						7'd16: sh_v <= {16'd0, sh_v[66:19], sh_v[18], sh_v[17],
-						                (sh_v[16:0] != 0)};
-						7'd8:  sh_v <= {8'd0, sh_v[66:11], sh_v[10], sh_v[9],
-						                (sh_v[8:0] != 0)};
-						7'd4:  sh_v <= {4'd0, sh_v[66:7], sh_v[6], sh_v[5],
-						                (sh_v[4:0] != 0)};
-						7'd2:  sh_v <= {2'd0, sh_v[66:5], sh_v[4], sh_v[3],
-						                (sh_v[2:0] != 0)};
-						default: sh_v <= {1'd0, sh_v[66:4], sh_v[3], sh_v[2],
-						                  (sh_v[1:0] != 0)};
-					endcase
-					sh_cnt <= sh_cnt - step;
+				// P193: the whole right shift in one clock with sticky
+				// collection -- the staged 32/16/8/4/2/1 loop took up to six
+				// clocks per add alignment (Whetstone's polynomial FADD.X
+				// averaged 8.3 FPU clocks).  Same result: {int, G, R} shift
+				// right by sh_cnt, S ORs every bit shifted out (and itself).
+				reg [66:0] shifted, gone;
+				shifted = sh_v >> sh_cnt;
+				gone    = sh_v & ((67'd1 << sh_cnt) - 67'd1);
+				if (sh_cnt != 0) begin
+					sh_v   <= {shifted[66:1], shifted[0] | (|gone)};
+					sh_cnt <= 7'd0;
 				end
+				fst <= sh_ret;
 			end
 
 			F_PACKI: begin : f_packi

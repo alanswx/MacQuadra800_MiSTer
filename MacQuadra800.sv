@@ -478,6 +478,11 @@ reg [1:0] ram_cfg = 2'd0;
 always @(posedge clk_sys) if (reset) ram_cfg <= ram_cfg_osd;
 
 wire        sdr_line_valid;
+wire        sdr_wq_room;
+wire        mem_wp_valid;
+wire [31:2] mem_wp_addr;
+wire  [3:0] mem_wp_be;
+wire [31:0] mem_wp_data;
 wire [26:4] sdr_line_tag;
 wire [127:0] sdr_line_data;
 wire        sdr_line_pending;
@@ -533,6 +538,11 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS), .CDROM(CDROM_EN), .SONIC(SONIC_EN)) m
 	.mem_memsel(mem_memsel),
 	.mem_rdata(mem_rdata),
 	.mem_ack(mem_ack),
+	.mem_wp_valid(mem_wp_valid),
+	.mem_wp_addr(mem_wp_addr),
+	.mem_wp_be(mem_wp_be),
+	.mem_wp_data(mem_wp_data),
+	.mem_wq_room(sdr_wq_room),
 	.mem_line_valid(sdr_line_valid),
 	.mem_line_tag(sdr_line_tag),
 	.mem_line_data(sdr_line_data),
@@ -786,6 +796,11 @@ sdram_beat32 sdr
 	.line_data_o(sdr_line_data),
 	.line_pending_o(sdr_line_pending),
 	.line_pending_tag_o(sdr_line_pending_tag),
+	.wp_valid  (mem_wp_valid),
+	.wp_addr   (mem_wp_addr[26:2]),
+	.wp_be     (mem_wp_be),
+	.wp_data   (mem_wp_data),
+	.wq_room   (sdr_wq_room),
 
 	.SDRAM_DQ  (SDRAM_DQ),
 	.SDRAM_A   (SDRAM_A),

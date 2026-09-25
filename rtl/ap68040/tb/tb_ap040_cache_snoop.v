@@ -97,11 +97,12 @@ ap040_cache dut
 	.c_req(c_req), .c_write(c_write), .c_instr(c_instr),
 	.c_size(c_size), .c_addr(c_addr), .c_wdata(c_wdata),
 	.c_hint_addr(c_addr), .c_hint_instr(c_instr),
+	.c_ihint_addr(c_addr), .c_ihint_ptag(c_addr[31:10]), .c_ihint_match(c_req && c_instr && (tb_hq_addr == c_addr)), .c_ihold(c_req && c_instr),
 	// the MMU vouches for a request only when it equals the hint it
 	// registered a cycle earlier (m_hint_match); the bench's hint bus is
 	// its request bus, so model that register here
 	.c_hint_ptag(c_addr[31:10]), .c_hint_match(c_req && (tb_hq_addr == c_addr)),
-	.c_hint_wmatch(1'b0), .c_post_ok_hint(1'b0),   // no posting, no store fast lane here
+	.c_hint_wmatch(1'b0), .c_hint_away(1'b0), .c_post_ok_hint(1'b0),   // no posting, no store fast lane here
 	.c_fc(3'd5), .c_nocache(c_nocache), .c_post_ok(1'b0),
 	.c_ack(c_ack), .c_rdata(c_rdata),
 	.m_req(m_req), .m_write(m_write), .m_instr(m_instr),

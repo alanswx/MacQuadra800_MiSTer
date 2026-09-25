@@ -1,0 +1,22 @@
+# P135 parallel spanning-word cache read
+
+Isolated prototype over P134; workload screens verified, full qualification pending, using explicit P109 core and P120 pipeline. Cache SHA256 bb545fa8b141bec65f32a852cb4caeb2e1bfae9694aa3db7e679005eb338f9b9, source `scratch/p135_parallel_span_read_20260921/ap040_cache.v`, unapplied patch `scripts/cpu/parallel_span_read.patch` over P134.
+
+The existing four rotated data RAM banks initially read one requested word across all ways. A within-line spanning access then reads the selected way as a line to obtain its second word. P135 duplicates the four physical data arrays, broadcasting identical writes and reading the next word of every way through the mirrored arrays. Cache capacity and replacement policy stay unchanged. Qualified warm data spans can acknowledge in C_IDLE or the first C_LOOK stage, avoiding the extra pair-read stage. Cross-line, instruction, miss, snoop and error handling retain their existing paths; those claims require directed verification.
+
+Original workload screens, with latency 3 and explicit P109/P120 sources:
+
+| Workload | P134 loop clocks | P135 loop clocks | Reduction |
+|---|---:|---:|---:|
+| Whetstone | 27,165,355 | 26,382,413 | 2.882% |
+| Dhrystone | 112,554,337 | 107,504,277 | 4.487% |
+
+Returned counts are 26,383,041 and 107,505,166. Root independently compared all three Whetstone and five Dhrystone captures byte-for-byte with P134, and matched every non-cache source identity, fixture, ROM, flags and latency. The independent Dhrystone end-state checker passes all 50,000 iterations. Evidence is in `scratch/{whetstone,dhrystone}_full_p135_20260921`. Whetstone capture equivalence is not an independent numerical oracle. These are simulation cycle reductions, not hardware Speedometer scores.
+
+Cache smoke reports standard snoop, XSTORE 100 cases, posted-read 216 cases, and pair data/exact-ack tests passing. Root inspected the pair log and source: 13 idle and one lookup pair acknowledgement, correct no-gap pair/aligned data with exactly two acknowledgements. The earlier portable snoop stimulus arrived after the faster idle acknowledgement; the candidate-aware admission overlap passes. However, the replacement phase 0 and phase 1 stimulus is identical, so this does not establish distinct C_LOOK snoop coverage. Further directed C_LOOK/CE/error checks and fatal coverage assertions were requested. Root independently verified full CPU/IRQ integration: all 22 programs and four interrupt cases pass, entry/commit/cancel accounting balances, each IRQ case injects three interrupts and kills at least three speculative entries, store/PEA cases make exactly three stores, handoff trace equals the reference oracle, and every recorded source hash matches. Evidence: `scratch/p135_full_integration_20260921/root_audit.txt`. Directed pair-path checks described above still remain pending. No FPGA timing or hardware result is claimed. Extra physical RAM, write fanout and wider word selection may hurt routing/timing. Required gates include duplicate-bank update correctness across fills/partial and spanning stores, snoops/errors, actual early-pair paths, exact-once/no-gap and CE pause, full CPU/IRQ integration, RAM inference and full FPGA fit. Production HDL remains frozen for the independent P130 seed-24 flow.
+
+## Strengthened pair regression
+
+The updated candidate-aware bench now separately requires idle and C_LOOK pair acknowledgements, observes a same-line snoop in C_LOOK, and pauses CE in C_LOOK before requiring one correct response after resume. Helper errors and global timeout are fatal. Root inspected the stimulus/assertions and reproduced it with Icarus: idle13, lookup2, total15, C_LOOK snoop2, paused7, exact two no-gap acknowledgements, and ALL TESTS PASSED (`scratch/p135_cache_smoke_20260921/root_repro.log`). Error exclusion is asserted continuously but this does not claim exhaustive simultaneous-error stimulus. The earlier phase-0/phase-1 limitation is addressed by the added C_LOOK tests.
+
+Reproducible bench patch and command: `scripts/cpu/parallel_span_checks.patch` and `scripts/cpu/parallel_span_checks.md`. The patch remains unapplied during the live Quartus HDL freeze.

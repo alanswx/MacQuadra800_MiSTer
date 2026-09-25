@@ -149,6 +149,11 @@ always @(posedge clk) begin
 	sample_ce <= !div;
 end
 
+`ifdef MISTER_BYPASS_AUDIO_FILTER
+// The unfiltered path runs at the output sample cadence, independently of
+// programmable IIR coefficients/rate. Retain the existing startup gates.
+wire flt_ce = sample_ce;
+`else
 reg flt_ce;
 always @(posedge clk) begin
 	reg [31:0] cnt = 0;
@@ -160,6 +165,7 @@ always @(posedge clk) begin
 		flt_ce = 1;
 	end
 end
+`endif
 
 reg [15:0] cl,cr;
 always @(posedge clk) begin
@@ -198,6 +204,24 @@ always @(posedge clk, posedge reset) begin
 end
 
 wire [15:0] acl, acr;
+`ifdef MISTER_BYPASS_AUDIO_FILTER
+// Same signed sample boundary as IIR_filter's output register. The DC
+// blockers consume the previous sample on this edge, exactly as before.
+// Explicit reset/startup silence prevents stale data entering their history.
+reg [15:0] bypass_l = 0, bypass_r = 0;
+always @(posedge clk, posedge reset) begin
+	if (reset) begin
+		bypass_l <= 0;
+		bypass_r <= 0;
+	end
+	else if (sample_ce) begin
+		bypass_l <= a_en1 ? {~is_signed ^ cl[15], cl[14:0]} : 16'd0;
+		bypass_r <= a_en1 ? {~is_signed ^ cr[15], cr[14:0]} : 16'd0;
+	end
+end
+assign acl = bypass_l;
+assign acr = bypass_r;
+`else
 IIR_filter #(.use_params(0)) IIR_filter
 (
 	.clk(clk),
@@ -219,6 +243,7 @@ IIR_filter #(.use_params(0)) IIR_filter
 	.output_l(acl),
 	.output_r(acr)
 );
+`endif
 
 wire [15:0] adl;
 DC_blocker dcb_l

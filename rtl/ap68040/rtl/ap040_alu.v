@@ -17,7 +17,9 @@
 
 `include "ap040_defs.svh"
 
-module ap040_alu
+// PIPELINE_SUBSET is only for the integer pipeline's restricted decoder.
+// The legacy sequencer retains every operation with the default value.
+module ap040_alu #(parameter PIPELINE_SUBSET = 0)
 (
 	input       [5:0] op,
 	input       [1:0] size,       // AP040_SZ_B/W/L
@@ -40,6 +42,15 @@ module ap040_alu
 wire f_x = flags_in[4];
 wire f_z = flags_in[2];
 
+function [31:0] reverse32;
+	input [31:0] value;
+	integer bit_index;
+	begin
+		for (bit_index = 0; bit_index < 32; bit_index = bit_index + 1)
+			reverse32[bit_index] = value[31-bit_index];
+	end
+endfunction
+
 // size-dependent views
 wire [5:0]  nbits = (size == `AP040_SZ_B) ? 6'd8 : (size == `AP040_SZ_W) ? 6'd16 : 6'd32;
 wire [31:0] szmask = (size == `AP040_SZ_B) ? 32'h0000_00FF :
@@ -48,6 +59,15 @@ wire [31:0] am = a & szmask;
 wire [31:0] bm = b & szmask;
 wire        a_msb = (size == `AP040_SZ_B) ? a[7]  : (size == `AP040_SZ_W) ? a[15] : a[31];
 wire        b_msb = (size == `AP040_SZ_B) ? b[7]  : (size == `AP040_SZ_W) ? b[15] : b[31];
+wire shift_left = (op == `AP040_ALU_ASL1) || (op == `AP040_ALU_LSL1);
+wire shift_arithmetic = (op == `AP040_ALU_ASR1);
+wire shift_signfill = shift_arithmetic && b_msb;
+wire [31:0] shift_input = shift_left ? reverse32(bm) :
+	(shift_signfill ? (bm | ~szmask) : bm);
+wire signed [32:0] shift_signed_input = {shift_signfill, shift_input};
+wire [31:0] shift_right_result = shift_signed_input >>> shcnt;
+wire [31:0] shared_shift_result =
+	(shift_left ? reverse32(shift_right_result) : shift_right_result) & szmask;
 
 function res_msb;
 	input [31:0] r;
@@ -67,8 +87,8 @@ endfunction
 // SUB/SUBX/CMP share a subtractor. Ordinary operations ignore incoming X.
 // The fast-flag block below reads the same adders and stays exact because
 // the extend is gated on the ADDX/SUBX opcode, which it never selects.
-wire add_extend = (op == `AP040_ALU_ADDX) && f_x;
-wire sub_extend = (op == `AP040_ALU_SUBX) && f_x;
+wire add_extend = !PIPELINE_SUBSET && (op == `AP040_ALU_ADDX) && f_x;
+wire sub_extend = !PIPELINE_SUBSET && (op == `AP040_ALU_SUBX) && f_x;
 wire [32:0] add_full = {1'b0, bm} + {1'b0, am} + {32'd0, add_extend};
 wire [32:0] sub_full = {1'b0, bm} - {1'b0, am} - {32'd0, sub_extend};
 
@@ -166,7 +186,7 @@ always @* begin
 			flags_out = {add_c, add_r_msb, res_zero(add_full[31:0]), add_v, add_c};
 		end
 
-		`AP040_ALU_ADDX: begin
+		`AP040_ALU_ADDX: if (!PIPELINE_SUBSET) begin
 			result = add_full[31:0] & szmask;
 			flags_out = {add_c, add_r_msb, f_z & res_zero(add_full[31:0]), add_v, add_c};
 		end
@@ -176,7 +196,7 @@ always @* begin
 			flags_out = {sub_c, sub_r_msb, res_zero(sub_full[31:0]), sub_v, sub_c};
 		end
 
-		`AP040_ALU_SUBX: begin
+		`AP040_ALU_SUBX: if (!PIPELINE_SUBSET) begin
 			result = sub_full[31:0] & szmask;
 			flags_out = {sub_c, sub_r_msb, f_z & res_zero(sub_full[31:0]), sub_v, sub_c};
 		end
@@ -201,12 +221,12 @@ always @* begin
 			flags_out = {f_x, res_msb(bm ^ am), res_zero(bm ^ am), 1'b0, 1'b0};
 		end
 
-		`AP040_ALU_NOT: begin
+		`AP040_ALU_NOT: if (!PIPELINE_SUBSET) begin
 			result = (~bm) & szmask;
 			flags_out = {f_x, res_msb(~bm), res_zero(~bm), 1'b0, 1'b0};
 		end
 
-		`AP040_ALU_NEG: begin
+		`AP040_ALU_NEG: if (!PIPELINE_SUBSET) begin
 			// 0 - b
 			result = (32'd0 - bm) & szmask;
 			flags_out = {|bm ? 1'b1 : 1'b0,
@@ -216,7 +236,7 @@ always @* begin
 			             |bm ? 1'b1 : 1'b0};
 		end
 
-		`AP040_ALU_NEGX: begin
+		`AP040_ALU_NEGX: if (!PIPELINE_SUBSET) begin
 			// 0 - b - X
 			result = negx_res;
 			flags_out = {(|bm | f_x),
@@ -226,28 +246,28 @@ always @* begin
 			             (|bm | f_x)};
 		end
 
-		`AP040_ALU_CLR: begin
+		`AP040_ALU_CLR: if (!PIPELINE_SUBSET) begin
 			result = 32'd0;
 			flags_out = {f_x, 1'b0, 1'b1, 1'b0, 1'b0};
 		end
 
-		`AP040_ALU_EXT: begin
+		`AP040_ALU_EXT: if (!PIPELINE_SUBSET) begin
 			// size W: byte to word; size L: word to long
 			result = ext_res;
 			flags_out = {f_x, res_msb(ext_res), res_zero(ext_res), 1'b0, 1'b0};
 		end
 
-		`AP040_ALU_EXTB: begin
+		`AP040_ALU_EXTB: if (!PIPELINE_SUBSET) begin
 			result = {{24{b[7]}}, b[7:0]};
 			flags_out = {f_x, b[7], (b[7:0] == 8'd0), 1'b0, 1'b0};
 		end
 
-		`AP040_ALU_SWAP: begin
+		`AP040_ALU_SWAP: if (!PIPELINE_SUBSET) begin
 			result = {b[15:0], b[31:16]};
 			flags_out = {f_x, b[15], (b == 32'd0), 1'b0, 1'b0};
 		end
 
-		`AP040_ALU_TAS: begin
+		`AP040_ALU_TAS: if (!PIPELINE_SUBSET) begin
 			result = {24'd0, 1'b1, b[6:0]};
 			flags_out = {f_x, b[7], (b[7:0] == 8'd0), 1'b0, 1'b0};
 		end
@@ -255,17 +275,17 @@ always @* begin
 		// BCD: on the real 68040 the architecturally undefined N and V
 		// flags are left unchanged (verified with cputest 68040_default
 		// reference data on hardware); X/C carry out, Z is sticky
-		`AP040_ALU_ABCD: begin
+		`AP040_ALU_ABCD: if (!PIPELINE_SUBSET) begin
 			result = {24'd0, bcd_ares[7:0]};
 			flags_out = {bcd_ac, flags_in[3], f_z & (bcd_ares[7:0] == 8'd0), flags_in[1], bcd_ac};
 		end
 
-		`AP040_ALU_SBCD: begin
+		`AP040_ALU_SBCD: if (!PIPELINE_SUBSET) begin
 			result = {24'd0, bcd_sres[7:0]};
 			flags_out = {bcd_sc, flags_in[3], f_z & (bcd_sres[7:0] == 8'd0), flags_in[1], bcd_sc};
 		end
 
-		`AP040_ALU_NBCD: begin
+		`AP040_ALU_NBCD: if (!PIPELINE_SUBSET) begin
 			result = {24'd0, nbc_res[7:0]};
 			flags_out = {nbc_c, flags_in[3], f_z & (nbc_res[7:0] == 8'd0), flags_in[1], nbc_c};
 		end
@@ -282,7 +302,9 @@ always @* begin
 			// (size+1) and reports C = the rotated X for every nonzero
 			// count, including exact multiples of size+1.
 			reg  [5:0] n, nm, nx, ne;
-			reg [32:0] w, rot, cmask;
+			reg [32:0] w, rot, cmask, rotate_in, rotate_mask;
+			reg [5:0] rotate_width, rotate_amount, rotate_left;
+			reg rotate_extend, rotate_right;
 			reg [31:0] r, sext, win;
 			reg        c, x2, vf;
 			n  = shcnt;
@@ -305,9 +327,17 @@ always @* begin
 			ne = (n > nbits) ? nbits : n;
 			cmask = (33'd2 << nbits) - 33'd1;
 			w = ({32'd0, f_x} << nbits) | {1'b0, bm};
+			rotate_extend = (op == `AP040_ALU_ROXL1) || (op == `AP040_ALU_ROXR1);
+			rotate_right = (op == `AP040_ALU_ROR1) || (op == `AP040_ALU_ROXR1);
+			rotate_width = nbits + rotate_extend;
+			rotate_amount = rotate_extend ? nx : nm;
+			rotate_left = rotate_right ? (rotate_width - rotate_amount) : rotate_amount;
+			rotate_in = rotate_extend ? w : {1'b0, bm};
+			rotate_mask = rotate_extend ? cmask : {1'b0, szmask};
+			rot = ((rotate_in << rotate_left) | (rotate_in >> (rotate_width - rotate_left))) & rotate_mask;
 			case (op)
 				`AP040_ALU_ASL1, `AP040_ALU_LSL1: begin
-					r = (bm << n) & szmask;
+					r = shared_shift_result;
 					c = (n <= nbits) && (((bm >> (nbits - n)) & 32'd1) != 0);
 					x2 = c;
 					if (op == `AP040_ALU_ASL1) begin
@@ -320,36 +350,31 @@ always @* begin
 					end
 				end
 				`AP040_ALU_LSR1: begin
-					r = bm >> n;
+					r = shared_shift_result;
 					c = (n <= nbits) && (((bm >> (n - 6'd1)) & 32'd1) != 0);
 					x2 = c;
 				end
 				`AP040_ALU_ASR1: begin
-					// unsigned formulation: shift, then OR the sign fill
-					// (an embedded >>> would lose its signedness to the
-					// surrounding unsigned expression context)
-					r = (bm >> ne) |
-					    (b_msb ? ((~(szmask >> ne)) & szmask) : 32'd0);
+					// Sign-extend for arithmetic shifts before the shared signed right shift.
+					r = shared_shift_result;
 					c = (n >= nbits) ? b_msb
 					                 : (((bm >> (n - 6'd1)) & 32'd1) != 0);
 					x2 = c;
 				end
 				`AP040_ALU_ROL1: begin
-					r = ((bm << nm) | (bm >> (nbits - nm))) & szmask;
+					r = rot[31:0] & szmask;
 					c = r[0];
 				end
 				`AP040_ALU_ROR1: begin
-					r = ((bm >> nm) | (bm << (nbits - nm))) & szmask;
+					r = rot[31:0] & szmask;
 					c = ((r >> (nbits - 6'd1)) & 32'd1) != 0;
 				end
 				`AP040_ALU_ROXL1: begin
-					rot = ((w << nx) | (w >> (nbits + 6'd1 - nx))) & cmask;
 					x2 = ((rot >> nbits) & 33'd1) != 0;
 					r = rot[31:0] & szmask;
 					c = x2;
 				end
 				default: begin // AP040_ALU_ROXR1
-					rot = ((w >> nx) | (w << (nbits + 6'd1 - nx))) & cmask;
 					x2 = ((rot >> nbits) & 33'd1) != 0;
 					r = rot[31:0] & szmask;
 					c = x2;
@@ -359,22 +384,22 @@ always @* begin
 			flags_out = {x2, res_msb(r), res_zero(r), vf, c};
 		end
 
-		`AP040_ALU_BTST: begin
+		`AP040_ALU_BTST: if (!PIPELINE_SUBSET) begin
 			result = bm;
 			flags_out = {f_x, flags_in[3], ~bit_set, flags_in[1], flags_in[0]};
 		end
 
-		`AP040_ALU_BCHG: begin
+		`AP040_ALU_BCHG: if (!PIPELINE_SUBSET) begin
 			result = (bm ^ bit_mask) & szmask;
 			flags_out = {f_x, flags_in[3], ~bit_set, flags_in[1], flags_in[0]};
 		end
 
-		`AP040_ALU_BCLR: begin
+		`AP040_ALU_BCLR: if (!PIPELINE_SUBSET) begin
 			result = bm & ~bit_mask;
 			flags_out = {f_x, flags_in[3], ~bit_set, flags_in[1], flags_in[0]};
 		end
 
-		`AP040_ALU_BSET: begin
+		`AP040_ALU_BSET: if (!PIPELINE_SUBSET) begin
 			result = (bm | bit_mask) & szmask;
 			flags_out = {f_x, flags_in[3], ~bit_set, flags_in[1], flags_in[0]};
 		end

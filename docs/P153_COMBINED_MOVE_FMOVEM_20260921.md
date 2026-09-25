@@ -1,0 +1,15 @@
+# P153 combined MOVE and FMOVEM CPU candidate
+
+Unqualified scratch integration of P152 FMOVEM completion, P146 memory-to-memory read/write handoff and P149 refill memory MOVE decode. P152 already includes P137/P143/P148; P141 register-store changes are not included. Source `scratch/p153_combined_cpu_20260921/ap040_core.v`, SHA256 `1bc6ede374d0943d9e48f9cb11566582fdd1d776c1d70d7cb8e713c25e063192`. Patch `scripts/cpu/combined_move_fmovem.patch` applies to P152.
+
+P146's memory-issue patch conflicted with P143's FPU store hints in context. Root retained both hint_st_fpu/hint_st_fmovem and added P146's successful read-to-write exception to the occupied-port guard. The ALU data selection, ordered handoff and P149 refill decoder otherwise use their separate candidate changes. An intermediate partially applied scratch file was not tested or accepted.
+
+Original Whetstone/Dhrystone screens with explicit P120 pipeline and P136 cache are queued. Separate-candidate gains do not prove combined performance or correctness. Full integration and directed interaction checks remain required; production HDL remains frozen for P150. No FPGA/hardware claim.
+
+Original Whetstone screen completed at25,356,654 loop/25,357,282 returned cycles:150,357 fewer loop cycles than P152 (0.589%). Root verified all three captures, all non-core identities and all source hashes against P152 (`scratch/whetstone_full_p153_20260921/root_audit.txt`). Combined improvement versus P137/P120/P136 is3.38% fewer loop cycles. Dhrystone and full combined-candidate correctness remain pending; this is not hardware Speedometer evidence.
+
+Original Dhrystone finishes104,554,228 loop/104,555,118 returned cycles, saving1,500,022 loop cycles (1.414%) versus P152. Root compared all five captures and non-core identities, rehashed sources, and independently reran the50,000-iteration output checker: PASS (`scratch/dhrystone_full_p153_20260921/root_audit.txt`). Full combined CPU integration is now running.
+
+Root audited full combined CPU integration:22programs+4IRQ/replay cases pass, balanced handoff accounting, exact oracle trace and all source hashes match (`scratch/p153_full_integration_20260921/root_audit.txt`). Directed combined-path checks continue, including a root-created FMOVEM static/dynamic mask fixture with distinct1/2/4/8 register values to detect ordering errors hidden by identical values.
+
+Root audited FMOVEM distinct-order runs for P148/P153/P154 with explicitP120/P136: static and dynamic masks transfer FP0/FP2/FP5/FP7 holding1/2/4/8, with independent memory representation checks, source preservation, initialized guards and address assertions. All3phases pass, all recorded source hashes match. Each core performs72read/72store acknowledged beats; edge-correlated completion counts are0/0 onP148 and72/72 onP153/P154. Fixtures `scripts/cpu/fmovem_distinct_order.s` and `scripts/cpu/fmovem_order_monitor.sv.inc` (top mvm_order_monitor, candidate plusarg require_early). Evidence `scratch/p153_fmovem_order_runs_20260921`.
