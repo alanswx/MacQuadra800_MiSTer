@@ -42,12 +42,12 @@ set_global_assignment -name OPTIMIZATION_MODE BALANCED
 set_global_assignment -name ALLOW_POWER_UP_DONT_CARE ON
 set_global_assignment -name QII_AUTO_PACKED_REGISTERS NORMAL
 set_global_assignment -name ROUTER_LCELL_INSERTION_AND_LOGIC_DUPLICATION ON
-set_global_assignment -name PHYSICAL_SYNTHESIS_COMBO_LOGIC OFF
+set_global_assignment -name PHYSICAL_SYNTHESIS_COMBO_LOGIC ON
 set_global_assignment -name PHYSICAL_SYNTHESIS_REGISTER_DUPLICATION OFF
 set_global_assignment -name PHYSICAL_SYNTHESIS_REGISTER_RETIMING ON
 # 2026-09-24: full-peripheral baseline needs 42,617 ALMs (device 41,910).
 # Measure AREA synthesis; timing and crossings remain acceptance gates.
-set_global_assignment -name OPTIMIZATION_TECHNIQUE AREA
+set_global_assignment -name OPTIMIZATION_TECHNIQUE BALANCED
 set_global_assignment -name MUX_RESTRUCTURE ON
 set_global_assignment -name REMOVE_REDUNDANT_LOGIC_CELLS ON
 set_global_assignment -name AUTO_DELAY_CHAINS_FOR_HIGH_FANOUT_INPUT_PINS ON
@@ -507,17 +507,18 @@ set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_XSTORE=1"
 # Overlap LEA displacement fetch with base selection; checked independently.
 set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_LEA=1"
 # P6 candidate: broaden the resident integer/memory stream at authentic 33 MHz.
-set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_PIPELINE=1"
+#set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_PIPELINE=1"
 # Seqmem full fit cost 30 more ALMs; restore pipeline loads/stores.
-set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_PIPELINE_LOADS=1"
-set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_PIPELINE_STORES=1"
-set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_PIPELINE_PEA=1"
+#set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_PIPELINE_LOADS=1"
+#set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_PIPELINE_STORES=1"
+#set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_PIPELINE_PEA=1"
 # P6 memory-entry trial: avoid unrestricted entry's measured Mix regression.
-set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_PIPELINE_P6=1"
-set_global_assignment -name VERILOG_MACRO "AP040_PIPELINE_MEMORY_ENTRY=1"
+#set_global_assignment -name VERILOG_MACRO "AP040_EXPERIMENTAL_PIPELINE_P6=1"
+#set_global_assignment -name VERILOG_MACRO "AP040_PIPELINE_MEMORY_ENTRY=1"
 # P7 compare trial: indexed CMP/TST plus final-WB legacy handoff.
-set_global_assignment -name VERILOG_MACRO "AP040_PIPELINE_COMPARE=1"
-set_global_assignment -name VERILOG_MACRO "AP040_PIPELINE_EARLY_DRAIN=1"
+#set_global_assignment -name VERILOG_MACRO "AP040_PIPELINE_COMPARE=1"
+#set_global_assignment -name VERILOG_MACRO "AP040_PIPELINE_EARLY_DRAIN=1"
+set_global_assignment -name VERILOG_MACRO "MISTER_DISABLE_SHADOWMASK=1"
 set_global_assignment -name VERILOG_MACRO "CACHE_CD_OFF=1"
 #set_global_assignment -name VERILOG_MACRO "VIDEO_512_OFF=1"
 set_global_assignment -name VERILOG_MACRO "CACHE_SMALL=1"
