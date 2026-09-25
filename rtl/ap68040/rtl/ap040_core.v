@@ -2602,6 +2602,22 @@ wire [31:0] go_pc_t_early =
 // The carrier task's simulation check compares against the caller's
 // argument, so a state where they differed would be reported.
 wire [31:0] dbrf_a_early = go_pc_t_early;
+// Prepare resident-redirect payload before the late acknowledge/dispatch
+// qualifier. Keep that qualifier on the final write only, not on the
+// address feeding the bank and lane selection network.
+wire [3:0] dbrf_seed_n_early = brf_run[dbrf_a_early[5:1]];
+wire [15:0] dbrf_seed_lane_early [0:7];
+wire [15:0] dbrf_seed_word_early [0:7];
+genvar dbrf_lane;
+generate for (dbrf_lane = 0; dbrf_lane < 8; dbrf_lane = dbrf_lane + 1) begin : early_brf_seed
+    localparam [1:0] bank = dbrf_lane / 2;
+    wire [1:0] row = dbrf_a_early[5:4] + (dbrf_lane < dbrf_a_early[3:1]);
+    wire [2:0] lane_sel = dbrf_a_early[3:1] + dbrf_lane;
+    assign dbrf_seed_lane_early[dbrf_lane] = (dbrf_lane % 2) ?
+        brf_data[{row, bank}][15:0] :
+        brf_data[{row, bank}][31:16];
+    assign dbrf_seed_word_early[dbrf_lane] = dbrf_seed_lane_early[lane_sel];
+end endgenerate
 wire  [4:0] alu_fast_fl;
 wire        alu_fast_ok;
 // Forward final pipeline WB flags before SR's sequential update, just as
@@ -10377,7 +10393,13 @@ always @(posedge clk) begin
 			end
 			for (si = 0; si < 8; si = si + 1) begin
 				lane_sel = brf_seed_a[2:0] + si[2:0];
-				if (si[3:0] < brf_seed_n) epf_data[si] <= lane_word[lane_sel];
+				// Retain brf_seed_req even for dgo: issue_ifetch can keep
+                // an already armed stream without requesting a seed.
+                if (dgo) begin
+                    if (si[3:0] < dbrf_seed_n_early)
+                        epf_data[si] <= dbrf_seed_word_early[si];
+                end else if (si[3:0] < brf_seed_n)
+                    epf_data[si] <= lane_word[lane_sel];
 			end
 		end
 
