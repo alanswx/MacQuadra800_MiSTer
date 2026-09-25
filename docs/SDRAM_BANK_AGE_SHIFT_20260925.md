@@ -1,0 +1,7 @@
+# SDRAM bank-age shift encoding
+
+`rtl/sdram.sv` uses the per-bank age only to decide whether the five-cycle tRAS minimum has elapsed. The previous three-bit saturating count fed several `>= 5` comparators, including the critical `bank_age[0][1] -> chip` path (−0.697 ns in the routed 15a1449 fit). The new five-bit shift token sets bit 4 after five open-bank `clk_ram` edges, so the control checks use that bit directly. ACT, PRECHARGE, init, and age-update priority stay unchanged; the shift array retains `ramstyle="logic"`.
+
+An exhaustive per-bank transition check covered 25 legal transitions across 10 reachable age/row states, including tick, close, ACT/reopen, and init overriding concurrent state updates. The SDRAM chip-model test passed 174 checks with no protocol errors. The posted/non-posted memory-path modes, the dedicated `tb_memory_path_registered_first_miss` bench (64 integrated sequential reads plus 2,048 mixed posted-write/read operations), and the DMA integration test also passed. Full logs, proof source, and the isolated map are retained under `scratch/sdram_age_shift_20260924/`.
+
+Quartus 17.0.2 standalone bridge synthesis changed from 618 estimated ALMs/958 registers to 624/974 (+6 ALMs, +16 registers). The unchanged posted-write queue still maps to 488 MLAB bits in 61 MLAB cells; no M10K blocks were added. This area result and functional regressions do not establish a timing improvement. A new routed fit and STA on this exact candidate are still required before claiming the critical path improved.

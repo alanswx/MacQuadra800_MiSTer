@@ -19,13 +19,30 @@ Optional internal MLAB register/pin collections were empty, although capture
 paths include actual MLAB MEMORYREGOUT startpoints. Preserve this coverage
 limit; it is not a pass for those optional reports.
 
-Root is reviewing the separate RAM-domain failing path. Luna
-`interim_validation` is doing READ-ONLY MiSTer preflight; no new core has been
-loaded yet. User already authorized replacing the running core on mister.local
-and using the disposable disk. Timing-marginal exploratory hardware use is
-allowed by project/user policy, but the exact misses must remain visible and
-the build must not be described as timing-clean. `alu_rotate_sharing` owns the
-remaining timing evidence; no further full build is active at this update.
+RAM-domain review identifies bank_age[0][1] to chip as the worst setup
+path, distinct from the passing queue capture paths. At 2026-09-25 02:37 UTC,
+Luna copied the exact RBF above to mister.local (10.3.89.233); its remote
+SHA256 matches. The display reached Mac Finder by 02:38:54 and the clock
+advanced by 02:40:28. Main PID 18332 opened the disposable test HDA; slot 0
+and CFG 40 00 00 00 were unchanged. The protected original was untouched.
+The loader exited 1 because websocket coreRunning continued to say FM-7:
+retain this discrepancy, despite the independent video/process/disk evidence
+of Mac boot. Evidence: scratch/interim_mac_wqmlab_hw_20260924/README.md.
+
+Luna interim_validation is assigned five valid Speedometer runs on this
+artifact, followed by separately directed peripheral/shutdown validation.
+No benchmark, peripheral, or shutdown pass is established by boot alone.
+Timing-marginal exploratory use is authorized; do not call this timing-clean.
+
+A scratch five-bit shift encoding for SDRAM bank age preserves the five-cycle
+tRAS predicate. The 25 legal-transition proof across 10 reachable per-bank age/row states and memory regressions pass;
+standalone bridge mapping costs +6 ALMs/+16 registers (624/974) with unchanged
+488 MLAB bits. Root reviewed the diff and authorized promotion and a separate
+full fit, interim_mac_ageshift, owned by Luna alu_rotate_sharing. This is a
+candidate timing improvement, not a routed result. Check actual processes and
+agent evidence before assuming the new fit is active or finished. Hardware
+validation continues on source 15a1449 until a replacement is explicitly
+identified. No CPU/features/SDC changes are part of the age encoding candidate.
 
 Read this terminal section before the historical live-build statements below.
 
