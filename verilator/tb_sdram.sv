@@ -442,7 +442,7 @@ initial begin
 	         checks, fails, chip.errors + chip_hi.errors);
 	if (fails == 0 && chip.errors == 0 && chip_hi.errors == 0)
 		$display("tb_sdram: OK");
-	else $display("tb_sdram: FAILED");
+	else $fatal(1, "tb_sdram: FAILED");
 	$finish;
 end
 

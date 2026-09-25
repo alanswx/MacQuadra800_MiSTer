@@ -41,7 +41,23 @@ passed 174 checks with zero failures and zero SDRAM protocol errors. A scratch
 DUT that drops byte-enable bit 0 fails 129 data checks (exit 1), confirming the
 oracle catches corruption. Evidence is in `scratch/sdram_wq_stress_20260924/`.
 This validates the existing queue and establishes a gate for a storage change;
-it does not validate a new RAM implementation yet.
+it does not validate a new RAM implementation yet. The tracked bench now uses
+`$fatal` for scoreboard/protocol failures (previously it only printed FAILED).
+This exact final bench passed a fresh positive run in `fatalpositive/` and is
+byte-identical to the bench that rejected the negative DUT.
+
+The branch-refill prefix-after-select screen completed and was rejected:
+25,534 estimated CPU ALMs vs25,514 baseline (+20), same 8,966 registers.
+Its 116,384-case miter passes and wrong-index mutation fails, but there is no
+area benefit to justify its target-arrival timing risk. Evidence:
+`scratch/brf_prefix_after_select_20260924/RESULTS.md`.
+
+The active next prototype is an explicit asynchronous-read MLAB for the
+8x61-bit SDRAM write queue, being prepared by `alu_rotate_sharing` under
+`scratch/sdram_wq_memory_review_20260924/`. Check write data/address/control
+are INCLOCK, read address/output UNREGISTERED, and inspect actual map memory
+resources. No production storage change has been made. Mapping and a generic
+behavioral simulation alone do not prove primitive collision/timing safety.
 
 Keep the full-feature profile and current QSF unchanged pending these results.
 After a promising candidate passes meaningful simulation and map checks,
