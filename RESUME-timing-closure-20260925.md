@@ -1,5 +1,19 @@
 # Resume here: timing closure and disk profiling, 2026-09-25
 
+## LATEST (2026-09-25 evening): timing closed, PR #7 open
+
+`a0b3072` meets timing on every clock: CPU +0.007, SDRAM +0.082, HDMI +0.044 ns,
+all holds and crossings positive, 38,329 ALMs.  The build has every feature,
+with the second integer pipeline out, speed physical synthesis, and the
+IOSB-to-MLAB change.  On hardware: Mix median 1.670, and pings, CD data, CD
+audio transport and shutdown pass.  PR: https://github.com/danifunker/MacQuadra800_MiSTer/pull/7
+(branch `alanswx:full-feature-timing-clean-20260925`).  Still open: audible CD
+output and the OSD (user), FTP round trip, A/UX (Dani).  The MiSTer runs Main
+`MiSTer.bak_pre_fujinet` (d5b50fc4, Quadra + printer); the FujiNet Main is
+kept as `MiSTer.fujinet-20260925`.  The guest is at the safe screen.  Details:
+`docs/TIMING_CLOSURE_20260925_B.md`, `docs/perf/fullfeature_clean_20260925/`.
+Everything below is the earlier checkpoint.
+
 ## Current state — authoritative checkpoint
 
 User requested a crash-safe checkpoint because credits are nearly exhausted.
