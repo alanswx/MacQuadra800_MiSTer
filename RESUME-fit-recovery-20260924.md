@@ -1,6 +1,46 @@
 # Power-loss recovery and next-step strategy
 
-## Latest update: previous run stopped; replacement build active
+## Current result: replacement failed routing; structural screens active
+
+This section supersedes all live-build statements below. The
+`interim_mac_borrow_nospeedphys` flow from `fa4fd9d` finished in 17m06s with
+routing congestion and excessive hold-repair demand (188005/16618/188026).
+`build.exit=3`, `source_check_after.exit=0`; no fresh RBF or STA was generated.
+The old files in `output_files/` are not this candidate. No Mac Quartus process
+was present during the subsequent process check.
+
+The fitter reports **39,464 actual placed ALMs**, minus 1 recoverable plus
+1,485 estimated unavailable = **40,948 needed / 41,910**. Of the unavailable
+estimate, 1,372 come from LAB input limits. LAB use is **4,179 / 4,191**;
+average routing usage 53.9%, peak vertical 106.8%. These are placement/router
+estimates from a failed route, not proof of timing or deployability.
+
+The two-bit DIV/SQRT scratch candidate is now fully screened: recurrence
+miter 100,032 operations and directed CPU suite passed, but CPU-only mapping
+saved only **89 ALMs** (25,425 vs25,514) while adding 11 arithmetic loop cycles
+(+46% DIV, +48% SQRT). Do not integrate it on the current evidence.
+
+Next work is structural and keeps all features:
+
+- Luna `interim_validation` is comparing hierarchy, LAB input loss and hold
+  repair against earlier failed fits, with results destined for
+  `scratch/routing_review_20260924.md`.
+- Luna `brf_barrel_screen` is screening selection-before-prefix decoding of
+  branch-refill validity windows in scratch. Existing precomputation was a
+  deliberate timing optimization, so any area win must also face timing and
+  branch/pipeline validation. No production change has been made.
+- Root is inspecting the eight-entry SDRAM posted-write FIFO as a possible
+  structural routing reduction. Its 33/99 MHz crossings are related and
+  must remain timed. No timing exceptions or FIFO changes are authorized by
+  evidence yet; preserve ordering, collision safety and throughput.
+
+Keep the full-feature profile and current QSF unchanged pending these results.
+After a promising candidate passes meaningful simulation and map checks,
+commit/push it, run a uniquely tagged full flow, then follow the fresh-artifact,
+timing and hardware gates below. MiSTer remains user-authorized for replacement;
+no new full-feature candidate has been deployed.
+
+## Previous update: previous run stopped; replacement build active
 
 Updated after the user asked whether to kill the long run and move on.
 **This section supersedes the original live-build status and next-setting
