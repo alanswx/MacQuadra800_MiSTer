@@ -1,4 +1,21 @@
-# Experimental full-feature test build
+# Test builds
+
+## Full-feature, timing-clean (2026-09-25): `MacQuadra800_fullfeature_timingclean_20260925_a0b3072.rbf`
+
+- Source `a0b3072`, seed 21, Quartus 17.0.2.  SHA-256
+  `ce26df46c0c7d7db0ef2d1088809f20adb2be92a3e8ea8eef9cc991d474e238e`, md5 `46b85dccbacd8c432fcd372b9d20ecaf`.
+- **Timing met on every clock**: CPU +0.007, SDRAM +0.082, HDMI +0.044 ns setup;
+  holds, recovery/removal and the SDRAM crossings positive.
+- Ethernet, CD-ROM/CD audio, SCSI block cache, OSDs, audio and Y/C in.  The second
+  integer pipeline is out (the area and timing price); CPU caches 8+8 KB.
+- Speedometer Mix, five runs: median **1.670** (1.661-1.676).
+- Ethernet pings, CD data, CD audio transport and normal shutdown pass; audible CD
+  output, the OSD menu, the FTP round trip and A/UX are not yet checked.
+  Evidence: `docs/perf/fullfeature_clean_20260925/`.
+- Needs a Main with the Quadra 800 support (`grep -a -c macquadra800 MiSTer` > 0);
+  with a Main that lacks it the screen stays black.
+
+## Earlier: experimental full-feature interim build (timing NOT met)
 
 This is the exact FPGA artifact used for the September 25 hardware tests.
 **It is not a timing-clean release.** CPU/RAM/HDMI setup slacks are

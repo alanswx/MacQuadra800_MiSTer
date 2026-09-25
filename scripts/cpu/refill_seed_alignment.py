@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check a 128-byte refill selector against an independent word-array oracle."""
+"""Check the 64-byte refill selector against an independent halfword-array oracle."""
 import argparse
 from pathlib import Path
 import subprocess

@@ -5289,7 +5289,7 @@ always @(posedge clk) begin
 	mgo = 0; mgo_wr = 0; mgo_sz = 2'd0; mgo_ret = 8'd0; mgo_a = 32'd0; mgo_d = 32'd0;
 	brf_seed_n  = 4'd0;
 	brf_seed_req = 0;
-	brf_seed_a  = 5'd0;
+	brf_seed_a  = 5'bxxxxx; // Unused unless brf_seed_req assigns a valid target.
 
 	if (!nreset) begin
 		state <= S_START;

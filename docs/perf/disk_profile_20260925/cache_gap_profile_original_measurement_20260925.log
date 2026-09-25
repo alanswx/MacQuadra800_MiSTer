@@ -1,0 +1,61 @@
+PROFILE_CONFIG clk_period_ns=30 FLUSH_IDLE_cycles=4096 FLUSH_IDLE_ns=122880 backend_cycles=133333 backend_delay_ns=3999990 sectors_per_group=8
+SCENARIO_BEGIN id=1 gap_cycles=333 nominal_gap_ns=9990 backend_latency_cycles=133333
+ENGINE_WRITE_ACCEPT scenario=1 cycle=24 time_ns=735000
+ENGINE_WRITE_ACCEPT scenario=1 cycle=1133 time_ns=34005000
+ENGINE_WRITE_ACCEPT scenario=1 cycle=2239 time_ns=67185000
+ENGINE_WRITE_ACCEPT scenario=1 cycle=3345 time_ns=100365000
+ENGINE_WRITE_ACCEPT scenario=1 cycle=4451 time_ns=133545000
+ENGINE_WRITE_ACCEPT scenario=1 cycle=5557 time_ns=166725000
+ENGINE_WRITE_ACCEPT scenario=1 cycle=6663 time_ns=199905000
+ENGINE_WRITE_ACCEPT scenario=1 cycle=7769 time_ns=233085000
+BACKEND_WRITE scenario=1 time_ns=256275000 lba=0 blocks=8
+SCENARIO_END id=1 transactions=1 singles=0 groups8=1 other=0 timeout_cycles=135388
+SCENARIO_BEGIN id=2 gap_cycles=3333 nominal_gap_ns=99990 backend_latency_cycles=133333
+ENGINE_WRITE_ACCEPT scenario=2 cycle=143950 time_ns=4318515000
+ENGINE_WRITE_ACCEPT scenario=2 cycle=148056 time_ns=4441695000
+ENGINE_WRITE_ACCEPT scenario=2 cycle=152162 time_ns=4564875000
+ENGINE_WRITE_ACCEPT scenario=2 cycle=156268 time_ns=4688055000
+ENGINE_WRITE_ACCEPT scenario=2 cycle=160374 time_ns=4811235000
+ENGINE_WRITE_ACCEPT scenario=2 cycle=164480 time_ns=4934415000
+ENGINE_WRITE_ACCEPT scenario=2 cycle=168586 time_ns=5057595000
+ENGINE_WRITE_ACCEPT scenario=2 cycle=172692 time_ns=5180775000
+BACKEND_WRITE scenario=2 time_ns=5203905000 lba=0 blocks=8
+SCENARIO_END id=2 transactions=1 singles=0 groups8=1 other=0 timeout_cycles=135386
+SCENARIO_BEGIN id=3 gap_cycles=6667 nominal_gap_ns=200010 backend_latency_cycles=133333
+ENGINE_WRITE_ACCEPT scenario=3 cycle=308871 time_ns=9266145000
+BACKEND_WRITE scenario=3 time_ns=9413895000 lba=0 blocks=1
+ENGINE_WRITE_ACCEPT scenario=3 cycle=316311 time_ns=9489345000
+ENGINE_WRITE_ACCEPT scenario=3 cycle=323751 time_ns=9712545000
+ENGINE_WRITE_ACCEPT scenario=3 cycle=331191 time_ns=9935745000
+ENGINE_WRITE_ACCEPT scenario=3 cycle=338631 time_ns=10158945000
+ENGINE_WRITE_ACCEPT scenario=3 cycle=346071 time_ns=10382145000
+ENGINE_WRITE_ACCEPT scenario=3 cycle=353511 time_ns=10605345000
+ENGINE_WRITE_ACCEPT scenario=3 cycle=360951 time_ns=10828545000
+BACKEND_WRITE scenario=3 time_ns=13421805000 lba=1 blocks=1
+BACKEND_WRITE scenario=3 time_ns=17429715000 lba=2 blocks=1
+BACKEND_WRITE scenario=3 time_ns=21437625000 lba=3 blocks=1
+BACKEND_WRITE scenario=3 time_ns=25445535000 lba=4 blocks=1
+BACKEND_WRITE scenario=3 time_ns=29453445000 lba=5 blocks=1
+BACKEND_WRITE scenario=3 time_ns=33461355000 lba=6 blocks=1
+BACKEND_WRITE scenario=3 time_ns=37469265000 lba=7 blocks=1
+SCENARIO_END id=3 transactions=8 singles=8 groups8=0 other=0 timeout_cycles=1020847
+SCENARIO_BEGIN id=4 gap_cycles=33333 nominal_gap_ns=999990 backend_latency_cycles=133333
+ENGINE_WRITE_ACCEPT scenario=4 cycle=1382591 time_ns=41477745000
+BACKEND_WRITE scenario=4 time_ns=41625465000 lba=0 blocks=1
+ENGINE_WRITE_ACCEPT scenario=4 cycle=1416697 time_ns=42500925000
+ENGINE_WRITE_ACCEPT scenario=4 cycle=1450803 time_ns=43524105000
+ENGINE_WRITE_ACCEPT scenario=4 cycle=1484909 time_ns=44547285000
+ENGINE_WRITE_ACCEPT scenario=4 cycle=1519015 time_ns=45570465000
+BACKEND_WRITE scenario=4 time_ns=45717855000 lba=1 blocks=1
+ENGINE_WRITE_ACCEPT scenario=4 cycle=1553121 time_ns=46593645000
+ENGINE_WRITE_ACCEPT scenario=4 cycle=1587227 time_ns=47616825000
+ENGINE_WRITE_ACCEPT scenario=4 cycle=1621333 time_ns=48640005000
+BACKEND_WRITE scenario=4 time_ns=49725765000 lba=2 blocks=1
+BACKEND_WRITE scenario=4 time_ns=53733675000 lba=3 blocks=1
+BACKEND_WRITE scenario=4 time_ns=57741585000 lba=4 blocks=1
+BACKEND_WRITE scenario=4 time_ns=61749495000 lba=5 blocks=1
+BACKEND_WRITE scenario=4 time_ns=65757405000 lba=6 blocks=1
+BACKEND_WRITE scenario=4 time_ns=69765315000 lba=7 blocks=1
+SCENARIO_END id=4 transactions=8 singles=8 groups8=0 other=0 timeout_cycles=837000
+PROFILE_DONE failures=0
+scratch/disk_cache_gap_profile_20260925/tb_scsi_cache_gap.sv:304: $finish called at 73773750000 (1ps)

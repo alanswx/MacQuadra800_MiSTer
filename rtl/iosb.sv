@@ -476,7 +476,15 @@ wire [7:0] via2_ifr_r = {via2_active, via2_ifr[6:1], scsi_drq_i};
 // IOSB config registers: 16-bit scratch at 256-byte strides, readback only
 // (reg 2 also times Turbo SCSI pseudo-DMA — consumed in stage 3)
 //----------------------------------------------------------------------------
-reg [15:0] iosb_regs [0:31];
+// Scratch storage lives in MLABs (the register-file pattern: no reset,
+// asynchronous read) instead of 512 flops with a 32:1 mux; a valid bit per
+// slot gives the reset readback (all zero, IOSB_CONFIG = 1) without a reset
+// loop over the array, which would keep it in registers.  2026-09-25.
+(* ramstyle = "MLAB, no_rw_check" *) reg [7:0] iosb_regs_hi [0:31];
+(* ramstyle = "MLAB, no_rw_check" *) reg [7:0] iosb_regs_lo [0:31];
+reg [31:0] iosb_regs_v;
+wire [15:0] iosb_regs_q = iosb_regs_v[addr[12:8]] ? {iosb_regs_hi[addr[12:8]], iosb_regs_lo[addr[12:8]]}
+                                                  : ((addr[12:8] == 5'd0) ? 16'd1 : 16'd0);
 
 //----------------------------------------------------------------------------
 // djMEMC memory controller registers at $5000E000 (QEMU hw/misc/djmemc.c:
@@ -485,7 +493,9 @@ reg [15:0] iosb_regs [0:31];
 // RAM sizing writes bank configurations and reads them back — scratch
 // readback is what the known-good QEMU model provides.
 //----------------------------------------------------------------------------
-reg [31:0] djmemc_regs [0:15];
+(* ramstyle = "MLAB, no_rw_check" *) reg [31:0] djmemc_regs [0:15];
+reg [15:0] djmemc_regs_v;
+wire [31:0] djmemc_regs_q = djmemc_regs_v[addr[5:2]] ? djmemc_regs[addr[5:2]] : 32'd0;
 
 //----------------------------------------------------------------------------
 // Decode (offset relative to $50000000; MAME iosb.cpp map with mirrors)
@@ -1067,9 +1077,8 @@ always @(posedge clk) begin
 		via2_ifr  <= 8'h00;
 		via2_ier  <= 8'h00;
 		vbl_d <= 0; scsi_d <= 0; drq_d <= 0; asc_d <= 0; slot_d <= 0;
-		for (int j = 0; j < 16; j = j + 1) djmemc_regs[j] <= 32'd0;
-		for (int j = 0; j < 32; j = j + 1) iosb_regs[j] <= 16'd0;
-		iosb_regs[0] <= 16'd1;               // IOSB_CONFIG: BCLK 33 MHz (QEMU)
+		djmemc_regs_v <= 16'd0;
+		iosb_regs_v <= 32'd0;                // IOSB_CONFIG reads 1 (BCLK 33 MHz, QEMU) until written
 		sdma_rd <= 0; sdma_wr <= 0; sdma_left <= 0;
 		sdma_shift <= 0; sdma_wbyte <= 0; sdma_be <= 0;
 		sdma_watch <= 0; sdma_fault <= 0;
@@ -1132,21 +1141,31 @@ always @(posedge clk) begin
 				else if (sel_regs) begin
 					// one u16 reg per 256-byte stride; every word slot in the
 					// block aliases it (MAME offset>>7), low slot written last
-					if (write) begin
+					if (write) begin : iosb_regs_wr
+						// a byte write to a slot never written before must keep
+						// the other byte's reset value: fill from the current readback
+						reg [15:0] merged;
+						merged = iosb_regs_q;
 						if (be[1] | be[0]) begin
-							if (be[1]) iosb_regs[addr[12:8]][15:8] <= wdata[15:8];
-							if (be[0]) iosb_regs[addr[12:8]][7:0]  <= wdata[7:0];
+							if (be[1]) merged[15:8] = wdata[15:8];
+							if (be[0]) merged[7:0]  = wdata[7:0];
 						end
 						else begin
-							if (be[3]) iosb_regs[addr[12:8]][15:8] <= wdata[31:24];
-							if (be[2]) iosb_regs[addr[12:8]][7:0]  <= wdata[23:16];
+							if (be[3]) merged[15:8] = wdata[31:24];
+							if (be[2]) merged[7:0]  = wdata[23:16];
 						end
+						iosb_regs_hi[addr[12:8]] <= merged[15:8];
+						iosb_regs_lo[addr[12:8]] <= merged[7:0];
+						iosb_regs_v[addr[12:8]]  <= 1'b1;
 					end
-					else rdata <= {2{iosb_regs[addr[12:8]]}};
+					else rdata <= {2{iosb_regs_q}};
 				end
 				else if (sel_djmemc) begin
-					if (write) djmemc_regs[addr[5:2]] <= wdata;
-					else       rdata <= djmemc_regs[addr[5:2]];
+					if (write) begin
+						djmemc_regs[addr[5:2]]   <= wdata;
+						djmemc_regs_v[addr[5:2]] <= 1'b1;
+					end
+					else rdata <= djmemc_regs_q;
 				end
 				else if (sel_asc) begin
 					// the asc sample RAM reads back through a registered
