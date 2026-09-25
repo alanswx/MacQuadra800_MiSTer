@@ -10,7 +10,7 @@ restart its fits. No Quartus, simulation, or hardware-control job remains active
 Dani's target repository is `danifunker/MacQuadra800_MiSTer`, base `main`.
 The fetched upstream/main is already an ancestor of this work, so no rebase or
 merge is needed. The review branch is `alanswx:cpu-full-feature-interim-20260925`.
-**Draft PR: https://github.com/danifunker/MacQuadra800_MiSTer/pull/6**
+**PR: https://github.com/danifunker/MacQuadra800_MiSTer/pull/6**
 
 This is an experimentally working interim build with timing
 failures and explicitly deferred physical checks, not a validated release.
@@ -82,9 +82,12 @@ PID was 31518. Slot 0 is only
 restored 1024-byte empty-path buffer (first byte NUL, trailing bytes preserved),
 SHA `885049f1219036556d7a8455af614213db3b98d35f4b587ae1b4c7ce2e2ace3f`.
 
+The user requested finalizing the PR for review. Timing failures and deferred
+physical checks remain explicit; review readiness does not certify a release.
+
 ## Next steps
 
-1. Review the draft PR and reproduce with the provided artifact/source manifest.
+1. Review the PR and reproduce with the provided artifact/source manifest.
    Keep timing and deferred physical checks explicit before any release decision.
 2. Complete the user's audio/OSD observations when they are at the display;
    A/UX remains Dani's check. Coordinate one hardware operator and use Luna for
