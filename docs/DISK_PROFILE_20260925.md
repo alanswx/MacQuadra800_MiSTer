@@ -50,6 +50,23 @@ The timed interval brackets only each sequence of write syscalls. Device-wide `m
 
 This is a host backend microbenchmark, not a guest throughput result and not a model of SCSI request pacing. It shows a strong batch-size effect for this host/filesystem configuration, with substantial per-call tails, but does not prove the guest Disk rating is backend-bound. The device counters may include other activity, and a single sweep per size gives no run-to-run variance. The reported p95 is the floor-index empirical order statistic from the captured syscall timings.
 
+## Controlled cache flush-gap simulation
+
+A scratch-derived run of the existing `tb_scsi_cache` testbench measured emitted platform write sizes for eight sequential single-sector writes under four schedules. Source `rtl/scsi_cache.sv` SHA-256 was `52e16f34ee3f7fae8aa6a02e72897631bf37061ebd3aface93d96e73d3746dce`; the original testbench SHA-256 was `3a11fe680e6217c68ac9af683f90c6cdd87c94f3b95d57c147d4b00a0c6a85d5`. The current RTL uses `FLUSH_IDLE=4096`; at the bench's 30 ns clock (33.333 MHz) that is 122.88 µs. The small-cache full-group write is eight sectors (`p_blk_cnt=7`); partial dirty groups are sent one sector at a time (`p_blk_cnt=0`).
+
+The bench inserted 9.99, 99.99, 200.01, or 999.99 µs of idle delay after each completed engine-side sector write. Measured engine request-start intervals were about 33.2, 123.18, 223.20, and 1023.18 µs respectively because the request's own write/data phase adds roughly 23 µs. That distinction matters: in the 100 µs case, the request starts were 123.18 µs apart, but the RTL idle counter is reset during `E_WR_A/B/C`; the quiet interval after the write phase stayed below 122.88 µs. Therefore request-start spacing alone does not show that the timeout expired.
+
+| Inserted post-write idle delay | Engine request-start interval | Backend write requests for 8 sectors |
+| ---: | ---: | ---: |
+| 10 µs | 33.18–33.27 µs | 1 × 8-sector |
+| 100 µs | 123.18 µs | 1 × 8-sector |
+| 200 µs | 223.20 µs | 8 × 1-sector |
+| 1 ms | 1023.18 µs | 8 × 1-sector |
+
+The model used a fixed 133,333-cycle (3.99999 ms) backend response delay before streaming data. It asserts the expected request counts and checks all eight written sectors' contents. The checked runner and raw log are [`profile_scsi_cache_gap.py`](perf/disk_profile_20260925/profile_scsi_cache_gap.py) and [`cache_gap_profile_checked_20260925.log`](perf/disk_profile_20260925/cache_gap_profile_checked_20260925.log). The generated `.sv` testbench, compiled simulation, and runner outputs stay in ignored `scratch/disk_cache_gap_profile_20260925/`; no generated HDL is tracked. The first unasserted measurement log was preserved separately as [`cache_gap_profile_original_measurement_20260925.log`](perf/disk_profile_20260925/cache_gap_profile_original_measurement_20260925.log), SHA-256 `ac595a0303a4b0341abcd18ac54813381bde1c57bbcf7c2026c1bf1d31be2d36`.
+
+This result is conditional on the existing simplified testbench's engine request/data behavior and fixed backend latency. Backend latency and backpressure can affect which dirty sectors are present when the flusher schedules its next request; this single modeled latency provides no robustness conclusion across latency values. The bench measures only request grouping, not guest cadence, real HPS/SD service, write syscall time, or Speedometer performance. It neither establishes that real traffic crosses the threshold nor justifies a threshold change. Useful next trace points are the engine write/data completion, idle counter and dirty bitmap, platform `p_wr`/LBA/block count, and platform request/ack timestamps.
+
 ## Follow-up measurement
 
 The strongest next measurement is a controlled workload with known read/write sizes and access patterns on the same disposable HDA, paired with per-syscall timing for Main's `pread`/`pwrite`/`fsync` path or equivalent low-overhead tracing. Record guest workload boundaries separately from the test-suite score and sample Main plus device counters at those boundaries. If exact SCSI/cache decomposition is required, expose or trace cache hit/miss and request-completion events in a later instrumented build; the current loaded core does not export them. These measurements should first quantify whether synchronous backend service or request pacing materially contributes before selecting a redesign.

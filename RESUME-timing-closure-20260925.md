@@ -250,3 +250,18 @@ Additional parallel work is scratch-only: interim_validation is evaluating one
 further refill mux simplification, and luna_disk_profile is measuring existing
 cache flush grouping under controlled simulated write arrival gaps. Neither
 is authorized to alter frozen production build inputs.
+
+## Current map and rejected memory-carrier screen
+
+Third full map passed at 38,824 ALMs, 28,662 registers, unchanged 4,840 MLAB
+bits and 3,730,024 total block-memory bits. This is +184 ALMs versus second
+candidate and +8 versus the tested baseline; isolated CPU savings did not
+translate to full-project savings. The fitter remains active; preserve it.
+
+Scratch-only `mgo_a` default-X candidate SHA256
+`c66f58c928feb50b41340d29ad9ba15dda13de6ab1159db7902c4008e4cad7a3`
+passed active loops/IRQ (same cycles; 65,370 mem_issue entries with known address),
+but CPU-only map 25,486 ALMs is +76 versus X-BRF. Rejected for area; no production
+promotion. Map at scratch/cpu_area/p_mgo_address_dc_86c50_20260925/.
+The separate brf_seed_n-X proposal is not selected: decode_dbcc_brf_now consumes
+that count outside the seed-request guard, requiring a stronger caller proof.
