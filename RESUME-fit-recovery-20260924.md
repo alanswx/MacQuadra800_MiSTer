@@ -1,5 +1,28 @@
 # Power-loss recovery and next-step strategy
 
+## Ethernet integrity checkpoint: 2026-09-25 04:11 UTC
+
+The 10 MiB binary FTP round trip passed. Fetch downloaded `test_10m.bin` to
+the disposable guest disk and uploaded it as `q800-wqmlab-20260925.bin` into
+the server dropbox, preserving the earlier file. Root independently checked
+both source and returned files: **10,485,760 bytes**, matching SHA-256
+`39a3a96f5ed02b53f771b255f51a4006cdddeeabefcecd01eb7846f82de9dc81`
+and MD5 `183580bf321c5b5d128a535cdc1e89f2`. Neither mounted HDA was hashed.
+Fetch's Put File confirmation offers a remote filename and Raw Data format;
+future tests can name the upload there without renaming the guest file first.
+
+CD data/audio, OSD and normal shutdown remain pending with Luna
+`interim_validation`. Source-backed CD startup fallback instructions are in
+`scratch/cd_slot4_startup_fallback_20260925.md`; retain exact existing `.s4`
+bytes (or absence), use a NUL-padded path for slot 4, and restore after tests.
+This is a fallback if hot-mount cannot be observed, not proof of OSD behavior.
+The installed Main's exact provenance and internal Ethernet counters remain
+unverified. The user listening check for audible CD output is still pending.
+
+The detached seed-28 timing experiment remains active: fitter PID 2077758
+was directly observed at 34m28s elapsed. No new artifact or timing result.
+Installed source `15a1449`, five-run median **1.828**, is unchanged.
+
 ## Latest checkpoint: detached timing retry; peripheral validation in progress
 
 At 2026-09-25 03:52 UTC, source `15a1449` remains the installed full-feature

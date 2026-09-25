@@ -1,0 +1,27 @@
+MacQuadra800 interim wq MLAB hardware validation — Ethernet FTP
+Date: 2026-09-25 America/Toronto
+Loaded candidate: RBF SHA-256 4687167a16beb4077b970bf1cb46f0ba08a2fac724d2367f5d91e1390045da6c
+MiSTer core: MacQuadra800; guest: 10.3.231.233; FTP peer: 10.3.141.107:2121
+Protocol mode: Fetch Binary / Raw Data for both transfers.
+
+Download:
+  Server source: /home/alans/ftp_pub/test_10m.bin
+  Size: 10,485,760 bytes
+  Fetch final status: 10,485,760 bytes; displayed 85,948 bytes/s
+  Server log: 2026-09-24 23:46:58-04:00 RETR completed=1 bytes=10485760 seconds=121.242
+  Guest save location: Quad Squad/Programs/Fetch 3.0.3 Folder/test_10m.bin
+  It was duplicated and the copy renamed in Finder on the disposable guest disk to q800-wqmlab-20260925.bin for the upload; no mounted-HDA hash was taken.
+
+Upload:
+  Remote target: /home/alans/ftp_pub/dropbox/q800-wqmlab-20260925.bin
+  Fetch confirmation: unique remote filename and Raw Data format (see ftp_upload_confirmation.png)
+  Server log: 2026-09-25 00:10:58-04:00 STOR completed=1 bytes=10485760 seconds=41.007
+
+Integrity:
+  Source SHA-256: 39a3a96f5ed02b53f771b255f51a4006cdddeeabefcecd01eb7846f82de9dc81
+  Unique upload SHA-256: 39a3a96f5ed02b53f771b255f51a4006cdddeeabefcecd01eb7846f82de9dc81
+  Original existing dropbox/test_10m.bin SHA-256 before and after: 39a3a96f5ed02b53f771b255f51a4006cdddeeabefcecd01eb7846f82de9dc81
+  Unique upload MD5: 183580bf321c5b5d128a535cdc1e89f2 (same as source)
+  Source, pre-existing server copy, and uploaded file each remained 10,485,760 bytes. The upload is the downloaded guest file, so the round trip covers both guest read and write paths while preserving the pre-existing server file.
+
+Server service was active on 0.0.0.0:2121. Screenshots show the Fetch listing, completion byte count and rates, and unique upload confirmation. The transfer rates are observations; no throughput threshold was applied. Ethernet DMA/RPC error counters remained unavailable as described in the main report.

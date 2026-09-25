@@ -55,4 +55,32 @@ errors. Main was not restarted or replaced to obtain diagnostics.
 [Instrumentation observations](perf/interim_wqmlab_20260925/ethernet_instrumentation.txt).
 
 Speedometer subsequently quit to Finder without saving its Machine Record.
-FTP integrity, CD data/audio, OSD and normal shutdown remain pending.
+Ethernet FTP integrity is now complete; CD data/audio, OSD and normal shutdown
+remain pending.
+
+
+## Ethernet FTP integrity (2026-09-25)
+
+Fetch 3.0.3 connected to the local FTP server at `10.3.141.107:2121` from the
+guest at `10.3.231.233`. Both transfers used Binary/Raw Data mode. The 10 MB
+`test_10m.bin` download completed at exactly 10,485,760 bytes; the server
+logged RETR completion in 121.242 s, while Fetch displayed 85,948 bytes/s at
+completion. The downloaded file was saved on the disposable Quad Squad disk,
+then duplicated and the copy renamed in Finder to `q800-wqmlab-20260925.bin`
+for a unique upload name.
+
+Fetch uploaded that guest file to `dropbox/q800-wqmlab-20260925.bin` as Raw
+Data. The server logged 10,485,760 bytes received in 41.007 s. The original
+`dropbox/test_10m.bin` was not overwritten. Source, original dropbox copy, and
+new upload each remain 10,485,760 bytes and share SHA-256
+`39a3a96f5ed02b53f771b255f51a4006cdddeeabefcecd01eb7846f82de9dc81`; the
+uploaded file's MD5 is `183580bf321c5b5d128a535cdc1e89f2`, matching the source.
+The upload was the downloaded guest file, so this round trip verifies both
+guest read and write paths without hashing the mounted HDA. Rates are recorded
+as observations, not compared against a pass threshold.
+
+The [FTP transfer log](perf/interim_wqmlab_20260925/ethernet_ftp.log) records
+the server RETR/STOR evidence and hashes. Screenshots preserve the connected
+dropbox listing, download progress/completion, unique guest filename, upload
+confirmation, and upload completion in
+[tracked FTP screenshots](perf/interim_wqmlab_20260925/).
