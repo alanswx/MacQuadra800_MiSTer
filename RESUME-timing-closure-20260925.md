@@ -71,3 +71,18 @@ A single full fit is selected to measure actual path improvement and routability
 Area growth is a real risk with 4,182/4,191 LABs occupied in the baseline.
 Do not start a blind seed sweep if it fails. Preserve this candidate's reports
 before evaluating a shared-selector alternative.
+
+## Full fit launched
+
+Source `6bd3c330f6a82594cc9cfe6fb699c45b00f6ca01`, tag
+`brf_dgo_seed21_20260925`, seed21 unchanged. Detached wrapper PID2434701;
+Quartus flow PID2434745 at launch. Archive
+`scratch/brf_dgo_seed21_20260925_fit_20260925/`, wrapper output
+`scratch/brf_dgo_seed21_20260925_wrapper.out`. Pre-build source manifest passed.
+Luna alu_rotate_sharing monitors; do not edit build inputs while running.
+
+Active production-macro loops/IRQ test baseline and candidate passed with
+identical phase cycle counts 138988/161098/161098 and matching 15030 dgo seed
+events and 13796 dgo/fill overlaps. Integrated dgo-no-seed coverage is zero;
+the focused miter covers its no-write guard. Candidate full legacy suite still
+pending at this checkpoint. No measured timing improvement yet.
