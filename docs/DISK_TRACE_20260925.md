@@ -60,3 +60,45 @@ Expected gain for writes: from ~250 KB/s towards 2-3 MB/s on sequential
 copies, i.e. about 10x.  The Speedometer Disk rating (0.59 against the real
 machine's 3.44) should move with it; that is the before/after benchmark to
 run.
+
+## The Main write buffer: result (2026-09-25 evening)
+
+Branch `mac-disk-writebuffer` on `alanswx/Main_MiSTer` (`59ed66e`).  It is
+based on `alan/master` (Quadra 800 + Ethernet + printer), carries the trace
+commit, and adds a write buffer in `user_io.cpp`:
+
+- **Scope:** the Mac SCSI family's hard-disk slots only.
+- **Buffering:** up to eight runs of up to 64 KB per slot.  A write that
+  continues a run is appended to it; a write inside a run updates it in
+  place; a write that partly overlaps a run flushes that run first.
+- **Flushes:** a run reaches the card as one `write()` when it fills, when
+  all eight runs are in use (least recently used first), before any file
+  read that could overlap it, after 20 ms without writes (all runs, in LBA
+  order), on remount, and before Main restarts for a core load.
+- **Host test:** `support/mac/mac_wbuf_test.cpp` checks the logic against a
+  reference image.  It found one bug (an extension overlapping another
+  run), which is fixed; six seeds now pass with zero mismatches.
+
+Same core (`a0b3072`), same disposable disk, only Main changed:
+
+| | Speedometer PR Disk | PR | 2.8 MB Finder copy: write phase | Main time in `write()` |
+|---|---|---|---|---|
+| old Main (`d5b50fc4`) | **0.568** | 0.918 | ~11 s (~250 KB/s) | 9.6 s |
+| write buffer, one run | | | ~4.5 s | 3.2 s |
+| **write buffer, eight runs** | **1.758** | **1.174** | **~3.3 s (~850 KB/s)** | 1.65 s |
+
+CPU (0.891 / 0.894), Graphics and Math are unchanged, as expected.  The real
+Quadra 800 reference is Disk 3.443.
+
+Integrity: after a clean shutdown and a menu-core load, the image was copied
+to the host and read with machfs (`hfs_compare.py`; hfsutils cannot open
+this volume, and fails the same way on the pristine image).  Three Finder
+copies of SimCity2000 were compared with the original: one with the old
+Main, one with a one-run buffer, one with the eight-run buffer.  All three
+match it byte for byte through the whole 2.78 MB resource fork, except
+bytes 48-95 of the resource-file header.  The Finder rewrites that reserved
+area on every copy, and it differs identically in the old-Main copy.
+
+What is left: the core still flushes mostly single sectors (Main now
+absorbs them), and SPI moves ~4.9 MB/s.  The next steps would be larger
+flushes from `scsi_cache.sv` (an FPGA change) or relaxing the sync mount.
