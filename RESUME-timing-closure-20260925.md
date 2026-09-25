@@ -226,3 +226,7 @@ The second fit's archive completed with build exit 3, source-after exit 0, and
 STA skipped correctly for the unrouted design. Average estimated routing use
 was 47%, peak 75% at X45_Y11–X55_Y22. Next full fit will test this smaller form;
 there is no timing-improvement claim from CPU-only area or simulation results.
+
+Both address-only and X-default strict legacy replays are now complete with
+exit 0; all positive tests and all three intended negative controls passed.
+The next fit source is `a75b300`, tag `brf_dc_tras_seed21_20260925`.

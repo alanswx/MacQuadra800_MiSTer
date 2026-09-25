@@ -20,8 +20,24 @@ The extracted miter is now reusable as `python3 scripts/cpu/refill_dgo_seed_mite
 
 A prior version of the miter sampled the combinational early run count in the same simulation delta as changing its address and falsely failed its carrier precondition. A shell chain then proceeded to the expected-failure negative leg, obscuring that positive failure. The final miter waits for combinational settling and checks positive and negative subprocess outcomes separately. Only the final strict CLI results above are valid miter evidence.
 
-The address-only fallback in `scratch/brf_unqualified_carrier_20260925/ap040_core.v` moves only the `brf_seed_a` assignment earlier; `brf_seed_n` and all seed/write guards remain unchanged. It passes the active loop/IRQ fixture. A simulation-instrumented copy asserts that no clock edge calls `issue_ifetch` more than once and reports the same dgo/seed/append-overlap counts as baseline. Its CPU-only area screen is 25,463 ALMs, 51 fewer than the 25,514-ALM baseline. Root promoted this fallback in commit `1f47e51`; the full legacy CPU suite passes against a copied, instrumented source tree (`scratch/brf_unqualified_carrier_20260925/legacy_check/run.log`): `AP68040: ALL TESTS PASSED`, including LEA/XSTORE and the no-duplicate-ifetch assertion through the loop/IRQ fixture. The opcode-sharing variant in `scratch/brf_early_shared_opcode_20260925/ap040_core.v` passes the same active loop/IRQ workload and queue-priority monitor; its CPU-only map is 25,782 ALMs. The early-payload and opcode-sharing alternatives are not the current production source.
+The address-only fallback in `scratch/brf_unqualified_carrier_20260925/ap040_core.v` moves only the `brf_seed_a` assignment earlier; `brf_seed_n` and all seed/write guards remain unchanged. It passes the active loop/IRQ fixture. A simulation-instrumented copy asserts that no clock edge calls `issue_ifetch` more than once and reports the same dgo/seed/append-overlap counts as baseline. Its CPU-only area screen is 25,463 ALMs, 51 fewer than the 25,514-ALM baseline. Root promoted this fallback in commit `1f47e51`; the strict status-aware replay of the full legacy CPU suite passes against the copied, instrumented source tree (`scratch/brf_unqualified_carrier_20260925/legacy_check/strict_replay.log`): `AP68040: ALL TESTS PASSED`, including LEA/XSTORE and the no-duplicate-ifetch assertion through the loop/IRQ fixture. Individual simulator logs are under `legacy_check/strict_logs/`; the three negative controls returned nonzero with the intended `TEST FAILED` diagnostic. The opcode-sharing variant in `scratch/brf_early_shared_opcode_20260925/ap040_core.v` passes the same active loop/IRQ workload and queue-priority monitor; its CPU-only map is 25,782 ALMs. The early-payload and opcode-sharing alternatives are not the current production source.
 
 An independent rerun of the strict CLI on candidate `6bd3c33`, including
 the required negative control, in `scratch/root_verified_refill_miter_20260925/`;
 both checks passed.
+
+
+The first X-default legacy run used an overly strict per-program coverage finalizer: `lea_d16` and `lea_fault` correctly issued no BRF seed requests, but the checker treated zero per-program requests as fatal. The old runner also masked simulator exits through `vvp | tee | grep -q`. Those initial logs are invalid suite evidence. The monitor was corrected to assert every observed request/data word while allowing zero requests in an individual program, and both candidates were replayed with status-aware positive and negative predicates. The authoritative X-default result is `scratch/brf_unused_address_dc_20260925/legacy_check_retry/strict_replay.log` (per-test logs in `strict_logs/`); the authoritative address-only result is `scratch/brf_unqualified_carrier_20260925/legacy_check/strict_replay.log`. The updated tracked runner is `rtl/ap68040/tb/run_tests.sh`.
+
+## Current selected form
+
+Commit `a75b300` promotes the unused-address-X core after the address-only plus
+SDRAM-ready-bit full fit failed routing congestion. The exact core SHA256 is
+`6dface16365ae0c0d820897ffb8dfcfd7ef9161a63f3ed64b273fb7933d47a0f`.
+Every `brf_seed_req` assignment pairs with a defined address; the only consumer
+is guarded by that request. The unspecified value is a per-edge blocking
+temporary, not retained state. Its isolated map is 25,410 ALMs, 8,966 registers,
+296,960 block-memory bits and 4,352 MLAB bits. The active pipeline test matches
+baseline cycles and checks 15,045 seed requests / 119,313 seeded words. Full
+strict legacy replay passes as described above. Full fitting/timing remains
+pending; area savings alone do not establish routability or timing closure.
