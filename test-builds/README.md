@@ -1,5 +1,17 @@
 # Test builds
 
+## Candidate: SCSI cache off, 16+16 KB CPU caches (2026-09-25): `MacQuadra800_cacheoff_c16_s23_20260925.rbf`
+
+- `a0b3072` plus `SCSI_CACHE_OFF=1`, `SETW = 8`, seed 23 (`docs/perf/cacheoff_s23_20260925/build/recipe.diff`).
+  SHA-256 `954d7f18773d938bb282042baba5ea2db3098cbbada431b9cae4dccf46f66dd1`, md5 `cdd92e98`.
+- **Timing met with margin**: CPU +0.360, HDMI +0.290, SDRAM +0.583 ns; holds, recovery/removal
+  and SDRAM crossings positive.  37,532 ALMs, 485 M10K.
+- Mix median **1.684** (five runs), PR Disk **1.604**, with the write-buffer Main.
+- **Use it only with the Main write buffer** (`alanswx/Main_MiSTer` `mac-disk-writebuffer-min`);
+  with an older Main every disk write waits ~4 ms for the card and the SCSI cache is needed.
+- Boot, the Finder, Speedometer and disk copies were checked; CD, Ethernet and the audio/OSD checks
+  have not been rerun on this build.
+
 ## Full-feature, timing-clean (2026-09-25): `MacQuadra800_fullfeature_timingclean_20260925_a0b3072.rbf`
 
 - Source `a0b3072`, seed 21, Quartus 17.0.2.  SHA-256
