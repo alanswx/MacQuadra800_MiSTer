@@ -10,7 +10,9 @@ restart its fits. No Quartus, simulation, or hardware-control job remains active
 Dani's target repository is `danifunker/MacQuadra800_MiSTer`, base `main`.
 The fetched upstream/main is already an ancestor of this work, so no rebase or
 merge is needed. The review branch is `alanswx:cpu-full-feature-interim-20260925`.
-Open as a **draft**: this is an experimentally working interim build with timing
+**Draft PR: https://github.com/danifunker/MacQuadra800_MiSTer/pull/6**
+
+This is an experimentally working interim build with timing
 failures and explicitly deferred physical checks, not a validated release.
 
 ## Fresh benchmark results
