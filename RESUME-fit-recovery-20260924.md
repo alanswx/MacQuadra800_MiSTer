@@ -34,6 +34,15 @@ Next work is structural and keeps all features:
   must remain timed. No timing exceptions or FIFO changes are authorized by
   evidence yet; preserve ordering, collision safety and throughput.
 
+The posted-write push-port stress is now in `verilator/tb_sdram.sv`:
+256 pushes across repeated pointer wrap, all 16 byte-enable masks, immediate
+read-after-write ordering and observed queue occupancy 7. Baseline Verilator
+passed 174 checks with zero failures and zero SDRAM protocol errors. A scratch
+DUT that drops byte-enable bit 0 fails 129 data checks (exit 1), confirming the
+oracle catches corruption. Evidence is in `scratch/sdram_wq_stress_20260924/`.
+This validates the existing queue and establishes a gate for a storage change;
+it does not validate a new RAM implementation yet.
+
 Keep the full-feature profile and current QSF unchanged pending these results.
 After a promising candidate passes meaningful simulation and map checks,
 commit/push it, run a uniquely tagged full flow, then follow the fresh-artifact,

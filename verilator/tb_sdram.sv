@@ -32,6 +32,14 @@ always #TR clk_ram = ~clk_ram;
 always #TS clk_sys = ~clk_sys;
 
 reg         init  = 1;
+reg wp_valid = 0;
+reg [26:2] wp_addr = 0;
+reg [3:0] wp_be = 0;
+reg [31:0] wp_data = 0;
+wire wq_room;
+integer max_queue_used = 0;
+always @(negedge clk_sys)
+    if (dut.wq_used > max_queue_used) max_queue_used = dut.wq_used;
 reg         req   = 0;
 reg         we    = 0;
 reg  [26:2] addr  = 0;
@@ -54,7 +62,7 @@ sdram_beat32 dut
 	.ack(ack), .rdata(rdata), .busy(busy),
 	.line_valid_o(), .line_tag_o(), .line_data_o(),
 	.line_pending_o(), .line_pending_tag_o(),
-	.wp_valid(1'b0), .wp_addr(25'd0), .wp_be(4'd0), .wp_data(32'd0), .wq_room(),
+	.wp_valid(wp_valid), .wp_addr(wp_addr), .wp_be(wp_be), .wp_data(wp_data), .wq_room(wq_room),
 	.SDRAM_DQ(SDRAM_DQ), .SDRAM_A(SDRAM_A),
 	.SDRAM_DQML(SDRAM_DQML), .SDRAM_DQMH(SDRAM_DQMH), .SDRAM_BA(SDRAM_BA),
 	.SDRAM_nCS(SDRAM_nCS), .SDRAM_nWE(SDRAM_nWE), .SDRAM_nRAS(SDRAM_nRAS),
@@ -310,6 +318,48 @@ initial begin
 	wr32(25'h000301, 4'b1111, 32'h0000_0003);
 	rd32(25'h000301);
 	check_eq32(got, 32'h0000_0003, "back-to-back posted writes retire in order");
+
+
+    // Push fast enough to fill the queue, wrap both pointers many times,
+    // then overwrite selected bytes before checking independent readback.
+    fill_drain();
+    drain();
+    @(negedge clk_sys);
+    for (i = 0; i < 128; i = i + 1) begin
+        while (!wq_room) @(negedge clk_sys);
+        wp_addr = 25'h800 + i;
+        wp_data = 32'hABC00000 + i;
+        wp_be = 4'hf;
+        wp_valid = 1;
+        @(negedge clk_sys);
+        wp_valid = 0;
+    end
+    // No explicit drain: the ordinary read must wait for earlier pushes.
+    rd32(25'h87f);
+    check_eq32(got, 32'hABC0007F, "push queue read-after-write ordering");
+    fill_drain();
+    @(negedge clk_sys);
+    for (i = 0; i < 128; i = i + 1) begin
+        while (!wq_room) @(negedge clk_sys);
+        wp_addr = 25'h800 + i;
+        wp_data = 32'h12345678;
+        wp_be = i[3:0];
+        wp_valid = 1;
+        @(negedge clk_sys);
+        wp_valid = 0;
+    end
+    for (i = 0; i < 128; i = i + 1) begin
+        rd32(25'h800 + i);
+        m = i[3:0];
+        exp = 32'hABC00000 + i;
+        if (m[3]) exp[31:24] = 8'h12;
+        if (m[2]) exp[23:16] = 8'h34;
+        if (m[1]) exp[15:8] = 8'h56;
+        if (m[0]) exp[7:0] = 8'h78;
+        check_eq32(got, exp, $sformatf("push queue wrap/mask word %0d", i));
+    end
+    if (max_queue_used < 6) $fatal(1, "queue stress did not fill queue: %0d", max_queue_used);
+    $display("PASS push stress exercised queue occupancy %0d", max_queue_used);
 
 	//--------------------------------------------------------------------
 	// 4. all four banks, and across a refresh
