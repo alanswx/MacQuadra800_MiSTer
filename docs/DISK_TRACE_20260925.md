@@ -138,3 +138,11 @@ dominated by small reads, notices the difference (about −10 %).
 **Caveat:** this depends on the write-buffer Main.  With an old Main every
 engine write waits the ~4 ms synchronous card write, so the cache must stay
 on for anyone who does not have the new Main.
+
+**The pipeline back in the freed room: does not route.**  `fitP1_pipe_cacheoff`
+is the cache-off recipe with 8 KB CPU caches and all eight pipeline macros
+on.  It synthesizes to 38,139 ALMs and places at 39,323 (94 %, 4,161 / 4,191
+LABs, peak vertical interconnect 96.4 %).  The router then fails ("Can't fit
+design in device"), the same wall fit A hit at 39,626.  Turning the SCSI cache
+off buys ~800 ALMs; the pipeline needs ~1,700 plus routing slack.  Returning
+it needs about another 1,500 ALMs out first.
