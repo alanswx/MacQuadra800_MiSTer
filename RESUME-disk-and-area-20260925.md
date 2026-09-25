@@ -75,8 +75,3 @@ spread is wide, −2.5 to −7.3 plus router failures); or the disk-target
 commands to Main for more slack.  The P4 read-ack change is worth keeping in
 any build.  Scratch projects: `scratch/fitP2_s21`, `fitP4_s21`
 (`cpu_paths40.txt`, `cpu_top300.txt` in each).
-
-If those still do not route, the next room would come from moving the
-disk-target commands (INQUIRY, MODE SENSE, READ CAPACITY, sense) to Main,
-as the CD-ROM target already is (it saved 510 ALMs).  After that, the CPU
-itself.
