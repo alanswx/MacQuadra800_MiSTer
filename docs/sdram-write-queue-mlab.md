@@ -36,6 +36,12 @@ project settings for both isolated bridge builds:
 The RAM Summary confirms Simple Dual Port, depth 8, width 61, MLAB; mapping
 uses 61 MLAB cells. Full-device placement savings and routing are not yet known.
 
+The full-project synthesis for `interim_mac_wqmlab` (source `15a1449`)
+completed in 4m49s: 38,816 estimated ALMs versus 39,021 previously (-205),
+28,651 registers versus 29,142 (-491), and 4,840 MLAB bits versus 4,352
+(+488). Its RAM Summary confirms the intended 8x61 MLAB queue. These full-
+project savings differ from the isolated bridge estimate; routing is pending.
+
 ## Validation
 
 Frozen candidate SHA256:

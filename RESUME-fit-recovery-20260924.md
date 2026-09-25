@@ -23,7 +23,10 @@ from commit `15a14497817ad8479bad91bf47d97e2163124d63` at
 2026-09-25 01:54:18 UTC. Archive:
 `scratch/interim_mac_wqmlab_fit_20260924/`; session 7469.
 Observed wrapper PID 1942039, quartus_sh 1942083, quartus_map 1942171;
-root verified these live during synthesis. Recheck actual processes after
+root verified these live during synthesis. Synthesis then completed in 4m49s
+with 38,816 estimated ALMs (-205 vs39,021), 28,651 registers (-491) and
+4,840 MLAB bits (+488). Fitter PID 1947428 was verified live; no routing or
+STA result yet. Recheck actual processes after
 reconnecting; these recorded IDs are not proof of continued liveness. Freeze all tracked HDL/QSF/QIP/SDC inputs through the wrapper's
 source-after check. The full map/fit must confirm actual savings and MLAB use,
 then all setup/hold and related SDRAM crossings must be reviewed. Existing
