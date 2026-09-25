@@ -230,3 +230,23 @@ there is no timing-improvement claim from CPU-only area or simulation results.
 Both address-only and X-default strict legacy replays are now complete with
 exit 0; all positive tests and all three intended negative controls passed.
 The next fit source is `a75b300`, tag `brf_dc_tras_seed21_20260925`.
+
+## Third full fit launched
+
+Tag `brf_dc_tras_seed21_20260925`; wrapper PID 2570932; source HEAD at launch
+`8cbbe45edff83d6c3fb0920e64ab490b05ae8f63` (docs follow-up to RTL a75b300).
+Archive `scratch/brf_dc_tras_seed21_20260925_fit_20260925/`; source precheck 0.
+Luna alu_rotate_sharing owns monitoring and post-fit reporting. Inputs frozen.
+If successful, collect CPU/RAM/HDMI setup and hold path details, crossings,
+and corrected MLAB hierarchy reports before any new build overwrites the DB.
+
+Previous failure used 4,190/4,191 LABs and 39,463 actual placed ALMs despite
+39,875 required ALMs (95%). Final reported routing usage was 65.6% average,
+91.1% peak; the earlier 47%/75% numbers were router estimates. Thus logic-block
+packing/routing remains a concern even when total ALMs decrease. Its archived
+RESULTS.md records the terminal details. No new RBF exists.
+
+Additional parallel work is scratch-only: interim_validation is evaluating one
+further refill mux simplification, and luna_disk_profile is measuring existing
+cache flush grouping under controlled simulated write arrival gaps. Neither
+is authorized to alter frozen production build inputs.
