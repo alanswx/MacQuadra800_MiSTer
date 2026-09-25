@@ -102,3 +102,39 @@ area on every copy, and it differs identically in the old-Main copy.
 What is left: the core still flushes mostly single sectors (Main now
 absorbs them), and SPI moves ~4.9 MB/s.  The next steps would be larger
 flushes from `scsi_cache.sv` (an FPGA change) or relaxing the sync mount.
+
+## The SCSI block cache off, with the write-buffer Main (2026-09-25 night)
+
+The timing-clean recipe (`a0b3072`) with `SCSI_CACHE_OFF=1`.  Variant K2 also
+restores the 16+16 KB CPU caches (`SETW = 8`), using the M10K the SCSI cache
+freed.  Scratch projects are `scratch/fitK1_cacheoff`, `fitK2_*`.
+
+| build | ALMs (fit) | M10K | CPU | HDMI | SDRAM | result |
+|---|---|---|---|---|---|---|
+| timing-clean baseline (`a0b3072`) | 38,329 | 509 | +0.007 | +0.044 | +0.082 | met |
+| K1: cache off, seed 21 | 37,738 | 469 | −1.167 | +0.210 | +0.779 | missed |
+| K2: cache off + 16 KB CPU caches, seed 21 | 37,616 | 485 | −0.925 | +0.241 | +0.403 | missed |
+| K2 seed 22 | 37,563 | | −0.832 | +0.108 | +0.392 | missed |
+| **K2 seed 23** | **37,532** | **485** | **+0.360** | **+0.290** | **+0.583** | **met**: every setup, hold (min +0.203), recovery and removal; crossings +0.597 / +0.360 |
+| K2 seed 24 | 37,597 | | | | | Quartus failed |
+
+K2 seed 23 on hardware (RBF md5 `cdd92e98`, write-buffer Main `3dd49cd2`):
+
+- **Speedometer Mix: 1.667, 1.684, 1.685, 1.684, 1.684; median 1.684.**
+  The timing-clean baseline had a median of 1.670.  Whetstones rose to 6.14
+  from 6.06, because the 16 KB data cache is back.
+- **Performance Rating: Disk 1.604, CPU 0.896, Graphics 1.115, Math 20.978,
+  PR 1.183.**  K2 seed 21 gave Disk 1.555.  With the cache (and the same Main)
+  Disk was 1.758; with the cache and the old Main it was 0.568.
+- **Finder copy of SimCity2000:** the trace spans 5.4 s without the cache
+  against 5.7 s with it.  Everyday copies do not need the cache any more.
+
+Without the cache, the SCSI engine asks Main for one 512 B sector per request:
+~110 us of SPI for a read, ~150 us for a write, and ~100-200 us between
+requests.  Main serves 96 % of the reads from its 16 KB read-ahead and
+absorbs the writes in its buffer.  Only Speedometer's Disk test, which is
+dominated by small reads, notices the difference (about −10 %).
+
+**Caveat:** this depends on the write-buffer Main.  With an old Main every
+engine write waits the ~4 ms synchronous card write, so the cache must stay
+on for anyone who does not have the new Main.
