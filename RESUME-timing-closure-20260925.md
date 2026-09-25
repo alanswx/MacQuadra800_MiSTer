@@ -1,5 +1,19 @@
 # Timing closure and parallel disk profiling — September 25
 
+## Current checkpoint
+
+The active full fit is `brf_addr_tras_seed21_20260925`, source `aff6dfd`,
+combining the smaller address-only CPU change and registered SDRAM ready bits.
+Full-project map passed: 38,640 ALMs versus tested baseline 38,816 (-176),
+28,663 registers (+12), with unchanged MLAB/block-memory bits. Fitter still
+running; no new RBF or timing result. All relevant CPU and SDRAM simulations
+have passed. Luna disk profiling owns the MiSTer on the original tested core.
+
+A scratch-only unused-address-X variant maps 25,410 CPU ALMs (-104 versus
+baseline, -53 versus address-only). It passed active loop/IRQ and defined-seed
+address/data checks; full legacy tests are running. It is not promoted.
+The first larger early-payload fit failed routing and will not be retried.
+
 User requested continued timing work and a new PR once timing passes. Existing
 PR #6 is ready for review and preserves the tested interim artifact; do not
 advance its branch with unvalidated timing experiments. Progress remains on
