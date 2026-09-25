@@ -171,3 +171,14 @@ one-issue_ifetch-per-edge assertion. Updated evidence is in
 `docs/TIMING_BRF_EARLY_20260925.md` and
 `docs/TIMING_SDRAM_READY_20260925.md`. Combined candidate fit remains running;
 no timing result is claimed.
+
+## Disk profile preserved
+
+`docs/DISK_PROFILE_20260925.md` and `docs/perf/disk_profile_20260925/` now
+preserve two Disk+Math ratings (0.589/0.585), synchronized Main/device counters,
+actual O_SYNC descriptor flags, screenshots, and instrumentation limits.
+Run2 observed 4596736 device bytes written, 3682 device writes, 14019ms summed
+write time and 15728ms I/O time; these are device aggregates, not guest bandwidth
+or measured Main blocking time. Physical read counters were flat. No bottleneck
+is proven yet. Luna is now measuring backend write batch-size cost with a new
+exclusive temporary host file, never an HDA, while the guest is idle.
