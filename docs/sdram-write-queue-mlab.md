@@ -50,7 +50,17 @@ Frozen candidate SHA256:
 
 The regression's scratch negative DUT drops one push byte-enable bit and
 produces 129 data mismatches. The tracked bench now returns failure on scoreboard
-or chip protocol errors. Additional primitive and slot-age checks are pending.
+or chip protocol errors. The actual Intel `altdpram` model passed 256 edge writes across 32 slot
+wraps, with no writes before the edge and correct data after changing source
+address/data. A wrong-write-address mutation fails explicitly (exit 1).
+
+The scratch slot guard passed 373 pushes, consume starts and pops with no
+pending entries left, including 46 writes at slot 7. It checks pending-slot
+overwrite, exact 61-bit payload, and write-to-consume age. Minimum reported age
+is 10,102 ps including its 2 ps observation delay: the consume edge is one
+10,100 ps clk_ram period after the write edge. The guard observed occupancy
+eight after acceptance; the testbench's earlier negedge observation reached
+seven. Both are simulation measurements, not physical timing margins.
 
 Evidence: `scratch/sdram_wq_memory_review_20260924/` (standalone projects,
 source snapshots, primitive checks, integration logs and input hashes) and

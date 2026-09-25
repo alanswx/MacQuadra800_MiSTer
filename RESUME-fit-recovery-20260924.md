@@ -1,6 +1,6 @@
 # Power-loss recovery and next-step strategy
 
-## Latest candidate: MLAB write queue promoted; full fit to launch
+## Latest candidate: MLAB write queue promoted; full fit active
 
 The exact candidate `rtl/sdram_beat32.sv` SHA256
 `6b49355a45b6e3d81d603d0542139a45854223c71c295ac8515c26cf5f9937ba`
@@ -9,16 +9,22 @@ read MLAB. Standalone map saves 270 estimated ALMs and 488 registers. The
 normal SDRAM, registered-first-miss memory path, and line/DMA integration
 regressions all pass against this source. Details: `docs/sdram-write-queue-mlab.md`.
 
-A focused Intel primitive wrap test and queue slot-age monitor remain pending.
-They may run alongside the full compile, but must pass before any deployment.
-A narrower actual-primitive edge-write test already passed. No cycle, queue
+The focused Intel primitive wrap test and queue slot-age monitor now pass.
+Actual primitive: 256 writes across 32 wraps; wrong-address mutation fails.
+Slot guard: 373 pushes/consumes/pops, no overwrite or leftovers, minimum
+consume-edge age one clk_ram period (10,100 ps; reported 10,102 ps includes
+2 ps observer delay). The three integration tests also remain passed. No cycle, queue
 capacity, feature macro, QSF setting, or SDC constraint changes accompany this
 candidate. The previous routing failure remains the latest terminal full fit;
 there is still no fresh full-feature RBF or hardware result.
 
-Next full-flow tag: `interim_mac_wqmlab`, launched by Luna `alu_rotate_sharing`
-after this progress commit. Recheck actual processes and archive before treating
-it as active. Freeze all tracked HDL/QSF/QIP/SDC inputs through the wrapper's
+Full-flow tag: `interim_mac_wqmlab`, launched by Luna `alu_rotate_sharing`
+from commit `15a14497817ad8479bad91bf47d97e2163124d63` at
+2026-09-25 01:54:18 UTC. Archive:
+`scratch/interim_mac_wqmlab_fit_20260924/`; session 7469.
+Observed wrapper PID 1942039, quartus_sh 1942083, quartus_map 1942171;
+root verified these live during synthesis. Recheck actual processes after
+reconnecting; these recorded IDs are not proof of continued liveness. Freeze all tracked HDL/QSF/QIP/SDC inputs through the wrapper's
 source-after check. The full map/fit must confirm actual savings and MLAB use,
 then all setup/hold and related SDRAM crossings must be reviewed. Existing
 hardware gates and disposable-disk authorization below remain in force.
