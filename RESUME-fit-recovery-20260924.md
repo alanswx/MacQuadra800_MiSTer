@@ -1,5 +1,7 @@
 # Power-loss recovery and next-step strategy
 
+Latest fresh CPU/disk results, PR context, and live guest state: [PR review handoff](RESUME-pr-review-20260925.md).
+
 For the latest concise state, read [September 25 validation handoff](RESUME-interim-validation-20260925.md).
 The checkpoints below retain chronological history.
 

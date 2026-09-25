@@ -1,5 +1,7 @@
 # Resume: full-feature interim hardware validation
 
+Latest fresh CPU/disk results, PR context, and live guest state: [PR review handoff](RESUME-pr-review-20260925.md).
+
 ## Current result
 
 The normal-feature source `15a14497817ad8479bad91bf47d97e2163124d63` fits,
@@ -107,5 +109,6 @@ No git worktrees. Preserve unrelated untracked disk-planning files,
 - [Rejected age-shift experiment](docs/SDRAM_BANK_AGE_SHIFT_20260925.md)
 - [Earlier chronological recovery notes](RESUME-fit-recovery-20260924.md)
 
-Critical summaries/screenshots are tracked and pushed. Raw scratch logs and the
-RBF remain local, so Git alone does not back up all artifacts against disk loss.
+Critical summaries/screenshots are tracked. The exact RBF is now preserved in
+`test-builds/` for PR review; raw scratch logs remain local. See the newer handoff
+for the fresh benchmark session and PR state.

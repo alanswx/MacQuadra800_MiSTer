@@ -150,3 +150,21 @@ bytes preserved. The same RBF was reloaded, `/tmp/CORENAME` again read
 CUE/BIN descriptors remained. A fresh final capture shows “It is now safe to
 switch off your Macintosh” ([shutdown screenshot](perf/interim_wqmlab_20260925/cd_audio/final_safe_halt.png)).
 The safe-halt state was left on screen. The original HDA remained untouched.
+
+
+## Fresh requested CPU and disk benchmarks (09:32–09:46 UTC)
+
+The same verified artifact was reloaded from the prior safe-halt state, using
+only the disposable HDA and the restored empty CD selection. A fresh all-ten,
+one-iteration Mix run completed at **1.816**. The following default all-four
+Performance Rating run completed with **Disk 0.565**, CPU 0.894, Graphics 1.041,
+Math 20.970, and overall PR 0.914 (Quadra 605 = 1.0). The disk test used the
+Quad Squad volume; the chooser required 1 MB free for its temporary file.
+Its score is not MB/s.
+
+The [fresh comparison report](perf/INTERIM_VS_REAL_QUADRA800_20260925.md) has
+all metrics, the real Quadra reference, clean screenshots, settings, and timing
+bounds. This follow-up does not replace the earlier five-run series. The guest
+is now left **running Speedometer**, with the clean Performance Test panel
+visible; the earlier safe-halt checkpoint is historical. The user explicitly
+left physical audio and OSD checks pending because they were not at the display.

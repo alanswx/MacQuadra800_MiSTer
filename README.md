@@ -12,14 +12,24 @@ The core was called `wombat33` until 2026-09-02. The internal module names
 `wombat_cpu` / `wombat_bus32` / `wombat_store_buffer` are a separate
 codename and stay.
 
-## Status (2026-09-08)
+## Status (2026-09-25 interim)
 
-- **Latest release:** see the table at the top of
-  [`releases/README.md`](releases/README.md); every row has the md5, the
-  seed, the timing margin and the hardware results. The current head is
-  Alan's September AP68040 (`5aa596f`, Speedometer 4 Benchmark Mix 0.36 of a
-  Quadra 605 versus 0.23 before), the CD-ROM target, and the multi-block SCSI
-  block cache, with composite Y/C output kept.
+- **Full-feature performance branch:** the experimental AP040 pipeline and
+  structural area reductions fit with Ethernet, CD-ROM/CD audio, disk caching,
+  and the normal MiSTer feature set enabled. Five valid Speedometer Mix runs
+  give a **1.828 median**; a fresh follow-up gives **1.816**, versus **1.897**
+  in the real Quadra 800 photo. See the
+  [clean screenshot and metric comparison](docs/perf/INTERIM_VS_REAL_QUADRA800_20260925.md).
+- **Experimental artifact, not a timing-clean release:** CPU/RAM/HDMI setup
+  misses are **-2.406/-0.697/-0.426 ns**. Audible CD output and OSD usability
+  remain unverified at the user's request; A/UX testing is deferred to Dani.
+  The [test build](test-builds/README.md),
+  [validation audit](docs/INTERIM_COMPLETION_AUDIT_20260925.md), and
+  [handoff](RESUME-pr-review-20260925.md) identify the exact artifact
+  and coverage. Hardware success does not remove the timing failures.
+- **Published releases:** see the table in
+  [`releases/README.md`](releases/README.md) for released artifacts, checksums,
+  timing, and hardware results. The experimental test build above is separate.
 - **Main:** the CD-ROM translation (CUE/CHD discs, CD audio), the BlueSCSI
   Toolbox and the CD changer need the Main fork, whose binary ships beside
   each release as `releases/MiSTer_<date>`. The fork is
