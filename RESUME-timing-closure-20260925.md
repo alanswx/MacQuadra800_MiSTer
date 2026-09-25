@@ -2,17 +2,21 @@
 
 ## Current checkpoint
 
-The active full fit is `brf_addr_tras_seed21_20260925`, source `aff6dfd`,
-combining the smaller address-only CPU change and registered SDRAM ready bits.
-Full-project map passed: 38,640 ALMs versus tested baseline 38,816 (-176),
-28,663 registers (+12), with unchanged MLAB/block-memory bits. Fitter still
-running; no new RBF or timing result. All relevant CPU and SDRAM simulations
-have passed. Luna disk profiling owns the MiSTer on the original tested core.
+The second fit, `brf_addr_tras_seed21_20260925` on `aff6dfd`, failed routing
+congestion after successful placement. Its fresh fit summary reports 39,875
+ALMs needed (95%), 28,006 registers and 509 M10Ks. Source-after checks passed;
+no fresh RBF or timing result exists. Its full map was 38,640 ALMs.
 
-A scratch-only unused-address-X variant maps 25,410 CPU ALMs (-104 versus
-baseline, -53 versus address-only). It passed active loop/IRQ and defined-seed
-address/data checks; full legacy tests are running. It is not promoted.
-The first larger early-payload fit failed routing and will not be retried.
+The next selected CPU is the validated unused-address-X variant, retaining
+the tested SDRAM ready bits. Its CPU-only map is 25,410 ALMs (-104 versus
+baseline, -53 versus address-only), with unchanged registers/memory. Active
+loop/IRQ and full strict legacy replay passed. It leaves only the unused
+per-cycle temporary address unspecified; every consuming request sets a known
+address. No state/output is assigned X. Seed, clocks and all features remain.
+
+Disk profiling is complete; MiSTer remains on the original tested core at the
+Speedometer completion dialog, using the disposable disk. The first larger
+early-payload fit also failed routing and will not be retried.
 
 User requested continued timing work and a new PR once timing passes. Existing
 PR #6 is ready for review and preserves the tested interim artifact; do not
@@ -193,3 +197,32 @@ TEST FAILED diagnostic. Seven mocked runner cases pass, including a pass banner
 followed by a fatal. No HDL/configuration changed. Luna is replaying the existing
 compiled address-only and X-variant suites with strict exit checks; prior
 aggregate banners alone are provisional until that replay completes.
+
+## Disk profiling complete; fallback strict replay passed
+
+Host-only O_SYNC overwrite tests on a unique temporary file measured the same
+4 MiB in 31.327 seconds at 512-byte writes, 3.636 seconds at 4 KiB writes, and
+1.426 seconds at 16 KiB writes. The file/directory were removed successfully.
+The actual filesystem is mounted sync/dirsync; removing O_SYNC alone would
+not make it asynchronous. These are single-pass host backend measurements,
+not guest throughput. Next disk investigation should measure actual request
+and flush batch sizes before choosing a coalescing change or DDR redesign.
+Evidence and limits: docs/DISK_PROFILE_20260925.md.
+
+The unused-address-X fallback's strict legacy replay completed exit 0 with all
+positive tests and three intended negative controls passing. Source SHA256
+6dface16365ae0c0d820897ffb8dfcfd7ef9161a63f3ed64b273fb7933d47a0f; logs and
+explicit replay script in scratch/brf_unused_address_dc_20260925/legacy_check_retry/.
+This supersedes the invalid initial masked-fatal run. Address-only replay is
+still pending; the current full fit continues unchanged on aff6dfd.
+
+## Third candidate selected after routing failure
+
+Promoted exact validated core SHA256
+`6dface16365ae0c0d820897ffb8dfcfd7ef9161a63f3ed64b273fb7933d47a0f`,
+restoring address assignment inside the hit guard and making only its unused
+default a synthesis don't-care. SDRAM remains the tested ready-bit controller.
+The second fit's archive completed with build exit 3, source-after exit 0, and
+STA skipped correctly for the unrouted design. Average estimated routing use
+was 47%, peak 75% at X45_Y11–X55_Y22. Next full fit will test this smaller form;
+there is no timing-improvement claim from CPU-only area or simulation results.

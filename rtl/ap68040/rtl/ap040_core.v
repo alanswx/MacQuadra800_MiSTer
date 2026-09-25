@@ -1832,8 +1832,6 @@ task issue_ifetch;
 	input        s;
 	reg line_hit, refill_hit;
 	begin
-        // Address has no architectural use unless brf_seed_req is set.
-        brf_seed_a = a[5:1];
 		line_hit = brf_tag == a[31:6] && brf_super == s;
 		refill_hit = line_hit && (brf_run[a[5:1]] >= 4'd4);
 		if (epf_armed && epf_next == a && epf_super == s) begin
@@ -1866,6 +1864,7 @@ task issue_ifetch;
 				epf_brf <= 1;
 				brf_seed_n = brf_run[a[5:1]];
 				brf_seed_req = 1;
+				brf_seed_a   = a[5:1];
 				epf_count <= brf_seed_n;
 				epf_fill  <= brf_seed_n[2:0];
 				epf_ftail <= a + {27'd0, brf_seed_n, 1'b0};
@@ -5290,7 +5289,7 @@ always @(posedge clk) begin
 	mgo = 0; mgo_wr = 0; mgo_sz = 2'd0; mgo_ret = 8'd0; mgo_a = 32'd0; mgo_d = 32'd0;
 	brf_seed_n  = 4'd0;
 	brf_seed_req = 0;
-	brf_seed_a  = 5'd0;
+	brf_seed_a  = 5'bxxxxx; // Unused unless brf_seed_req assigns a valid target.
 
 	if (!nreset) begin
 		state <= S_START;
