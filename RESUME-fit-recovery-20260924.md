@@ -1,5 +1,23 @@
 # Power-loss recovery and next-step strategy
 
+## Shutdown and CD checkpoint: 2026-09-25 04:19 UTC
+
+Normal guest shutdown **passed**: root viewed the fresh safe-to-switch-off
+screen, now preserved as `docs/perf/interim_wqmlab_20260925/mac_shutdown_verified.png`.
+The earlier black capture did not establish a pass. Main still held the disposable
+HDA descriptor; do not infer release from the guest halt or its file position.
+
+Luna `interim_validation` is the sole hardware operator and is proceeding with
+CD startup mounts on the SAME installed `15a1449` core. Slot 4 originally held
+1024 zero bytes (empty path). Its exact remote backup is
+`/media/fat/config/MacQuadra800.s4.cdtest-backup-20260925`, SHA-256
+`885049f1219036556d7a8455af614213db3b98d35f4b587ae1b4c7ce2e2ace3f`.
+Restore those exact bytes after the CD tests; re-observe the live slot and screen
+on recovery. The F12 probe was inconclusive because native captures may omit OSD;
+OSD usability and live CD mounting are not established. Data CD, audio controls,
+and the user's audible-output check remain pending. The seed-28 fitter 2077758
+was last directly observed alive at 43m49s, with no terminal result.
+
 ## Ethernet integrity checkpoint: 2026-09-25 04:11 UTC
 
 The 10 MiB binary FTP round trip passed. Fetch downloaded `test_10m.bin` to

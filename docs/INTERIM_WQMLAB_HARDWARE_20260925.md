@@ -84,3 +84,19 @@ the server RETR/STOR evidence and hashes. Screenshots preserve the connected
 dropbox listing, download progress/completion, unique guest filename, upload
 confirmation, and upload completion in
 [tracked FTP screenshots](perf/interim_wqmlab_20260925/).
+
+
+## Normal shutdown (2026-09-25 04:19 UTC)
+
+After quitting Fetch and returning to Finder, the normal Special → Shut Down
+sequence reached “It is now safe to switch off your Macintosh”. Root independently
+reviewed the [fresh shutdown capture](perf/interim_wqmlab_20260925/mac_shutdown_verified.png).
+An earlier capture was black and was rejected as insufficient evidence; the later
+capture establishes the pass without relying on descriptor position or a filename.
+Main still held the disposable HDA descriptor open, so no mounted-disk hash or
+backup was attempted. This validates guest shutdown, not release of the host file.
+
+A controlled virtual-keyboard F12 probe did not expose the OSD in the native
+capture, which may exclude the overlay. OSD usability and hot-mount remain
+unverified. CD tests are proceeding through the authorized same-core startup
+mount fallback, preserving the original slot-4 configuration.
