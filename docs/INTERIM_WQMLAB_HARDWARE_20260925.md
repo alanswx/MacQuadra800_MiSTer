@@ -168,3 +168,11 @@ bounds. This follow-up does not replace the earlier five-run series. The guest
 is now left **running Speedometer**, with the clean Performance Test panel
 visible; the earlier safe-halt checkpoint is historical. The user explicitly
 left physical audio and OSD checks pending because they were not at the display.
+
+## Matching FPU benchmarks (09:54–09:56 UTC)
+
+All three FPU tests completed with one iteration: 3837.386 KWhetstones/s,
+1.033 s Matrix Multiply, 0.460 s Fast Fourier, average 0.681 (Quadra 650 = 1.0).
+The new real Quadra photograph shows average 1.011; this run reaches 67.4%.
+See the comparison report for individual metrics and clean screenshots.
+The current guest is running with this clean FPU panel foremost.

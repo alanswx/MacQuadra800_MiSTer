@@ -109,12 +109,42 @@ clean ratings. This is one initial disk benchmark, not a complete disk profile.
 ![Clean disk and Performance Rating results](interim_wqmlab_20260925/performance_rating_clean.png)
 
 The guest is left running Speedometer with this clean Performance Test panel
-visible over the earlier Mix table. The original CD selection remains restored.
+visible at that checkpoint. The later FPU panel is now foremost. The original
+CD selection remains restored.
 
 
-## Separate FPU reference
+## Separate FPU comparison
 
 The new photograph uses **Quadra 650 = 1.0** for FPU Benchmarks, unlike the
 Performance Rating panel’s Quadra 605 baseline. Its absolute results are
 **5456.609 KWhetstones/s**, **0.713 s Matrix Multiply**, and **0.288 s Fast
-Fourier**, with average rating **1.011**. A matching MiSTer run is pending.
+Fourier**, with average rating **1.011**. The matching MiSTer run completed with all three tests
+selected at one iteration and average **0.681**, or **67.4%** of the reference.
+
+| FPU metric | MiSTer | Real Quadra 800 | Relative speed |
+|---|---:|---:|---:|
+| KWhetstones/s | 3837.386 | 5456.609 | 70.3% |
+| Matrix Multiply (s) | 1.033 | 0.713 | 69.0% |
+| Fast Fourier (s) | 0.460 | 0.288 | 62.6% |
+| Average rating | 0.681 | 1.011 | 67.4% |
+
+MiSTer's individual displayed ratings are 0.736, 0.683, and 0.624;
+the real machine shows 1.047, 0.990, and 0.996. The rate/time ratios above use
+the absolute values, with elapsed-time ratios inverted as in the CPU table.
+This establishes a substantial FPU workload gap despite the closer CPU Mix;
+Performance Rating Math (20.970 versus 20.011) does not contradict it because
+that is a different workload.
+
+Setup was captured at 09:54:32 UTC, started at 09:54:51 UTC, completion alert
+at 09:55:49 UTC, and clean result at 09:56:11 UTC. These are acquisition bounds,
+not instrumented benchmark runtime. Root independently reviewed the clean
+result table. This is one run on the same artifact and disposable disk.
+
+[Setup](interim_wqmlab_20260925/fpu_setup.png) ·
+[Completion](interim_wqmlab_20260925/fpu_complete.png) ·
+[Real reference](speedometerrealquadra.png)
+
+![Clean FPU benchmark results](interim_wqmlab_20260925/fpu_clean.png)
+
+The guest remains running with the FPU results foremost; no shutdown or core
+replacement followed this capture.

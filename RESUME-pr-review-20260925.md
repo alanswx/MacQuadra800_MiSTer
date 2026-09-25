@@ -28,7 +28,9 @@ failures and explicitly deferred physical checks, not a validated release.
   Math 20.011, CPU 1.186, Graphics 1.347, PR 1.605. MiSTer disk rating is
   **16.4%** of this reference; real disk/cache conditions are unknown.
   Separate FPU reference: 5456.609 KWhetstones/s, Matrix 0.713 s, FFT 0.288 s,
-  average 1.011 (Quadra 650 = 1.0). Matching MiSTer FPU run is in progress.
+  average 1.011 (Quadra 650 = 1.0). Matching MiSTer FPU run: **3837.386**
+  KWhetstones/s, **1.033 s** Matrix, **0.460 s** FFT, average **0.681**
+  (**67.4%** of the real average). All three tests, one iteration.
 
 The [comparison report](docs/perf/INTERIM_VS_REAL_QUADRA800_20260925.md) includes
 all ten absolute CPU metrics and the original reference photo. Clean results:
@@ -70,8 +72,8 @@ permission/listening questions until the user is available. The goal is not
 marked complete; [audit](docs/INTERIM_COMPLETION_AUDIT_20260925.md) lists limits.
 
 MiSTer target remains **mister.local (10.3.89.233)**, installed core hash above.
-The current guest is **running Speedometer**, with the clean Performance Test
-panel visible; it is NOT on the prior safe-shutdown screen. Last observed Main
+The current guest is **running Speedometer**, with the clean FPU Benchmarks
+panel foremost (Performance Test behind it); it is NOT on the prior safe-shutdown screen. Last observed Main
 PID was 31518. Slot 0 is only
 `games/MacQuadra800/QuadSquad8-pipeline-test-20260919.hda`. Protect the original
 `QuadSquad8.hda`; no mounted HDA hashing/copying. Slot 4 remains the exact
