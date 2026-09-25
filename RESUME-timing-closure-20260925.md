@@ -86,3 +86,18 @@ identical phase cycle counts 138988/161098/161098 and matching 15030 dgo seed
 events and 13796 dgo/fill overlaps. Integrated dgo-no-seed coverage is zero;
 the focused miter covers its no-write guard. Candidate full legacy suite still
 pending at this checkpoint. No measured timing improvement yet.
+
+## Validation and alternatives checkpoint
+
+Both full legacy CPU suites passed. Integrated active pipeline priority checks
+passed with identical cycles, 15030 dgo seeds, 13796 fill overlaps and109534
+seeded slots checked. Initial focused-miter assertion/wrapper had a delta-cycle
+sampling/reporting bug; the corrected strict reusable CLI now independently
+passes all55296 cases and rejects the intended lane mutation. Root reran it
+successfully; use only those final results, not the intermediate report.
+
+Opcode-sharing variant in scratch passed active loops/priority and strict
+miter; CPU-only map25782 ALMs (-173 from candidate1, +268 from baseline),
+registers/RAM unchanged. Address-only fallback passed active loops with a
+one-issue_ifetch-per-edge assertion; its map is running in a separate DB.
+Neither fallback is promoted. Full fit remains on6bd3c33.
