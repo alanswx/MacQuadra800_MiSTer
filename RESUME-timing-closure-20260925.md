@@ -151,3 +151,9 @@ Luna disk profiler completed a Disk+Math run (CPU/Graphics unchecked), one
 iteration: Disk 0.589, Math 20.873. Its sampler missed the workload, so no I/O
 attribution is claimed. Another run is planned with sampling armed first.
 MiSTer still runs the original tested artifact and disposable disk.
+
+The address-only full legacy CPU suite has now passed with its test-only
+one-issue_ifetch-per-edge assertion. Updated evidence is in
+`docs/TIMING_BRF_EARLY_20260925.md` and
+`docs/TIMING_SDRAM_READY_20260925.md`. Combined candidate fit remains running;
+no timing result is claimed.
