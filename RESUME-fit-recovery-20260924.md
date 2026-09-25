@@ -1,5 +1,29 @@
 # Power-loss recovery and next-step strategy
 
+## Timing experiment terminal; fitted baseline restored (2026-09-25 04:28 UTC)
+
+`interim_mac_ageshift_s28detached` failed fitting after 50m07s in the fitter,
+55m30s for the wrapper (exit 3). Source-after passed (exit 0). It placed
+39,342 ALMs, estimated 40,275 needed, and occupied 4,184/4,191 LABs; RAM
+blocks remained 509/553. No fresh RBF or timing report was produced. The new
+routing database was an intermediate artifact, not a successful route.
+The failure archive remains intact; no further seed retry is planned.
+
+After confirming the flow had ended, root restored `rtl/sdram.sv` and
+`MacQuadra800.qsf` to the exact bytes from fitted source `15a1449` (numeric
+bank age, seed 21). These were the only HDL/QSF/QIP/SDC/Tcl differences from
+that fitted source. The rejected age-shift experiment remains in Git history
+at `84fcbf5`/`cd8da29`, with its simulation evidence and failed fits preserved.
+The working artifact remains the full-feature 1.828 build with explicitly
+reported CPU/RAM/HDMI timing misses. No new hardware artifact was deployed.
+
+Data CD validation has now passed: the same core rebooted with the staged
+HFS ISO, Finder mounted “Q800 Data Test”, and SimpleText displayed the known
+README content. Root compared the screenshot with the fixture source.
+Luna is proceeding to ToneTest audio checks and retains ownership of hardware.
+OSD/audible output remain unverified; restore the recorded slot-4 backup after
+CD tests. Keep the installed working artifact while completing validation.
+
 ## Shutdown and CD checkpoint: 2026-09-25 04:19 UTC
 
 Normal guest shutdown **passed**: root viewed the fresh safe-to-switch-off

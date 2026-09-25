@@ -15,3 +15,9 @@ and configuration with detached execution. As of 2026-09-25 03:52 UTC its
 fitter was observed alive; no timing improvement is yet established. See the
 [recovery checkpoint](../RESUME-fit-recovery-20260924.md) for process and archive
 identities. The previously fitted source `15a1449` remains installed.
+
+### Terminal seed-28 result
+
+The detached clean retry later reached a terminal fitter failure; this supersedes the preceding in-progress checkpoint. Quartus placed the design, then terminated routing for congestion after 44m33s (router estimate: 48% average and 80% peak interconnect in the X45_Y23–X55_Y34 region). The fitter summary reports 39,342 ALMs used in final placement and 40,275 estimated ALMs needed, 4,184/4,191 LABs, 28,018 registers, and 509/553 RAM blocks. `Error (11802): Can't fit design in device`; fitter elapsed 50m07s and the wrapper elapsed 55m30s, exit 3. No successful route, STA, or timing improvement was measured. The wrapper recorded no fresh RBF; the existing output RBF remained SHA256 `4687167a16beb4077b970bf1cb46f0ba08a2fac724d2367f5d91e1390045da6c`. Tracked build inputs passed the source-after comparison. Full reports and logs are in `scratch/interim_mac_ageshift_s28detached_fit_20260924/`.
+
+The earlier seed-28 attempt, which reused the synthesis database, ended in a Quartus fitter segment violation during placement/clustering after 1m56s, before fresh map/fit reports or an RBF. Its cause is unproven. The subsequent clean run was detached because a prior interactive session returned 143 without explanation; its generated partial database and marker were archived separately. No further fit retry is authorized by this experiment record.
