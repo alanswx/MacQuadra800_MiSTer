@@ -8,15 +8,19 @@ Branch: `add-ethernet`. Latest code change: `a75b300`; progress through
 running. The latest three full fits all failed routing; **no new RBF or timing
 pass exists**. Do not deploy the stale `output_files/MacQuadra800.rbf` as new.
 
-One isolated CPU-only map is running in a separate scratch project:
+The isolated CPU-only one-hot-row map completed in its separate scratch project:
 
 - Candidate: `scratch/brf_row_onehot_20260925/ap040_core.v`.
 - SHA256: `a54b34f16b92c092d6243b5db2d26e8201d8c4ab43d14fceacf34d8bf81e7443`.
 - Project: `scratch/cpu_area/p_brf_row_onehot_0995724_20260925/`.
 - Snapshot: `scratch/cpu_area/snap_brf_row_onehot_20260925/`.
-- Last observed main map PID: **2605711** (helper 2606265).
-- Read `scratch/brf_row_onehot_20260925/MAP_STATUS.md`, its README, project
-  `map.log`/`cpu.map.rpt`, and `scratch/cpu_area/results.txt` for completion.
+- Map result: **25,574 ALMs / 8,966 registers**, +164 ALMs versus the
+  25,410-ALM X-BRF comparison. This is an area regression and the candidate is
+  rejected; no full fit was started.
+- Logs/reports: `scratch/cpu_area/p_brf_row_onehot_0995724_20260925/map.log`,
+  `cpu.map.rpt`, `cpu.map.summary`, and `scratch/cpu_area/results.txt`.
+- Candidate/snapshot hash and launch command are recorded in
+  `scratch/brf_row_onehot_20260925/MAP_STATUS.md`.
 - Luna `alu_rotate_sharing` owns mapping; `interim_validation` owns its tests.
   Do not blindly kill a process or assume the PID still identifies this job.
 
@@ -115,7 +119,7 @@ CD data and CD-audio transport controls; see prior handoff for evidence.
 | Address-only carrier + SDRAM ready, `aff6dfd` | 25,463 | 38,640 | Routing congestion |
 | X-default carrier + SDRAM ready, `8cbbe45` | 25,410 | 38,824 | Routing congestion |
 | X-default + mgo address-X (scratch) | 25,486 | — | Rejected area growth |
-| X-default + one-hot row (scratch) | Pending | — | Current isolated screen |
+| X-default + one-hot row (scratch) | 25,574 | — | Rejected: +164 ALMs vs X-default base |
 
 Full archives:
 - `scratch/brf_dgo_seed21_20260925_fit_20260925/`: first larger candidate,

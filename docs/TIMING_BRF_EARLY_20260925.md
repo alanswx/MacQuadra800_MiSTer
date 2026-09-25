@@ -59,11 +59,13 @@ and scratch/brf_dc_tras_seed21_20260925_fit_20260925/.
 A scratch mgo_a-default-X experiment passed active pipeline checks on65,370
 memory-command entries but increased isolated CPU area76ALMs, so it was
 rejected; its stopped legacy replay is incomplete. A scratch one-hot four-row
-BRF data selector passes8,320 generic alignment cases and is currently in an
-isolated map. Neither is promoted. Consult the handoff and scratch README for
-completion status; do not turn a pending screen into a claimed pass.
+BRF data selector passes8,320 generic alignment cases but its isolated map
+completed at25,574ALMs/8,966 registers, +164ALMs versus the X-default base.
+It is rejected on area and neither alternative is promoted.
 
 The one-hot row candidate also passes a no-request hold check with unknown
 seed address/count (exit0). Exact commands are in its scratch README; the
 source difference is preserved as scripts/cpu/refill_row_onehot.patch against
-the current X-default CPU. Full legacy/active regression awaits a useful map.
+the current X-default CPU. Its isolated map completed at25,574ALMs/8,966
+registers, +164ALMs versus the25,410 X-default base, so it is rejected. It
+received no full legacy/active regression or full fit.
