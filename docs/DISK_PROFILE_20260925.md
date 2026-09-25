@@ -34,7 +34,21 @@ Live `/proc/31518/fdinfo/5` identified descriptor 5 as the disposable HDA and sh
 
 The local Main source checkout was inspected at `0cb45beefebfc57da45eb4c77cd37770cb24fe28`; it is not proven to match the running Main binary. Its generic user-I/O path batches requested block transfers through a 16 KiB buffer and the mounted-disk open path requests `O_SYNC`, consistent with the live descriptor. Local RTL source has the small SCSI cache enabled in the inspected build configuration, with aligned eight-sector groups; cache hit/miss counters are internal and unavailable from the loaded core. The FPGA build configuration is tied to the installed artifact by the [archived input manifest](perf/interim_wqmlab_20260925/build/README.md). The source observations identify instrumentation points but do not establish the runtime transaction mix; the installed Main binary’s exact source revision remains unverified. The old note that the installed build had its disk cache off does not match this installed configuration.
 
-`strace` was not installed on MiSTer, so no syscall timing trace was collected. No tracing tool was attached, and no program or core was installed or replaced. The run also did not isolate small/random/sequential reads and writes, cold-vs-warm cache behavior, or backend service time. The legacy Speedometer score is the only guest-visible performance rating captured here.
+`strace` was not installed on MiSTer, so no syscall timing trace was collected. No tracing tool was installed or attached, and Main and the core were not replaced. The run also did not isolate small/random/sequential reads and writes, cold-vs-warm cache behavior, or backend service time. The legacy Speedometer score is the only guest-visible performance rating captured here.
+
+## Host-only synchronous-write sweep
+
+After the guest suite finished, a separate host-side sweep measured write syscall cost on a new exclusive 4 MiB test file under a newly created directory on `/media/fat`. It used the same preallocated file extent for three full overwrites with `O_SYNC` `pwrite`: 512-byte, 4 KiB, and 16 KiB writes. The script and machine-readable output are [`host_backend_test.py`](perf/disk_profile_20260925/host_backend_test.py) and [`host_backend_results.json`](perf/disk_profile_20260925/host_backend_results.json). The file was removed after recording results (`cleanup: true`); the host test script did not open any HDA or mounted guest image.
+
+| Write size | Calls per 4 MiB | Elapsed time | Per-call median | Per-call p95* |
+| ---: | ---: | ---: | ---: | ---: |
+| 512 B | 8,192 | 31,326.9 ms | 3.970 ms | 7.975 ms |
+| 4 KiB | 1,024 | 3,636.2 ms | 3.766 ms | 4.908 ms |
+| 16 KiB | 256 | 1,425.9 ms | 4.451 ms | 11.449 ms |
+
+The timed interval brackets only each sequence of write syscalls. Device-wide `mmcblk0` counters over the three sweeps advanced by 9,482 writes, 24,586 sectors (12,588,032 bytes), 34,709 ms write time, and 36,357 ms I/O time. Those are aggregate device counters; they do not map directly to this file or to time blocked in an individual syscall. `/media/fat` was `/dev/root` on exFAT with mount options `rw,sync,dirsync,noatime,nodiratime,...`; the full line is preserved in the JSON. Both the descriptor and mount requested synchronous behavior, so these results do not estimate ordinary asynchronous buffered writes. In particular, dropping `O_SYNC` by itself would not remove the mount's `sync` semantics.
+
+This is a host backend microbenchmark, not a guest throughput result and not a model of SCSI request pacing. It shows a strong batch-size effect for this host/filesystem configuration, with substantial per-call tails, but does not prove the guest Disk rating is backend-bound. The device counters may include other activity, and a single sweep per size gives no run-to-run variance. The reported p95 is the floor-index empirical order statistic from the captured syscall timings.
 
 ## Follow-up measurement
 

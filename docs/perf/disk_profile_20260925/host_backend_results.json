@@ -1,0 +1,82 @@
+{
+  "cleanup": true,
+  "diskstats_after": {
+    "counters_after_device_name": [
+      87872,
+      1471,
+      853306,
+      93024,
+      46511,
+      22274,
+      379601,
+      216953,
+      0,
+      277137,
+      309977,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "diskstats_before": {
+    "counters_after_device_name": [
+      87872,
+      1471,
+      853306,
+      93024,
+      37029,
+      22274,
+      355015,
+      182244,
+      0,
+      240780,
+      275268,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "host": "MiSTer",
+  "mount_options": "see /proc/mounts",
+  "mount_path": "/media/fat",
+  "mounts": [
+    "/dev/root /media/fat exfat rw,sync,dirsync,noatime,nodiratime,fmask=0022,dmask=0022,iocharset=utf8,namecase=0,errors=remount-ro 0 0"
+  ],
+  "path": "/media/fat/.disk-profile-20260925-20i_66gp/backend-test.bin",
+  "size_bytes": 4194304,
+  "sync_sweeps": [
+    {
+      "block_bytes": 512,
+      "bytes": 4194304,
+      "elapsed_ms_including_syscalls": 31326.896151,
+      "syscall_ms_max": 64.044649,
+      "syscall_ms_median": 3.9695445,
+      "syscall_ms_p95_floor_order_statistic": 7.974529,
+      "writes": 8192
+    },
+    {
+      "block_bytes": 4096,
+      "bytes": 4194304,
+      "elapsed_ms_including_syscalls": 3636.228504,
+      "syscall_ms_max": 55.677787,
+      "syscall_ms_median": 3.765622,
+      "syscall_ms_p95_floor_order_statistic": 4.907525,
+      "writes": 1024
+    },
+    {
+      "block_bytes": 16384,
+      "bytes": 4194304,
+      "elapsed_ms_including_syscalls": 1425.922996,
+      "syscall_ms_max": 61.44632,
+      "syscall_ms_median": 4.451322,
+      "syscall_ms_p95_floor_order_statistic": 11.449134,
+      "writes": 256
+    }
+  ]
+}

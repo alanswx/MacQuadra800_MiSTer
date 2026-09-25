@@ -39,3 +39,7 @@ was attached to Main, and Main was not restarted or replaced. The SCSI cache's
 the currently loaded bitstream's host/debug interface. `SCSI_TRACE` is
 commented out in the QSF, so this run could not count cache hits, cache misses,
 or individual FPGA/HPS transactions.
+
+## Host-only backend test
+
+The separate host write sweep used `/media/fat`, mounted from `/dev/root` as exFAT with `rw,sync,dirsync,noatime,nodiratime,fmask=0022,dmask=0022,iocharset=utf8,namecase=0,errors=remount-ro`. It created a unique directory and exclusive 4 MiB file, then removed both. See `host_backend_results.json` for exact timestamps-independent latency summaries and device counter endpoints.
