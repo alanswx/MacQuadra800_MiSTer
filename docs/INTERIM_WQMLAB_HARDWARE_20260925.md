@@ -100,3 +100,26 @@ A controlled virtual-keyboard F12 probe did not expose the OSD in the native
 capture, which may exclude the overlay. OSD usability and hot-mount remain
 unverified. CD tests are proceeding through the authorized same-core startup
 mount fallback, preserving the original slot-4 configuration.
+
+
+## CD-ROM data (2026-09-25 04:22–04:25 UTC)
+
+After the verified shutdown, slot 4 was set to the staged
+`interim-validation-20260924/HFS-Data-Test.iso` and the same candidate core
+was reloaded. The original 1024-byte empty-path `.s4` was preserved exactly
+for restoration. Main opened the ISO, and Finder displayed the mounted
+[Q800 Data Test volume](perf/interim_wqmlab_20260925/cd_data_mounted.png).
+Its [directory](perf/interim_wqmlab_20260925/cd_data_directory.png) contained
+the expected `MacQuadra800-CD-README.txt`. SimpleText opened and displayed
+[the README contents](perf/interim_wqmlab_20260925/cd_data_readme.png), which
+root compared with the known 146-byte fixture text. The Unix newlines rendered
+as box glyphs, but the expected text was present. No additional copy or binary
+hash check was performed in the guest; this is a functional mount, directory,
+and file-read pass. It does not establish OSD hot-mount operation.
+
+For the subsequent audio test, the same core was reloaded with `ToneTest.cue`.
+Live checks confirmed `/tmp/CORENAME=MacQuadra800`, installed RBF SHA-256
+unchanged, and Main PID 21961 holding the disposable HDA and ToneTest CUE/BIN
+files. A fresh desktop capture showed Audio CD 1. An earlier FM-7 image was
+rejected as invalid boot evidence. Audio controls and audible output remain
+pending at this checkpoint.
