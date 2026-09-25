@@ -78,4 +78,7 @@ Fitted use is 40,651 ALMs needed / 41,910, 28,588 registers and 509 M10Ks.
 Setup misses remain: CPU -2.406 ns, RAM -0.697 ns, HDMI -0.426 ns. All summary
 hold checks pass. Queue-focused capture and pointer setup/hold reports pass;
 optional internal RAM pin/register queries are empty and are not claimed as
-validated. No hardware result exists yet; this is not a timing-clean release.
+validated. Hardware subsequently completed five valid Speedometer runs (median 1.828),
+Ethernet integrity, normal shutdown, and CD-ROM data reads. See the
+[hardware report](INTERIM_WQMLAB_HARDWARE_20260925.md) for current audio/OSD
+coverage and remaining limits. This is not a timing-clean release.

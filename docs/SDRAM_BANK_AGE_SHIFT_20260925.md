@@ -1,5 +1,10 @@
 # SDRAM bank-age shift encoding
 
+**Rejected experiment:** the shift encoding passed functional checks but both
+completed full fits failed routing. Commit `88a8a5d` restored the exact fitted
+`15a1449` build inputs; current `rtl/sdram.sv` uses the original numeric age.
+The design discussion below describes the experimental revision, not current RTL.
+
 `rtl/sdram.sv` uses the per-bank age only to decide whether the five-cycle tRAS minimum has elapsed. The previous three-bit saturating count fed several `>= 5` comparators, including the critical `bank_age[0][1] -> chip` path (−0.697 ns in the routed 15a1449 fit). The new five-bit shift token sets bit 4 after five open-bank `clk_ram` edges, so the control checks use that bit directly. ACT, PRECHARGE, init, and age-update priority stay unchanged; the shift array retains `ramstyle="logic"`.
 
 An exhaustive per-bank transition check covered 25 legal transitions across 10 reachable age/row states, including tick, close, ACT/reopen, and init overriding concurrent state updates. The SDRAM chip-model test passed 174 checks with no protocol errors. The posted/non-posted memory-path modes, the dedicated `tb_memory_path_registered_first_miss` bench (64 integrated sequential reads plus 2,048 mixed posted-write/read operations), and the DMA integration test also passed. Full logs, proof source, and the isolated map are retained under `scratch/sdram_age_shift_20260924/`.

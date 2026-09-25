@@ -118,8 +118,25 @@ hash check was performed in the guest; this is a functional mount, directory,
 and file-read pass. It does not establish OSD hot-mount operation.
 
 For the subsequent audio test, the same core was reloaded with `ToneTest.cue`.
-Live checks confirmed `/tmp/CORENAME=MacQuadra800`, installed RBF SHA-256
-unchanged, and Main PID 21961 holding the disposable HDA and ToneTest CUE/BIN
-files. A fresh desktop capture showed Audio CD 1. An earlier FM-7 image was
-rejected as invalid boot evidence. Audio controls and audible output remain
-pending at this checkpoint.
+Live checks confirmed `/tmp/CORENAME=MacQuadra800`, Main PID 21961, unchanged
+installed RBF SHA-256 `4687167a16beb4077b970bf1cb46f0ba08a2fac724d2367f5d91e1390045da6c`,
+and open descriptors for the disposable HDA plus ToneTest CUE/BIN. A fresh
+desktop showed Audio CD 1 mounted. An earlier FM-7 image was rejected as
+stale; it was not used as boot evidence.
+
+AppleCD Audio Player showed the Audio CD and four tracks. Track 1 played and
+the displayed timer advanced from 00:04 at 04:44:54Z to 00:40 at 04:45:30Z,
+then to 01:29 at 04:46:19Z. The player advanced naturally to Track 2 before
+Pause; the display showed Track 2 at 00:30 at 04:46:58Z and remained at 00:30
+in a later capture at 04:48:43Z. Resume advanced to Track 2 at 01:13 by
+04:49:50Z. Stop returned the display to Track 1 at 00:00 by 04:50:22Z. These
+remote screenshot timestamps bound the observations; they are not precise
+audio-clock measurements. The controls therefore pass a visible Play/Pause/
+Resume/Stop check. Native captures are in
+[the CD audio evidence directory](perf/interim_wqmlab_20260925/cd_audio/).
+
+Track 1 is a steady 440 Hz tone with a brief 2 kHz click once per second.
+The physical audible-output result remains pending because no listener result
+was received. OSD usability also remains unverified: the single F12 probe was
+not observable in the native screen capture. Slot-4 restoration and a final
+clean shutdown remain in progress.

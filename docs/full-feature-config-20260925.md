@@ -27,6 +27,8 @@ directives, tied to the successful source-before/source-after manifest checks.
 The artifact remains SHA256
 `4687167a16beb4077b970bf1cb46f0ba08a2fac724d2367f5d91e1390045da6c`.
 
-This is a configuration audit, not a peripheral pass. Hardware Ethernet,
-CD data/audio, OSD operation and normal shutdown still require direct results.
+This is a configuration audit, not a peripheral pass. Subsequent direct
+hardware results are recorded in the
+[hardware report](INTERIM_WQMLAB_HARDWARE_20260925.md); unverified audio/OSD
+checks remain explicit there.
 A/UX remains deferred at the user's instruction because its image is absent.
