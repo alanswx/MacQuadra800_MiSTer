@@ -72,4 +72,10 @@ Evidence: `scratch/sdram_wq_memory_review_20260924/` (standalone projects,
 source snapshots, primitive checks, integration logs and input hashes) and
 `scratch/sdram_wq_stress_20260924/` (baseline and corrupted-DUT checks).
 These raw files are gitignored; this note records results in version control.
-No fresh full-feature RBF or hardware result exists for this candidate yet.
+The full-feature fit from `15a1449` succeeded and produced a fresh RBF
+(SHA256 `4687167a16beb4077b970bf1cb46f0ba08a2fac724d2367f5d91e1390045da6c`).
+Fitted use is 40,651 ALMs needed / 41,910, 28,588 registers and 509 M10Ks.
+Setup misses remain: CPU -2.406 ns, RAM -0.697 ns, HDMI -0.426 ns. All summary
+hold checks pass. Queue-focused capture and pointer setup/hold reports pass;
+optional internal RAM pin/register queries are empty and are not claimed as
+validated. No hardware result exists yet; this is not a timing-clean release.

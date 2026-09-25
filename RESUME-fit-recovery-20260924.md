@@ -1,5 +1,34 @@
 # Power-loss recovery and next-step strategy
 
+## Terminal result: full-feature fit succeeded, timing missed
+
+`interim_mac_wqmlab` from source `15a1449` completed placement and routing,
+and produced a fresh archived RBF:
+`scratch/interim_mac_wqmlab_fit_20260924/MacQuadra800_interim_mac_wqmlab_15a1449.rbf`.
+SHA256: `4687167a16beb4077b970bf1cb46f0ba08a2fac724d2367f5d91e1390045da6c`.
+Fit summary: 40,651/41,910 ALMs needed, 28,588 registers, 509/553 RAM blocks;
+4,182/4,191 LABs occupied. This is a successful fit, not a timing-clean release.
+
+Setup misses: CPU -2.406 ns, RAM -0.697 ns, HDMI -0.426 ns. All summary hold
+slacks are positive (minimum +0.200 ns). CPU worst path is ifr_addr[16] to
+core epf_data[6][0]. The wrapper reports build.exit=1 for timing failure;
+source_check_after.exit=0. All source inputs were preserved. Supplemental
+queue STA exited 0: sys-to-ram capture setup +3.606/hold +0.642 ns;
+ram-to-ram capture setup +0.970/hold +1.398 ns; reviewed pointers pass.
+Optional internal MLAB register/pin collections were empty, although capture
+paths include actual MLAB MEMORYREGOUT startpoints. Preserve this coverage
+limit; it is not a pass for those optional reports.
+
+Root is reviewing the separate RAM-domain failing path. Luna
+`interim_validation` is doing READ-ONLY MiSTer preflight; no new core has been
+loaded yet. User already authorized replacing the running core on mister.local
+and using the disposable disk. Timing-marginal exploratory hardware use is
+allowed by project/user policy, but the exact misses must remain visible and
+the build must not be described as timing-clean. `alu_rotate_sharing` owns the
+remaining timing evidence; no further full build is active at this update.
+
+Read this terminal section before the historical live-build statements below.
+
 ## Latest candidate: MLAB write queue promoted; full fit active
 
 The exact candidate `rtl/sdram_beat32.sv` SHA256
