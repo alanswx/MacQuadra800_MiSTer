@@ -32,8 +32,30 @@ reported by `scratch/fit_report.sh <dir>`.
 | C `fitC_bdr` | B + P240 | 37,975 | −0.548 | −0.103 | −0.630 (shadowmask) | tag RAM → hit → c_rdata → ALU → flags → taken → refill seed → `epf_data`, 191/200 |
 | D `fitD_bdr2` | C + P241, shadowmask off | 37,727 | −1.665 | +0.107 | −0.846 | same family, entering the ALU on the quick-RMW operand |
 | E `fitE_bdr3` | C + P242, shadowmask off | 37,712 | −1.548 | +0.734 | −0.319 | c_rdata → ALU result → register bypass → DBcc count test → refill seed |
-| F1 `fitF1_speed` | B + `PHYSICAL_SYNTHESIS_COMBO_LOGIC ON`, `OPTIMIZATION_TECHNIQUE BALANCED`, shadowmask off | | | | | running |
-| F2 `fitF2_speed` | C + the same | | | | | running |
+| **F1** `fitF1_speed` | B + `PHYSICAL_SYNTHESIS_COMBO_LOGIC ON`, `OPTIMIZATION_TECHNIQUE BALANCED`, shadowmask off | 38,329 (91 %) | **+0.007** | **+0.082** | **+0.044** | **timing met**: every setup, hold (min +0.219), recovery, removal positive; crossings +0.469 / +0.519 |
+| F2 `fitF2_speed` | C (P240) + the same | 38,632 | −0.569 | +0.005 | −0.124 | |
+| G `tc_g_fullfeature_clean` | F1's recipe refitted in the checkout at `a0b3072` | 38,329 | +0.007 | +0.082 | +0.044 | **bit-identical RBF** (sha256 ce26df46…, md5 46b85dcc) |
+| H1 | F1 with the original IOSB registers | | −0.235 | | | hardware bisect only |
+| H2 | F1 with the pipeline back on | | −1.561 | | | hardware bisect only |
+| H3 | F1 without the three trims | | −0.435 | | | hardware bisect only |
+
+The speed synthesis settings were worth about 0.4 ns on the same RTL
+(B −0.35 → F1 +0.007); with them the P240 core (F2) was worse than without,
+so the recipe carries no CPU RTL change beyond the IOSB move.
+
+## Hardware, 2026-09-25 afternoon
+
+Every build deployed after 14:30 came up black with no disk reads at all --
+F1, fit B, H1, H3 and the known-good 1.828 build alike.  Cause: the MiSTer's
+Main binary had been replaced at 12:58 by a FujiNet build without the Quadra
+800 support (no `macquadra800` / SONIC / `Mac CD` code), so no Mac core got
+its ROM.  With `/media/fat/MiSTer.bak_pre_fujinet` (md5 d5b50fc4, Quadra +
+printer) reinstalled, F1 boots to the Finder desktop.  Lesson: check Main's
+identity (`grep -a -c macquadra800 /media/fat/MiSTer`) before blaming a build
+for a black screen, and keep the known-good RBF as the first control.
+
+The RBF is `test-builds/MacQuadra800_fullfeature_timingclean_20260925_a0b3072.rbf`.
+Speedometer runs: see `docs/PERFORMANCE_MEASUREMENTS.md`.
 
 SDRAM crossings (sys↔ram) pass on every routed fit (+0.6 / +1.8 ns on B).
 
