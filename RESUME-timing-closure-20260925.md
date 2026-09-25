@@ -182,3 +182,14 @@ write time and 15728ms I/O time; these are device aggregates, not guest bandwidt
 or measured Main blocking time. Physical read counters were flat. No bottleneck
 is proven yet. Luna is now measuring backend write batch-size cost with a new
 exclusive temporary host file, never an HDA, while the guest is idle.
+
+## Strict CPU test-runner revalidation
+
+Luna found that the legacy shell runner piped vvp through tee and grep -q,
+which could hide a simulator failure after a pass banner. Root changed the
+runner to wait for vvp, require exit0 plus the positive marker and reject fatal
+or failure markers. Negative controls require a nonzero exit and their intended
+TEST FAILED diagnostic. Seven mocked runner cases pass, including a pass banner
+followed by a fatal. No HDL/configuration changed. Luna is replaying the existing
+compiled address-only and X-variant suites with strict exit checks; prior
+aggregate banners alone are provisional until that replay completes.

@@ -51,7 +51,12 @@ echo "== running =="
 fail=0
 run() {
 	name=$1; shift
-	if vvp "$@" 2>&1 | tee "$WORK/$name.log" | grep -q "ALL TESTS PASSED"; then
+	# Wait for the simulator to finish: grep -q in a pipeline can accept a
+	# pass banner before a final assertion fails, and hides vvp's status.
+	sim_rc=0
+	vvp "$@" > "$WORK/$name.log" 2>&1 || sim_rc=$?
+	if [ "$sim_rc" -eq 0 ] && grep -q "ALL TESTS PASSED" "$WORK/$name.log" &&
+	   ! grep -Eq 'FATAL:|TEST FAILED' "$WORK/$name.log"; then
 		echo "  pass  $name"
 	else
 		echo "  FAIL  $name  (see $WORK/$name.log)"
@@ -63,7 +68,9 @@ run() {
 # the bypass disabled has to be caught.
 negrun() {
 	name=$1; shift
-	if vvp "$@" 2>&1 | tee "$WORK/$name.log" | grep -q "TEST FAILED"; then
+	sim_rc=0
+	vvp "$@" > "$WORK/$name.log" 2>&1 || sim_rc=$?
+	if [ "$sim_rc" -ne 0 ] && grep -q "TEST FAILED" "$WORK/$name.log"; then
 		echo "  pass  $name  (control: failed as required)"
 	else
 		echo "  FAIL  $name  (control did NOT fail; see $WORK/$name.log)"
