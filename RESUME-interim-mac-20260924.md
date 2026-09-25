@@ -1,5 +1,7 @@
 # Interim Mac build — 2026-09-24
 
+> Start with [the power-loss recovery handoff](RESUME-fit-recovery-20260924.md) for the latest consolidated state and fit-success/failure strategy. This file retains the chronological evidence.
+
 ## Active goal — approved wording
 
 The refined goal and completion criteria are recorded in
