@@ -16,11 +16,11 @@ It does not declare the goal achieved or approve a timing-clean release.
 | Ethernet operation | 1,000/1,000 1,400-byte pings, zero loss; 10 MiB FTP round trip with matching SHA-256 and MD5. Internal DMA/RPC counters unavailable in installed Main; not claimed zero. |
 | Disk cache operation | Enabled in fitted configuration; exercised by guest boot, applications, and FTP writes/reads. No dedicated hardware hit-rate or throughput threshold is established. |
 | CD-ROM data | Known HFS volume mounted, directory opened, expected README read and compared visually with fixture source. Startup mounting tested; OSD hot-mount not proved. |
-| CD audio | Disc and track list mounted; Play/Pause/Resume/Stop screenshot evidence reviewed. Physical audible output is still pending the user. Final transport evidence archival is in progress. |
+| CD audio | Disc and track list mounted; Play/Pause/Resume/Stop screenshot evidence reviewed. Physical audible output is still pending the user. Transport evidence is archived and pushed. |
 | OSD usability | Inconclusive F12 probe; screenshot path may omit overlay. Requires observable hardware confirmation. |
 | Five valid Speedometer runs | 1.817, 1.828, 1.829, 1.829, 1.827; median 1.828. All ten tests enabled, one iteration, completed alerts, nonzero Matrix/Sieve. [Detailed metrics and screenshots](INTERIM_WQMLAB_HARDWARE_20260925.md). |
 | A/UX | Explicitly deferred to Dani by the user; disk image unavailable. |
-| Commit/push and recovery | Source restoration, benchmark/Ethernet/shutdown/CD-data evidence pushed to `origin/add-ethernet`. Final audio evidence, restored slot-4 state, and final handoff remain to be committed when ready. |
+| Commit/push and recovery | Source restoration, benchmark/Ethernet/shutdown/CD-data evidence pushed to `origin/add-ethernet`. Audio evidence and compact build summaries are pushed. Final restored-state safe halt and handoff are recorded in this checkpoint; physical checks remain pending. |
 
 The age-shift timing experiment did not fit and was not installed. No further
 seed sweep is underway. The usable interim artifact remains the original fitted

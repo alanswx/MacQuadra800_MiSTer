@@ -138,5 +138,15 @@ Resume/Stop check. Native captures are in
 Track 1 is a steady 440 Hz tone with a brief 2 kHz click once per second.
 The physical audible-output result remains pending because no listener result
 was received. OSD usability also remains unverified: the single F12 probe was
-not observable in the native screen capture. Slot-4 restoration and a final
-clean shutdown remain in progress.
+not observable in the native screen capture.
+
+After the audio test, the original slot-4 `.s4` bytes were restored from the
+preserved backup and verified byte-for-byte (`cmp` passed). Both the current
+file and backup are 1024 bytes with SHA-256
+`885049f1219036556d7a8455af614213db3b98d35f4b587ae1b4c7ce2e2ace3f`; the
+first byte is NUL (empty C-string path), with the original trailing buffer
+bytes preserved. The same RBF was reloaded, `/tmp/CORENAME` again read
+`MacQuadra800`, and Main PID 23834 held only the disposable HDA; no ToneTest
+CUE/BIN descriptors remained. A fresh final capture shows “It is now safe to
+switch off your Macintosh” ([shutdown screenshot](perf/interim_wqmlab_20260925/cd_audio/final_safe_halt.png)).
+The safe-halt state was left on screen. The original HDA remained untouched.

@@ -1,5 +1,8 @@
 # Power-loss recovery and next-step strategy
 
+For the latest concise state, read [September 25 validation handoff](RESUME-interim-validation-20260925.md).
+The checkpoints below retain chronological history.
+
 ## Timing experiment terminal; fitted baseline restored (2026-09-25 04:28 UTC)
 
 `interim_mac_ageshift_s28detached` failed fitting after 50m07s in the fitter,
@@ -33,7 +36,8 @@ HDA descriptor; do not infer release from the guest halt or its file position.
 
 Luna `interim_validation` is the sole hardware operator and is proceeding with
 CD startup mounts on the SAME installed `15a1449` core. Slot 4 originally held
-1024 zero bytes (empty path). Its exact remote backup is
+a 1024-byte buffer with an empty C-string path (first byte NUL, 32
+nonzero trailing bytes). Its exact remote backup is
 `/media/fat/config/MacQuadra800.s4.cdtest-backup-20260925`, SHA-256
 `885049f1219036556d7a8455af614213db3b98d35f4b587ae1b4c7ce2e2ace3f`.
 Restore those exact bytes after the CD tests; re-observe the live slot and screen
