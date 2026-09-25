@@ -1,5 +1,26 @@
 # Power-loss recovery and next-step strategy
 
+## Latest checkpoint: Ethernet packets pass; clean seed-28 retry active
+
+Source15a1449 remains the installed full-feature build, median Speedometer
+1.828. Ethernet guest10.3.231.233 passed 1,000/1,000 1,400-byte pings with
+zero packet loss (03:01:17–03:04:38 UTC). `/tmp/CORENAME` confirms MacQuadra800;
+the websocket's FM-7 label is stale. Installed Main has no mac_eth_stats path
+string/file, so DMA/RPC counters remain unverified. Luna interim_validation
+owns FTP integrity, CD data/audio, OSD and shutdown checks; these are pending.
+The guest returned from Speedometer to Finder. Durable benchmark and ping
+records: docs/INTERIM_WQMLAB_HARDWARE_20260925.md.
+
+Age-shift seed21 source84fcbf5 failed routing: 39,193 actual placed ALMs,
+40,173 estimated needed, 4,176/4,191 LABs, no freshRBF/STA. Source-after passed.
+Seed28 sourcecd8da29 then crashed in Quartus fitter after Smart Compilation
+reused synthesis (1m56s); this is a tool crash, not a timing result. Source-after
+passed again. Crash/archive: scratch/interim_mac_ageshift_s28_crash_20260924/.
+Generated db/incremental_db were preserved there; no source or feature change.
+A fresh-database retry of the SAME source and seed is now active under tag
+interim_mac_ageshift_s28clean (session43839, sh2040054/map2040135 verified).
+Check actual processes on resume; no new artifact or timing pass yet.
+
 ## Hardware checkpoint: five valid runs, median 1.828
 
 At 2026-09-25 02:56 UTC, the existing full-feature source15a1449 RBF

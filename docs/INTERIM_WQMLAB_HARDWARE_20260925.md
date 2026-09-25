@@ -31,8 +31,28 @@ The five-run P212 full-cache development-profile median was 1.725. This result i
 
 The real Quadra 800 reference screenshot reports Mix 1.897, so this candidate's median is 96.4% of that score. Its visible RAM was 122,880 KB versus this MiSTer's 32,768 KB; the reference comparison therefore also has a memory-configuration difference. Candidate median per-test values versus real Q800 are: KWhetstones 1800.066 vs 1978.474/s, Dhrystones 20047.480 vs 24999.350/s, Towers 0.475 vs 0.469 s, Quick Sort 0.502 vs 0.532 s, Bubble Sort 0.574 vs 0.566 s, Queens 0.339 vs 0.307 s, Puzzle 0.716 vs 0.799 s, Permutations 0.704 vs 0.619 s, Int. Matrix 0.474 vs 0.599 s, and Sieve 1.022 vs 0.974 s. Lower elapsed seconds are faster. These are observed score comparisons, not controlled attribution.
 
-The fifth completion screenshot shows the guest in Speedometer with its done dialog. This task did not test Ethernet traffic, CD audio/data, OSD usability, normal shutdown, or a physical disk-cache threshold. Those remain separate checks. Do not hash or back up either HDA until a clean guest shutdown and confirmation that Main released the file.
+The fifth completion screenshot shows the guest in Speedometer with its done dialog. At the benchmark checkpoint, Ethernet traffic, CD audio/data, OSD usability, normal shutdown, and a physical disk-cache threshold had not been tested. Subsequent peripheral results are recorded below. Do not hash or back up either HDA until a clean guest shutdown and confirmation that Main released the file.
 
 Raw command logs, per-run setup captures, completion captures, and boot evidence are in `scratch/interim_mac_wqmlab_hw_20260924/`. The screenshots show the completion dialogs and result rows; see the linked full-size images above.
 
 The five pre-run setup captures are also preserved in [the tracked evidence directory](perf/interim_wqmlab_20260925/), alongside the completion images.
+
+## Ethernet checkpoint (03:04 UTC)
+
+The live guest address 10.3.231.233 replied to all 1,000 ICMP requests with
+1,400-byte payloads, at five requests per second: 0% loss, mean round-trip
+3.456 ms, minimum 3.172 ms, maximum 5.978 ms. This verifies the tested packet
+traffic, not yet the planned 10 MB file integrity in both directions.
+[Raw ping output](perf/interim_wqmlab_20260925/ethernet_ping1000.log).
+
+MiSTer's `/tmp/CORENAME` reads `MacQuadra800`, independently confirming the
+loaded core name while the websocket still reports its stale FM-7 label.
+The installed Main does not contain the `/tmp/mac_eth_stats` path string;
+that file is absent and stdout/stderr point to `/dev/console`. No alternate
+Ethernet statistics files were found in `/tmp`. Thus DMA/RPC error-counter
+coverage is unavailable; packet delivery does not establish zero internal
+errors. Main was not restarted or replaced to obtain diagnostics.
+[Instrumentation observations](perf/interim_wqmlab_20260925/ethernet_instrumentation.txt).
+
+Speedometer subsequently quit to Finder without saving its Machine Record.
+FTP integrity, CD data/audio, OSD and normal shutdown remain pending.

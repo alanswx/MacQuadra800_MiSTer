@@ -1,0 +1,4 @@
+core_name=MacQuadra800stdout_fd=/dev/console
+stderr_fd=/dev/console
+stats_path_string=ABSENT
+other_stats_files=
