@@ -2198,3 +2198,28 @@ screen.
 Ladder: P120 1.313 -> P124 1.340 -> P165b 1.364 -> P171 1.377 -> P174 1.460 -> P182 1.467 -> P188 1.631 ->
 P193 1.646 -> P205 1.703 -> P212 1.725 (P220, P229 fail to boot) -> **P232 1.778**.  Real Quadra 800:
 1.897.
+
+
+## Full-feature interim build: Mix 1.828 (2026-09-25)
+
+Source `15a1449`, normal QSF, seed 21, with Ethernet, CD-ROM/CD audio, OSD,
+composite output and hard-disk caching compiled in. The eight-entry SDRAM
+posted-write FIFO uses MLAB storage; CPU reductions and speed enhancements
+are retained. Full route and assembly succeeded. Setup timing remains
+negative: CPU −2.406 ns, SDRAM −0.697 ns, HDMI −0.426 ns; all reported hold
+slacks pass. This is an exploratory timing-marginal build.
+
+Five valid all-ten/one-iteration hardware runs on the disposable disk scored
+**1.817, 1.828, 1.829, 1.829, 1.827**, median **1.828**. This is +2.8% against
+P232's development/cache-off median 1.778, and 96.4% of the photographed real
+Quadra 800 score 1.897. Different build profiles prevent attributing the change
+to one optimization. The real reference has 120 MiB RAM; this guest has 32 MiB.
+
+Median absolute results: 1800.066 KWhetstones/s, 20047.480 Dhrystones/s;
+Towers 0.475 s, Quick 0.502 s, Bubble 0.574 s, Queens 0.339 s, Puzzle 0.716 s,
+Permutations 0.704 s, Matrix 0.474 s, Sieve 1.022 s. Every completion screenshot was
+visually reviewed; OCR repeatedly misread the digit 8 in the aggregate score.
+The raw screenshots, full per-run table, artifact SHA256, timing exceptions
+and evolving peripheral-validation record are in
+[the detailed hardware report](INTERIM_WQMLAB_HARDWARE_20260925.md).
+The benchmark milestone alone is not the complete hardware acceptance gate.
