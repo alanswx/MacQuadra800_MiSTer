@@ -506,3 +506,33 @@ That flow builds source 7af6a29, FPU 2d53db3..., at seed 21/effort 1.0;
 session 69047, wrapper 1793732, fitter 1798838. Fresh full map: 39,021 ALMs,
 292 below the preceding 39,313. Tracked inputs stay frozen until the full
 flow and source-after check finish.
+
+## Operator-aborted borrow fit; isolate performance physical synthesis
+
+The user asked whether to stop the long run and move on. The root recommended
+doing so after about 101 minutes overall with sustained CPU but no newly
+reported progress beyond physical synthesis. The monitor verified the exact
+Mac fitter/ancestry and stopped only that fitter. The wrapper then completed:
+build exit 3, source-after 0, crossing/timing skipped, no fresh RBF/STA/fit
+summary. Classify `interim_mac_divsqrt_borrow` as **operator-aborted**, not
+a proven capacity/routing failure. Preserve its archive and stop evidence.
+
+Next controlled trial: keep the exact tested borrow RTL (source 7af6a29, FPU
+2d53db3...), seed21, effort1, features and all timing constraints; change only
+PHYSICAL_SYNTHESIS_COMBO_LOGIC from ON to OFF. Leave
+PHYSICAL_SYNTHESIS_COMBO_LOGIC_FOR_AREA ON and retiming unchanged. This may
+reduce physical logic expansion and avoid the costly speed pass, but could
+worsen timing; no routing/timing benefit is claimed in advance.
+Next archive tag: `interim_mac_borrow_nospeedphys`.
+
+A separate two-bit-per-cycle DIV/SQRT prototype is being evaluated in
+`scratch/alu_divsqrt_2bit_20260924/`; it is not part of this full build. Its
+loop latency increases by 11 cycles; area and complete regression results
+are pending. Do not silently substitute it for the same-RTL setting trial.
+
+Historical duration review: P33 full compile34m58s (fitter29m41s) is the
+longest timing-clean hardware-tested archived example found; five valid
+Speedometer runs and shutdown were accepted. P150 full compile3h36m routed
+but CPU setup missed19.298ns and was unusable. P232 hardware median1.778
+belongs to seed28/18m01s, not seed26/2h17m55s. These are longest-found
+results from a bounded archive review, not a proof of a global maximum.
