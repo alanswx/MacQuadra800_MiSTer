@@ -1,5 +1,31 @@
 # Power-loss recovery and next-step strategy
 
+## Hardware checkpoint: five valid runs, median 1.828
+
+At 2026-09-25 02:56 UTC, the existing full-feature source15a1449 RBF
+completed five valid Speedometer Mix runs: **1.817, 1.828, 1.829, 1.829,
+1.827** (median **1.828**). Root independently viewed all five completion
+screenshots. All show the done alert and plausible nonzero Matrix/Sieve;
+setup records establish all ten tests at one iteration. Initial OCR misread
+1.817 as 1.617; reject those OCR averages and use the native screenshots.
+Evidence: scratch/interim_mac_wqmlab_hw_20260924/run{1..5}_complete.png.
+The first-run average was corrected before recording the final series.
+
+This is about 2.8% above the previous P232 development-profile median1.778,
+and 96.4% of the photographed real Quadra800 score1.897. Profile differences
+prevent attributing the change to any single RTL edit. The current guest has
+32 MiB RAM versus 120 MiB in the real reference. Ethernet, CD data/audio,
+OSD usability and normal shutdown are still pending; Luna interim_validation
+owns hardware. Do not call the goal complete or this a timing-clean release.
+
+The separate timing candidate source84fcbf5 is committed and pushed to
+origin/add-ethernet. Fullfit interim_mac_ageshift is actively fitting (last
+verified fitter2017312 under quartus_sh2010095); archive
+scratch/interim_mac_ageshift_fit_20260924. Recheck process state on resume.
+Its registered-first-miss memory regression also passed 64 sequential reads
+and 2,048 mixed operations with zero failures/protocol errors. No new RBF or
+STA result is established yet. Keep tracked source inputs frozen during flow.
+
 ## Terminal result: full-feature fit succeeded, timing missed
 
 `interim_mac_wqmlab` from source `15a1449` completed placement and routing,
