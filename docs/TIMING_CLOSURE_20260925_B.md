@@ -55,7 +55,9 @@ identity (`grep -a -c macquadra800 /media/fat/MiSTer`) before blaming a build
 for a black screen, and keep the known-good RBF as the first control.
 
 The RBF is `test-builds/MacQuadra800_fullfeature_timingclean_20260925_a0b3072.rbf`.
-Speedometer runs: see `docs/PERFORMANCE_MEASUREMENTS.md`.
+On hardware: **Mix 1.661 / 1.670 / 1.674 / 1.666 / 1.676, median 1.670**; Ethernet
+pings, CD data, CD audio transport and normal shutdown pass.  Full table and
+evidence: `docs/perf/fullfeature_clean_20260925/README.md`.
 
 SDRAM crossings (sys↔ram) pass on every routed fit (+0.6 / +1.8 ns on B).
 

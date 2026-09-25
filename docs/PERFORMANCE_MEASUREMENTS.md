@@ -2223,3 +2223,22 @@ The raw screenshots, full per-run table, artifact SHA256, timing exceptions
 and evolving peripheral-validation record are in
 [the detailed hardware report](INTERIM_WQMLAB_HARDWARE_20260925.md).
 The benchmark milestone alone is not the complete hardware acceptance gate.
+
+## Full-feature timing-clean build on hardware: Mix 1.670 (2026-09-25, 14:29-14:39)
+
+Commit `a0b3072` (the second integer pipeline out, CD-ROM, Ethernet, SCSI
+cache, OSDs, audio and Y/C in; CPU caches 8+8 KB), RBF md5 `46b85dcc`, every
+clock met (CPU +0.007, SDRAM +0.082, HDMI +0.044 ns).  32 MB, disposable
+QuadSquad8 copy, Speedometer 4.02 Benchmark Mix, all ten tests, one iteration.
+
+| run | KWhet/s | Dhry/s | Towers | QSort | Bubble | Queens | Puzzle | Perm | Matrix | Sieve | Mix |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 1774.194 | 19075.807 | 0.519 | 0.521 | 0.633 | 0.445 | 0.977 | 0.775 | 0.568 | 1.155 | 1.661 |
+| 2 | 1783.621 | 19054.420 | 0.519 | 0.518 | 0.633 | 0.445 | 0.949 | 0.768 | 0.566 | 1.154 | 1.670 |
+| 3 | 1794.240 | 19044.201 | 0.519 | 0.518 | 0.632 | 0.446 | 0.950 | 0.767 | 0.564 | 1.157 | 1.674 |
+| 4 | 1772.342 | 19040.967 | 0.519 | 0.518 | 0.632 | 0.446 | 0.951 | 0.767 | 0.565 | 1.156 | 1.666 |
+| 5 | 1800.873 | 19059.802 | 0.519 | 0.520 | 0.633 | 0.447 | 0.950 | 0.767 | 0.562 | 1.155 | 1.676 |
+
+Median **1.670** (range 1.661-1.676): 8.6 % under the timing-violating
+interim build's 1.828, 88 % of the real Quadra 800's 1.897.  Evidence:
+`docs/perf/fullfeature_clean_20260925/`.
