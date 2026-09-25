@@ -399,3 +399,12 @@ That flow builds source 7af6a29, FPU 2d53db3..., at seed 21/effort 1.0;
 session 69047, wrapper 1793732, fitter 1798838. Fresh full map: 39,021 ALMs,
 292 below the preceding 39,313. Tracked inputs stay frozen until the full
 flow and source-after check finish.
+
+## Operator stop and replacement fit
+
+See the latest-update section of `RESUME-fit-recovery-20260924.md`. The long
+borrow fit was intentionally stopped, source-after passed, and its archive
+labels it operator-aborted. Replacement `interim_mac_borrow_nospeedphys` is
+live from fa4fd9d, session84587, wrapper1883177/flow1883237. Only performance
+physical combinational synthesis is now OFF; area pass and allfeatures remain.
+A two-bit DIV/SQRT scratch prototype is independently under test, not integrated.

@@ -1,5 +1,58 @@
 # Power-loss recovery and next-step strategy
 
+## Latest update: previous run stopped; replacement build active
+
+Updated after the user asked whether to kill the long run and move on.
+**This section supersedes the original live-build status and next-setting
+proposal below.** Those sections remain as the detailed historical record.
+
+The old `interim_mac_divsqrt_borrow` run was deliberately stopped after about
+101 minutes overall. The monitor verified the exact Mac fitter and ancestry,
+sent a targeted termination, and allowed the wrapper to complete. It is an
+**operator-aborted experiment**, not proof of routing/capacity failure.
+Archive `scratch/interim_mac_divsqrt_borrow_fit_20260924/` contains
+`ABORTED_BY_OPERATOR.txt`, `abort_evidence.txt`, and source-after exit 0.
+No fresh RBF or STA was produced. No unrelated Quartus jobs were stopped.
+
+**Current full build:** `interim_mac_borrow_nospeedphys`, source
+`fa4fd9db93d683fc5de3d92736fbb77564853257` (committed and pushed).
+Archive `scratch/interim_mac_borrow_nospeedphys_fit_20260924/`;
+Luna `/root/interim_validation`, session 84587;
+observed wrapper 1883177, Quartus flow 1883237, map 1883327.
+Recheck actual processes after reconnect; never infer liveness from these IDs.
+
+Only `PHYSICAL_SYNTHESIS_COMBO_LOGIC` changed ON -> OFF. The area physical
+logic pass, retiming, seed21/effort1, all feature macros, CPU RTL and timing
+constraints are unchanged. Current QSF SHA-256:
+`efab0797c5600fc5c603eadafafda97f59d346db47ebd18f5ca63a7609efc4d3`.
+FPU remains `2d53db3ae4a04310add04eeb7919f0219197a98827ed92e410e6d4a4a90f5465`.
+Do not apply the old no-speed-physical patch again. Keep tracked inputs frozen
+through this complete flow and source-after check. If power loss interrupts
+this run, use the recovery procedure below with a new tag such as
+`interim_mac_borrow_nospeedphys_recovery1` and this configuration.
+
+If it routes: follow the fresh-artifact/timing/hardware strategy below.
+If it fails: examine actual resource/routing/timing evidence before choosing
+another change. The next smaller RTL candidate is already in scratch:
+`scratch/alu_divsqrt_2bit_20260924/`. It computes two DIV/SQRT result bits per
+cycle instead of three, retaining all Mac features but adding 11 arithmetic
+state cycles (DIV 35 vs24, SQRT34 vs23). Initial actual-wire vs bitwise-reference
+comparison passed 100,032 operations, and the polarity negative failed.
+Directed arithmetic/frame/resume cases have passed so far, but the complete
+suite and CPU area result were still pending at this update. Do not integrate
+until the final results and exact source identity are reviewed. This candidate
+is NOT part of the active full build and its performance impact must be measured.
+Candidate FPU SHA at prototype launch:
+`ba9d69f0c923fac66f879f69f39eb357a5eb00e01101c0006b66e2002640839d`.
+
+Historical time comparison: longest timing-clean hardware-tested archived
+example found was P33, full compile34m58s/fitter29m41s. P150 completed in3h36m
+but had CPU setup -19.298ns and was unusable. P232's hardware-tested seed28
+build took18m01s, not the2h17m55s of its unaccepted seed26 variant. These are
+bounded-search findings, not an exhaustive maximum or predictor of this run.
+
+## Original recovery record and detailed procedures
+
 Written September 24, 2026 (Toronto); state checked September 25 at 00:51 UTC.
 Read this first, then the linked detailed records. Recheck live state before acting.
 
