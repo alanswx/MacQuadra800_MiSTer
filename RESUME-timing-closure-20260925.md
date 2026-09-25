@@ -134,3 +134,20 @@ match the separately validated snapshots. No constraints/features changed.
 The next full fit will use this combined candidate, with its exact source
 commit recorded at launch. Address-only full legacy suite remains pending;
 no hardware deployment until correctness and timing checks complete.
+
+## Second full fit running
+
+Source `aff6dfd09dc755fd826cebd92ffc8485747bb440`; tag
+`brf_addr_tras_seed21_20260925`; detached wrapper PID 2486252.
+Archive: `scratch/brf_addr_tras_seed21_20260925_fit_20260925/`.
+Preflight: `scratch/brf_addr_tras_seed21_20260925_preflight.txt`.
+Tracked input precheck passed. Core SHA `324abb6e...6a19b89`, SDRAM SHA
+`a7117892...8146f7ae`, queue SHA `6b49355a...f5f9937ba`. Seed 21 and normal
+feature settings unchanged. No earlier Quartus job was active at launch.
+Luna alu_rotate_sharing monitors and will archive corrected MLAB hierarchy
+coverage and all clock/crossing reports if fitting succeeds. Inputs frozen.
+
+Luna disk profiler completed a Disk+Math run (CPU/Graphics unchecked), one
+iteration: Disk 0.589, Math 20.873. Its sampler missed the workload, so no I/O
+attribution is claimed. Another run is planned with sampling armed first.
+MiSTer still runs the original tested artifact and disposable disk.
