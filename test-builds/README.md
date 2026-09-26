@@ -1,5 +1,18 @@
 # Test builds
 
+## Pipeline back, timing met (2026-09-26): `MacQuadra800_pipeline_timingclean_20260926_31b6e99.rbf`
+
+- Source `31b6e99` (seed 24), refit in the checkout reproduces it bit for bit.  SHA-256
+  `ade84dbc0649433dcf2e8e464784382188248b909feae3105b18c95be936beef`, md5 `8481fce4`.
+- **Timing met on every clock**: CPU +1.141, HDMI +0.158, SDRAM +0.791 ns; worst slack of any
+  kind +0.158; SDRAM crossings +1.120 / +1.202.  38,487 ALMs, 469 M10K.
+- The second integer pipeline is back (P243/P244 in the core); `SCSI_CACHE_OFF`, and three
+  release-lite trims (audio IIR filter bypassed, video timing measurement off, no 512x384 mode).
+- **Mix median 1.778** (1.768-1.784), PR 1.152 (Disk 1.595), FPU 0.687, Color 8-bit 13.97 s.
+- Boot, pings, the data CD, the CD audio transport and shutdown pass; the full-machine boot
+  sim reaches the Finder.  **Needs the Main write buffer** (`mac-disk-writebuffer-min`).
+  Audible CD output, the OSD and A/UX remain unchecked.
+
 ## Candidate: SCSI cache off, 16+16 KB CPU caches (2026-09-25): `MacQuadra800_cacheoff_c16_s23_20260925.rbf`
 
 - `a0b3072` plus `SCSI_CACHE_OFF=1`, `SETW = 8`, seed 23 (`docs/perf/cacheoff_s23_20260925/build/recipe.diff`).
