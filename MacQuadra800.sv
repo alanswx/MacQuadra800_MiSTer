@@ -548,6 +548,9 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS), .CDROM(CDROM_EN), .SONIC(SONIC_EN)) m
 	.mem_line_valid(sdr_line_valid),
 	.mem_line_tag(sdr_line_tag),
 	.mem_line_data(sdr_line_data),
+	.mem_rom_line_valid(rom_line_valid),
+	.mem_rom_line_tag(rom_line_tag),
+	.mem_rom_line_data(rom_line),
 	.mem_line_pending(sdr_line_pending),
 	.mem_line_pending_tag(sdr_line_pending_tag),
 
@@ -946,7 +949,15 @@ reg        ioctl_pend;
 reg [26:0] ioctl_a;
 reg [15:0] ioctl_d;
 reg        ddr_wait_data;                  // read issued, awaiting DOUT_READY
-reg        ddr_rd_hi;
+// The ROM's retained line: every ROM read fetches its whole 16-byte line in
+// one two-beat burst, and the machine answers the line's other longwords from
+// here (quadra800 bus_rom_match) -- the I-cache's fill of a ROM line is one
+// DDR3 round trip instead of four.  ROM changes only by a boot.rom download.
+reg [127:0] rom_line;                      // longword 0 in [127:96]
+reg  [19:4] rom_line_tag;
+reg         rom_line_valid = 1'b0;
+reg   [1:0] ddr_rd_word;
+reg         ddr_rd_beat1;                  // the line's first 64-bit beat is in
 reg        ddr_wait_eth = 1'b0;            // ... for the Ethernet window instead
 assign     eth_mem_rvalid = ddr_wait_eth && DDRAM_DOUT_READY;
 
@@ -973,9 +984,23 @@ always @(posedge clk_sys) begin
 
 	if (ddr_wait_data) begin
 		if (DDRAM_DOUT_READY) begin
-			mem_rdata_r <= ddr_rd_hi ? DDRAM_DOUT[63:32] : DDRAM_DOUT[31:0];
-			mem_ack_r   <= 1;
-			ddr_wait_data <= 0;
+			// beat 0 holds longwords 0 (low half) and 1, beat 1 longwords 2 and 3
+			if (!ddr_rd_beat1) begin
+				rom_line[127:64] <= {DDRAM_DOUT[31:0], DDRAM_DOUT[63:32]};
+				ddr_rd_beat1 <= 1;
+			end
+			else begin
+				rom_line[63:0] <= {DDRAM_DOUT[31:0], DDRAM_DOUT[63:32]};
+				rom_line_valid <= 1;
+				case (ddr_rd_word)
+					2'd0: mem_rdata_r <= rom_line[127:96];
+					2'd1: mem_rdata_r <= rom_line[95:64];
+					2'd2: mem_rdata_r <= DDRAM_DOUT[31:0];
+					2'd3: mem_rdata_r <= DDRAM_DOUT[63:32];
+				endcase
+				mem_ack_r   <= 1;
+				ddr_wait_data <= 0;
+			end
 		end
 	end
 	else if (ddr_wait_eth) begin
@@ -1000,10 +1025,13 @@ always @(posedge clk_sys) begin
 				mem_ack_r <= 1;            // djMEMC discards ROM writes
 			end
 			else begin
-				ddram_addr     <= DDR_ROM_BASE | {12'd0, mem_addr[19:3]};
-				ddram_burstcnt <= 8'd1;
+				ddram_addr     <= DDR_ROM_BASE | {12'd0, mem_addr[19:4], 1'b0};
+				ddram_burstcnt <= 8'd2;
 				ddram_rd       <= 1;
-				ddr_rd_hi      <= mem_addr[2];
+				ddr_rd_word    <= mem_addr[3:2];
+				ddr_rd_beat1   <= 0;
+				rom_line_valid <= 0;
+				rom_line_tag   <= mem_addr[19:4];
 				ddr_wait_data  <= 1;
 			end
 		end
@@ -1025,6 +1053,7 @@ always @(posedge clk_sys) begin
 		// access never waits on the DDR3 side of this block.
 	end
 
+	if (ioctl_download && rom_index) rom_line_valid <= 0;
 	if (reset && !ioctl_download) begin
 		vram_ph <= 0;
 		ddr_wait_data <= 0;

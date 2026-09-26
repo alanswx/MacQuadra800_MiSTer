@@ -106,6 +106,9 @@ wire [31:2] mem_wp_addr;
 wire  [3:0] mem_wp_be;
 wire [31:0] mem_wp_data;
 wire        mem_vram_wp;
+reg [127:0] rom_line;                        // the ROM's retained line
+reg  [19:4] rom_line_tag;
+reg         rom_line_valid = 1'b0;
 wire [31:0] mem_rdata;
 wire        mem_ack;
 reg  [31:0] mem_rdata_r;
@@ -147,6 +150,9 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS), .SONIC(0)) machine (
 	.mem_wp_be(mem_wp_be),
 	.mem_wp_data(mem_wp_data),
 	.mem_wq_room(1'b1),
+	.mem_rom_line_valid(rom_line_valid),
+	.mem_rom_line_tag(rom_line_tag),
+	.mem_rom_line_data(rom_line),
 	.mem_vram_wp(mem_vram_wp),
 
 	.vid_addr(vid_addr),
@@ -299,7 +305,16 @@ always @(posedge clk_sys) begin
 				if (mem_be[0]) ram[ram_idx][7:0]   <= mem_wdata[7:0];
 			end
 		end
-		default: mem_rdata_r <= rom[rom_idx];
+		default: begin
+			mem_rdata_r <= rom[rom_idx];
+			// the emu's ROM read fetches the whole line (MacQuadra800.sv)
+			if (!mem_write) begin
+				rom_line       <= {rom[{rom_idx[17:2], 2'd0}], rom[{rom_idx[17:2], 2'd1}],
+				                   rom[{rom_idx[17:2], 2'd2}], rom[{rom_idx[17:2], 2'd3}]};
+				rom_line_tag   <= mem_addr[19:4];
+				rom_line_valid <= 1'b1;
+			end
+		end
 		endcase
 	end
 end

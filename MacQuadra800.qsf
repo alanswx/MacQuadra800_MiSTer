@@ -390,6 +390,10 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # 38,592 ALMs, 468 M10K, RBF md5 9355b638; hardware Color 8-bit 11.42 s, Mix 1.777.  Seed 23 also MET
 # (CPU +0.427, HDMI +0.302, SDRAM +0.896, 38,550 ALMs; not run on hardware); seed 25 not finished.
 # SEED 21 kept.
+# 2026-09-26: + the ROM's retained line (every ROM read a 2-beat DDR3 line burst; the other
+# longwords from the line).  Seed 21 MET: CPU +0.357, HDMI +0.249, SDRAM +0.102, crossings
+# +1.661/+0.357, 38,733 ALMs, 468 M10K, RBF md5 7bcd182d; hardware Color 8-bit 9.87 s, Mix 1.781.
+# Seed 23 router failed.
 set_global_assignment -name SEED 21
 # 2026-09-24: NEVER grew the full BRF fit by398 ALMs; retain the better ALWAYS setting.
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
