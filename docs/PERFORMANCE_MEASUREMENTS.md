@@ -2276,3 +2276,22 @@ the acknowledge), seed 21.  RBF md5 `9355b638`, timing met on every clock
 same test in 10.834 s; the gap to hardware is most likely the ROM, which is
 DDR3 on hardware (see `docs/GRAPHICS_PROFILE_20260926.md`, "Next: the ROM").
 Screens: `docs/perf/vram_move16_20260926/`.
+
+## The ROM's retained line: Color 8-bit 11.42 -> 9.87 s, PR 1.202 (2026-09-26)
+
+Commit `faf9d98`, seed 21, RBF md5 `7bcd182d`; timing met on every clock (CPU
++0.357, HDMI +0.249, SDRAM +0.102 ns).  Instrumented sims showed that the test's
+ROM beats are almost all **instruction-cache fills** (no uncached or
+MMU-inhibited ROM reads).  Each fill beat had been a DDR3 round trip of its own.
+Now a ROM read fetches the whole line in one two-beat burst, and the other three
+beats come from the retained line.  The hottest ROM pages during the test are
+$4080D000, $40809000, $4080E000 and $40811000.
+
+| | `31b6e99` | `0679ca8` | `faf9d98` | real Q800 |
+|---|---|---|---|---|
+| Color 8-bit | 13.967 s | 11.42 s | **9.87 s** | 8.211 s |
+| Mix | 1.778 | 1.777 | 1.781 | 1.899 |
+| PR (CPU / Graphics / Disk / Math) | 1.152 (0.895 / 1.031 / 1.595 / 20.94) | -- | **1.202** (0.895 / 1.168 / 1.617 / 20.97) | 1.605 (1.186 / 1.347 / 3.443 / 20.01) |
+
+8-bit QuickDraw now runs at 83 % of the real machine.  Screens:
+`docs/perf/romline_20260926/`.

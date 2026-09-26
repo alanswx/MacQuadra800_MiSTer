@@ -1,5 +1,18 @@
 # Test builds
 
+## VRAM fast path + MOVE16 chaining + ROM line, timing met (2026-09-26): `MacQuadra800_vram_move16_romline_timingclean_20260926_faf9d98.rbf`
+
+- Source `faf9d98`, seed 21, fitted in a scratch copy of the project.  SHA-256
+  `4fbc599480e8afc1e089115387c9f187b25e3fc0e6921fe0995e82aaf7bb5f8f`, md5 `7bcd182d`.
+- **Timing met on every clock**: CPU +0.357, HDMI +0.249, SDRAM +0.102 ns; no negative slack of
+  any kind; SDRAM crossings +1.661 / +0.357.  38,733 ALMs, 468 M10K.
+- On top of the `0679ca8` build below: every ROM read fetches its 16-byte line from DDR3 in one
+  burst, and the I-cache's other fill beats come from that line.
+- **Color 8-bit 9.87 s** (9.954 / 9.873; `31b6e99`: 13.967 s; a real Q800: 8.211 s).  **Mix 1.781**
+  (1.778 / 1.781 / 1.783).  **PR 1.202** (CPU 0.895, Graphics 1.168, Disk 1.617, Math 20.973).
+  Boots Mac OS 8.1; Speedometer runs complete.  Peripherals were not re-run.  **Needs the Main write
+  buffer.**
+
 ## VRAM fast path + MOVE16 chaining, timing met (2026-09-26): `MacQuadra800_vram_move16_timingclean_20260926_0679ca8.rbf`
 
 - Source `0679ca8` with `SEED 21` (the qsf now says 21), fitted in a scratch copy of the project.
