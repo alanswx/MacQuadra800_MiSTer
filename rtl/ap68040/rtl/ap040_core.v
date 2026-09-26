@@ -6064,6 +6064,23 @@ always @(posedge clk) begin
 						end
 						else state <= S_MOVEM_LOOP;
 					end
+					// P245: MOVE16's line moves one longword per transfer;
+					// each read lands in m16buf and the next read, or after
+					// the fourth the first write, issues from this
+					// acknowledge, as S_M16_RD2 and S_M16_RD/WR would two
+					// clocks later.  Those states stay for the byte-split
+					// path, which returns to r_m_ret as a state.
+					else if (r_m_ret == S_M16_RD2) begin
+						m16buf[m16_idx] <= mem_rdata;
+						if (m16_idx == 2'd3) begin
+							m16_idx <= 0;
+							mwr(m16_dst, `AP040_SZ_L, m16buf[0], S_M16_WR2);
+						end
+						else begin
+							m16_idx <= m16_idx + 2'd1;
+							mrd(m16_src + {28'd0, m16_idx + 2'd1, 2'b00}, `AP040_SZ_L, S_M16_RD2);
+						end
+					end
 					else begin
 						m_val <= mem_rdata;
 						state <= r_m_ret;
@@ -6127,6 +6144,15 @@ always @(posedge clk) begin
 					         (epf_super == sr_s)) begin
 						rfw(4'd15, dbg_a7 - 32'd4);
 						go_pc(br_tgt);
+					end
+					// P245: the next MOVE16 write from this acknowledge
+					else if (r_m_ret == S_M16_WR2) begin
+						if (m16_idx == 2'd3) state <= S_M16_INC;
+						else begin
+							m16_idx <= m16_idx + 2'd1;
+							mwr(m16_dst + {28'd0, m16_idx + 2'd1, 2'b00}, `AP040_SZ_L,
+							    m16buf[m16_idx + 2'd1], S_M16_WR2);
+						end
 					end
 					else state <= r_m_ret;
 				end
