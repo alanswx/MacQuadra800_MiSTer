@@ -445,6 +445,7 @@ wire [31:0] mem_wdata;
 wire  [1:0] mem_memsel;
 wire [31:0] mem_rdata;                     // VRAM/ROM reg, or the SDRAM bridge
 wire        mem_ack;
+wire        mem_vram_wp;                   // direct VRAM write (mem_req low)
 reg  [31:0] mem_rdata_r;
 reg         mem_ack_r;
 
@@ -543,6 +544,7 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS), .CDROM(CDROM_EN), .SONIC(SONIC_EN)) m
 	.mem_wp_be(mem_wp_be),
 	.mem_wp_data(mem_wp_data),
 	.mem_wq_room(sdr_wq_room),
+	.mem_vram_wp(mem_vram_wp),
 	.mem_line_valid(sdr_line_valid),
 	.mem_line_tag(sdr_line_tag),
 	.mem_line_data(sdr_line_data),
@@ -772,10 +774,14 @@ assign LED_DISK = {1'b1, (|sd_rd) | (|sd_wr)};
 wire        sdr_ack;
 wire [31:0] sdr_rdata;
 
-// The ack the machine sees is this bridge's or the VRAM/ROM one; they are
-// never asserted together, because mem_memsel picks exactly one consumer.
-assign mem_ack   = mem_ack_r | sdr_ack;
-assign mem_rdata = sdr_ack ? sdr_rdata : mem_rdata_r;
+// The ack the machine sees is this bridge's, the VRAM port's or the ROM one;
+// they are never asserted together, because mem_memsel picks exactly one
+// consumer.  A VRAM beat is acknowledged in its second clock, straight from
+// the block RAM's output (vram_ack, below).
+wire        vram_ack;
+reg  [31:0] vram_qa;
+assign mem_ack   = mem_ack_r | sdr_ack | vram_ack;
+assign mem_rdata = sdr_ack ? sdr_rdata : mem_is_vram ? vram_qa : mem_rdata_r;
 
 sdram_beat32 sdr
 (
@@ -869,12 +875,14 @@ function [16:0] vram_map(input [16:0] w);  // window word -> storage word
 	end
 endfunction
 
-reg [31:0] vram_qa;
 reg        vram_ph;                        // port-A phase: 0 capture, 1 deliver
 
 wire [16:0]  va_addr     = vram_map(mem_addr[18:2]);
 wire [16:0]  vb_addr     = vram_map(vid_addr[18:2]);
-wire         va_we       = mem_req && mem_is_vram && mem_write && !vram_ph;
+// a beat writes in its capture clock; a direct write (the store buffer's
+// drain, quadra800 bus_vram_direct) is a one-clock pulse with mem_req low
+wire         va_we       = (mem_req && mem_is_vram && mem_write && !vram_ph) || mem_vram_wp;
+assign       vram_ack    = mem_req && mem_is_vram && vram_ph;
 
 // Storage is one byte-wide array per lane rather than one 32-bit array
 // with byte enables: mem_be becomes each lane's write enable, so nothing
@@ -959,15 +967,9 @@ always @(posedge clk_sys) begin
 		ddram_rd <= 0;
 	end
 
-	// VRAM beats (BRAM port A): capture edge, then deliver vram_qa
-	if (mem_req && !mem_ack && mem_is_vram) begin
-		if (!vram_ph) vram_ph <= 1;
-		else begin
-			vram_ph <= 0;
-			mem_rdata_r <= vram_qa;
-			mem_ack_r <= 1;
-		end
-	end
+	// VRAM beats (BRAM port A): the capture edge, then vram_qa is delivered
+	// with the combinational vram_ack; the machine drops mem_req on it
+	if (mem_req && mem_is_vram) vram_ph <= !vram_ph;
 
 	if (ddr_wait_data) begin
 		if (DDRAM_DOUT_READY) begin

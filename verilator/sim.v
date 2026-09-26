@@ -105,8 +105,11 @@ wire        mem_wp_valid;
 wire [31:2] mem_wp_addr;
 wire  [3:0] mem_wp_be;
 wire [31:0] mem_wp_data;
-reg  [31:0] mem_rdata;
-reg         mem_ack;
+wire        mem_vram_wp;
+wire [31:0] mem_rdata;
+wire        mem_ack;
+reg  [31:0] mem_rdata_r;
+reg         mem_ack_r;
 
 wire [21:2] vid_addr;
 wire [13:0] vid_stride;
@@ -144,6 +147,7 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS), .SONIC(0)) machine (
 	.mem_wp_be(mem_wp_be),
 	.mem_wp_data(mem_wp_data),
 	.mem_wq_room(1'b1),
+	.mem_vram_wp(mem_vram_wp),
 
 	.vid_addr(vid_addr),
 	.vid_stride(vid_stride),
@@ -259,13 +263,35 @@ always @(posedge clk_sys) if (mem_wp_valid) begin
 	if (mem_wp_be[0]) ram[wp_idx][7:0]   <= mem_wp_data[7:0];
 end
 
+// VRAM as MacQuadra800.sv serves it: the block RAM's registered read, a
+// beat's capture clock (which also writes) and its combinational ack in the
+// second clock; a direct write (mem_vram_wp) is a pulse with mem_req low.
+wire        mem_is_vram = (mem_memsel != 2'd0) && (mem_memsel != 2'd1);
+reg  [31:0] vram_qa;
+reg         vram_ph = 1'b0;
+wire        vram_ack = mem_req && mem_is_vram && vram_ph;
+wire        va_we = (mem_req && mem_is_vram && mem_write && !vram_ph) || mem_vram_wp;
+assign mem_ack   = mem_ack_r | vram_ack;
+assign mem_rdata = mem_is_vram ? vram_qa : mem_rdata_r;
+
 always @(posedge clk_sys) begin
-	mem_ack <= 0;
-	if (mem_req && !mem_ack) begin
-		mem_ack <= 1;
+	vram_qa <= vram[vram_idx];
+	if (va_we) begin
+		if (mem_be[3]) vram[vram_idx][31:24] <= mem_wdata[31:24];
+		if (mem_be[2]) vram[vram_idx][23:16] <= mem_wdata[23:16];
+		if (mem_be[1]) vram[vram_idx][15:8]  <= mem_wdata[15:8];
+		if (mem_be[0]) vram[vram_idx][7:0]   <= mem_wdata[7:0];
+	end
+	if (mem_req && mem_is_vram) vram_ph <= !vram_ph;
+end
+
+always @(posedge clk_sys) begin
+	mem_ack_r <= 0;
+	if (mem_req && !mem_ack_r && !mem_is_vram) begin
+		mem_ack_r <= 1;
 		case (mem_memsel)
 		2'd0: begin
-			mem_rdata <= ram[ram_idx];
+			mem_rdata_r <= ram[ram_idx];
 			if (mem_write) begin
 				if (mem_be[3]) ram[ram_idx][31:24] <= mem_wdata[31:24];
 				if (mem_be[2]) ram[ram_idx][23:16] <= mem_wdata[23:16];
@@ -273,16 +299,7 @@ always @(posedge clk_sys) begin
 				if (mem_be[0]) ram[ram_idx][7:0]   <= mem_wdata[7:0];
 			end
 		end
-		2'd1: mem_rdata <= rom[rom_idx];
-		default: begin
-			mem_rdata <= vram[vram_idx];
-			if (mem_write) begin
-				if (mem_be[3]) vram[vram_idx][31:24] <= mem_wdata[31:24];
-				if (mem_be[2]) vram[vram_idx][23:16] <= mem_wdata[23:16];
-				if (mem_be[1]) vram[vram_idx][15:8]  <= mem_wdata[15:8];
-				if (mem_be[0]) vram[vram_idx][7:0]   <= mem_wdata[7:0];
-			end
-		end
+		default: mem_rdata_r <= rom[rom_idx];
 		endcase
 	end
 end
