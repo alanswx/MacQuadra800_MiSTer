@@ -74,6 +74,10 @@ module quadra800
 	input     [127:0] mem_line_data,
 	input             mem_line_pending,
 	input      [26:4] mem_line_pending_tag,
+	// the ROM's retained line: the last ROM line read from DDR3 (2026-09-26)
+	input             mem_rom_line_valid,
+	input      [19:4] mem_rom_line_tag,
+	input     [127:0] mem_rom_line_data,
 
 	// video: DAFB scanout (VRAM fetch port + VGA)
 	output     [21:2] vid_addr,
@@ -598,6 +602,27 @@ wire bus_line_match = bus_ram_eligible && line_valid_sw &&
 wire bus_line_wait  = bus_ram_eligible && line_pending_sw &&
 	                  (bus_addr[26:4] == mem_line_pending_tag);
 wire bus_first_miss = bus_ram_eligible && !bus_line_match && !bus_line_wait;
+
+// ROM line fills.  Every ROM read loads the whole 16-byte line from DDR3 in
+// one burst (MacQuadra800.sv); the cache's other three fill beats, and any
+// later aligned longword read of that line, are answered from it through the
+// registered line acknowledge, as RAM's retained line is.  A read of a line
+// not held goes straight into S_MEM like a RAM first miss.  QuickDraw's code
+// runs from ROM and misses the 8 KB I-cache hard: in the 8-bit Color test
+// ROM fill beats outnumber VRAM beats several times, and each was a DDR3
+// round trip of its own.
+wire bus_rom_eligible = (svc == S_IDLE) && !walker_pend && !cpu_berr &&
+	                    !bus_miss_ack && !bus_line_ack && !bus_adapter_active &&
+	                    !bus_ack_adapter && !wr_split_pend && bus_req && !bus_write &&
+	                    (bus_size == 2'd2) && (bus_addr[1:0] == 2'b00) &&
+	                    (decode(bus_addr[31:2]) == 3'd1);
+wire bus_rom_match = bus_rom_eligible && mem_rom_line_valid &&
+	                 (bus_addr[19:4] == mem_rom_line_tag);
+wire bus_rom_first = bus_rom_eligible && !bus_rom_match;
+wire [31:0] bus_rom_data = (bus_addr[3:2] == 2'd0) ? mem_rom_line_data[127:96] :
+	                       (bus_addr[3:2] == 2'd1) ? mem_rom_line_data[95:64]  :
+	                       (bus_addr[3:2] == 2'd2) ? mem_rom_line_data[63:32]  :
+	                                                 mem_rom_line_data[31:0];
 wire [31:0] bus_line_data = (bus_addr[3:2] == 2'd0) ? mem_line_data[127:96] :
 	                        (bus_addr[3:2] == 2'd1) ? mem_line_data[95:64]  :
 	                        (bus_addr[3:2] == 2'd2) ? mem_line_data[63:32]  :
@@ -654,7 +679,8 @@ wire bus_vram_rd = (svc == S_IDLE) && !walker_pend && !cpu_berr &&
 	               !bus_ack_adapter && bus_req && !bus_write && !bus_wr_span &&
 	               (decode(bus_addr[31:2]) == 3'd2);
 
-assign bus_req_adapter = bus_req && !bus_line_match && !bus_line_wait && !bus_wr_direct && !bus_vram_direct && !bus_vram_rd && !wr_split_pend &&
+assign bus_req_adapter = bus_req && !bus_line_match && !bus_line_wait && !bus_wr_direct && !bus_vram_direct && !bus_vram_rd &&
+	                     !bus_rom_match && !bus_rom_first && !wr_split_pend &&
 	                     !bus_first_miss && !svc_bus_direct && !bus_miss_ack &&
 	                     !bus_line_ack;
 
@@ -665,14 +691,14 @@ always @(posedge clk) begin
 	end
 	else if (ce) begin
 		bus_line_ack <= 0;
-		if (!bus_line_ack && bus_line_match) begin
+		if (!bus_line_ack && (bus_line_match || bus_rom_match)) begin
 			bus_line_ack   <= 1;
-			bus_line_rdata <= bus_line_data;
+			bus_line_rdata <= bus_rom_match ? bus_rom_data : bus_line_data;
 		end
 	end
 end
 
-wire cpu_want = walker_pend || bus_first_miss || bus_wr_direct || bus_vram_direct || bus_vram_rd ||
+wire cpu_want = walker_pend || bus_first_miss || bus_wr_direct || bus_vram_direct || bus_vram_rd || bus_rom_first ||
                 (b_req && !b_ack && !cpu_berr && !line_cpu_wait);
 wire dma_take = (SONIC != 0) && dma_req && !dma_ack && !walker_pend &&
                 (dma_turn || !cpu_want);
@@ -755,6 +781,9 @@ always @(posedge clk) begin
 		dma_ack     <= 0;
 		snoop_stb   <= 0;
 		if (!walker_req) walker_armed <= 1;
+		// the ROM's own window read ends the boot overlay (the adapter path's
+		// test is in S_IDLE below); a direct or line-served ROM read does too
+		if (bus_rom_eligible && bus_addr[31:28] == 4'h4) overlay <= 0;
 
 		case (svc)
 		S_IDLE: begin
@@ -787,7 +816,7 @@ always @(posedge clk) begin
 				reg [31:2] a;
 				reg        wr;
 				dma_turn <= 1;
-				if (bus_first_miss || bus_vram_rd) begin
+				if (bus_first_miss || bus_vram_rd || bus_rom_first) begin
 					svc_walker     <= 0;
 					svc_bus_direct <= 1;
 					svc_addr       <= bus_addr[31:2];
@@ -798,7 +827,7 @@ always @(posedge clk) begin
 					mem_addr       <= bus_addr[31:2];
 					mem_be         <= 4'b1111;
 					mem_wdata      <= 0;
-					mem_memsel     <= bus_vram_rd ? MSEL_VRAM : MSEL_RAM;
+					mem_memsel     <= bus_vram_rd ? MSEL_VRAM : bus_rom_first ? MSEL_ROM : MSEL_RAM;
 					svc            <= S_MEM;
 				end
 				else if (bus_wr_direct) begin
