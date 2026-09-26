@@ -90,3 +90,15 @@ several times slower, which is likely most of the sim/hardware gap
 (capacity misses) or reads the MMU marks non-cacheable decides the fix: a
 larger cache, or a ROM line cache/copy in faster memory.  An instrumented sim
 is splitting them.
+
+### The ROM, measured and fixed
+
+The split counters (`[GFX3]`, instrumented V4 sim) show that the test's ROM
+beats are instruction-cache **fills**: e.g. 262k I-fill beats, 5k D-fill beats
+and no uncached ROM reads per 2^24 clocks.  The MMU marks nothing
+non-cacheable.  `faf9d98` fetches each ROM line from DDR3 in one burst and
+serves the other fill beats from the retained line.  Hardware Color 8-bit went
+from 11.42 to **9.87 s** (see `PERFORMANCE_MEASUREMENTS.md`).  The fills
+themselves remain: the 8 KB I-cache cannot hold QuickDraw's working set
+(hot pages $4080D000, $40809000, $4080E000, $40811000).  A larger I-cache is
+the next lever.
