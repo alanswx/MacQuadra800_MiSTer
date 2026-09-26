@@ -69,7 +69,34 @@ the pipeline build routes at 91-92 %, where the timing-clean builds sit.
   `rr_b` and `epf_data`.  It is the family P241/P242 shortened (at 2-28 %
   kernel cost).
 
-Ways forward: shorten that family at a measured cycle cost (the pipeline is
+**P243/P244 (the CPU fixes, 2026-09-25 night)** -- diffs in
+`docs/perf/pipeline_p243_p244/`:
+
+- **P243:** the lookahead Bcc's producer flags come from a small dedicated
+  fast-flag unit whose operands never include this cycle's memory data.  An
+  ALU op retiring on an S_MRD memory operand, or a pipeline fast read retire,
+  resolves its Bcc in S_DECODE instead.  The pipeline's branch flags use only
+  its registered WB copy.
+- **P244:** CAS/CAS2 decide "equal" from their registered operands, not the
+  ALU's fast flags.
+- **Checks:** CPU self-tests pass, and `t_cas_lifo` passes with results
+  identical to HEAD.  All fixture oracles pass (MEMSUM, memchecks).
+- **Cycle cost:** Puzzle +7.1 %, Quick +8.2 %, Bubble +8.4 %, Queens +6.4 %,
+  Dhrystone +3.0 %, Sieve +2.8 %, others within 0.6 % (P244 adds nothing).
+  That is about −3.7 % against the pipeline's ~+9.5 %.
+
+| fit | recipe | ALMs | CPU | HDMI | SDRAM |
+|---|---|---|---|---|---|
+| P5 s21 | P4 + P243 | 38,386 | −0.845 | −0.091 | +0.783 |
+| P6 s21 | P4 + P243 + P244 | | **+0.224** | −0.091 | −0.010 |
+| P6 s23 | same | | **+0.483** | −0.143 (ascal `o_vcpt_pre3`) | +0.427 |
+| P6 s22, s24-26 | same | | running | | |
+
+The CPU clock passes with the pipeline in; what remains is the framework
+scaler's HDMI counter, which depends on the seed.  A full-machine boot sim of
+the P244 core with the pipeline and cache-off macros is in `scratch/sim_p6`.
+
+Ways forward (before P243): shorten that family at a measured cycle cost (the pipeline is
 worth ~10 %, a cut that costs 2-3 % would still net ~1.78); more seeds (the
 spread is wide, −2.5 to −7.3 plus router failures); or the disk-target
 commands to Main for more slack.  The P4 read-ack change is worth keeping in
