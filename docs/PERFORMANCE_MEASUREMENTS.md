@@ -2242,3 +2242,19 @@ QuadSquad8 copy, Speedometer 4.02 Benchmark Mix, all ten tests, one iteration.
 Median **1.670** (range 1.661-1.676): 8.6 % under the timing-violating
 interim build's 1.828, 88 % of the real Quadra 800's 1.897.  Evidence:
 `docs/perf/fullfeature_clean_20260925/`.
+
+## The pipeline back with timing met: Mix 1.778 (2026-09-26, 02:13-02:21 guest time)
+
+Commit `31b6e99` (P243/P244, the store buffer's read ack, `SCSI_CACHE_OFF`, three
+release-lite trims, 8+8 KB CPU caches), seed 24, RBF md5 `8481fce4`.  Timing is met
+on every clock: CPU +1.141, HDMI +0.158, SDRAM +0.791 ns.  Main: the write-buffer
+build.  32 MB, disposable QuadSquad8 copy.
+
+Mix: 1.768, 1.779, 1.778, 1.784, 1.777; **median 1.778**.  PR: CPU 0.895, Graphics
+1.031, Disk 1.595, Math 20.942, PR 1.152.  FPU Benchmarks: average 0.687 (KWhet
+3855, Matrix 1.025 s, FFT 0.454 s).  Color 8-bit: 13.967 s.
+
+Peripherals on this build: 1,000/1,000 pings, the HFS data CD reads, and the CD
+audio transport works (Play, Pause, Resume, Stop).  Per-test comparison with
+the real Quadra 800: `docs/perf/VS_REAL_QUADRA_20260926.md`.  Evidence:
+`docs/perf/pipeline_p243_p244/`.
