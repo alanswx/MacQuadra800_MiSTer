@@ -379,6 +379,9 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # HDMI -0.091 / SDRAM -0.010; 23 CPU +0.483, HDMI -0.143 (ascal o_vcpt_pre3); 25, 26 router failed;
 # 24 MET on every clock: CPU +1.141, HDMI +0.158, SDRAM +0.791, crossings +1.120/+1.202, 38,487 ALMs,
 # 469 M10K, RBF md5 8481fce4.  Mix median 1.778 on hardware.  SEED 24 kept.
+# 2026-09-26: the VRAM fast path (direct VRAM writes and reads beside wombat_bus32, the
+# combinational VRAM read ack).  Seed 24 MET: CPU +0.074, HDMI +0.123, SDRAM +0.247, 38,445 ALMs,
+# 469 M10K, RBF md5 ce04f1c6; Color 8-bit 13.967 -> 12.61 s, Mix 1.776.  Seed 23 router failed.
 set_global_assignment -name SEED 24
 # 2026-09-24: NEVER grew the full BRF fit by398 ALMs; retain the better ALWAYS setting.
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
