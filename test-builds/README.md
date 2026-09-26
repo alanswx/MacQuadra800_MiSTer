@@ -1,5 +1,19 @@
 # Test builds
 
+## VRAM fast path + MOVE16 chaining, timing met (2026-09-26): `MacQuadra800_vram_move16_timingclean_20260926_0679ca8.rbf`
+
+- Source `0679ca8` with `SEED 21` (the qsf now says 21), fitted in a scratch copy of the project.
+  SHA-256 `3d0b0cf13808939a4f0580939017078e2fbf1e61ec3eb6d16171748c18db8791`, md5 `9355b638`.
+- **Timing met on every clock**: CPU +0.461, HDMI +0.441, SDRAM +0.155 ns; no negative slack of
+  any kind; SDRAM crossings +1.434 / +0.732.  38,592 ALMs, 468 M10K.
+- `31ff820`: VRAM writes go straight into the VRAM block RAM (2 clocks); VRAM reads skip
+  wombat_bus32 and are acknowledged from the block RAM output.  `0679ca8` (P245): MOVE16 issues
+  each longword transfer from the previous one's acknowledge.
+- **Color 8-bit 11.42 s** (11.504 / 11.420; the `31b6e99` build: 13.967 s; a real Q800: 8.211 s).
+  **Mix 1.777** (1.768 / 1.777 / 1.777), unchanged.  Boots Mac OS 8.1 and shuts down cleanly (seed
+  26 of the same source, Speedometer then Special -> Shut Down).  Peripherals (Ethernet, CD) were
+  not re-run: the change touches only the VRAM beat and MOVE16.  **Needs the Main write buffer.**
+
 ## Pipeline back, timing met (2026-09-26): `MacQuadra800_pipeline_timingclean_20260926_31b6e99.rbf`
 
 - Source `31b6e99` (seed 24), refit in the checkout reproduces it bit for bit.  SHA-256
