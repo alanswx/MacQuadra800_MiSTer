@@ -385,8 +385,12 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # 21 CPU -0.155 / HDMI -0.206; 25 router failed.
 # 2026-09-26: + P245 (MOVE16 chained at the acknowledge).  Seeds: 24 CPU -0.350 / HDMI -0.445;
 # 22 CPU -2.328; 26 CPU +0.135 / HDMI +0.133 but h2f_user0_clk -0.293 (ascal avl_dw -> o_dpram,
-# the scaler's DDR side), 38,819 ALMs, RBF md5 4b623bd0: Color 8-bit 11.42 s, Mix 1.777.  21/23/25 next.
-set_global_assignment -name SEED 24
+# the scaler's DDR side), 38,819 ALMs, RBF md5 4b623bd0: Color 8-bit 11.42 s, Mix 1.777.
+# Seed 21 MET on every clock: CPU +0.461, HDMI +0.441, SDRAM +0.155, crossings +1.434/+0.732,
+# 38,592 ALMs, 468 M10K, RBF md5 9355b638; hardware Color 8-bit 11.42 s, Mix 1.777.  Seed 23 also MET
+# (CPU +0.427, HDMI +0.302, SDRAM +0.896, 38,550 ALMs; not run on hardware); seed 25 not finished.
+# SEED 21 kept.
+set_global_assignment -name SEED 21
 # 2026-09-24: NEVER grew the full BRF fit by398 ALMs; retain the better ALWAYS setting.
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #

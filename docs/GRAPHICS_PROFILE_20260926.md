@@ -57,3 +57,36 @@ model.  Two instruments were used:
    per-longword RD2/WR2 states.  Longer term, one 16-byte transfer each way.
 3. **A deeper store buffer for VRAM** (or route VRAM writes through the
    SDRAM bridge's 8-entry posted FIFO).
+
+## Results (2026-09-26, later)
+
+| build | change | sim Color 8-bit | hardware Color 8-bit | Mix (hw) |
+|---|---|---|---|---|
+| `31b6e99` | baseline | 12.442 s | 13.967 s | 1.778 |
+| V1 (not committed alone) | direct VRAM writes | 12.507 s | -- | -- |
+| `31ff820` | + direct VRAM reads, combinational read ack | 12.010 s | 12.61 s | 1.776 |
+| `0679ca8` | + P245 MOVE16 chaining | 10.834 s | **11.42 s** | 1.777 |
+
+The sim's old VRAM model acknowledged in 2 clocks, one fewer than the emu's
+port did, so the sim gains less from the read change than the hardware.
+V1's direct writes cut the store-buffer waits in the profile
+(`mrd/mwr_cycles_sb_pending` 21.5 M + 34.6 M -> 9.9 M + 11.9 M), yet the sim
+time did not move.  That is not explained yet.  The writes that remain behind
+a VRAM store are the serialized C_PASS ones, whose cost did not change.
+
+Timing-clean build: `0679ca8` at seed 21 (CPU +0.461, HDMI +0.441, SDRAM
++0.155 ns), `test-builds/MacQuadra800_vram_move16_timingclean_20260926_0679ca8.rbf`.
+Evidence: `docs/perf/vram_move16_20260926/`.
+
+### Next: the ROM
+
+Split sim counters (`[GFX2]`, the V3 sim) show the test's CPU bus time is
+dominated by **ROM beats**: 0.5-1.0 M ROM beats per 2^24 clocks while the
+test runs, against 0.1-0.3 M VRAM writes.  In the sim a ROM beat costs 4
+clocks.  On hardware ROM comes from DDR3 (`MacQuadra800.sv`, `DDR_ROM_BASE`),
+several times slower, which is likely most of the sim/hardware gap
+(10.83 s against 11.42 s).  ROM is cacheable in the core's physical decode
+(`wombat_cpu.sv` `cache_allow`).  Whether these beats are cache fills
+(capacity misses) or reads the MMU marks non-cacheable decides the fix: a
+larger cache, or a ROM line cache/copy in faster memory.  An instrumented sim
+is splitting them.

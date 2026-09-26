@@ -2258,3 +2258,21 @@ Peripherals on this build: 1,000/1,000 pings, the HFS data CD reads, and the CD
 audio transport works (Play, Pause, Resume, Stop).  Per-test comparison with
 the real Quadra 800: `docs/perf/VS_REAL_QUADRA_20260926.md`.  Evidence:
 `docs/perf/pipeline_p243_p244/`.
+
+## VRAM fast path and MOVE16 chaining: Color 8-bit 13.97 -> 11.42 s (2026-09-26)
+
+Commits `31ff820` (VRAM writes straight into the block RAM, reads beside
+wombat_bus32 with a combinational ack) and `0679ca8` (P245, MOVE16 chained at
+the acknowledge), seed 21.  RBF md5 `9355b638`, timing met on every clock
+(CPU +0.461, HDMI +0.441, SDRAM +0.155 ns).  Main: the write-buffer build.
+32 MB, disposable QuadSquad8 copy.
+
+| | `31b6e99` | `31ff820` (seed 24) | `0679ca8` (seed 21) | real Q800 |
+|---|---|---|---|---|
+| Color 8-bit | 13.967 s | 12.626 / 12.605 s | 11.504 / 11.420 s | 8.211 s |
+| Mix | 1.778 median | 1.767 / 1.776 / 1.776 | 1.768 / 1.777 / 1.777 | 1.899 |
+
+8-bit QuickDraw went from 59 % to 72 % of the real machine.  The sim runs the
+same test in 10.834 s; the gap to hardware is most likely the ROM, which is
+DDR3 on hardware (see `docs/GRAPHICS_PROFILE_20260926.md`, "Next: the ROM").
+Screens: `docs/perf/vram_move16_20260926/`.
