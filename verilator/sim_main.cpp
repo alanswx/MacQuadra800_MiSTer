@@ -1,3 +1,4 @@
+#include <map>
 // wombat33 — Verilator simulation main
 //
 // Same framework as the other cores' verilator setups (ImGui + SDL2,
@@ -200,6 +201,9 @@ static uint8_t bracket_prev_state = 0;
 static uint64_t bracket_dispatches = 0;
 static uint64_t bracket_cycles, bracket_state_cycles[256], bracket_state_entries[256];
 static uint64_t bracket_transitions[256][256], bracket_opcodes[65536];
+// cache maintenance (CINV/CPUSH, F4xx): dispatch PC and the return address on
+// the stack, to find who flushes (2026-09-26)
+static std::map<uint64_t, uint64_t> bracket_f4_sites, bracket_f4_calls;
 static uint64_t bracket_cache_states[8], bracket_rd_accept, bracket_look_hit, bracket_ipred_hit;
 
 static uint64_t bracket_ic_enabled, bracket_dc_enabled, bracket_mmu_enabled;
@@ -219,6 +223,7 @@ static void bracket_reset() {
 	memset(bracket_state_entries, 0, sizeof(bracket_state_entries));
 	memset(bracket_transitions, 0, sizeof(bracket_transitions));
 	memset(bracket_opcodes, 0, sizeof(bracket_opcodes));
+	bracket_f4_sites.clear(); bracket_f4_calls.clear();
 	memset(bracket_cache_states, 0, sizeof(bracket_cache_states));
 	memset(bracket_mrd_cst, 0, sizeof(bracket_mrd_cst)); memset(bracket_mwr_cst, 0, sizeof(bracket_mwr_cst));
 	bracket_mrd_sbpend = bracket_mwr_sbpend = bracket_fill_d = bracket_fill_i = bracket_sb_full = 0;
@@ -281,6 +286,13 @@ static void bracket_dump() {
 	std::vector<int> ops;
 	for (int i=0; i<65536; i++) if (bracket_opcodes[i]) ops.push_back(i);
 	std::sort(ops.begin(), ops.end(), [](int a,int b) { return bracket_opcodes[a] > bracket_opcodes[b]; });
+	for (auto &kv : bracket_f4_sites)
+		fprintf(f, "F4SITE\t%04X\t%08X\t%llu\n", (unsigned)(kv.first >> 32), (uint32_t)kv.first,
+		        (unsigned long long)kv.second);
+	for (auto &kv : bracket_f4_calls)
+		if (kv.second >= 100)
+			fprintf(f, "F4CALL\t%08X\t%08X\t%llu\n", (uint32_t)(kv.first >> 32), (uint32_t)kv.first,
+			        (unsigned long long)kv.second);
 	fprintf(f, "OPCODE\topcode\tdispatches\tpercent\n");
 	for (int op: ops)
 		fprintf(f, "OPCODE\t%04X\t%llu\t%.6f\n", op,
@@ -337,6 +349,13 @@ static void bracket_step(bool dispatch) {
 	if (dispatch) {
 		bracket_dispatches++;
 		bracket_opcodes[ir]++;
+		if ((ir & 0xFF00) == 0xF400) {
+			const uint32_t pc = SIMEMU->__PVT__machine__DOT__cpu__DOT__core__DOT__pc_i;
+			const uint32_t a7 = VERTOPINTERN->debug_a7;
+			const uint32_t ret = ((a7 >> 2) < sizeof(SIMEMU->ram) / sizeof(SIMEMU->ram[0])) ? SIMEMU->ram[a7 >> 2] : 0;
+			bracket_f4_sites[((uint64_t)ir << 32) | pc]++;
+			bracket_f4_calls[((uint64_t)pc << 32) | ret]++;
+		}
 	}
 	if (!bracket_prev_valid || state != bracket_prev_state) {
 		bracket_state_entries[state]++;
