@@ -94,6 +94,19 @@ independently from backing bytes. The ROM service is synthetic in this screen;
 it does not qualify the production ROM bridge or whole-machine arbitration.
 The reviewed logs and source manifest are in `perf/cache_refill_20260927/edge_cases/`.
 
+A focused whole-CPU interrupt screen also passes with all ten release CPU
+macros. The ordinary CPU bench ties the retained-line input off, so this
+screen uses a test-only wrapper and a write-invalidated retained-line offer
+from its 16-bit memory model. The candidate performs 48 bulk installations,
+including three edges with a pending IRQ and active pipeline load; all 48
+busy releases occur exactly two clocks later. Three IRQ injections and
+load commits complete with the independently checked exception frame,
+register values, handler count and `$600D` success marker. Cancel-control
+pulses occur, but the pipeline monitor records zero cancelled entries;
+this covers IRQ ordering through the load boundary, not discarded speculative
+work. The full platform bus/MMU/DMA path remains outside this screen.
+Evidence is in `perf/cache_refill_20260927/irq_boundary/`.
+
 The full-CPU platform Whetstone fixture also passes on both sources with
 the current release CPU macros and actual SDRAM bridge/controller. Loop
 clocks are 17,641,650 baseline and 17,637,468 candidate (4,182 fewer,
