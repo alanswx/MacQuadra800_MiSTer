@@ -108,7 +108,7 @@ quadra800-fastboot.rom.hex: ../releases/quadra800.rom ../docs/tools/make-fastboo
 	xxd -p -c4 .fastboot.tmp.rom > $@
 	rm .fastboot.tmp.rom
 
-SIM_HEADERS = sim_control.h cpu_dispatch_observer.h ../scripts/fixtures/speedometer_timing_observer/adapter.inc ../scripts/fixtures/speedometer_timing_observer/speedometer_observer.h
+SIM_HEADERS = sim_control.h cpu_dispatch_observer.h sim_refill_profile.h sim_ram_snapshot.h ../scripts/fixtures/speedometer_timing_observer/adapter.inc ../scripts/fixtures/speedometer_timing_observer/speedometer_observer.h
 $(VOUT): $(V_SRC) $(C_SRC) $(SIM_HEADERS) Makefile
 	$V -cc $(V_OPT) -LDFLAGS "$(LDFLAGS)" -exe --trace --Mdir ./obj_dir \
 		$(V_DEFINE) $(V_INC) $(TOP) -CFLAGS "$(CFLAGS)" $(V_SRC) $(C_SRC)
@@ -121,7 +121,7 @@ $(EXE): $(VOUT) $(SIM_HEADERS)
 		[ -e $$o ] && [ $$f -nt $$o ] && rm -f $$o obj_dir/Vemu || true; done
 	@for f in $(SIM_HEADERS); do \
 		[ -e obj_dir/sim_main.o ] && [ $$f -nt obj_dir/sim_main.o ] && rm -f obj_dir/sim_main.o || true; done
-	(cd obj_dir; make -f Vemu.mk)
+	$(MAKE) -C obj_dir -f Vemu.mk
 
 # Directed unit test for the EASC (rtl/easc.sv). Runs in seconds and does not
 # need a ROM or a disk, which is the point: the machine only touches the sound
