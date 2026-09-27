@@ -2295,3 +2295,11 @@ $4080D000, $40809000, $4080E000 and $40811000.
 
 8-bit QuickDraw now runs at 83 % of the real machine.  Screens:
 `docs/perf/romline_20260926/`.
+
+## Dani's prefetch-fault fix on hardware: unchanged speed (2026-09-27)
+
+`6f0f159` (the recorded-prefetch-fault fix ported from danifunker/NeXT-Color_MiSTer
+`6d2e1a5`), seed 27: CPU +0.193, SDRAM +0.295, **HDMI -0.025 ns** (not a release
+build; no seed of 11 has closed yet, see the `.qsf`).  RBF md5 `85924646`, Main
+`mac-printer-writebuffer` (`45182b73`).  Mix 1.781 / 1.781, Color 8-bit 9.944 s, FPU
+0.684, clean Shut Down: the same as `faf9d98`.  Screens: `docs/perf/prefetchfix_20260927/`.
