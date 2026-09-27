@@ -49,8 +49,9 @@ validate its internal refill timing or the attribution of the measured gap.
     68040), flushes both caches.  It is **HLock** (A029: 23,551 calls; HUnlock
     A02A 23,497).  A real Quadra runs the same flushes.
   - **48,937 CPUSHL (both caches)** at RAM `$0009AD6E` (a System patch).
-- The FPU's own arithmetic is not the limit: FMUL is a single-cycle 64x64
-  multiply, and FDIV/FSQRT produce three bits a clock.
+- The original notes cited a single-cycle 64x64 FMUL datapath and
+  three-bits-per-clock FDIV/FSQRT. Datapath throughput alone does not establish
+  total instruction latency or exclude arithmetic/dispatch as a bottleneck.
 
 ## What was tried
 
@@ -67,13 +68,22 @@ anomaly** (Permutations 0.480 s and Int. Matrix 0.006 s, aggregate 15.728:
 ("Towers 0.140", "Int. Matrix 0.521 s and Sieve 0.024 s").  It is not specific
 to P246.
 
-## Where the FPU gap is
+## What the completed refill experiment establishes
 
-The 24k whole-cache flushes from HLock force the refills.  What is left:
-- faster line fills (a real 68040 bursts a line in ~5-6 clocks, ours takes
-  ~15);
-- a cheaper CPUSHA for the data cache.  It is write-through and DMA-snooped,
-  so there is no dirty cache data to write back. Preserving lines would still
-  require an architectural/coherence review and explicit posted-write
-  ordering checks. Walker U/M-bit snooping already exists (see audit above);
-  that alone does not qualify a change to CPUSH.
+The integrated SDRAM test measures tag installation at clock 12 with the
+existing retained line and clock 10 with bulk installation; critical-word
+acknowledge remains at clock 9. The old ~15-clock simulation figure must not
+be used as the production retained-line latency.
+
+Matched full-machine simulations with the calibrated retained-RAM-line model
+completed with FPU average **0.698 baseline and 0.698 candidate**. Whetstone
+is 3849.262 versus 3848.418 KWhetstones/sec; Matrix Multiply 0.991 versus
+0.990 s; FFT 0.447 s in both. Color improves from 9.878 to 9.807 s in this
+single pair. The two-clock refill-tail reduction produces no meaningful FPU
+gain, so this candidate does not advance to FPGA synthesis/fit.
+
+Next isolate the timed FPU subtests before attributing the gap to cache
+flushes, arithmetic, or dispatch. The fixed-window flush totals include
+activity outside those subtests. Preserving cache lines across CPUSH remains
+a separate architectural/coherence and posted-write ordering question, not
+an approved optimization. See `NEXT_PERFORMANCE_PLAN_20260927.md`.

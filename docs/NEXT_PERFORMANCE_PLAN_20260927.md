@@ -24,15 +24,35 @@ If the target proves infeasible, record measured limits and the next decision.
 
 ## Why this comes next
 
-The FPU suite is at 68% of real-Q800 speed, with 41% of simulated clocks in
-cache fill. OS whole-cache flushes repeatedly expose refill latency. Faster
-fills may help graphics too. Disk is the largest percentage gap (47%), but
+The FPU suite is at about 68% of real-Q800 speed. The old fixed-window
+simulation reported 41% of clocks in cache fill, but omitted the hardware's
+retained RAM line and included post-test activity. That figure does not
+establish a timed FPU bottleneck. Disk is the largest percentage gap (47%), but
 its Main/SCSI work is a separate project; pursue it after this bounded cache
 investigation rather than mixing changes and measurements.
 
 Larger caches, the ROM-line fill-port experiment and P246 line-scoped
 invalidation already failed to show useful gains within timing constraints.
 Do not repeat them without a new, specific explanation.
+
+## Measurement decision after the first candidate
+
+The calibrated retained-line A/B runs completed successfully. Bulk cache
+installation saves two refill-tail clocks in the integrated SDRAM bench,
+but the OS FPU average is **0.698 for both variants**. Whetstone is
+3849.262 versus 3848.418 KWhetstones/sec; Matrix Multiply is 0.991 versus
+0.990 seconds; FFT is 0.447 seconds for both. Color takes 9.878 versus
+9.807 seconds (about 0.72% faster). These are single paired simulations,
+not hardware measurements or evidence of repeatable sub-percent gains.
+
+Do not advance this candidate to Quartus on these results. Keep its patch
+and correctness evidence for reuse. The next task is to identify the actual
+timed FPU subtest boundaries and collect arithmetic, cache and CPU-wait
+measurements within those boundaries. Fixed-window dispatch/fill totals
+must not be interpreted as benchmark speedup. Review existing traces and
+instrumentation first; only launch another long simulation once a concrete
+measurement method can separate timed work from setup and idle activity.
+The hardware improvement target remains unmet.
 
 ## Work sequence
 

@@ -166,4 +166,16 @@ start and no partial end or aborted fill. The candidate executes more fills
 and instructions within that window; those counts do not compare identical
 amounts of benchmark work. Exact inputs, screenshots, profiles and exit
 evidence are archived in `perf/cache_refill_20260927/full_machine_color/`.
-The paired FPU runs remain active at this checkpoint.
+## Completed FPU screen and decision
+
+Both FPU runs also exit zero with visible completion dialogs and validated
+reports. Baseline/candidate Whetstone is 3849.262/3848.418 KWhetstones/sec,
+Matrix Multiply 0.991/0.990 s, FFT 0.447/0.447 s; both averages are 0.698.
+This single pair shows no meaningful FPU gain despite the measured refill
+tail reduction. Evidence is in `perf/cache_refill_20260927/full_machine_fpu/`.
+
+Do not advance this candidate to synthesis or fitting on these results.
+The next measurement must identify timed FPU subtest boundaries and separate
+arithmetic, cache and CPU-wait costs from setup and post-test idle. Keep the
+scratch patch and passing correctness screens for reuse; production CPU RTL
+is unchanged, and the hardware improvement target remains unmet.
