@@ -84,6 +84,16 @@ macro. No timing, synthesis or full-workload qualification is claimed from
 these directed measurements. The small text evidence, candidate patch and
 reproduction scripts are archived in `perf/cache_refill_20260927/`.
 
+An additional direct-port edge screen passes both sources: five cross-line
+reads (including set wrap), 44 byte/word/long offsets, instruction-line and
+pair-hint paths, reset between data installation and tag commit, and stale
+RAM/ROM sideband tags in both directions. All five cross-line cases exercise
+the candidate's bulk response before acknowledgement, checking the retained
+first-line word combined with the next line. The expected values are assembled
+independently from backing bytes. The ROM service is synthetic in this screen;
+it does not qualify the production ROM bridge or whole-machine arbitration.
+The reviewed logs and source manifest are in `perf/cache_refill_20260927/edge_cases/`.
+
 The full-CPU platform Whetstone fixture also passes on both sources with
 the current release CPU macros and actual SDRAM bridge/controller. Loop
 clocks are 17,641,650 baseline and 17,637,468 candidate (4,182 fewer,
