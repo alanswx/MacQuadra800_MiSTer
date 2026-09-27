@@ -48,6 +48,24 @@ case (the too-early-ack trap), and measures 1056 clk/bit on `scc_txd_a` end to
 end — i.e. 31250 baud at 33 MHz, proving the clock parameter reached the
 instance inside `iosb` and not just the module default.
 
+## Status check (2026-09-27)
+
+- **Modem port (channel A)** is the only port wired out: `UART_TXD/RXD/RTS`
+  (OSD UART modes PPP / Console / MIDI / Modem-MidiLink; 57600/115200 and MIDI
+  31250), TX also to the MT32-pi.  Handshake is not modelled: RR0 CTS and DCD
+  read constant 0 (`rr0_cts_a`/`rr0_dcd_a` in `scc.v`), `UART_CTS` is ignored,
+  and `UART_DTR` is looped from `UART_DSR`.
+- **Printer port (channel B)** has its UART inside `scc.v`, but `txd_b` ends
+  at `serialOutB` (unconnected) and `rxd_b` is tied idle.  No LocalTalk.
+- PPP, MIDI and MT32-pi are still untested end to end on this core.
+- Main's new "Printer" UART mode (`mister_printerd`, branch
+  `mac-printer-writebuffer`) drives the MiSTer UART, i.e. this core's modem
+  port; Main reports the mode to the core as `uart_mode == 7`.  Routing
+  channel B to the UART in that mode would give the Mac a real printer port.
+  **Decision (user, 2026-09-27): leave the UART on the modem port for now so
+  PPP cannot break.**  An ImageWriter set to the modem port may work with the
+  Printer mode as is (untested; the baud rates must match).
+
 ## Decision (2026-08-31): port the LC's `scc.v`, use MAME as an oracle
 
 Considered: port from MacLC, transliterate MAME's `z80scc.cpp` / QEMU's
