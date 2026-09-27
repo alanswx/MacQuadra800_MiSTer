@@ -12,21 +12,32 @@ The core was called `wombat33` until 2026-09-02. The internal module names
 `wombat_cpu` / `wombat_bus32` / `wombat_store_buffer` are a separate
 codename and stay.
 
-## Status (2026-09-25 interim)
+## Status (2026-09-27)
 
-- **Full-feature performance branch:** the experimental AP040 pipeline and
-  structural area reductions fit with Ethernet, CD-ROM/CD audio, disk caching,
-  and the normal MiSTer feature set enabled. Five valid Speedometer Mix runs
-  give a **1.828 median**; a fresh follow-up gives **1.816**, versus **1.897**
-  in the real Quadra 800 photo. See the
-  [clean screenshot and metric comparison](docs/perf/INTERIM_VS_REAL_QUADRA800_20260925.md).
-- **Experimental artifact, not a timing-clean release:** CPU/RAM/HDMI setup
-  misses are **-2.406/-0.697/-0.426 ns**. Audible CD output and OSD usability
-  remain unverified at the user's request; A/UX testing is deferred to Dani.
-  The [test build](test-builds/README.md),
-  [validation audit](docs/INTERIM_COMPLETION_AUDIT_20260925.md), and
-  [handoff](RESUME-pr-review-20260925.md) identify the exact artifact
-  and coverage. Hardware success does not remove the timing failures.
+- **Timing-clean full-feature test build** (`faf9d98`, seed 21):
+  [`test-builds/`](test-builds/README.md)
+  `MacQuadra800_vram_move16_romline_timingclean_20260926_faf9d98.rbf`
+  (md5 `7bcd182d`).  It includes the AP040 second integer pipeline, Ethernet,
+  CD-ROM/CD audio and the normal MiSTer feature set.  Timing is met on every
+  clock (CPU +0.357, HDMI +0.249, SDRAM +0.102 ns).
+- **Speed vs a real Quadra 800** (Speedometer 4.02,
+  [comparison](docs/perf/VS_REAL_QUADRA_20260926.md)):
+
+  | | this core | real | ratio |
+  |---|---|---|---|
+  | Mix | 1.781 | 1.899 | 94 % |
+  | Color 8-bit | 9.87 s | 8.21 s | 83 % |
+  | FPU | 0.690 | 1.011 | 68 % |
+  | Performance Rating | 1.203 | 1.605 | 75 % |
+
+  The FPU gap is [cache refills after Mac OS's own flushes](docs/FPU_PROFILE_20260927.md).
+- **The release recipe turns the core's SCSI block cache off**
+  (`SCSI_CACHE_OFF`), and **needs the Main write buffer**: `alanswx/Main_MiSTer`
+  branch `mac-printer-writebuffer` (MiSTer-devel master + printer + the Mac
+  disk write buffer).  Without it every disk write waits ~4 ms on the SD
+  card.
+- **Not yet verified:** audible CD output and the OSD (the user), and A/UX
+  (Dani).  The hand-off is [`RESUME-20260927.md`](RESUME-20260927.md).
 - **Published releases:** see the table in
   [`releases/README.md`](releases/README.md) for released artifacts, checksums,
   timing, and hardware results. The experimental test build above is separate.
