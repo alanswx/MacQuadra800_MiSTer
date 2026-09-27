@@ -86,4 +86,16 @@ Next isolate the timed FPU subtests before attributing the gap to cache
 flushes, arithmetic, or dispatch. The fixed-window flush totals include
 activity outside those subtests. Preserving cache lines across CPUSH remains
 a separate architectural/coherence and posted-write ordering question, not
-an approved optimization. See `NEXT_PERFORMANCE_PLAN_20260927.md`.
+an approved optimization. In fact, the architectural check below rules out
+simply leaving the selected clean lines valid. See
+`NEXT_PERFORMANCE_PLAN_20260927.md`.
+
+## CPUSH architectural constraint
+
+The Motorola MC68040 User's Manual, section 4.2 (printed pages 4-5 to 4-6),
+requires CPUSH to invalidate every selected cache line after writing back
+any selected dirty data. Clean write-through lines avoid dirty writeback;
+they do not avoid invalidation. Cache enable bits and CDIS do not suppress
+the instruction's operation. Therefore preserving selected lines across
+CPUSHA is not a compatible shortcut, even with complete DMA/walker snooping.
+Source: [NXP-hosted MC68040 User's Manual](https://www.nxp.com/docs/en/reference-manual/MC68040UM.pdf#page=89).

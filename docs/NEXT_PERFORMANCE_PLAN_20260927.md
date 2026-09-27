@@ -81,7 +81,10 @@ The hardware improvement target remains unmet.
    said MMU U/M-bit writes lacked snooping; the wrapper already queues these
    invalidations. Any future cache-push optimization still requires a
    separate all-writers coherence/ordering audit, any necessary snooping
-   fixes and A/UX validation.
+   fixes and A/UX validation. The MC68040 manual section 4.2 explicitly
+   requires selected clean lines to be invalidated too: preserving them
+   across CPUSHA is ruled out, not merely awaiting a snoop audit. See the
+   source and constraint in `FPU_PROFILE_20260927.md`.
 
 3. **Qualify correctness and simulation benefit.** Run CPU self-tests and
    applicable cache, store-buffer, memory-path, line-DMA and SDRAM benches.
