@@ -149,3 +149,21 @@ primary workload comparison.
 After collision tests and matched workload measurements, advance only if
 the benefit justifies the area/timing cost. Analysis & Synthesis, a bounded
 fit attempt, and the hardware release gates remain outstanding.
+
+## Completed Color screen
+
+The first matched Color 8-bit pair completes with exit status zero, visible
+"The tests are done" dialogs, and reconciled refill reports. Baseline is
+9.878 s (rating 1.072), candidate 9.807 s (rating 1.080): about 0.72% faster
+by the guest elapsed-time ratio. This is one paired simulation, not a
+repeatability study or hardware result. Its small gain shows no regression
+in this screen but does not qualify the FPU target.
+
+Completed RAM data fills average 11.010 versus 8.993 clocks, and RAM
+instruction fills 11.165 versus 9.175. ROM timing is essentially unchanged.
+Each fixed profile window is 524,160,000 sampled clocks with one partial
+start and no partial end or aborted fill. The candidate executes more fills
+and instructions within that window; those counts do not compare identical
+amounts of benchmark work. Exact inputs, screenshots, profiles and exit
+evidence are archived in `perf/cache_refill_20260927/full_machine_color/`.
+The paired FPU runs remain active at this checkpoint.
