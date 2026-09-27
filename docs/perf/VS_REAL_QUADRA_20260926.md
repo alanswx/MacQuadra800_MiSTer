@@ -53,6 +53,11 @@ directory.
 
 ## Where the distance is
 
+The following explanations were hypotheses at the time of these measurements.
+The later cache experiment does not establish either arithmetic latency or
+OS-triggered refills as the cause of the timed FPU gap; the saved full-window
+profile includes post-test activity. Timed-subtest attribution is in progress.
+
 1. **Graphics (8-bit QuickDraw 59 %)** is the largest gap, and it is not
    CPU-bound: the CPU Mix is at 94 %.  The likely cause is the VRAM path:
    uncached VRAM reads through the platform, and how posted VRAM writes
@@ -85,5 +90,7 @@ write-buffer Main, same 32 MB guest.
 | PR Graphics | 1.031 | **1.170** | 1.347 | 87 % |
 | PR Disk | 1.595 | 1.619 | 3.443 | 47 % |
 
-What is left is in `docs/FPU_PROFILE_20260927.md` (the FPU: refills after
-Mac OS's HLock cache flushes) and `docs/GRAPHICS_PROFILE_20260926.md`.
+Follow-up measurements and qualifications are in
+`docs/FPU_PROFILE_20260927.md` and `docs/GRAPHICS_PROFILE_20260926.md`.
+The calibrated bulk-refill simulation leaves the FPU average unchanged at
+0.698; do not treat fixed-window HLock/flush counts as timed-test attribution.
