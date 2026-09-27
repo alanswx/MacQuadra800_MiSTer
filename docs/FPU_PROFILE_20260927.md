@@ -99,3 +99,14 @@ they do not avoid invalidation. Cache enable bits and CDIS do not suppress
 the instruction's operation. Therefore preserving selected lines across
 CPUSHA is not a compatible shortcut, even with complete DMA/walker snooping.
 Source: [NXP-hosted MC68040 User's Manual](https://www.nxp.com/docs/en/reference-manual/MC68040UM.pdf#page=89).
+
+## Reference FPU timing interpretation
+
+The MC68040 manual section 10.7.3, printed pages 10-35 to 10-36, separates
+conversion, execution and normalization. For normal operands, its execution
+stage is 3 clocks for FADD/FSUB, 5 for FMUL, 37.5 for FDIV and 103 for FSQRT.
+These are not full instruction latencies or issue intervals. Parenthesized
+figures denote stage occupancy; integer-unit support and operand accesses
+are separate. Compare measured CPU-blocking and FPU-state counts before
+concluding that an arithmetic datapath is fast enough or is the bottleneck.
+Source: [MC68040 FPU timing tables](https://www.nxp.com/docs/en/reference-manual/MC68040UM.pdf#page=326).
