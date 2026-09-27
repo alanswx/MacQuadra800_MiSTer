@@ -1,8 +1,8 @@
-# The FPU benchmark: the time goes to cache refills after Mac OS's flushes (2026-09-27)
+# FPU benchmark baseline and cache-refill investigation (2026-09-27)
 
 ## Follow-up audit (2026-09-27)
 
-Two qualifications were found when checking these notes against HEAD
+The following qualifications were found when checking these notes against HEAD
 `6456c62` before the next optimization:
 
 - `verilator/sim.v` connects the ROM retained line but leaves the RAM
@@ -19,6 +19,12 @@ Two qualifications were found when checking these notes against HEAD
   `t_mmu.s` includes a cached-descriptor U-bit refresh check. Simultaneous
   walker/DMA snoops, pending-slot assumptions, posted-write ordering and the
   architectural cache-push contract still need review before changing CPUSH.
+- The saved profile uses a fixed interval after launching the benchmark,
+  not a stop event tied to benchmark completion. It can include post-result
+  idle work. Fill occupancy and OS flush counts describe that entire window;
+  they do not by themselves establish the bottleneck during timed subtests.
+  Use guest scores/times for performance, and treat the counters as supporting
+  path evidence. A faster candidate may spend more of the same window idle.
 
 The following original profile and experiment results remain useful evidence,
 subject to that simulation limitation.
@@ -29,7 +35,8 @@ the real Quadra 800 scores 1.011.  Color 8-bit 9.879 s, PR 1.203.
 
 ## Profile (full-machine sim, Speedometer FPU Benchmarks, Cmd-F)
 
-The sim scores 0.668 (hardware 0.690), so it is a fair model.
+The old sim scores 0.668 (hardware 0.690). This aggregate agreement does not
+validate its internal refill timing or the attribution of the measured gap.
 `docs/perf/fpu_profile_20260927/` has the profile and the control stream.
 
 - The cache is in **C_FILL 41 %** of the profiled clocks.  There are 15.6 M
