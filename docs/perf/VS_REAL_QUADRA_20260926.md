@@ -68,3 +68,22 @@ directory.
 
 Evidence: `scratch/hw_s24/` (`run*_table.png`, `fpu_done.png`,
 `color_done.png`, `pr_done.png`).
+
+## Update 2026-09-27: build `faf9d98` (seed 21, md5 `7bcd182d`)
+
+VRAM fast path, MOVE16 chaining and the ROM line fetch.  Measured on the
+write-buffer Main, same 32 MB guest.
+
+| test | `31b6e99` | `faf9d98` | real Q800 | `faf9d98` / real |
+|---|---|---|---|---|
+| Mix (median) | 1.778 | 1.781 | 1.899 | 94 % |
+| Dhrystones/sec | 19385.6 | 19377.6 | 24922.1 | 78 % |
+| KWhetstones/sec (Mix) | 1793.4 | 1799.3 | 1979.9 | 91 % |
+| Color 8-bit (s) | 13.967 | **9.873** | 8.211 | **83 %** |
+| FPU average | 0.687 | 0.690 | 1.011 | 68 % |
+| PR | 1.152 | **1.203** | 1.605 | 75 % |
+| PR Graphics | 1.031 | **1.170** | 1.347 | 87 % |
+| PR Disk | 1.595 | 1.619 | 3.443 | 47 % |
+
+What is left is in `docs/FPU_PROFILE_20260927.md` (the FPU: refills after
+Mac OS's HLock cache flushes) and `docs/GRAPHICS_PROFILE_20260926.md`.

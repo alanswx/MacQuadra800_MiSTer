@@ -39,6 +39,16 @@ bash scripts/build_only.sh --check    # Analysis & Synthesis only (~13 min), no 
 
 - Needs `scripts/local.env` (gitignored; from `scripts/local.env.sample`). It
   holds `QUARTUS_BIN`, the MiSTer host/key, and the seed paths.
+- **Since 2026-09-13 the work runs on a 16-core Linux box**, not the Windows
+  machine the next two bullets describe: Quartus is
+  `/home/alans/intelFPGA_lite/quartus/bin` (in `scripts/local.env`), Verilator 5
+  is `/home/alans/verilator5/bin`, and the ARM toolchain for Main is under
+  `/opt/gcc-arm-10.2-2020.11-x86_64-arm-none-linux-gnueabihf/bin`.  A seed walk
+  or variant is a **scratch project**: a copy of the project in
+  `scratch/<name>` with the changed files and `SEED` edited, launched with
+  `systemd-run --user ... bash scripts/build_only.sh --no-wait`.  Independent
+  scratch projects may fit in parallel (their `db/`s are separate); never two
+  flows in the same directory.
 - **Run it from Git bash**, not WSL. On this box `bash.exe` on PATH resolves to
   WSL's `C:\Windows\System32\bash.exe`; the build needs
   `C:\Program Files\Git\bin\bash.exe`. From PowerShell, launch it detached with
@@ -83,7 +93,18 @@ bash scripts/build_only.sh --check    # Analysis & Synthesis only (~13 min), no 
   path reports (`docs/sdram-open-row-crossing.md`) before trusting the build.
 - `SCSI_TRACE` in the `.qsf` makes a **debug** build that hijacks the serial
   port. It must stay commented out for anything released.
-- **The qsf's default settings ARE the release recipe (2026-09-08):**
+- **The qsf's default settings ARE the release recipe** (updated 2026-09-27;
+  `SEED 21` and every seed tried is in the `.qsf` comment block).  On top of
+  the 2026-09-08 recipe below it now sets: all the `AP040_*PIPELINE*` /
+  `XSTORE` / `LEA` CPU macros (the second integer pipeline, back since
+  `31b6e99`), `SCSI_CACHE_OFF` (the core's SCSI block cache off -- **needs
+  the write-buffer Main**, below, or every disk write waits ~4 ms on the SD
+  card), and the release-lite framework trims `MISTER_BYPASS_AUDIO_FILTER`,
+  `MISTER_DISABLE_VIDEO_CALC`, `VIDEO_512_OFF`, `MISTER_DISABLE_SHADOWMASK`;
+  CPU caches are 8+8 KB (`SETW = 7` in `ap040_cache.v`; 16+16 KB fits the
+  M10K budget but misses the CPU clock).  The build sits at 92 % ALMs, 468 of
+  553 M10K; `docs/AREA_BUDGET_20260924.md` has the per-feature costs.
+  The 2026-09-08 recipe:
   balanced synthesis, register duplication off, and the switches
   `CACHE_CD_OFF` (the CD passes through the block cache), `CACHE_SMALL`
   (32/32/16-sector cache), `MISTER_DISABLE_ALSA`, `MISTER_DOWNSCALE_NN`,
@@ -135,6 +156,20 @@ ROM + A/UX disk and is the golden reference for SCSI/ESP behaviour.
 
 Target is the DE10-Nano at the address in `scripts/local.env`
 (`192.168.99.143`, ssh key `~/.ssh/mister_only`, mrext remote on `:8182`).
+**Since 2026-09-18 the box is `10.3.89.233` (`MiSTer.local`), key
+`~/.ssh/id_rsa`** -- `scripts/local.env` has it; the addresses in this section
+are the old LAN's.  The box is shared with other cores' sessions (FM-7, Apple
+IIgs, ...): look at the screen before loading anything, and the user says when
+it is free.  The mouse is driven with
+`ssh ... python3 /media/fat/Scripts/q800tools/vmouse.py` (Finder Shut Down:
+`home m:111,-10 0.5 down 0.8 m:13,66 6 up`).
+**Main:** the core needs a Main with the Quadra 800 support and, for the
+`SCSI_CACHE_OFF` release recipe, the Mac disk write buffer: branch
+`mac-printer-writebuffer` of `alanswx/Main_MiSTer` (MiSTer-devel master +
+printer + write buffer; binary md5 `45182b73`, installed 2026-09-27).  A Main
+without Quadra support makes every build come up black; check
+`grep -a -c macquadra800 /media/fat/MiSTer` and
+`grep -a -c "Mac write buffer" /media/fat/MiSTer` before debugging a core.
 **Use only this box** (user, 2026-09-16): the second MiSTer at `.92` belongs
 to another session and is not to be touched, not even read-only.
 
