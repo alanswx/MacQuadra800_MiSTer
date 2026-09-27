@@ -37,7 +37,12 @@ endif
 CFLAGS += -Iimgui
 LDFLAGS = $(LIBS)
 EXE = ./obj_dir/Vemu
-V_OPT = --x-assign fast --x-initial fast --noassert
+# --unroll-count: ap040_mmu.v clears the 128 ATC valid flops with a for loop of
+# delayed assignments (PFLUSHA, reset); above Verilator's default of 64 the loop
+# is not unrolled and the assignment is silently dropped (BLKLOOPINIT, which the
+# warning list above hides), so PFLUSHA was a no-op in the sim.  Found by Dani
+# Sarfati in the NeXT-Color core (6d2e1a5, 2026-09-26).
+V_OPT = --x-assign fast --x-initial fast --noassert --unroll-count 256
 
 # Core RTL under simulation: the quadra800 machine (AP68040 submodule +
 # wombat glue) plus the template pattern core, which still paces frames
