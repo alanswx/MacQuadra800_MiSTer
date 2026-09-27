@@ -1,5 +1,28 @@
 # The FPU benchmark: the time goes to cache refills after Mac OS's flushes (2026-09-27)
 
+## Follow-up audit (2026-09-27)
+
+Two qualifications were found when checking these notes against HEAD
+`6456c62` before the next optimization:
+
+- `verilator/sim.v` connects the ROM retained line but leaves the RAM
+  `mem_line_valid/tag/data/pending` ports unconnected. The FPGA supplies those
+  ports from `sdram_beat32`, and `ap040_cache` consumes the retained RAM fill
+  tail locally. Therefore the 41% occupancy and ~15-clock fill figures below
+  describe the existing simulation, not a measured hardware refill schedule.
+  Similar overall benchmark scores do not establish that the internal costs
+  match. A production memory-path measurement is needed before ranking fixes.
+- The earlier claim that walker U/M-bit writes are not snooped is incorrect
+  for this tree. `rtl/wombat_cpu.sv` queues them through `wsnp_pend`, merges
+  them with DMA snoops and drives the cache snoop port. This is an early
+  invalidate at walker request, rather than write completion. The existing
+  `t_mmu.s` includes a cached-descriptor U-bit refresh check. Simultaneous
+  walker/DMA snoops, pending-slot assumptions, posted-write ordering and the
+  architectural cache-push contract still need review before changing CPUSH.
+
+The following original profile and experiment results remain useful evidence,
+subject to that simulation limitation.
+
 Hardware, build `faf9d98` (seed 21) on the write-buffer Main: FPU average
 **0.690** (KWhetstones 3864.6, Matrix Mult 1.017 s, Fast Fourier 0.454 s);
 the real Quadra 800 scores 1.011.  Color 8-bit 9.879 s, PR 1.203.
@@ -43,7 +66,7 @@ The 24k whole-cache flushes from HLock force the refills.  What is left:
 - faster line fills (a real 68040 bursts a line in ~5-6 clocks, ours takes
   ~15);
 - a cheaper CPUSHA for the data cache.  It is write-through and DMA-snooped,
-  so a push has nothing to write back, and dropping its invalidate is
-  coherence-safe only if every RAM writer is snooped.  The MMU table walker's
-  U/M-bit writes are not snooped today, and A/UX relies on those bits, so
-  this needs care.
+  so there is no dirty cache data to write back. Preserving lines would still
+  require an architectural/coherence review and explicit posted-write
+  ordering checks. Walker U/M-bit snooping already exists (see audit above);
+  that alone does not qualify a change to CPUSH.

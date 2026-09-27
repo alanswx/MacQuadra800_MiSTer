@@ -1,0 +1,135 @@
+# Next performance goal: reduce cache refill overhead
+
+Created 2026-09-27. This plan follows `RESUME-20260927.md` and
+`FPU_PROFILE_20260927.md`. It is a plan, not evidence of completed validation.
+
+## Goal and acceptance criteria
+
+Improve the full-feature core's FPU benchmark by reducing cache refill cost.
+Aim for at least 10% relative improvement over the timing-clean `faf9d98`
+hardware score of 0.690: FPU average >= 0.759. This is an engineering target,
+not a predicted gain. Preserve the prefetch-fault correctness fix in `6f0f159`,
+8+8 KB caches, Ethernet, CD-ROM, and the current release recipe.
+
+Accept a candidate only after correctness checks, timing closure and hardware
+validation. Compare against paired baseline runs with the same Main, guest,
+RAM setting and benchmark configuration. Collect five valid FPU runs and five
+valid Mix runs, plus three Color 8-bit runs; retain individual subtests.
+Exclude and report known impossible timer readings, replacing those runs.
+Investigate a median Mix regression greater than 1% or Color time regression
+greater than 2%; do not waive regressions as noise without evidence.
+
+The goal is not complete merely because a simulation improves or an RBF boots.
+If the target proves infeasible, record measured limits and the next decision.
+
+## Why this comes next
+
+The FPU suite is at 68% of real-Q800 speed, with 41% of simulated clocks in
+cache fill. OS whole-cache flushes repeatedly expose refill latency. Faster
+fills may help graphics too. Disk is the largest percentage gap (47%), but
+its Main/SCSI work is a separate project; pursue it after this bounded cache
+investigation rather than mixing changes and measurements.
+
+Larger caches, the ROM-line fill-port experiment and P246 line-scoped
+invalidation already failed to show useful gains within timing constraints.
+Do not repeat them without a new, specific explanation.
+
+## Work sequence
+
+1. **Establish the baseline and profile the path.** Preserve the existing
+   timing-clean RBF and source identities. Use current RTL with the prefetch
+   fix as the implementation baseline. Reproduce the FPU simulation using
+   the saved control stream and disk fixture, retaining exact source hashes,
+   commands and results. Split fills by instruction/data and RAM/ROM;
+   measure first-word latency, inter-word gaps, cache installation and
+   restart cost. Distinguish fill occupancy from actual CPU stall time and
+   account for overlap. The observed 41% is not automatically recoverable.
+   Deliver a cycle breakdown and a ranked list of specific changes before
+   modifying production RTL.
+
+   Follow-up inspection found that `sim.v` omits the RAM retained-line
+   sideband present on hardware. Measure the actual cache plus SDRAM path
+   with that sideband before interpreting the old ~15-cycle average or
+   launching repeated full-machine runs. A functional retained-line model
+   alone must not be described as cycle-accurate SDRAM.
+
+2. **Implement one focused candidate.** Prefer removing demonstrated
+   handshake or bookkeeping delays and using existing retained-line/burst
+   information. Keep the interface registered where timing requires it.
+   Architectural design and review stay with the primary agent. Do not
+   disable cache invalidation as a shortcut. The initial notes incorrectly
+   said MMU U/M-bit writes lacked snooping; the wrapper already queues these
+   invalidations. Any future cache-push optimization still requires a
+   separate all-writers coherence/ordering audit, any necessary snooping
+   fixes and A/UX validation.
+
+3. **Qualify correctness and simulation benefit.** Run CPU self-tests and
+   applicable cache, store-buffer, memory-path, line-DMA and SDRAM benches.
+   Include refill/snoop collisions, errors on later beats, backpressure,
+   reset/invalidation during fills, RAM/ROM transitions and MMU behavior
+   when affected. Record baseline failures separately. Run matched FPU and
+   Color full-machine simulations and a CPU regression workload. Advance
+   only for a reproducible benefit, with no unexplained correctness failure.
+   Run Analysis & Synthesis and inspect inferred memories before a full fit.
+
+4. **Fit a bounded candidate.** Preserve Ethernet/CD and current trims;
+   inspect ALMs, M10Ks, all clock domains and SDRAM crossings. Do not restart
+   the stopped seed walk on unchanged RTL. For a qualified new candidate,
+   run one initial fit and at most two alternative seeds before reviewing
+   critical paths and deciding whether structural work is needed. Serialize
+   this project's fits, check other live flows, and freeze each build's
+   inputs. No worktrees. A timing-marginal run is diagnostic, not acceptance.
+
+5. **Validate on hardware and document.** Only use the shared MiSTer after
+   availability is established; inspect a fresh screen and cleanly shut down
+   the current guest before loading anything. Use the disposable benchmark
+   disk and write-buffer Main. Measure the paired benchmark set above,
+   Mac OS boot/idle/input/shutdown, Ethernet integrity and CD data/transport.
+   Complete A/UX at 32 MB and arrange human audible-CD and OSD checks before
+   release acceptance. Save source/RBF hashes, timing reports, screenshots,
+   scores and a concise handoff. Publishing a release or PR is a separate
+   action governed by the existing handoff and user authorization.
+
+## Model and execution budget
+
+The user explicitly requested cheaper models for routine work.
+
+| Work | Default model | Boundaries |
+|---|---|---|
+| Documentation summaries, result tables, targeted web research | `gpt-6-luna` | Cite evidence; flag uncertainty; research only when a specific question requires it |
+| Scripted test/simulation orchestration and log collection | `gpt-6-luna` | Fixed recipes, exact hashes, explicit pass/fail checks; escalate novel failures |
+| Routine test harness changes or difficult runner failures | `gpt-6-sol` | Primary reviews changes and interpretation |
+| Authorized hardware operation | `gpt-6-sol` | One operator; obey shutdown/shared-device rules; never infer availability |
+| Architecture, coherence, critical paths, acceptance decisions | Primary agent | Review evidence rather than delegating final correctness judgment |
+
+Use independent agents for documentation and isolated simulations where
+useful; do not duplicate long runs or allow competing hardware operators.
+Keep orchestration messages compact. Reuse completed results by source hash.
+Do not rerun ~90-minute full-machine workloads until a directed screen and
+cycle-level measurement justify them. Escalate reasoning complexity, not
+every routine task, to the expensive model.
+
+## Existing evidence and entry points
+
+Focused existing checks (from `verilator/`):
+
+```sh
+make tb_sdram tb_wombat_bus32 tb_store_buffer tb_memory_path tb_memory_path_registered_first_miss tb_line_dma
+```
+
+CPU checks: `sh rtl/ap68040/tb/run_tests.sh`. Full-machine profiles use
+`--cpu-profile profile.tsv --max-cycles 20000000000`, the saved control
+stream, fast-boot ROM and `MacQuadra800-Speedometer402-profile.hda` fixture.
+Confirm the current Linux runner and fixture paths before launching; older
+documents retain WSL commands. Keep `--unroll-count 256` for MMU ATC clearing.
+The full-machine sim omits the top-level `emu` glue, so hardware remains
+necessary for changes affecting it.
+
+- `docs/FPU_PROFILE_20260927.md`
+- `docs/perf/fpu_profile_20260927/fpu_control.txt`
+- `docs/perf/fpu_profile_20260927/sim_fpu_profile.tsv`
+- `docs/GRAPHICS_PROFILE_20260926.md`
+- `docs/perf/graphics_profile_20260926/color8_control.txt`
+- `docs/perf/VS_REAL_QUADRA_20260926.md`
+- `RESUME-20260927.md` (full-machine recipes and current build state)
+- `CLAUDE.md` and `BUILD.md` (build and hardware rules)

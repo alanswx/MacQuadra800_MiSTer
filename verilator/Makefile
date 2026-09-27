@@ -70,6 +70,7 @@ V_SRC = \
 	$(RTL)/uart/txuart.v \
 	$(RTL)/uart/rxuart.v \
 	$(AP)/ap040_core.v \
+	$(RTL)/ap68040/experimental/ap040_pipeline_integer.sv \
 	$(AP)/ap040_bus_timeout.v \
 	$(AP)/ap040_regfile.v \
 	$(AP)/ap040_alu.v \
