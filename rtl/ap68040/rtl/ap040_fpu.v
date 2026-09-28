@@ -279,16 +279,22 @@ reg        done_r;
 // core sees done while the register write lands, one clock earlier than
 // the registered pulse.  F_WB never sets an exception status bit itself, so
 // the predicate is the same one that selects exc_req there.
-wire       wb_done_now = (fst == F_WB) && !(|(fpsr[15:8] & fpcr[15:8]));
+wire       round_wb_now;   // P252: F_ROUND writes the common result back itself
+wire       wb_done_now = ((fst == F_WB) && !(|(fpsr[15:8] & fpcr[15:8]))) ||
+                         round_wb_now;
 assign done = done_r | wb_done_now;
 // unimp/unsupp decisions are made in the dispatch cycle (register
 // sources, still F_IDLE), during source conversion (F_SRC), and by the
 // destination-operand checks in F_EXEC and F_BIN.  Only the arithmetic
 // and rounding states are strictly past every such decision: from here
 // on nothing but done or an enabled-exception exc_req can follow.
-assign accepted = (fst == F_ADDX) || (fst == F_MULT) ||
-                  (fst == F_DIVL) || (fst == F_SQRTL) ||
-                  (fst == F_NORM2) || (fst == F_ROUND);
+// P252: a clock in which F_ROUND completes the instruction (round_wb_now,
+// done high) must not also offer it for release: the core takes accepted
+// ahead of done and would set its background flag for an op that has
+// already retired, with nothing left to clear it.
+assign accepted = ((fst == F_ADDX) || (fst == F_MULT) ||
+                   (fst == F_DIVL) || (fst == F_SQRTL) ||
+                   (fst == F_NORM2) || (fst == F_ROUND)) && !round_wb_now;
 
 reg  [2:0] r_fmt, r_dst;
 reg        r_ae7;           // accrued-IOP before this instruction (fault backout)
@@ -451,6 +457,34 @@ function op_sgl;
 	end
 endfunction
 
+// P252: the same two decisions with FPCR's fields as explicit inputs, for
+// the continuous rounding logic (a function reading module state from a
+// continuous assignment is not re-evaluated when that state changes).
+function [1:0] prec_sel;
+	input [6:0] op;
+	input [1:0] fprec;
+	begin
+		if (op == 7'h24 || op == 7'h27) prec_sel = 2'd1;
+		else if (op >= 7'h40) prec_sel = op[2] ? 2'd2 : 2'd1;
+		else prec_sel = (fprec == 2'b01) ? 2'd1 :
+		                (fprec == 2'b00) ? 2'd0 : 2'd2;
+	end
+endfunction
+
+function round_up_m;
+	input       lsb, g, rs;
+	input       sign;
+	input [1:0] mode;
+	begin
+		case (mode)
+			2'b00:   round_up_m = g && (rs || lsb);
+			2'b01:   round_up_m = 1'b0;
+			2'b10:   round_up_m = sign && (g || rs);
+			default: round_up_m = !sign && (g || rs);
+		endcase
+	end
+endfunction
+
 // IEEE round-up decision from {lsb, G, R|S} and sign
 function round_up;
 	input       lsb, g, rs;
@@ -502,14 +536,50 @@ reg        fstate_e1;    // the prepared/restored frame is an arithmetic
 // single physical write port.  The core cannot dispatch FMOVEM while the FPU
 // is in F_WB; keeping the explicit priority also matches the old procedural
 // assignment order if that invariant is ever violated.
-wire fr_wb_we = (fst == F_WB) && !(|(fpsr[15:8] & fpcr[15:8])) &&
-                (r_op != 7'h38) && (r_op != 7'h3A);
+// P252: F_ROUND's rounding and range check as continuous logic.  F_ROUND
+// itself uses these, and when the result is an ordinary in-range number with
+// no enabled exception it also does F_WB's work in the same clock
+// (round_wb_now): the register write, the condition codes and done.
+// Range control: the rounding precision narrows the exponent range as well
+// as the significand (softfloat's SOFTFLOAT_68K roundAndPackFloatx80
+// expOffset, 0x3F80 single / 0x3C00 double), EXCEPT for FSGLMUL/FSGLDIV,
+// which round through roundSigAndPackFloatx80 and keep the extended range.
+// Extended (and the sgl class) use the RAW exponent convention: a working
+// exponent of ZERO still packs as a normal result with exponent field 0 (the
+// pseudo-denormal encoding) and no flags; tininess only starts below that.
+wire  [1:0] rnd_pr  = prec_sel(r_op, fpcr[7:6]);
+wire        rnd_up  = (rnd_pr == 2'd1) ? round_up_m(a_m[40], a_m[39], (a_m[38:0] != 0) || (grs != 0), a_s, fpcr[5:4]) :
+                      (rnd_pr == 2'd2) ? round_up_m(a_m[11], a_m[10], (a_m[9:0]  != 0) || (grs != 0), a_s, fpcr[5:4]) :
+                                         round_up_m(a_m[0], grs[2], grs[1:0] != 0, a_s, fpcr[5:4]);
+wire        rnd_inx = (rnd_pr == 2'd1) ? ((a_m[39:0] != 0) || (grs != 0)) :
+                      (rnd_pr == 2'd2) ? ((a_m[10:0] != 0) || (grs != 0)) : (grs != 0);
+wire [64:0] rnd_sum = (rnd_pr == 2'd1) ? ({1'b0, a_m & 64'hFFFF_FF00_0000_0000} + (rnd_up ? 65'h100_0000_0000 : 65'd0)) :
+                      (rnd_pr == 2'd2) ? ({1'b0, a_m & 64'hFFFF_FFFF_FFFF_F800} + (rnd_up ? 65'h800 : 65'd0)) :
+                                         ({1'b0, a_m} + (rnd_up ? 65'd1 : 65'd0));
+wire signed [17:0] rnd_er = e_w + (rnd_sum[64] ? 18'sd1 : 18'sd0);
+wire [64:0] rnd_mr = rnd_sum[64] ? {2'b01, 63'd0} : rnd_sum;
+wire signed [17:0] rnd_emax = op_sgl(r_op) ? 18'sd32766 :
+                              (rnd_pr == 2'd1) ? 18'sd16510 :
+                              (rnd_pr == 2'd2) ? 18'sd17406 : 18'sd32766;
+wire signed [17:0] rnd_emin = op_sgl(r_op) ? 18'sd0 :
+                              (rnd_pr == 2'd1) ? 18'sd16257 :
+                              (rnd_pr == 2'd2) ? 18'sd15361 : 18'sd0;
+wire        rnd_ovf = (rnd_er > rnd_emax);
+wire        rnd_unf = (rnd_er < rnd_emin);
+// the status byte as F_ROUND's normal branch leaves it (INEX2 is bit 9)
+wire  [7:0] rnd_status = fpsr[15:8] | (rnd_inx ? 8'h02 : 8'h00);
+assign round_wb_now = (fst == F_ROUND) && (a_t == T_NUM) && !rnd_ovf && !rnd_unf &&
+                      !(|(rnd_status & fpcr[15:8]));
+
+wire fr_wb_we = ((fst == F_WB) && !(|(fpsr[15:8] & fpcr[15:8])) &&
+                 (r_op != 7'h38) && (r_op != 7'h3A)) || round_wb_now;
 wire [14:0] fr_wb_e = (a_t == T_ZERO) ? 15'd0 :
                        (a_t == T_INF || a_t == T_NAN) ? 15'h7FFF : a_e[14:0];
 wire [63:0] fr_wb_m = (a_t == T_ZERO) ? 64'd0 : a_m;
 wire        fr_bank_we = fm_we || fr_wb_we;
 wire  [2:0] fr_bank_wa = fr_wb_we ? r_dst : fm_sel;
-wire [79:0] fr_bank_wd = fr_wb_we ? {a_s, fr_wb_e, fr_wb_m} :
+wire [79:0] fr_bank_wd = round_wb_now ? {a_s, rnd_er[14:0], rnd_mr[63:0]} :
+                         fr_wb_we ? {a_s, fr_wb_e, fr_wb_m} :
                                     {fm_wdata[95], fm_wdata[94:80],
                                      fm_wdata[63:0]};
 
@@ -1928,53 +1998,19 @@ always @(posedge clk) begin
 				reg        inx, up, ovf, unf, tomax;
 				reg [1:0]  pr;
 				reg signed [17:0] er, emin, emax;
-				pr = prec_of(r_op);
+				pr = rnd_pr;
 				if (a_t != T_NUM) fst <= F_WB;
 				else begin
-					case (pr)
-						2'd1: begin
-							up = round_up(a_m[40], a_m[39],
-							              (a_m[38:0] != 0) || (grs != 0), a_s);
-							inx = (a_m[39:0] != 0) || (grs != 0);
-							mr = {1'b0, a_m & 64'hFFFF_FF00_0000_0000} +
-							     (up ? 65'h100_0000_0000 : 65'd0);
-						end
-						2'd2: begin
-							up = round_up(a_m[11], a_m[10],
-							              (a_m[9:0] != 0) || (grs != 0), a_s);
-							inx = (a_m[10:0] != 0) || (grs != 0);
-							mr = {1'b0, a_m & 64'hFFFF_FFFF_FFFF_F800} +
-							     (up ? 65'h800 : 65'd0);
-						end
-						default: begin
-							up = round_up(a_m[0], grs[2], grs[1:0] != 0, a_s);
-							inx = (grs != 0);
-							mr = {1'b0, a_m} + (up ? 65'd1 : 65'd0);
-						end
-					endcase
-					er = e_w + (mr[64] ? 18'sd1 : 18'sd0);
-					if (mr[64]) mr = {2'b01, 63'd0};
-					// Range control: the rounding precision narrows the
-					// exponent range as well as the significand (softfloat's
-					// SOFTFLOAT_68K roundAndPackFloatx80 expOffset, 0x3F80
-					// single / 0x3C00 double), EXCEPT for FSGLMUL/FSGLDIV,
-					// which round through roundSigAndPackFloatx80 and keep
-					// the extended range.
-					// Extended (and the sgl class) use the RAW exponent
-					// convention: a working exponent of ZERO still packs as
-					// a normal result with exponent field 0 (the
-					// pseudo-denormal encoding) and no flags; tininess only
-					// starts below that, shifting by -er (softfloat probes:
-					// (0001-8000)/2 -> 0000-8000 clean, /4 -> 0000-4000
-					// UNFL, 2^-16380*2^-13 -> 0000-0020.. shift 10).
-					emax = op_sgl(r_op) ? 18'sd32766 :
-					       (pr == 2'd1) ? 18'sd16510 :
-					       (pr == 2'd2) ? 18'sd17406 : 18'sd32766;
-					emin = op_sgl(r_op) ? 18'sd0 :
-					       (pr == 2'd1) ? 18'sd16257 :
-					       (pr == 2'd2) ? 18'sd15361 : 18'sd0;
-					ovf = (er > emax);
-					unf = (er < emin);
+					// P252: the rounding is the continuous rnd_* logic beside the
+					// register file (shared with the same-clock writeback)
+					up   = rnd_up;
+					inx  = rnd_inx;
+					mr   = rnd_mr;
+					er   = rnd_er;
+					emax = rnd_emax;
+					emin = rnd_emin;
+					ovf  = rnd_ovf;
+					unf  = rnd_unf;
 					// WBTEMP capture for a possible BUSY frame: rounded for
 					// OVFL and the plain inexact path, unrounded for UNFL
 					wb_s   <= a_s;
@@ -2099,7 +2135,16 @@ always @(posedge clk) begin
 						end
 						a_m <= mr[63:0];
 						a_e <= er[16:0];
-						fst <= F_WB;
+						if (round_wb_now) begin
+							// P252: F_WB's work for this, the common case, in
+							// this clock: the register write (fr_wb_we), the
+							// condition codes of a nonzero finite number, done
+							fr_valid[r_dst] <= 1;
+							fpsr[27:24] <= {a_s, 3'b000};
+							fpu_used <= 1;
+							fst <= F_IDLE;
+						end
+						else fst <= F_WB;
 					end
 				end
 			end
