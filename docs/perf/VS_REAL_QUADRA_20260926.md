@@ -10,27 +10,33 @@ directory.
 
 ## Benchmark Mix (median run of five: 1.768, 1.779, 1.778, 1.784, 1.777)
 
+Subtests are ordered worst-to-best by the recorded relative-speed percentage;
+the aggregate Mix row remains separate at the bottom.
+
 | test | MiSTer | real Q800 | MiSTer / real (speed) |
 |---|---|---|---|
-| KWhetstones/sec | 1793.4 | 1979.9 | 91 % |
 | Dhrystones/sec | 19385.6 | 24922.1 | **78 %** |
+| Queens (s) | 0.363 | 0.306 | **84 %** |
+| Permutations (s) | 0.709 | 0.617 | **87 %** |
+| Bubble Sort (s) | 0.632 | 0.565 | 89 % |
+| KWhetstones/sec | 1793.4 | 1979.9 | 91 % |
+| Sieve (s) | 1.051 | 0.972 | 92 % |
 | Towers (s) | 0.476 | 0.468 | 98 % |
 | Quick Sort (s) | 0.529 | 0.531 | 100 % |
-| Bubble Sort (s) | 0.632 | 0.565 | 89 % |
-| Queens (s) | 0.363 | 0.306 | **84 %** |
 | Puzzle (s) | 0.766 | 0.798 | 104 % |
-| Permutations (s) | 0.709 | 0.617 | **87 %** |
 | Int. Matrix (s) | 0.479 | 0.598 | 125 % |
-| Sieve (s) | 1.051 | 0.972 | 92 % |
 | **Mix** | **1.778** | **1.899** | **94 %** |
 
 ## FPU Benchmarks (Quadra 650 = 1.0)
 
+Subtests are ordered worst-to-best by the recorded relative-speed percentage;
+the average row remains separate at the bottom.
+
 | test | MiSTer | real Q800 | speed |
 |---|---|---|---|
-| KWhetstones/sec (FPU) | 3854.99 | 5456.61 | **71 %** |
-| Matrix Mult. (s) | 1.025 | 0.713 | **70 %** |
 | Fast Fourier (s) | 0.454 | 0.288 | **63 %** |
+| Matrix Mult. (s) | 1.025 | 0.713 | **70 %** |
+| KWhetstones/sec (FPU) | 3854.99 | 5456.61 | **71 %** |
 | **Average** | **0.687** | **1.011** | **68 %** |
 
 ## Color Benchmarks
@@ -94,3 +100,16 @@ Follow-up measurements and qualifications are in
 `docs/FPU_PROFILE_20260927.md` and `docs/GRAPHICS_PROFILE_20260926.md`.
 The calibrated bulk-refill simulation leaves the FPU average unchanged at
 0.698; do not treat fixed-window HLock/flush counts as timed-test attribution.
+
+## Update 2026-09-28: FPU candidate status
+
+The percentage tables above remain historical results for the dated builds
+identified in their headings; they are not scores for the revised 55ff FPU
+candidate. The original 73bc candidate's matched full-OS FPU aggregate remained
+0.698 and its ten-test Mix remained 1.798, unchanged from baseline. See the
+[FPU comparison](cache_refill_20260927/normal_single_move_fullmachine_fpu/README.md)
+and [Mix comparison](cache_refill_20260927/normal_single_move_fullmachine_mix/README.md).
+At this checkpoint revised 55ff is timing-clean, while its guest FPCR/speed
+result is pending and no hardware test has been performed. Current status is
+tracked in the [handoff](../../RESUME-20260927.md). The later graphics result
+of 83% in the 2026-09-27 update above remains a separate historical measurement.
