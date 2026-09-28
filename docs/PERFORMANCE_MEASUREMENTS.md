@@ -2426,3 +2426,51 @@ The goal is **paused**; the user chooses subsequent work. A possible next
 step, requiring authorization, is focused review of cross-line replay/coherence
 and guest timer reads/writes before any instrumented matched replay. No new
 run or corrective cause is claimed here.
+
+## FPU issue and latency trims P250..P253 (2026-09-28, afternoon)
+
+A new harness, `docs/perf/fpu_latency_20260928/run.sh`, runs the real core,
+FPU and caches in Verilator with a fixed-latency memory and prints clocks per
+instruction for straight-line runs of 16/32/64 copies. On the 0b2d265 baseline
+it showed that issue interval equals latency for every FP instruction (the
+FPU is one op at a time and the next FP instruction waited at decode), that
+nothing finished in fewer than five clocks, and that two of those clocks were
+the request/completion handshake. Four commits followed, each gated by
+`rtl/ap68040/tb/run_tests.sh` in both configurations and re-measured:
+
+| clocks per instruction | 0b2d265 | P250 | P251 | P252 | P253 | 68040 execute stage |
+|---|---:|---:|---:|---:|---:|---:|
+| FMOVE.X FPm,FPn | 5 | 5 | 4 | 4 | **3** | |
+| FADD.X, equal exponents | 6 | 6 | 5 | **4** | 4 | 3 |
+| FADD.X, exponent difference 5 or 40 | 7 | 7 | 5 | **4** | 4 | 3 |
+| FSUB.X, no cancellation | 8 | 8 | 6 | **5** | 5 | 3 |
+| FMUL.X FPm,FPn | 7 | 7 | 5 | **4** | 4 | 5 |
+| FDIV.X / FSQRT.X | 29 | 29 | 28 | **27** | 27 | 37.5 / 103 |
+| FCMP.X | 5 | 5 | 4 | 4 | 4 | |
+| FMUL.X (A0),FPn | 11 | 8 | 8 | 8 | 8 | |
+| FMUL.D (A0),FPn | 12 | 9 | 9 | 9 | **7** | |
+| FMUL.S (A0),FPn | 11 | 9 | 8 | 8 | **6** | |
+| FADD.D (A0)+,FPn | 12 | 10 | 9 | 9 | **7** | |
+| FMOVE.D (A0),FPn | 9 | 8 | 8 | 8 | **6** | |
+| FADD.X + FMOVE.X FPn,(A0) pair (bus latency 1) | 16 | 16 | 14 | 13 | 13 | |
+| FINTRZ / FMOVECR trap, handler RTE | 65 | 65 | 65 | 65 | 65 | |
+| same trap, handler FSAVE / FRESTORE / RTE | 167 | 163 | 163 | 163 | 163 | |
+| TRAP #0 / A-line round trip | 58 / 62 | 58 / 62 | 58 / 62 | 58 / 62 | 58 / 62 | |
+
+- **P250** (`ap040_core.v`): the decode, EA and operand reads of FP
+  instruction N+1 overlap the released op N; only the request waits
+  (`fp_issue`, `S_FPU_ISSUE`).
+- **P251** (`ap040_fpu.v`): done is combinational in F_WB, the DSP product is
+  registered in F_BIN, and the alignment shift is folded into F_ADDX through
+  the one shared shifter.
+- **P252**: F_ROUND writes the common result back itself (`round_wb_now`);
+  `accepted` is masked in that clock.
+- **P253**: dispatch-clock unpack for normal D and S memory sources (P221 did
+  X) and for the move class with a register or memory source.
+
+Memory-operand rows are now bound by the operand reads at one clock each
+(S 6, D 7, X 8). Stores are bus-bound. The trap round trips are untouched and
+are the next thing to look at once the timed-subtest breakdown says how many
+Whetstone clocks go through the FPSP. Guest scores for these commits are
+pending the paired full-machine runs (Opus agents, results to be recorded
+under `docs/perf/`).
