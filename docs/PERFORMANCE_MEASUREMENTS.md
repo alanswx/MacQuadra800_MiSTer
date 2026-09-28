@@ -2497,6 +2497,24 @@ cache refill is 0.04-1.3 % inside the timed windows. Two more commits:
   brief-format indexed operands itself (`fp_inl_*`), with the index register
   preselected on port B by `dispatch_fpu`; four EA states skipped.
 
-Guest scores for these commits are pending the paired full-machine runs
-(Opus agents, results under `docs/perf/`). The FPSP trap path (58-65 clock
-round trips, 163 with FSAVE/FRESTORE) is the remaining Whetstone lever.
+The per-clock traces of the trap paths (`docs/perf/fpu_latency_20260928/traces_b2ed1b0.md`)
+showed the handler prefetch fill (26 clocks: eight word requests with a gap
+each) as the largest phase of every exception, and the 13-longword UNIMP
+frame's save and restore as 103 of the 167-clock FPSP round trip. Two more:
+
+| clocks per round trip | b2ed1b0 | P257 | P258 |
+|---|---:|---:|---:|
+| TRAP #0 -> RTE | 58 | **49** | 49 |
+| A-line -> ADDQ / RTE | 63 | **54** | 54 |
+| FINTRZ vector 11, handler RTE | 65 | **56** | 56 |
+| same, handler FSAVE / FRESTORE / RTE | 151 (163 at bus latency 3) | 151 | **125** |
+| FSAVE -(A7) ; FRESTORE (A7)+, idle | 11 | 11 | **10** |
+
+- **P257** (`ap040_core.v`): the exception prefetch fetches the handler
+  window in aligned longwords (word only for an odd-word entry and the last
+  word), as `issue_ifetch` already did for redirects.
+- **P258**: FSAVE frame words issued back to back from one state; FSAVE
+  stores and FRESTORE reads hinted (`hint_st_fsave`, `hint_frest`).
+
+Guest scores for P252 onwards are pending the paired full-machine runs
+(Opus agents, results under `docs/perf/`).
