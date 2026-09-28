@@ -12,6 +12,7 @@ must never be flashed (`scripts/deploy_screenshot.sh` refuses one).
 
 | build | md5 | timing | notes |
 |---|---|---|---|
+| `MacQuadra800_20260928.rbf` | `b7e88b8163679a607680e2e80669f396` | met, **+0.006 ns setup (HDMI) / +0.220 ns hold worst** (`clk_sys` +0.103, `clk_ram` +0.612; crossings +1.432 / +0.586) | **The FPU catches the real Quadra 800: Speedometer 4.02 FPU Benchmarks 0.973 on hardware (0.684 on the 2026-09-27 build; a real Quadra 800 scores 1.011), Benchmark Mix 1.803 (1.781), Color 8-bit unchanged.** Nine CPU commits (P250..P258): FP decode and operand fetch overlap the running FP op, FADD/FMUL in 4 clocks, results written back in the rounding clock, S/D operands unpacked and packed at dispatch, d16 and indexed FP operands resolved in the decode clock, exception prefetch in longwords, FSAVE/FRESTORE loops tightened. Mac OS 8.1 gate passed (24 valid benchmark runs, idle clock, clean shutdowns). **A/UX 3.1 and CD audio NOT run on this bitstream** (the images are no longer on the test box). Needs a Main with the Quadra support and the Mac write buffer (`45182b73` or the FujiNet/printer `ff404af9` it was tested with). Seed 31 with `PLACEMENT_EFFORT_MULTIPLIER 2.0` and `ROUTER_TIMING_OPTIMIZATION_LEVEL MAXIMUM`; 39,191 ALMs (94 %), 468 M10K, 36 DSP. |
 | `MacQuadra800_20260919.rbf` | `933b421a0880177be1b5fb2861dcea15` | met, **+0.107 ns setup / +0.190 ns hold worst** (HDMI +0.107, `clk_ram` +0.415, `clk_sys` +0.622) | **Built-in Ethernet.** The Quadra 800's onboard DP83932 SONIC at its real addresses, so Apple's own driver binds to it: DHCP, ping, FTP both ways byte-exact, on Mac OS 8.1 with Open Transport. OSD **Ethernet (on reset)**, default Off; needs the Main binary `releases/MiSTer`. With it Off the machine is the 20260918 one. Carries three `Dbg ...` bring-up lines in the OSD: leave them at On. |
 | `MacQuadra800_20260918.rbf` | `fde49a3cf474d5c07aff26c592200125` | met, **+0.204 ns hold / +0.527 ns setup worst** (HDMI +0.527, `clk_ram` +0.668, `clk_sys` +0.772) | **The CPU pipeline increments: Speedometer 4.02 Benchmark Mix 0.9285 (0.855 on 20260916_2, +8.6 %), Color QuickDraw 0.670, on a core 1,055 ALMs smaller.** A one-clock data-cache hit on a dedicated hint bus, redirects that hint and issue their target from the retire that pops them (BRA/BSR/JSR/JMP, DBcc, short Bcc), pops/pushes/MOVEM issued in place, a one-clock posted store with a write-side MMU verdict, and a read that may pass one queued store to another line. Mac OS 8.1 and A/UX 3.1 (32 MB) pass the gate; eight Mix runs + CQD + FPU with zero anomalous values. **The CD-audio item of the gate was NOT run on this bitstream** (the CD/SCSI RTL is unchanged from 20260916_2). Seed 21; 86 % ALMs. |
 | `MacQuadra800_20260916_2.rbf` | `8552a4094e151bf7b853916a9099e2c2` | met, **+0.244 ns setup** (HDMI +0.255, `clk_sys` +0.442, `clk_ram` +0.851) | **The AP68040 vendored into the repo with Adam Polkosnik's September fixes** (replaces the 2026-09-17 00:42 file `ab1da889`, same SCSI/CD RTL, whose CPU clock missed by 0.231 ns): memory bitfield reads sized by span, FPSP BUSY-frame FRESTORE resume (the Quadra ROM uses it), MOVEM saved-EA/SSW.CM continuation, nonresident ATC entries, our memind reserved-encoding fix, shared ALU adders and FPU normalizer, the integer register file in MLABs. Cycle-identical to the 20260915 CPU on the sim gates; Speedometer 4.02 Benchmark Mix **0.855** (0.858 on 20260915), Color QuickDraw 0.641 over four depths (8-bit 0.629 vs 0.605), Performance Rating 0.810. Mac OS 8.1 boots with a second disk and a CD mounted; A/UX and CD audio not re-run on this file (unchanged RTL outside the CPU, gated on `ab1da889`). Ships with `releases/MiSTer_20260916` (`431da61a`). Seed 21; 37,144 ALMs (89 %). |
@@ -50,6 +51,69 @@ Installed on the `.143` box that way on 2026-09-19; the user confirmed the
 menu and the display working. It is meant for the Ethernet core built from
 `add-ethernet` (`b2e5377` and later), released as `MacQuadra800_20260919.rbf`
 (below); the older released cores run under it with Ethernet simply absent.
+
+## `MacQuadra800_20260928.rbf`
+
+md5 `b7e88b8163679a607680e2e80669f396`, sha256
+`7f6c835be1ed5bc4944cd697b01237838dbf3b92803a6e2c0ba5ae37787fe79c`, seed 31,
+the qsf recipe plus two fitter settings that are now part of it
+(`PLACEMENT_EFFORT_MULTIPLIER 2.0`, `ROUTER_TIMING_OPTIMIZATION_LEVEL
+MAXIMUM`; with the old settings no seed of this RTL met the CPU clock, see
+`docs/perf/fpu_p254_seed_walk` and `docs/perf/fpu_p258_fitter_settings`).
+**Timing met on every clock**: `clk_sys` (the 33 MHz CPU clock) +0.103 ns,
+`clk_ram` +0.612 ns, HDMI +0.006 ns, worst hold +0.220 ns; the SDRAM bridge
+crossings +1.432 / +0.586 ns; no array fell out to registers. **39,191 ALMs
+(94 %)**, 24,675 registers, 468 M10K, 36 DSP. Built 2026-09-28 on branch
+`add-ethernet` from `ad7a0d4` (the RTL) with the recipe committed as
+`868b0e8`.
+
+**What is new: the FPU.** Nine CPU commits in one day, each measured with a
+new 10-second per-instruction harness (`docs/perf/fpu_latency_20260928`) and
+driven by a timed-window profile of Speedometer's three FPU tests
+(`docs/perf/fpu_subtest_breakdown_20260928`):
+
+- P250: an FP instruction's decode, effective address and operand reads
+  overlap the FP op still running; only the request waits.
+- P251, P252: done in the writeback clock, product registered at dispatch,
+  alignment folded into the add, and the common result rounded and written
+  back in one clock. FADD and FMUL 4 clocks (68040: 3 and 5), FDIV 27 (37.5).
+- P253, P255: single and double memory sources unpacked, and single/double
+  register stores packed, in the dispatch clock.
+- P256: d16(An), d16(PC) and brief-indexed FP operands resolved in the decode
+  clock (the four EA states skipped). Matrix's inner loop 26 -> 15 clocks,
+  FFT's butterfly 65 -> 33.
+- P257, P258: the exception prefetch fetches the handler window in aligned
+  longwords (every exception 9 clocks cheaper), FSAVE frame words back to
+  back and FRESTORE reads hinted (the FPSP trap with frame save 167 -> 125).
+
+Register-level results are byte-identical to the previous core on the
+native Whetstone, Matrix and FFT kernels and on the corpus; a new 67-check
+directed program (`t_fpu_addr`) covers every inline addressing form.
+
+**Hardware** (`docs/perf/hw_p258_seed31_20260928`, disposable Quad Squad
+copy, 32 MB): FPU Benchmarks median of five **0.973** (KWhet 4563, Matrix
+0.693 s, FFT 0.280 s; the 2026-09-27 build 0.684; a real Quadra 800 1.011,
+5457, 0.713 s, 0.288 s: Matrix and FFT beat the real machine, Whetstone is
+84 % of it because 58 % of that test runs inside the ROM's FPSP). Benchmark
+Mix median of five **1.803** (1.781). Color 8-bit 9.85-9.90 s (unchanged).
+24 valid runs, no anomalous timer, the menu-bar clock in step with the
+MiSTer's for the whole session, four minutes idle, keyboard alive, Special ->
+Shut Down to the halt screen twice. Individual Mix rows move by up to 20 %
+between two fits of the same RTL (memory placement per boot), so compare
+builds by the whole-Mix median only.
+
+**Gate status:** Mac OS 8.1 passed. **A/UX 3.1 at 32 MB and the CD audio
+transport were not run** on this bitstream: neither the A/UX image nor
+`ToneTest.cue` is on the test box any more. The SCSI, CD and I/O RTL is
+unchanged from 20260919; the CPU's exception and FSAVE/FRESTORE paths did
+change (P257, P258), which is what A/UX exercises hardest, so that check is
+owed before this is called final.
+
+**Main:** needs a Main with the Quadra 800 support and the Mac write buffer
+(`SCSI_CACHE_OFF` recipe): branch `mac-printer-writebuffer` of
+`alanswx/Main_MiSTer` (`45182b73`) as documented, or the FujiNet/printer
+build `ff404af9` that was on the box for these runs; both pass the two greps
+in CLAUDE.md.
 
 ## `MacQuadra800_20260919.rbf`
 
