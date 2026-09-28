@@ -2387,3 +2387,5 @@ Crossings pass at +0.712/+0.759 ns; all 12 detailed RAM paths pass (minimum
 RBF SHA256 `85db1130b61fa21eb4129c41b032d23c26ec3407f94dc283b3c3eb14eebcabe7`.
 Evidence project: `scratch/cache_xline_first_fill_quartus_seed31_20260928/tree/`.
 This establishes fit/timing, not hardware functionality or speed.
+
+FPGA reports and provenance are preserved in the [seed31 archive](perf/cache_refill_20260927/cache_v2_fpga_seed31/README.md). Timing passes under the unchanged release constraints; external I/O including SDRAM_DQ remains unconstrained as in the baseline. This is not board-level I/O signoff.
