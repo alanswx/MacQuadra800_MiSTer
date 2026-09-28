@@ -2468,9 +2468,35 @@ the request/completion handshake. Four commits followed, each gated by
 - **P253**: dispatch-clock unpack for normal D and S memory sources (P221 did
   X) and for the move class with a register or memory source.
 
-Memory-operand rows are now bound by the operand reads at one clock each
-(S 6, D 7, X 8). Stores are bus-bound. The trap round trips are untouched and
-are the next thing to look at once the timed-subtest breakdown says how many
-Whetstone clocks go through the FPSP. Guest scores for these commits are
-pending the paired full-machine runs (Opus agents, results to be recorded
-under `docs/perf/`).
+Memory-operand rows are then bound by the operand reads at one clock each
+(S 6, D 7, X 8) and stores by the bus.
+
+The timed-window breakdown ([fpu_subtest_breakdown_20260928](perf/fpu_subtest_breakdown_20260928/README.md))
+then showed where Matrix and FFT really spend their clocks: FMOVE.S loads
+and stores with d16(An) and d8(An,Xn) operands, 74 % of Matrix's FP
+instructions and 87 % of its FP clocks, at 10-14 core clocks each while the
+FPU FSM itself takes 4 and 2. A displacement or index cost four EA states.
+Whetstone spends 58.5 % of its window inside the ROM FPSP handler (5,060
+vector-11 traps for FSIN/FCOS/FATAN/FETOX/FLOGN, about 1,000 clocks each);
+cache refill is 0.04-1.3 % inside the timed windows. Two more commits:
+
+| clocks per instruction or group | 0b2d265 | P254 | P255 | P256 |
+|---|---:|---:|---:|---:|
+| FMOVE.S FPn,(A0) | 7 | 7 | **5** | 5 |
+| FMOVE.D FPn,(A0) | 9 | 9 | **8** | 8 |
+| FADD.X + FMOVE.S store pair | 12 | 12 | **9** | 9 |
+| FMOVE.S d16(A0),FPn / d8(A0,D0.L),FPn | 12 / 12 | 9 / 9 | 9 / 9 | **5 / 5** |
+| FMOVE.S FPn,d16(A0) | 11 | 11 | 7 | **5** |
+| FMOVE.D d16(A0),FPn / FPn,d16(A0) | 13 / 13 | 10 / 13 | 10 / 12 | **6 / 8** |
+| Matrix inner-loop group (load, FMUL, FADD, ADDQ) | 26 | 19 | 19 | **15** |
+| FFT butterfly group (2 loads, FSUB, FMUL, FADD, 2 stores) | 65 | 53 | 47 | **33** |
+
+- **P255** (`ap040_fpu.v`): normal single/double register stores are packed
+  in the dispatch clock (`st_s_*`, `st_d_*`) when in range and not trapping.
+- **P256** (`ap040_core.v`): S_FPU_DEC resolves d16(An), d16(PC) and the
+  brief-format indexed operands itself (`fp_inl_*`), with the index register
+  preselected on port B by `dispatch_fpu`; four EA states skipped.
+
+Guest scores for these commits are pending the paired full-machine runs
+(Opus agents, results under `docs/perf/`). The FPSP trap path (58-65 clock
+round trips, 163 with FSAVE/FRESTORE) is the remaining Whetstone lever.
