@@ -109,7 +109,12 @@ candidate. The original 73bc candidate's matched full-OS FPU aggregate remained
 0.698 and its ten-test Mix remained 1.798, unchanged from baseline. See the
 [FPU comparison](cache_refill_20260927/normal_single_move_fullmachine_fpu/README.md)
 and [Mix comparison](cache_refill_20260927/normal_single_move_fullmachine_mix/README.md).
-At this checkpoint revised 55ff is timing-clean, while its guest FPCR/speed
-result is pending and no hardware test has been performed. Current status is
+Revised 55ff is timing-clean, but its completed guest FPU result also remains
+0.698 (Whetstone 3850.048/s, Matrix 0.991 s, FFT 0.447 s). Its observer shows
+extended precision with exception-enable byte 0x20: the retained enable guard
+excludes 5,346,934 normal single-move branch events across the profiling window.
+These counts are not individual subtest attribution. The next scratch candidate
+6c permits exact normal moves with enables set; its qualification is pending.
+No hardware test of these candidates has been performed. Current status is
 tracked in the [handoff](../../RESUME-20260927.md). The later graphics result
 of 83% in the 2026-09-27 update above remains a separate historical measurement.
