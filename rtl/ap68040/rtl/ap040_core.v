@@ -2164,7 +2164,7 @@ task mem_issue;
 		                 // selected a state earlier) at dbg_a7 - 4
 		                 state == S_DECODE || state == S_BCC_EXT ||
 		                 state == S_JSR1 || state == S_PEA1 || pea_d16_push ||
-		                 state == S_LINK2 || hint_st_fpu || hint_st_fmovem || hint_st_fpgo || pipe_load_launch))) &&
+		                 state == S_LINK2 || hint_st_fpu || hint_st_fmovem || hint_st_fpgo || hint_st_fsave || pipe_load_launch))) &&
 		    mgo_a[31:28] == 4'h0 &&
             ((!mem_req && !mem_ack) || (mgo_wr && move_store_read_handoff) ||
              (!mgo_wr && (retire_store_read || retire_read_read || ret_after_unlk || fpu_rd_next || mm_rd_next))) &&
@@ -3739,17 +3739,25 @@ wire hint_st_fpu = state == S_FPU_WR &&
       (fp_nb == 4'd8 && fp_n == 4'd2) ||
       (fp_nb == 4'd12 && fp_n == 4'd3));
 wire hint_st_fmovem = state == S_FPU_MVM2 && fp_st && fp_n != 4'd3;
+// P258: the FSAVE frame loops issue their write from the same state they
+// hint it in, as the FMOVEM store loop does
+wire hint_st_fsave = (state == S_FSAVE_U && fp_n != FPU_UNIMP_LAST + 4'd1) ||
+                     (state == S_FSAVE_B && fpb_n != 5'd25);
+wire [31:0] hint_st_fsave_addr = t_a + ((state == S_FSAVE_U) ? {26'd0, fp_n, 2'b00}
+                                                             : {25'd0, fpb_n, 2'b00});
 // P225: the FPU store's first longword from S_FPU_GO in the done clock
 wire hint_st_fpgo = state == S_FPU_GO && fpu_done && fp_st && (d_mode != 3'b000) && (fp_nb >= 4'd4);
 wire [31:0] hint_st_fpu_addr = t_a +
     ((hint_st_fpu && fp_nb <= 4'd2) ? 32'd0 : {26'd0, fp_n, 2'b00});
 wire        hint_store    = hint_st_reg_move || hint_st_move_ea || hint_st_exec || hint_st_pushf || hint_st_push ||
-                            hint_st_movem || hint_st_mwr || hint_st_fpu || hint_st_fmovem || hint_st_fpgo;
+                            hint_st_movem || hint_st_mwr || hint_st_fpu || hint_st_fmovem || hint_st_fpgo ||
+                            hint_st_fsave;
 wire [31:0] hint_store_addr = hint_st_reg_move ? hint_dst_addr :
                               hint_st_move_ea ? ea_addr :
                               hint_st_exec  ? dst_addr :
                               hint_st_mwr   ? m_addr_r :
                               (hint_st_fpu || hint_st_fmovem) ? hint_st_fpu_addr :
+                              hint_st_fsave ? hint_st_fsave_addr :
                               hint_st_fpgo ? t_a :
                               // P189: the predecrement form stores at mm_addr - size
                               hint_st_movem ? (mm_predec ? mm_addr - ((mm_size == `AP040_SZ_L) ? 32'd4 : 32'd2)
@@ -3812,8 +3820,16 @@ wire hint_fpu_operand = state == S_FPU_RD &&
       (fp_nb == 4'd8 && fp_n == 2) || (fp_nb == 4'd12 && fp_n == 3));
 wire hint_fpu_movem = state == S_FPU_MVM2 && !fp_st && fp_n != 3;
 wire hint_fpu_mvm0  = state == S_FPU_MVM && !fp_st && fp_list != 8'd0;   // P227
-wire hint_fpu_read = hint_fpu_operand || hint_fpu_movem || hint_fpu_mvm0;
-wire [31:0] hint_fpu_addr = t_a +
+// P258: FRESTORE's frame reads, hinted from the state that issues them
+wire hint_frest = (state == S_FREST1 && !fpu_bg) || state == S_FREST2 ||
+                  (state == S_FREST_U && fp_n != FPU_UNIMP_LAST) ||
+                  (state == S_FREST_B && fpb_n != 5'd24);
+wire [31:0] hint_frest_addr = (state == S_FREST1) ? ea_addr :
+                              (state == S_FREST2) ? ea_addr + 32'd4 :
+                              (state == S_FREST_U) ? ea_addr + ({28'd0, fp_n} << 2) + 32'd4 :
+                                                     ea_addr + ({27'd0, fpb_n} << 2) + 32'd4;
+wire hint_fpu_read = hint_fpu_operand || hint_fpu_movem || hint_fpu_mvm0 || hint_frest;
+wire [31:0] hint_fpu_addr = hint_frest ? hint_frest_addr : t_a +
     (((hint_fpu_operand && fp_nb <= 2) || hint_fpu_mvm0) ? 32'd0 : {26'd0,fp_n,2'b00});
 
 wire [31:0] hint_displacement_addr = (ea_pcmode ? ea_pcb : rf_rdata_a) + sxw(imm[15:0]);
@@ -7771,35 +7787,31 @@ always @(posedge clk) begin
 				             fpu_used ? FPU_IDLE_HEADER : 32'h0000_0000, S_NEXT);
 			end
 
-			S_FSAVE_U:
-				mwr(t_a + {26'd0, fp_n, 2'b00}, `AP040_SZ_L,
-				    fsave_unimp_word(fp_n), S_FSAVE_UD);
-
-			S_FSAVE_UD: begin
-				if (fp_n == FPU_UNIMP_LAST) begin
-					// Do not acknowledge/lose the pending state until the final
-					// bus write has completed successfully.
+			// P258: each frame word is issued from here and returns here; the
+			// index advances at issue and the loop ends one past the last word.
+			// The pending state is acknowledged only after the final write has
+			// completed (S_MWR returns here only on its acknowledge).
+			S_FSAVE_U: begin
+				if (fp_n == FPU_UNIMP_LAST + 4'd1) begin
 					fpu_fsave_ack <= 1;
 					fetch_next;
 				end
 				else begin
+					mwr(t_a + {26'd0, fp_n, 2'b00}, `AP040_SZ_L,
+					    fsave_unimp_word(fp_n), S_FSAVE_U);
 					fp_n <= fp_n + 4'd1;
-					state <= S_FSAVE_U;
 				end
 			end
 
-			S_FSAVE_B:
-				mwr(t_a + {25'd0, fpb_n, 2'b00}, `AP040_SZ_L,
-				    fsave_busy_word(fpb_n), S_FSAVE_BD);
-
-			S_FSAVE_BD: begin
-				if (fpb_n == 5'd24) begin
+			S_FSAVE_B: begin
+				if (fpb_n == 5'd25) begin
 					fpu_fsave_ack <= 1;
 					fetch_next;
 				end
 				else begin
+					mwr(t_a + {25'd0, fpb_n, 2'b00}, `AP040_SZ_L,
+					    fsave_busy_word(fpb_n), S_FSAVE_B);
 					fpb_n <= fpb_n + 5'd1;
-					state <= S_FSAVE_B;
 				end
 			end
 
