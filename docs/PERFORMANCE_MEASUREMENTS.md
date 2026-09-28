@@ -2358,6 +2358,18 @@ experiment; it does not establish why the tag was absent historically.
 The latency above one edge per request is 190,086 edges, or **2.18%** of this
 native loop. This is latency accounting, **not a predicted speed gain**:
 allocation, replay, replacement, and workload effects still need measurement.
-The scratch cache candidate has no measured native or FPGA speed result yet.
 See the [resource-read evidence](perf/cache_refill_20260927/native_fpu_whetstone_resource_reads_6c/README.md)
 for exact paths, source identities, and limits of the native fixture.
+
+The subsequent cache-v2 native run completed in **8,541,493 clocks**, versus
+the qualified 6c baseline's **8,724,166**: **182,673 fewer clocks (2.094%)**,
+equivalent to **2.139% higher throughput** for this fixture. The only RTL
+change is cache `7cba7f73`→`9e8c0582`; FPU, entry, memory images, passive
+monitor, ROM latency6, and release CPU flags are unchanged. All four final
+ABI/code/global/stack captures match byte-for-byte, and original runtime and
+profile checks pass. Aggregate external read_bus32 episodes fall9,773→0,
+while C_PASS occupancy falls804,428→630,743 samples. These are coarse counters,
+not exact candidate per-address attribution. Evidence:
+`scratch/native_whet_cache_v2_comparison_20260928/comparison.json`.
+This native result is not a full-guest or FPGA benchmark, and does not prove
+the0.759 hardware target. Full-machine qualification and FPGA fitting follow.
