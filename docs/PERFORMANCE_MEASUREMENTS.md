@@ -2344,3 +2344,20 @@ The separate SDRAM queue handoff timing change is covered by
 [paired physical-memory tests](perf/cache_refill_20260927/wq_available_handoff/README.md);
 the full-guest RAM model does not exercise that bridge. No new hardware result
 or release qualification is established by these simulations.
+
+## Whetstone cache target measured (2026-09-28)
+
+A passive native replay of the 6c FPU workload completed in **8,724,166
+clocks**, with reports and four memory captures unchanged from its reference.
+The physical LONG read at **0x600eae** occurred **9,630** times, consuming
+**199,716 inclusive latency edges** (mean **20.739**, maximum **25**). Every
+observed request missed the first cache line and took the existing bypass
+path. That makes first-line allocation for crossing reads a concrete next
+experiment; it does not establish why the tag was absent historically.
+
+The latency above one edge per request is 190,086 edges, or **2.18%** of this
+native loop. This is latency accounting, **not a predicted speed gain**:
+allocation, replay, replacement, and workload effects still need measurement.
+The scratch cache candidate has no measured native or FPGA speed result yet.
+See the [resource-read evidence](perf/cache_refill_20260927/native_fpu_whetstone_resource_reads_6c/README.md)
+for exact paths, source identities, and limits of the native fixture.
