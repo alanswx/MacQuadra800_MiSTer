@@ -1,9 +1,16 @@
 # Cache refill investigation, 2026-09-27
 
+**2026-09-28 update:** the later cache-v2 crossing-read candidate, combined
+with the 6c FPU and original SDRAM bridge, passes correctness checks and FPGA
+timing. Native Whetstone throughput improves 2.139%; full-machine guests are
+running and hardware speed is unmeasured. See the
+[current handoff](../HANDOFF-20260928.md). The investigation below records the
+earlier bulk-refill experiment and its rejection; that decision remains valid.
+
 Baseline implementation: `6456c62` (includes the prefetch-fault fix). The
 profiler and corrected background notes are committed as `b18fd07`.
 The performance target remains in `NEXT_PERFORMANCE_PLAN_20260927.md`;
-there is no new FPU hardware score or fitted candidate yet.
+at this earlier checkpoint there was no new FPU hardware score or fitted candidate.
 
 ## Corrections to the initial hypothesis
 

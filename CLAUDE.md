@@ -1,5 +1,9 @@
 # MacQuadra800_MiSTer — working notes for Claude
 
+Start with [HANDOFF-20260928.md](HANDOFF-20260928.md) for the current FPU/cache
+candidate, live guest jobs, passing FPGA fit and remaining hardware gates.
+`RESUME-20260927.md` is the detailed historical experiment journal.
+
 Macintosh Quadra 800 core for the MiSTer FPGA (DE10-Nano). Authentic 33 MHz
 68040 bus clock, AP68040 CPU (git submodule), 128 MB SDRAM main memory, DAFB
 video, NCR 53C96 SCSI, Z8530 SCC, ASC sound, ADB via VIA. Boots Mac OS 7.x/8.1
@@ -27,7 +31,7 @@ separate codename and are deliberately unchanged.
 | `tools/misterdeploy/` | the reusable rbf push + `load_core` launcher |
 | `releases/` | shipped `.rbf`s + `README.md` (table + one section per release) + `quadra800.rom` |
 | `docs/` | design notes (`sdram-fast-path.md`, `PERFORMANCE_MEASUREMENTS.md`, `scsi/`, …) |
-| `RESUME-*.md` | session hand-off notes; the newest is the one to read first |
+| `HANDOFF-20260928.md`, `RESUME-*.md` | current handoff first; dated experiment journals preserve historical state |
 | `BUILD.md` | full build/deploy/disk documentation — read it before touching hardware |
 
 ## Build
@@ -46,10 +50,11 @@ bash scripts/build_only.sh --check    # Analysis & Synthesis only (~13 min), no 
   `/opt/gcc-arm-10.2-2020.11-x86_64-arm-none-linux-gnueabihf/bin`.  A seed walk
   or variant is a **scratch project**: a copy of the project in
   `scratch/<name>` with the changed files and `SEED` edited, launched with
-  `systemd-run --user ... bash scripts/build_only.sh --no-wait`.  Independent
-  scratch projects may fit in parallel (their `db/`s are separate); never two
-  flows in the same directory.
-- **Run it from Git bash**, not WSL. On this box `bash.exe` on PATH resolves to
+  `systemd-run --user ... bash scripts/build_only.sh`. Separate scratch
+  databases isolate inputs, but **only one Quartus flow may run globally**.
+  Keep the normal wait gate and verify host processes before launching.
+- **Historical Windows instructions only:** run from Git bash, not WSL.
+  On the former Windows host `bash.exe` on PATH resolves to
   WSL's `C:\Windows\System32\bash.exe`; the build needs
   `C:\Program Files\Git\bin\bash.exe`. From PowerShell, launch it detached with
   `Start-Process` so a tool timeout cannot kill Quartus mid-fit.
@@ -57,18 +62,19 @@ bash scripts/build_only.sh --check    # Analysis & Synthesis only (~13 min), no 
   checkout: commit what is to be built, launch `build_only.sh`, and do not
   touch RTL, the `.qsf`, `files.qip` or the `.sdc` until the flow ends (docs
   and `scratch/` are fine meanwhile). A variant or older RTL is a commit you
-  check out between builds; a full-machine sim copy comes from
-  `scripts/sim_tree_wsl.sh <name> <commit>` inside WSL. After each fit, before
+  check out between builds. On the current Linux host use isolated scratch
+  copies with pinned manifests and durable user units; the older
+  `scripts/sim_tree_wsl.sh` recipe was for WSL. After each fit, before
   the next build overwrites the db:
   `quartus_sta -t scripts/cpu/timequest_cross_domain.tcl <tag>`.
 - **Never run two builds of this project at once** — they share `db/` and
   corrupt each other. **And never two Quartus flows on this box at all,
   worktrees included** (user, 2026-09-16): a seed walk runs one seed after
-  another; check `Get-CimInstance Win32_Process` for `quartus*` first. Other cores are built on this box by other sessions
+  another; check host `ps`/`pgrep` for every `quartus_*` process first. Other cores are built on this box by other sessions
   (sgiindy, MacLC…): `build_only.sh`'s wait-gate blocks on *any* `quartus_*`,
-  so launch with `--no-wait` only after checking that no MacQuadra800 flow is
+  so launch with `--no-wait` only after checking that no Quartus flow is
   running, and never kill a `quartus_*` process without matching its command
-  line to this project (`Get-CimInstance Win32_Process`).
+  line and working directory to this project. Prefer the normal wait gate.
 - Timing met (positive worst slack in `output_files/*.sta.summary`) is the
   **release** bar, not a precondition for trying a build. The design sits at
   ~92 % ALMs with tenths of a nanosecond of slack and the fits are a seed

@@ -1,5 +1,12 @@
 # FPU benchmark baseline and cache-refill investigation (2026-09-27)
 
+**Historical profile, current pointer updated 2026-09-28.** Later work qualified
+the 6c FPU and cache-v2 candidate in directed tests and FPGA timing; native
+Whetstone improves 2.139%, with full-machine qualification pending. No new
+hardware speed is established. See [current handoff](../HANDOFF-20260928.md)
+and [measurements](PERFORMANCE_MEASUREMENTS.md). Earlier fixed-window profiles
+and rejected bulk-refill experiments below retain their original scope.
+
 ## Follow-up audit (2026-09-27)
 
 The following qualifications were found when checking these notes against HEAD

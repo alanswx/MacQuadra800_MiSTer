@@ -1,5 +1,10 @@
 # Performance measurements — Speedometer 4.02
 
+**Current checkpoint (2026-09-28):** see [handoff](../HANDOFF-20260928.md) and
+the final sections below for 6c FPU/cache-v2 results. Earlier sections are
+dated measurements; their hardware addresses and mounted-disk descriptions
+are historical observations, not current access instructions.
+
 > **2026-09-01 follow-up:** a timing-clean related-clock SDRAM handoff now
 > measures 151 ns per isolated read and 22.0 MB/s sequentially in
 > `tb_sdram`. On hardware, Speedometer **3.23 PR Tests** improved from CPU
@@ -2372,4 +2377,13 @@ while C_PASS occupancy falls804,428→630,743 samples. These are coarse counters
 not exact candidate per-address attribution. Evidence:
 [native cache-v2 results](perf/cache_refill_20260927/native_fpu_whetstone_cache_v2_candidate/README.md).
 This native result is not a full-guest or FPGA benchmark, and does not prove
-the0.759 hardware target. Full-machine qualification and FPGA fitting follow.
+the 0.759 hardware target. Three full-machine FPU/Mix/Color8 runs are active.
+
+The combined 6c FPU + cache-v2, original-bridge seed31 FPGA build completed
+with 38,760/41,910 ALMs (92%), 468 RAM blocks and 36 DSPs. Final setup slack:
+CPU +0.623 ns, RAM +0.693 ns, HDMI +0.206 ns; minimum hold +0.226 ns.
+Crossings pass at +0.712/+0.759 ns; all 12 detailed RAM paths pass (minimum
++0.693 ns). Root verified reports, unchanged 1,892 inputs and the 4,440,380-byte
+RBF SHA256 `85db1130b61fa21eb4129c41b032d23c26ec3407f94dc283b3c3eb14eebcabe7`.
+Evidence project: `scratch/cache_xline_first_fill_quartus_seed31_20260928/tree/`.
+This establishes fit/timing, not hardware functionality or speed.

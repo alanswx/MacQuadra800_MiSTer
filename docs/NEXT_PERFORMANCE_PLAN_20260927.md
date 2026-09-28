@@ -1,5 +1,17 @@
 # Next performance goal: reduce cache refill overhead
 
+Updated 2026-09-28. **Current checkpoint:** the 6c FPU + cache-v2 candidate
+passes directed/core checks and seed31 FPGA timing. Native Whetstone is
+2.139% faster with byte-exact final captures. Three full-machine guest runs
+are active; hardware speed remains unmeasured.
+
+Next: finish and review those FPU/Mix/Color8 runs, preserve FPGA evidence,
+then perform matched hardware qualification once the shared MiSTer is confirmed
+free. Use cheaper agents for monitoring, tests and documentation; primary agent
+owns architectural and evidence review. Exact identities, live handles and
+constraints: [current handoff](../HANDOFF-20260928.md). The initial investigation
+and completed/rejected alternatives below remain dated rationale, not live job instructions.
+
 Created 2026-09-27. This plan follows `RESUME-20260927.md` and
 `FPU_PROFILE_20260927.md`. It is a plan, not evidence of completed validation.
 
@@ -14,7 +26,7 @@ not a predicted gain. Preserve the prefetch-fault correctness fix in `6f0f159`,
 Accept a candidate only after correctness checks, timing closure and hardware
 validation. Compare against paired baseline runs with the same Main, guest,
 RAM setting and benchmark configuration. Collect five valid FPU runs and five
-valid Mix runs, plus three Color 8-bit runs; retain individual subtests.
+valid Mix runs, plus five Color 8-bit runs; retain individual subtests.
 Exclude and report known impossible timer readings, replacing those runs.
 Investigate a median Mix regression greater than 1% or Color time regression
 greater than 2%; do not waive regressions as noise without evidence.
@@ -35,7 +47,7 @@ Larger caches, the ROM-line fill-port experiment and P246 line-scoped
 invalidation already failed to show useful gains within timing constraints.
 Do not repeat them without a new, specific explanation.
 
-## Measurement decision after the first candidate
+## Historical measurement decision after the first bulk-refill candidate
 
 The calibrated retained-line A/B runs completed successfully. Bulk cache
 installation saves two refill-tail clocks in the integrated SDRAM bench,
@@ -70,7 +82,7 @@ now sees instruction fetches and known opcodes. Actual OS benchmark coverage
 remains unproven until all three timed sites pass strict validation; see the
 active-run handles and frozen identities in `RESUME-20260927.md`.
 
-## Work sequence
+## Original work sequence (use current checkpoint above for remaining work)
 
 1. **Establish the baseline and profile the path.** Preserve the existing
    timing-clean RBF and source identities. Use current RTL with the prefetch
@@ -170,5 +182,6 @@ necessary for changes affecting it.
 - `docs/GRAPHICS_PROFILE_20260926.md`
 - `docs/perf/graphics_profile_20260926/color8_control.txt`
 - `docs/perf/VS_REAL_QUADRA_20260926.md`
-- `RESUME-20260927.md` (full-machine recipes and current build state)
+- [HANDOFF-20260928.md](../HANDOFF-20260928.md) (current state and next actions)
+- `RESUME-20260927.md` (chronological evidence and full-machine recipes)
 - `CLAUDE.md` and `BUILD.md` (build and hardware rules)

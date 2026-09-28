@@ -12,7 +12,14 @@ The core was called `wombat33` until 2026-09-02. The internal module names
 `wombat_cpu` / `wombat_bus32` / `wombat_store_buffer` are a separate
 codename and stay.
 
-## Status (2026-09-27)
+## Status (2026-09-28)
+
+Current work: [FPU/cache handoff](HANDOFF-20260928.md). The isolated 6c FPU +
+cache-v2 candidate fits at 92% ALMs and passes timing (CPU +0.623 ns,
+RAM +0.693 ns, HDMI +0.206 ns). Native Whetstone throughput improves 2.139%;
+full-machine FPU/Mix/Color8 runs are still pending. This candidate has not
+been tested on hardware or promoted to production RTL. The builds and
+hardware comparison below are earlier measured references.
 
 - **Timing-clean full-feature test build** (`faf9d98`, seed 21):
   [`test-builds/`](test-builds/README.md)
@@ -30,14 +37,17 @@ codename and stay.
   | FPU | 0.690 | 1.011 | 68 % |
   | Performance Rating | 1.203 | 1.605 | 75 % |
 
-  The FPU gap is [cache refills after Mac OS's own flushes](docs/FPU_PROFILE_20260927.md).
+  Cache refill costs contribute to the investigation, but the old fixed-window
+  flush profile does not establish the cause of the entire FPU gap. See the
+  [profile qualifications](docs/FPU_PROFILE_20260927.md) and
+  [current measurements](docs/PERFORMANCE_MEASUREMENTS.md).
 - **The release recipe turns the core's SCSI block cache off**
   (`SCSI_CACHE_OFF`), and **needs the Main write buffer**: `alanswx/Main_MiSTer`
   branch `mac-printer-writebuffer` (MiSTer-devel master + printer + the Mac
   disk write buffer).  Without it every disk write waits ~4 ms on the SD
   card.
 - **Not yet verified:** audible CD output and the OSD (the user), and A/UX
-  (Dani).  The hand-off is [`RESUME-20260927.md`](RESUME-20260927.md).
+  (Dani).  The current handoff is [HANDOFF-20260928.md](HANDOFF-20260928.md).
 - **Published releases:** see the table in
   [`releases/README.md`](releases/README.md) for released artifacts, checksums,
   timing, and hardware results. The experimental test build above is separate.
@@ -74,7 +84,7 @@ codename and stay.
 | `scripts/`, `tools/misterdeploy/` | build, deploy, screenshot, input injection, guest driving |
 | `releases/` | shipped `.rbf`s, Main binaries, the release log, `quadra800.rom` |
 | `docs/` | design notes: SDRAM fast path, the block cache, the CD-ROM, performance measurements |
-| `BUILD.md`, `CLAUDE.md`, `RESUME-*.md` | the build / deploy / disk handbook, the working rules, session hand-offs (newest first) |
+| `BUILD.md`, `CLAUDE.md`, `HANDOFF-20260928.md`, `RESUME-*.md` | the build / deploy / disk handbook, the working rules, session hand-offs (newest first) |
 
 ## Building and deploying
 
