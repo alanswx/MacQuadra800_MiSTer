@@ -2326,7 +2326,9 @@ Quadra 800 comparison elsewhere in this document.
 
 Time-based throughput changes use `previous_time / candidate_time - 1` and
 the displayed, rounded values. The corresponding Color8 run completed in
-**9.878 s**, unchanged. CPU Mix qualification remains pending at this checkpoint.
+**9.878 s**, unchanged. CPU Mix also completed at **1.798**, with all ten
+visible absolute results unchanged. Setup selected all ten tests at iteration1;
+the completed-result dialog covers some middle rating/iteration cells.
 The hardware target of at least 0.759 remains unproven.
 
 Setup and completed screenshots, immutable source/model identities, strict
