@@ -54,6 +54,15 @@ instrumentation first; only launch another long simulation once a concrete
 measurement method can separate timed work from setup and idle activity.
 The hardware improvement target remains unmet.
 
+The first targeted capture completed normally on 2026-09-28 and reproduced
+the baseline screenshot and full-window counters exactly, but its strict
+checker rejected zero recognized timed spans. The host observer mixed
+wrapper request/ack signals with obsolete core instruction/address fields;
+the separate instruction-fetch channel therefore never populated its code
+recognizer. Correct and verify the actual generated-model adapter, including
+recognition diagnostics, before repeating the long workload. Host-only
+recognizer tests and a zero-span boot smoke did not prove this integration.
+
 ## Work sequence
 
 1. **Establish the baseline and profile the path.** Preserve the existing
