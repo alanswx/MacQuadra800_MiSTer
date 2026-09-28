@@ -44,7 +44,10 @@ module ap040_fpu
 	input       [2:0] src_r,       // FPm
 	input       [2:0] dst_r,       // FPn
 	input      [95:0] din,         // memory operand, left aligned
-	output reg        done,
+	// P251: done is combinational in F_WB (a register-destination result
+	// completes in the writeback clock itself), registered everywhere else
+	// (stores, whose dout settles with it).
+	output            done,
 	// the operation has passed operand classification: unimp/unsupp can no
 	// longer occur, only completion or an enabled arithmetic exception.
 	// The core uses this to run register-destination arithmetic in the
@@ -271,6 +274,13 @@ localparam F_RESTORE_B = 5'd19; // finish FPTE15 denormalization
 localparam F_RESTORE_N = 5'd20; // normalize the prepared destination
 
 reg  [4:0] fst;
+reg        done_r;
+// P251: F_WB completes without an enabled exception in its own clock; the
+// core sees done while the register write lands, one clock earlier than
+// the registered pulse.  F_WB never sets an exception status bit itself, so
+// the predicate is the same one that selects exc_req there.
+wire       wb_done_now = (fst == F_WB) && !(|(fpsr[15:8] & fpcr[15:8]));
+assign done = done_r | wb_done_now;
 // unimp/unsupp decisions are made in the dispatch cycle (register
 // sources, still F_IDLE), during source conversion (F_SRC), and by the
 // destination-operand checks in F_EXEC and F_BIN.  Only the arithmetic
@@ -297,6 +307,13 @@ reg   [1:0] a_t;
 // staged shifter: mantissa with 3 rounding bits {G,R,S}, count up to 127
 reg [66:0] sh_v;              // {m[63:0], G, R, S}
 reg  [6:0] sh_cnt;
+// The one right shifter with sticky collection (P193): {int, G, R} shift
+// right by sh_cnt and S ORs every bit shifted out.  F_SHR registers it back
+// into sh_v; F_ADDX consumes it directly (P251).  A zero count passes sh_v.
+wire [66:0] shr_shifted = sh_v >> sh_cnt;
+wire [66:0] shr_gone    = sh_v & ((67'd1 << sh_cnt) - 67'd1);
+wire [66:0] shr_out     = (sh_cnt != 7'd0) ?
+                          {shr_shifted[66:1], shr_shifted[0] | (|shr_gone)} : sh_v;
 
 // second (destination) operand and arithmetic scratch
 reg         b_s;
@@ -671,7 +688,7 @@ endtask
 always @(posedge clk) begin
 	if (!nreset) begin
 		fst <= F_IDLE;
-		done <= 0; unimp <= 0; unsupp <= 0; exc_req <= 0; exc_vec <= 0;
+		done_r <= 0; unimp <= 0; unsupp <= 0; exc_req <= 0; exc_vec <= 0;
 		fpcr <= 0; fpsr <= 0; fpiar <= 0;
 		fpu_used <= 0;
 		fstate_unimp <= 0;
@@ -699,7 +716,7 @@ always @(posedge clk) begin
 		fr_valid <= 0;
 	end
 	else if (ce) begin
-		done <= 0;
+		done_r <= 0;
 		unimp <= 0;
 		unsupp <= 0;
 		exc_req <= 0;
@@ -932,7 +949,7 @@ always @(posedge clk) begin
 						// P222: the raw extended store F_SRC would make next
 						// clock (it sets no status bits and needs no trap check)
 						dout <= {fr_src_s, fr_src_e, 16'd0, fr_src_m};
-						done <= 1; fpu_used <= 1;
+						done_r <= 1; fpu_used <= 1;
 						r_op <= 7'h7F;
 					end
 					else begin
@@ -1042,7 +1059,7 @@ always @(posedge clk) begin
 							// raw X pass-through can set no status bits, so
 							// it alone skips the F_STDONE enabled-trap check
 							dout <= {a_s, a_e[14:0], 16'd0, a_m};
-							done <= 1; fpu_used <= 1;
+							done_r <= 1; fpu_used <= 1;
 							fst <= F_IDLE;
 						end
 						3'd1: begin : pk_s
@@ -1627,8 +1644,9 @@ always @(posedge clk) begin
 							sh_v <= {aswap ? b_m : a_m, 3'd0};
 							sh_cnt <= (d > 17'd66) ? 7'd67 : d[6:0];
 							sh_ret <= F_ADDX;
-							// P206: equal exponents need no alignment clock
-							fst <= (d == 17'd0) ? F_ADDX : F_SHR;
+							// P206: equal exponents need no alignment clock;
+							// P251: unequal ones align inside F_ADDX (shr_out)
+							fst <= F_ADDX;
 						end
 					end
 					4'd2: begin : bin_mul
@@ -1681,9 +1699,11 @@ always @(posedge clk) begin
 								fst <= F_ROUND;
 							end
 							else begin
-								acc_hi <= 0;
-								acc_lo <= 0;
-								loop_n <= 0;
+								// P251: the DSP product is registered here, in
+								// the dispatch clock, so F_MULT only finishes
+								// (one clock instead of two per FMUL)
+								mul_pd <= am_eff * bm_eff;
+								loop_n <= 7'd1;
 								fst <= F_MULT;
 							end
 						end
@@ -1773,8 +1793,11 @@ always @(posedge clk) begin
 			F_ADDX: begin : f_addx
 				reg [67:0] sum;
 				reg [66:0] diff;
+				// P251: the alignment shift F_SHR used to take a clock for
+				// is folded in here through the shared shr_out (sh_cnt is
+				// zero when F_SHR did run, and shr_out is then sh_v itself)
 				if (!eff_sub) begin
-					sum = {1'b0, b_m, 3'd0} + {1'b0, sh_v};
+					sum = {1'b0, b_m, 3'd0} + {1'b0, shr_out};
 					if (sum[67]) begin
 						a_m <= sum[67:4];
 						grs <= {sum[3], sum[2], sum[1] | sum[0]};
@@ -1789,7 +1812,7 @@ always @(posedge clk) begin
 					fst <= F_ROUND;
 				end
 				else begin
-					diff = {b_m, 3'd0} - sh_v;
+					diff = {b_m, 3'd0} - shr_out;
 					if (diff == 67'd0) begin
 						a_t <= T_ZERO;
 						a_s <= (rnd_mode == 2'b10);
@@ -2157,7 +2180,7 @@ always @(posedge clk) begin
 					                (a_t == T_NAN)};
 				end
 				fpu_used <= 1;
-				if (!(|(fpsr[15:8] & fpcr[15:8]))) done <= 1;
+				// P251: done is wb_done_now in this clock (see its wire)
 				fst <= F_IDLE;
 			end
 
@@ -2167,11 +2190,10 @@ always @(posedge clk) begin
 				// clocks per add alignment (Whetstone's polynomial FADD.X
 				// averaged 8.3 FPU clocks).  Same result: {int, G, R} shift
 				// right by sh_cnt, S ORs every bit shifted out (and itself).
-				reg [66:0] shifted, gone;
-				shifted = sh_v >> sh_cnt;
-				gone    = sh_v & ((67'd1 << sh_cnt) - 67'd1);
+				// P251: the shifter itself is the shared shr_out wire, which
+				// F_ADDX also reads, so there is one barrel shifter
 				if (sh_cnt != 0) begin
-					sh_v   <= {shifted[66:1], shifted[0] | (|gone)};
+					sh_v   <= shr_out;
 					sh_cnt <= 7'd0;
 				end
 				fst <= sh_ret;
@@ -2336,7 +2358,7 @@ always @(posedge clk) begin
 				// result already in dout: AP040 runs without FPSP, so the
 				// real 040's nonmaskable store set is served by the same
 				// defaults FPSP would have stored.
-				done <= 1;
+				done_r <= 1;
 				if (|(fpsr[15:8] & fpcr[15:8])) begin
 					exc_req <= 1;
 					exc_vec <= fp_exception_vector(fpsr[15:8] & fpcr[15:8]);
