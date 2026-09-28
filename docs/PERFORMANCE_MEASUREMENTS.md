@@ -2327,7 +2327,10 @@ Quadra 800 comparison elsewhere in this document.
 Time-based throughput changes use `previous_time / candidate_time - 1` and
 the displayed, rounded values. The corresponding Color8 run completed in
 **9.878 s**, unchanged. CPU Mix also completed at **1.798**, with all ten
-visible absolute results unchanged. Setup selected all ten tests at iteration1;
+visible absolute results matching the prior 73bc candidate. Against the
+original baseline, Whetstone is 1762.002→1762.139, Dhrystone
+17931.816→17932.324, Puzzle 0.755→0.756 s, and the other seven absolute
+results are unchanged. Setup selected all ten tests at iteration1;
 the completed-result dialog covers some middle rating/iteration cells.
 The hardware target of at least 0.759 remains unproven.
 
@@ -2335,6 +2338,8 @@ Setup and completed screenshots, immutable source/model identities, strict
 profile checks and manual reviews are archived in
 [FPU evidence](perf/cache_refill_20260927/normal_single_enabled_fullmachine_fpu/README.md)
 and [Color evidence](perf/cache_refill_20260927/normal_single_enabled_fullmachine_color/README.md).
+The [Mix evidence](perf/cache_refill_20260927/normal_single_enabled_fullmachine_mix/README.md)
+preserves both the original-baseline and prior-candidate comparisons.
 The separate SDRAM queue handoff timing change is covered by
 [paired physical-memory tests](perf/cache_refill_20260927/wq_available_handoff/README.md);
 the full-guest RAM model does not exercise that bridge. No new hardware result
