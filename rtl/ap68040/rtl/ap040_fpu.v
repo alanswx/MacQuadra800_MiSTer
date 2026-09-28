@@ -428,6 +428,35 @@ function [1:0] fast_bin_kind;
 	end
 endfunction
 
+// P253: the move class F_EXEC only forwards to F_ROUND for a normal source:
+// 1 FMOVE/FSMOVE/FDMOVE, 2 FABS family, 3 FNEG family, 0 for anything else.
+function [1:0] fp_move_kind;
+	input [6:0] op;
+	begin
+		case (op)
+			7'h00, 7'h40, 7'h44: fp_move_kind = 2'd1;
+			7'h18, 7'h58, 7'h5C: fp_move_kind = 2'd2;
+			7'h1A, 7'h5A, 7'h5E: fp_move_kind = 2'd3;
+			default:             fp_move_kind = 2'd0;
+		endcase
+	end
+endfunction
+
+// P253: a normal memory source of format X, D or S, unpacked to the working
+// format in the dispatch clock (what F_SRC's normal arms do a clock later).
+// X counts the pseudo-denormal (exponent 0, integer bit set) as normal, as
+// P221 did; D and S exclude zero, denormal, infinity and NaN encodings.
+wire        din_norm_x = (src_fmt == 3'd2) && din[63] && (din[94:80] != 15'h7FFF);
+wire        din_norm_d = (src_fmt == 3'd5) && (din[94:84] != 11'd0) && (din[94:84] != 11'h7FF);
+wire        din_norm_s = (src_fmt == 3'd1) && (din[94:87] != 8'd0) && (din[94:87] != 8'hFF);
+wire        din_norm   = din_norm_x | din_norm_d | din_norm_s;
+wire [16:0] din_e = din_norm_x ? {2'd0, din[94:80]} :
+                    din_norm_d ? ({6'd0, din[94:84]} + 17'd15360) :   // -1023 + 16383
+                                 ({9'd0, din[94:87]} + 17'd16256);    // -127 + 16383
+wire [63:0] din_m = din_norm_x ? din[63:0] :
+                    din_norm_d ? {1'b1, din[83:32], 11'd0} :
+                                 {1'b1, din[86:64], 40'd0};
+
 // result precision for an opmode: 0 extended (per FPCR), 1 single, 2 double
 function [1:0] prec_of;
 	input [6:0] op;
@@ -1082,6 +1111,18 @@ always @(posedge clk) begin
 						e_w <= $signed({3'd0, fr_src_e});
 						fst <= F_BIN;
 					end
+					else if (fr_src_m[63] && fr_src_e != 15'h7FFF && fp_move_kind(opmode) != 2'd0) begin
+						// P253: a normal source of FMOVE/FABS/FNEG goes straight to
+						// F_ROUND, with F_EXEC's shadow capture and sign work done here
+						sh_cmd  <= {3'b010, src_fmt, dst_r, opmode};
+						sh_src  <= {fr_src_s, fr_src_e, 16'd0, fr_src_m};
+						sh_stag <= 3'd0;
+						a_s <= (fp_move_kind(opmode) == 2'd2) ? 1'b0 :
+						       (fp_move_kind(opmode) == 2'd3) ? ~fr_src_s : fr_src_s;
+						grs <= 3'd0;
+						e_w <= $signed({3'd0, fr_src_e});
+						fst <= F_ROUND;
+					end
 					else fst <= F_EXEC;
 					end
 				end
@@ -1100,17 +1141,30 @@ always @(posedge clk) begin
 						    {32'd0, din[63:32], din[95:64]}, 3'd0,
 						    1'b0, 1'b1);   // packed -> E1, stag 7
 					end
-					else if (src_fmt == 3'd2 && din[63] && din[94:80] != 15'h7FFF &&
-					         fast_bin_kind(opmode) != 2'd0) begin
-						// P221: a normal extended memory source of a binary op
-						// is unpacked here (what F_SRC would do next clock; it
+					else if (din_norm && fast_bin_kind(opmode) != 2'd0) begin
+						// P221/P253: a normal X, D or S memory source of a binary
+						// op is unpacked here (what F_SRC would do next clock; it
 						// cannot be an unsupported type) and goes to F_BIN
-						{a_s, a_e, a_m, a_t} <= unpack_x(din[95], din[94:80], din[63:0]);
-						r_stag  <= frame_tag_x(din[94:80], din[63:0]);
+						a_s <= din[95]; a_e <= din_e; a_m <= din_m; a_t <= T_NUM;
+						r_stag  <= 3'd0;
 						op_kind <= {2'd0, fast_bin_kind(opmode)};
 						grs     <= 3'd0;
-						e_w     <= $signed({3'd0, din[94:80]});
+						e_w     <= $signed({1'b0, din_e});
 						fst     <= F_BIN;
+					end
+					else if (din_norm && fp_move_kind(opmode) != 2'd0) begin
+						// P253: a normal memory source of FMOVE/FABS/FNEG goes
+						// straight to F_ROUND (F_EXEC's shadow and sign work here)
+						a_s <= (fp_move_kind(opmode) == 2'd2) ? 1'b0 :
+						       (fp_move_kind(opmode) == 2'd3) ? ~din[95] : din[95];
+						a_e <= din_e; a_m <= din_m; a_t <= T_NUM;
+						r_stag  <= 3'd0;
+						sh_cmd  <= {op_class, src_fmt, dst_r, opmode};
+						sh_src  <= {din[95], din_e[14:0], 16'd0, din_m};
+						sh_stag <= 3'd0;
+						grs     <= 3'd0;
+						e_w     <= $signed({1'b0, din_e});
+						fst     <= F_ROUND;
 					end
 					else begin
 						a_t <= T_NUM;   // provisional; F_SRC classifies
