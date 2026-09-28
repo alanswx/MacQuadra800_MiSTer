@@ -3100,6 +3100,9 @@ task dispatch_fpu;
 		epf_issue = 1;
 		imm   <= {16'd0, rd_w1};
 		rr_a  <= {1'b1, rd_ir[2:0]};   // P223: the EA base, for S_FPU_DEC's inline S_FPU_AN
+		// P256: the index register of a brief-format indexed operand, so
+		// S_FPU_DEC finds it settled on port B (checked there against the word)
+		if (epf_count >= 4'd3) rr_b <= rd_w2[15:12];
 		state <= S_FPU_DEC;
 	end
 endtask
@@ -4041,6 +4044,29 @@ wire        fpu_rd_next = hint_fpn && d_ack;
 wire        fpu_an_now = (rr_a == {1'b1, d_rn}) && !aux_we;
 wire  [3:0] fpu_an_nb  = fp_bytes(imm[12:10]);
 wire  [6:0] fpu_an_adj = (fpu_an_nb == 4'd1 && d_rn == 3'd7) ? 7'd2 : {3'b000, fpu_an_nb};
+// P256: S_FPU_DEC also resolves d16(An), d16(PC) and the brief-format
+// d8(An,Xn) / d8(PC,Xn) operands itself when the extension word is at the
+// queue head (dispatch_fpu popped the opcode and command word, so pc points
+// at it), the base is on port A and, for the indexed forms, the index
+// register dispatch_fpu preselected on port B is the one the word names.
+// This is ea_operand_start's d16(An) inline for the FPU: the four EA states
+// (S_EA_DISP, S_IMMF, S_EA_D16 / S_EA_EXTW2, S_FPU_EA) are skipped.  The
+// full-format extension and every other mode keep ea_start.
+wire        fp_ext_ok  = !epf_flushed && !ifr_ack && epf_ready_pc;
+wire [15:0] fp_ext     = epf_data[epf_head];
+wire        fp_idx_ok  = !fp_ext[8] && (rr_b == fp_ext[15:12]);
+wire [31:0] fp_idx     = (fp_ext[11] ? rf_capture_b : sxw(rf_capture_b[15:0])) << fp_ext[10:9];
+wire        fp_pc_d16  = (d_mode == 3'b111) && (d_rn == 3'b010);
+wire        fp_pc_idx  = (d_mode == 3'b111) && (d_rn == 3'b011);
+wire        fp_inl_src = fp_ext_ok &&
+                         (((d_mode == 3'b101) && fpu_an_now) ||
+                          ((d_mode == 3'b110) && fpu_an_now && fp_idx_ok) ||
+                          fp_pc_d16 || (fp_pc_idx && fp_idx_ok));
+wire        fp_inl_dst = fp_ext_ok && fpu_an_now &&
+                         ((d_mode == 3'b101) || ((d_mode == 3'b110) && fp_idx_ok));
+wire [31:0] fp_inl_base = (fp_pc_d16 || fp_pc_idx) ? pc : rf_capture_a;
+wire [31:0] fp_inl_addr = (d_mode == 3'b101 || fp_pc_d16) ? (fp_inl_base + sxw(fp_ext)) :
+                          (fp_inl_base + fp_idx + sxb(fp_ext[7:0]));
 // P216: MOVEM load chaining -- the next register's read hinted in the current
 // one's predicted acknowledge and issued in place on it (see movem_ld_ack)
 wire [31:0] mmn_addr = mm_addr + ((mm_size == `AP040_SZ_L) ? 32'd4 : 32'd2);
@@ -8011,6 +8037,15 @@ always @(posedge clk) begin
 							rr_a <= {1'b1, d_rn};
 							state <= S_FPU_AN;
 						end
+						else if (fp_inl_src) begin
+							// P256: displacement / brief indexed source resolved here
+							pc <= pc + 32'd2;
+							epf_pop = 2'd1;
+							epf_issue = 1;
+							fp_ea_v <= 1;
+							t_a     <= fp_inl_addr;
+							state   <= S_FPU_RD;
+						end
 						else ea_start(d_mode, d_rn, `AP040_SZ_L, S_FPU_EA);
 					end
 					3'b011: begin
@@ -8082,6 +8117,15 @@ always @(posedge clk) begin
 						else if (d_mode == 3'b011 || d_mode == 3'b100 || d_mode == 3'b010) begin
 							rr_a <= {1'b1, d_rn};
 							state <= S_FPU_AN;
+						end
+						else if (fp_inl_dst) begin
+							// P256: displacement / brief indexed destination resolved here
+							pc <= pc + 32'd2;
+							epf_pop = 2'd1;
+							epf_issue = 1;
+							fp_ea_v <= 1;
+							t_a     <= fp_inl_addr;
+							fp_issue;
 						end
 						else ea_start(d_mode, d_rn, `AP040_SZ_L, S_FPU_EA);
 					end
