@@ -6,6 +6,15 @@ Benchmark Mix **1.793** median, Color 8-bit **9.876 / 9.829 s**. All 12 runs wer
 guest shut down cleanly to "It is now safe to switch off your Macintosh", although the CPU clock
 misses timing by 0.226 ns.
 
+**Second run, same evening: a timing-clean fit of the same RTL** (seed 31, placement effort 2.0,
+maximum router timing effort, rbf md5 `b7e88b81`). See [Clean fit b7e88b81](#clean-fit-b7e88b81)
+below. It gives FPU 0.973, Mix 1.803 and Color 9.900 / 9.851 s, with all 12 runs valid, a
+responsive idle Finder and a clean shutdown.
+
+Its Mix rows differ from the marginal build's by up to 20 % on the same RTL. Bubble Sort is 0.682 s
+instead of 0.710 s, Sieve 0.842 s instead of 1.046 s, Int. Matrix 0.515 s instead of 0.463 s.
+So the "Bubble Sort regression" below is **not** evidence against P250..P258.
+
 ## Build under test
 
 | | |
@@ -164,7 +173,9 @@ the `ad7a0d4` column is this run's median.
 - The Mix gains 0.7 % over `faf9d98` / `6f0f159` (1.781) and reaches **94.4 %** of the real
   Quadra 800's 1.899.
 - **Bubble Sort regressed 12 % and Quick Sort 3 %,** steadily in all five runs (0.709-0.710 and
-  0.531-0.532), so this is a code-path change, not noise or corruption. Whetstone (+3.7 %) and
+  0.531-0.532).
+  - *Update:* the clean fit of the same RTL gives Bubble 0.682 and Quick 0.544, with other rows
+    moving as much, so these shifts are not an RTL change. See the second section. Whetstone (+3.7 %) and
   Int. Matrix (+3.2 %) more than make up for them in the average.
 - The only RTL between the two builds is the CPU's P250..P258 (`git log 6f0f159..ad7a0d4 -- rtl/`).
   Candidates are integer code paths those commits touched, for example P256's decode-clock d16 /
@@ -233,22 +244,209 @@ The marginal build ran cleanly on this session's workload:
 The -0.226 ns CPU-clock miss did not show up as corruption in about 30 minutes of heavy FPU,
 integer and QuickDraw load. That is evidence, not proof: a setup miss of this size can fail
 rarely, or only with temperature. The results match the simulation (FPU 0.978 on hardware vs
-0.985 simulated), so the P250..P258 speed-up is real. One new finding: Bubble Sort is 12 %
-slower, and Quick Sort 3 %, than on `6f0f159`. It is steady, so it is a performance change to
-bisect in P250..P258, not a symptom of corruption.
+0.985 simulated), so the P250..P258 speed-up is real.
+
+Bubble Sort is 12 % slower, and Quick Sort 3 %, than on `6f0f159`, steadily within the session.
+The clean fit of the same RTL shows row shifts of the same size in other directions, so this
+is boot-to-boot or build-to-build variation, not a P250..P258 regression (second section).
 
 Still not covered on this build: A/UX 3.1 at 32 MB, CD audio (Play/Pause/Resume/Stop, and
 audible), and disk (PR) numbers on the `45182b73` Main. It is also not a release candidate until
 a seed meets the CPU clock, or the release entry records the miss as CLAUDE.md requires.
 
-## `.qsf` seed comment (ready to paste above `set_global_assignment -name SEED`; the `.qsf` was not edited)
+The `.qsf` seed comment covering both fits is at the end of the second section.
+
+---
+
+## Clean fit b7e88b81
+
+Same RTL (`ad7a0d4`), same seed 31, with two extra `.qsf` lines:
+`PLACEMENT_EFFORT_MULTIPLIER 2.0` and `ROUTER_TIMING_OPTIMIZATION_LEVEL MAXIMUM`.
+The scratch tree is `scratch/fpu_p258_fit_effort_seed31_20260928/`, and its `qsf.diff` shows
+exactly those lines plus `SEED`.
+
+| | |
+|---|---|
+| rbf | 4,463,260 bytes, sha256 `7f6c835be1ed5bc4944cd697b01237838dbf3b92803a6e2c0ba5ae37787fe79c`, md5 `b7e88b8163679a607680e2e80669f396` (on the box: `_Unstable/MacQuadra800.rbf`, md5 checked by the operator after the run started) |
+| fit | 39,191 ALMs (94 %), 468 / 553 M10K |
+| timing | **all met**: CPU `general[0]` +0.103, HDMI +0.006, SDRAM `general[1]` +0.612, h2f_user0 +3.086, worst hold +0.220 (HDMI); all crossings met (coordinator's check) |
+| summaries | `clean_b7e88b81/MacQuadra800.{sta,fit}.summary` |
+
+**Session:**
+- **Deploy:** the coordinator ran plain `bash scripts/deploy_screenshot.sh` at 19:09 EDT from the
+  halt screen of the first run. The md5 was verified on the box and `coreRunning` confirmed.
+- **Main, disk, RAM:** same as the first run. Main is `ff404af9`. Slot 0 is the disposable
+  `QuadSquad8-pipeline-test-20260919.hda` (`.s0` checked). `.CFG` is `0x40`, so 32 MB, and
+  Speedometer shows 32768K (`clean_b7e88b81/speedo_hwinfo.png`).
+- **Boot:** "Welcome to Mac OS" at 19:10:15 and the Finder desktop by 19:11:09, about 60 s after
+  the load (`boot1..3.png`).
+- **Method:** the same as the first run, but the order was **Mix first**, then FPU, then Color.
+  Every setup screen was checked: all ten Mix tests / all three FPU tests / 8-bit only, Iter. 1.
+  Values were read from enlarged crops.
+- **Screenshots:** all in `clean_b7e88b81/`.
+
+### Benchmark Mix (all ten tests, one iteration)
+
+| run | KWhet/s | Dhry/s | Towers | QSort | Bubble | Queens | Puzzle | Perm | Int. Matrix | Sieve | **Mix** |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 1848.712 | 19407.504 | 0.475 | 0.544 | 0.682 | 0.362 | 0.811 | 0.712 | 0.517 | 0.846 | **1.796** |
+| 2 | 1864.078 | 19415.364 | 0.476 | 0.543 | 0.683 | 0.362 | 0.809 | 0.712 | 0.515 | 0.842 | **1.803** |
+| 3 | 1861.206 | 19414.934 | 0.475 | 0.544 | 0.683 | 0.362 | 0.807 | 0.711 | 0.516 | 0.841 | **1.802** |
+| 4 | 1860.755 | 19362.613 | 0.475 | 0.545 | 0.682 | 0.362 | 0.805 | 0.712 | 0.509 | 0.842 | **1.804** |
+| 5 | 1865.219 | 19414.670 | 0.476 | 0.543 | 0.682 | 0.362 | 0.805 | 0.712 | 0.509 | 0.841 | **1.806** |
+| **median** | 1861.206 | 19414.670 | 0.475 | 0.544 | 0.682 | 0.362 | 0.807 | 0.712 | 0.515 | 0.842 | **1.803** |
+
+**Ratings, Quadra 605 = 1.0:**
+
+| run | Whet | Dhry | Towers | QSort | Bubble | Queens | Puzzle | Perm | Matrix | Sieve |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 6.286 | 1.123 | 1.345 | 1.309 | 1.114 | 1.115 | 1.347 | 1.143 | 1.559 | 1.623 |
+| 2 | 6.338 | 1.124 | 1.343 | 1.312 | 1.113 | 1.115 | 1.351 | 1.143 | 1.563 | 1.629 |
+| 3 | 6.328 | 1.124 | 1.345 | 1.310 | 1.113 | 1.115 | 1.354 | 1.144 | 1.559 | 1.632 |
+| 4 | 6.327 | 1.121 | 1.345 | 1.307 | 1.114 | 1.113 | 1.357 | 1.142 | 1.583 | 1.630 |
+| 5 | 6.342 | 1.124 | 1.342 | 1.312 | 1.114 | 1.115 | 1.357 | 1.143 | 1.583 | 1.631 |
+
+Screens: `clean_b7e88b81/mix{1..5}_{setup,done,table}.png`.
+
+**Invalid runs:** none. There was no attempt this time with a stray keystroke.
+
+**Row medians against the marginal build and `6f0f159`** (percentages are for the clean fit; a
+positive time change means slower):
+
+| test | `6f0f159` (runs 1 / 2) | marginal `19beb5b2` | **clean `b7e88b81`** | clean vs marginal | clean vs `6f0f159` |
+|---|---:|---:|---:|---:|---:|
+| KWhetstones/s | 1792.0 / 1789.7 | 1857.4 | **1861.2** | +0.2 % | +3.9 % |
+| Dhrystones/s | 19416.9 / 19383.2 | 19344.6 | **19414.7** | +0.4 % | = |
+| Towers | 0.477 / 0.476 | 0.477 | **0.475** | -0.4 % | -0.3 % |
+| Quick Sort | 0.516 / 0.515 | 0.531 | **0.544** | +2.4 % | +5.5 % |
+| Bubble Sort | 0.633 / 0.632 | 0.710 | **0.682** | **-3.9 %** | +7.8 % |
+| Queens | 0.362 / 0.363 | 0.361 | **0.362** | = | = |
+| Puzzle | 0.775 / 0.771 | 0.768 | **0.807** | +5.1 % | +4.4 % |
+| Permutations | 0.703 / 0.704 | 0.703 | **0.712** | +1.3 % | +1.2 % |
+| Int. Matrix | 0.479 / 0.477 | 0.463 | **0.515** | **+11.2 %** | +7.7 % |
+| Sieve | 1.044 / 1.050 | 1.046 | **0.842** | **-19.5 %** | -19.6 % |
+| **Mix** | 1.781 / 1.781 | 1.793 | **1.803** | +0.6 % | +1.2 % |
+
+**The Bubble Sort / Quick Sort question:**
+- **Bubble Sort does not come back to 0.633:** it is 0.682, between the marginal 0.710 and
+  `6f0f159`'s 0.633.
+- **Quick Sort is slower still:** 0.544 against 0.531 on the marginal build and 0.516 on `6f0f159`.
+
+The more important result is that **the same RTL moves individual Mix rows by up to 20 % between
+the two builds**: Sieve 1.046 -> 0.842, Int. Matrix 0.463 -> 0.515, Puzzle 0.768 -> 0.807. Each is
+steady to a few ms within its session. The Mix average moves only 0.6 %. Two explanations fit, and
+one boot per build cannot separate them:
+
+1. **Boot-to-boot layout.** Each boot places Speedometer's code, stack and arrays at different
+   physical addresses, which changes which 8 KB-cache sets and which SDRAM open pages the inner
+   loops share. The loops then stay steady until the next launch. This fits earlier history too:
+   Puzzle 0.698 -> 0.878 at P212 -> P232, and Int. Matrix swings, were read at the time as
+   regressions.
+2. **Placement-dependent behaviour.** Only the marginal fit missed the CPU clock. A failing path
+   that only feeds a performance decision (a hint, a prefetch, a way select) could pick the slow
+   option without corrupting anything.
+
+**Test that separates them:** reboot the *same* bitstream (Finder Restart, or a reload from the
+halt screen) and run Mix again. If the rows move again, the answer is layout. In either case the
+single-boot Bubble Sort "regression" in the first section cannot be pinned on P250..P258.
+Per-row comparisons between builds need several boots per build.
+
+### FPU Benchmarks (all three tests, one iteration)
+
+| run | KWhetstones/s | rating | Matrix Mult. s | rating | Fast Fourier s | rating | **Average** |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 4543.905 | 0.872 | 0.693 | 1.020 | 0.280 | 1.027 | **0.973** |
+| 2 | 4540.398 | 0.871 | 0.693 | 1.019 | 0.280 | 1.026 | **0.972** |
+| 3 | 4576.135 | 0.878 | 0.696 | 1.015 | 0.280 | 1.025 | **0.973** |
+| 4 | 4579.635 | 0.879 | 0.687 | 1.027 | 0.280 | 1.027 | **0.978** |
+| 5 | 4562.522 | 0.876 | 0.693 | 1.019 | 0.280 | 1.027 | **0.974** |
+| **median** | **4562.522** | 0.876 | **0.693** | 1.019 | **0.280** | 1.027 | **0.973** |
+
+| | `6f0f159` hw | marginal `19beb5b2` (median) | **clean `b7e88b81` (median)** | clean vs marginal | real Quadra 800 |
+|---|---:|---:|---:|---:|---:|
+| FPU average | 0.684 | 0.978 | **0.973** | -0.5 % | 1.011 |
+| KWhetstones/s | 3852 | 4570.6 | **4562.5** | -0.2 % | 5457 |
+| Matrix Multiply | 1.017 s | 0.688 s | **0.693 s** | +0.7 % | 0.713 s |
+| Fast Fourier | 0.465 s | 0.279 s | **0.280 s** | +0.4 % | 0.288 s |
+
+- The FPU result reproduces on the clean fit to within 0.5 %: **0.973, 96 % of the real Quadra
+  800 and +42 % on `6f0f159`**.
+- The clean build has no warm-up in runs 1-2, unlike the marginal build's first two FPU runs.
+  Here FPU ran after Mix, so the code was already warm.
+- **Invalid runs:** none. Screens: `clean_b7e88b81/fpu{1..5}_{setup,done}.png`.
+
+### Color Benchmarks (8 bits/pixel only, one iteration)
+
+| run | Eight bit | rating |
+|---|---:|---:|
+| 1 | **9.900 s** | 1.070 |
+| 2 | **9.851 s** | 1.075 |
+
+These match the marginal build (9.876 / 9.829 s) and `6f0f159` (9.944 s). **Invalid runs:** none.
+Screens: `clean_b7e88b81/color{1,2}_{setup,done}.png`.
+
+### Idle check, wall clock, shutdown
+
+- **Quit Speedometer:** Return, Cmd-Q, then No via vmouse, with the pointer checked on the button
+  first (`quit_ptr.png`).
+- **Idle:** the Finder then sat with no input for 4 min 14 s (`idle0..2.png`). Main's
+  write_bytes rose only 3,416,064 -> 3,506,176 over those 2 minutes. After the idle, type-select
+  "tra" highlighted the Trash (`idle_keyboard.png`), so the keyboard responded.
+
+| guest menu bar | MiSTer `date` (UTC) | screenshot |
+|---|---|---|
+| Mon 11:11 | 23:11:09 | `boot3.png` (Finder up) |
+| Mon 11:14 | ~23:14:13 | `mix1_done.png` |
+| Mon 11:30 | 23:30:19 | `color2_done.png` |
+| Mon 11:31 | 23:31:06 | `idle0.png` (idle start) |
+| Mon 11:33 | 23:33:16 | `idle1.png` |
+| Mon 11:35 | 23:35:20 | `idle2.png` |
+| Mon 11:36 | 23:36:23 | `sd_menu_lit.png` |
+
+The menu-bar clock ticked at idle and kept step with the MiSTer's clock for the whole
+26-minute session.
+
+**Shutdown** used the vmouse recipe verified in the first run:
+1. `home m:111,-10` put the pointer on "Special" with the button up (`sd_ptr.png`).
+2. `home m:111,-10 0.5 down 0.8 m:13,66 8 up` showed Shut Down lit before the release
+   (`sd_menu_lit.png`).
+3. It reached **"It is now safe to switch off your Macintosh."** at 19:36:51 EDT (`halt.png`).
+
+- `mac_shutdown.sh` was not used, because the box's mrext ignores mouse commands (first section).
+- After the halt no vmouse process remained, Main's write_bytes held at 3,854,336 across 5 s, and
+  its only open image was the disposable `.hda`.
+- The box is left at the halt screen.
+
+### Verdict (clean fit)
+
+The timing-clean build of `ad7a0d4` passes the Mac OS 8.1 half of the gate on this session:
+- boot to the Finder
+- 5 Mix, 5 FPU and 2 Color 8-bit runs, all valid
+- the menu-bar clock ticking at idle in step with the wall clock
+- keyboard and mouse responding
+- a clean Finder Shut Down
+
+Its speed matches the marginal build: FPU 0.973 vs 0.978, Mix 1.803 vs 1.793, Color 9.85-9.90 s.
+So the marginal build's CPU-clock miss cost nothing visible, and the FPU gain is confirmed on a
+timing-clean bitstream.
+
+Still owed for a release:
+- A/UX 3.1 at 32 MB (boot, CommandShell, `shutdown -h now`)
+- the CD audio transport, and the user's ear
+- ideally, a run on the `45182b73` Main or an explicit decision to qualify on `ff404af9`
+- the `.qsf` recipe decision: the clean fit needs the two effort settings, not just `SEED 31`
+
+## `.qsf` seed comment (both fits; ready to paste above `set_global_assignment -name SEED`, the `.qsf` was not edited)
 
 ```
-# 2026-09-28: + P250..P258 (FPU issue/latency; ad7a0d4).  Seeds: 22 (P254, 2af6b30) CPU -8.424; 23, 24, 27
-# router failed (congestion, 39.2-39.3k ALMs placed); 31 CPU -0.226 (TNS -0.256) / HDMI -0.116,
-# SDRAM +1.121, crossings +1.195/+0.801, 39,191 ALMs (94 %), 468 M10K, RBF md5 19beb5b2.
-# Seed 31 on hardware (ALLOW_TIMING_VIOLATION, Main ff404af9, 32 MB): FPU 0.978 median
-# (0.951-0.982; was 0.684), Mix 1.793 median, Color 8-bit 9.876/9.829 s, all 12 runs valid,
-# clean Finder Shut Down; Bubble Sort 12 % slower than 6f0f159 (0.710 vs 0.633 s).  Not a release
-# seed (CPU clock miss).  docs/perf/hw_p258_seed31_20260928/.
+# 2026-09-28: + P250..P258 (FPU issue/latency; ad7a0d4).  Seeds: 22 (P254, 2af6b30) CPU -8.424; 23, 24,
+# 27 router failed (congestion, 39.2-39.3k ALMs placed); 31 CPU -0.226 / HDMI -0.116, SDRAM +1.121,
+# 39,191 ALMs, RBF md5 19beb5b2 (hardware: FPU 0.978, Mix 1.793, Color 8-bit 9.876/9.829 s, clean).
+# Seed 31 + PLACEMENT_EFFORT_MULTIPLIER 2.0 + ROUTER_TIMING_OPTIMIZATION_LEVEL MAXIMUM: MET on every
+# clock (CPU +0.103, HDMI +0.006, SDRAM +0.612, h2f_user0 +3.086, hold +0.220; crossings met),
+# 39,191 ALMs, 468 M10K, RBF md5 b7e88b81.  Hardware (Main ff404af9, 32 MB): FPU 0.973 median, Mix
+# 1.803 median, Color 8-bit 9.900/9.851 s, all 12 runs valid, idle clock OK, clean Finder Shut Down.
+# Mix rows moved up to 20 % between the two fits of the same RTL (Sieve 1.046 -> 0.842 s, Int.
+# Matrix 0.463 -> 0.515 s): compare per-row times only across several boots.
+# docs/perf/hw_p258_seed31_20260928/.
 ```
