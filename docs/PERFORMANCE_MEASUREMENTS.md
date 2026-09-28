@@ -2370,6 +2370,6 @@ ABI/code/global/stack captures match byte-for-byte, and original runtime and
 profile checks pass. Aggregate external read_bus32 episodes fall9,773→0,
 while C_PASS occupancy falls804,428→630,743 samples. These are coarse counters,
 not exact candidate per-address attribution. Evidence:
-`scratch/native_whet_cache_v2_comparison_20260928/comparison.json`.
+[native cache-v2 results](perf/cache_refill_20260927/native_fpu_whetstone_cache_v2_candidate/README.md).
 This native result is not a full-guest or FPGA benchmark, and does not prove
 the0.759 hardware target. Full-machine qualification and FPGA fitting follow.
