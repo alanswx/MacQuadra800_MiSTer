@@ -1,16 +1,53 @@
 # Next performance goal: reduce cache refill overhead
 
-Updated 2026-09-28. **Current checkpoint:** the 6c FPU + cache-v2 candidate
-passes directed/core checks and seed31 FPGA timing. Native Whetstone is
-2.139% faster with byte-exact final captures. Three full-machine guest runs
-are active; hardware speed remains unmeasured.
+Updated 2026-09-28 after the final guest screenshots. **Goal paused.**
+The 6c FPU + cache-v2 candidate passes directed/core checks and seed31 FPGA
+fit/timing. Native Whetstone throughput improves 2.139% with byte-exact final
+captures. All three full-machine runs finished, but FPU and Mix contain
+impossible timings and are **invalid performance results**. Color8 reports
+9.856 seconds versus 9.878 previously (about 0.22% faster in one run).
+Hardware speed remains unmeasured. Full-machine qualification has not passed.
 
-Next: finish and review those FPU/Mix/Color8 runs, preserve FPGA evidence,
-then perform matched hardware qualification once the shared MiSTer is confirmed
-free. Use cheaper agents for monitoring, tests and documentation; primary agent
-owns architectural and evidence review. Exact identities, live handles and
-constraints: [current handoff](../HANDOFF-20260928.md). The initial investigation
-and completed/rejected alternatives below remain dated rationale, not live job instructions.
+The user requested the experiment proposals below **as documentation only**.
+None is authorized to start by this list. No reruns, RTL edits, additional
+builds, or hardware operations are implied. Finish the already-requested
+report/evidence preservation, then wait for the user's choice. See the
+[current handoff](../HANDOFF-20260928.md) for evidence and constraints.
+
+## Proposed experiments, ranked for the next decision
+
+These are future experiments, not completed checks or a claim that the cause
+is known. Prefer the cheapest experiment that distinguishes competing causes.
+Keep the full-feature 8+8 KB configuration and prefetch-fault fix throughout.
+
+| Priority | Experiment and question | Proposed method | Decision / stop condition |
+|---|---|---|---|
+| 1 | **Audit benchmark timing and result storage.** Are the impossible numbers caused by counter arithmetic, bad reads, overwritten result data, or a reporting defect? | First inspect existing logs, screenshots and saved observer data against the valid 6c runs. Identify the actual timer routine, counter format, start/end values, result addresses and conversion path from the benchmark code. If those values were not captured, document exactly which observations are missing before proposing another run. | A label such as “timer glitch” is insufficient. Establish whether the evidence can distinguish timing failure from cache/data corruption; do not accept apparently plausible rows from an invalid suite. |
+| 2 | **Matched cache A/B diagnostic.** Does the failure follow cache-v2? | If another run is approved, use the valid 6c FPU baseline cache and cache-v2 with identical guest input, controls, model, feature flags and instrumentation. Start with one affected subtest or the shortest faithful reproducer. Capture raw timer reads and result writes, not only the final screenshot. | Baseline valid / candidate invalid isolates the cache change under those conditions. Both invalid points toward a common fixture or measurement issue. A valid rerun alone does not explain or erase the preserved failure. |
+| 3 | **Independent memory oracle around affected accesses.** Does crossing-line allocation return or retain incorrect bytes? | After identifying relevant addresses, build a short directed replay using independently computed byte values. Cover writable timer/result/stack data, first-line misses, both cache-line halves, intervening writes, snoops, replacement, retained-line loss and bus errors. Include instruction-side cases only where the observed failing access path warrants them. | Find the first wrong byte or state transition and minimize it. Extend tests around the actual failure, rather than merely adding more copies of existing passing cases. |
+| 4 | **Locate the earliest guest divergence.** Where does execution become incorrect? | If the short reproducer is inconclusive, compare bounded baseline/candidate traces around timer calls and result stores. Align by instruction/transaction events rather than equal cycle numbers, since a speed change shifts timestamps. Include PC, address, byte enables, data, cache state and snoop/invalidation events. | Identify the first unexplained architectural data/control difference. Keep expected elapsed-time differences separate. Stop tracing once a small reproducible cause is found. |
+| 5 | **Controlled bypass or feature isolation.** Which part of the new allocation path matters? | Only after the preceding evidence, test one diagnostic switch at a time: disable the new first-line allocation while retaining the rest of the candidate, or narrow it to the observed access class. Compare the same failing sequence. These are diagnostic variants, not acceptable performance fixes by themselves. | A disappearance of the failure narrows the cause but does not prove correctness. Any eventual fix must preserve general memory semantics and pass the original failing sequence plus existing error/snoop/store regressions. |
+| 6 | **Requalify speed after correctness.** Is the native benefit present in valid guest measurements? | After a diagnosed fix or a demonstrated measurement correction, rerun the native fixture and all FPU/Mix/Color guest suites with strict guest-result validation. Report each row, raw timings and identities against a matched baseline. Add explicit rejection of nonpositive elapsed times and invalid arithmetic; investigate implausible positive values too. | No speed claim from negative/zero/impossible timings. Require valid suite completion and no material CPU/graphics regression before considering hardware. The native +2.139% and prior FPU +4.44% cannot simply be added. |
+| 7 | **Matched FPGA test, if the user chooses it.** Does a fully qualified candidate help on the real board? | Reuse the timing-clean image only if its exact RTL passes qualification; a changed RTL fix needs a new reviewed fit. Once shared hardware is authorized and free, use identical Main/disk/32MB/33MHz settings and five valid repetitions per variant, including every FPU/Mix row and Color8. Complete the existing OS/CD/shutdown gates. | Target FPU >=0.759 and report gain against the actual matched baseline. Investigate Mix loss >1% or Color time increase >2%. A passing fit is not a hardware speed or correctness result. |
+
+If these establish correctness but the measured gain remains below target,
+the next performance experiment should come from a **new timed bottleneck
+breakdown**: arithmetic occupancy versus instruction/data cache misses,
+first-word wait, line installation and replay. Optimize the largest measured
+recoverable cost with one change at a time. Do not default to larger caches,
+revive the unsafe external-tail draft, repeat failed queue-bridge seed walks,
+or weaken feature/correctness requirements to obtain a passing result.
+
+For cost control, use a cheaper agent for evidence extraction, proposed test
+implementation and approved scripted runs; primary review is for diagnosis,
+architectural correctness and final acceptance. Long jobs should use durable
+scripts checking about every ten minutes and reporting terminal/failure events,
+not repeated model-driven status polling.
+
+## Historical plan and rationale
+
+The remaining sections preserve the original plan and dated experiment
+reasoning. They do not override the pause or authorize the proposals above.
 
 Created 2026-09-27. This plan follows `RESUME-20260927.md` and
 `FPU_PROFILE_20260927.md`. It is a plan, not evidence of completed validation.
