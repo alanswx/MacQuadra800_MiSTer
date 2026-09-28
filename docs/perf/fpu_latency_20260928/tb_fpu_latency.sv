@@ -22,7 +22,7 @@ module tb_fpu_latency;
  reg [31:0] rdata=0;
  reg [15:0] mem[0:131071];         // 256 KB
  integer latency=3, waitleft=0, cycles=0, j, bytes;
- integer stamp_prev=0, exc_count=0, last_vec=0, trace_lo=-1, trace_hi=-1;
+ integer stamp_prev=0, exc_count=0, last_vec=0, trace_lo=-1, trace_hi=-1, trace_c0=-1, trace_c1=-1;
  reg [31:0] trace_pc=0, body_pc=32'hffffffff;
  integer body_t0=0;
  reg [7:0] prev_state=0;
@@ -60,6 +60,8 @@ module tb_fpu_latency;
   if($value$plusargs("latency=%d",latency)) begin end
   if($value$plusargs("tracelo=%h",trace_lo)) begin end
   if($value$plusargs("tracehi=%h",trace_hi)) begin end
+  if($value$plusargs("tracec0=%d",trace_c0)) begin end
+  if($value$plusargs("tracec1=%d",trace_c1)) begin end
   for(j=0;j<131072;j=j+1) mem[j]=0;
   $readmemh(path,mem);
   repeat(20) @(negedge clk);
@@ -72,9 +74,13 @@ module tb_fpu_latency;
    exc_count=exc_count+1; last_vec=dut.core.exc_vec;
   end
   // +tracelo=/+tracehi= (hex): print each change of the decode PC inside the
-  // window (+tracecyc: every clock), with the core and FPU states
-  if((dut.core.pc_i!=trace_pc || $test$plusargs("tracecyc")) && dut.core.pc_i>=trace_lo && dut.core.pc_i<trace_hi)
-   $display("TRACE cyc=%0d pc=%h state=%0d fpu_st=%0d",cycles,dut.core.pc_i,dut.core.state,dut.core.g_fpu.fpu.fst);
+  // window (+tracecyc: every clock), or every clock from +tracec0= to +tracec1=
+  // (decimal cycles), with the core and FPU states and the core-side memory
+  // request (mem_req/instr/write/addr/ack, before the cache)
+  if(((dut.core.pc_i!=trace_pc || $test$plusargs("tracecyc")) && dut.core.pc_i>=trace_lo && dut.core.pc_i<trace_hi) ||
+     (cycles>=trace_c0 && cycles<=trace_c1))
+   $display("TRACE cyc=%0d pc=%h state=%0d fpu_st=%0d req=%0d instr=%0d wr=%0d addr=%h wdata=%h ack=%0d",cycles,dut.core.pc_i,dut.core.state,dut.core.g_fpu.fpu.fst,
+            dut.mem_req,dut.mem_instr,dut.mem_write,dut.mem_addr,dut.mem_wdata,dut.mem_ack);
   // Body timing from the decode PC, independent of the stamp stores: the
   // body starts where the decode PC first reaches the instruction after
   // "move.w #1,$F108" and ends where it reaches "fnop; move.w #tag,$F108".

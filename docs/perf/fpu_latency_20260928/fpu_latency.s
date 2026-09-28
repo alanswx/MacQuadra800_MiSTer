@@ -16711,173 +16711,264 @@ T190:
 	fnop
 	move.w	#190,(STAMP).l
 	dbra	d7,T190
-; ---- fintrz_rte  n=16  (FINTRZ.X FP1,FP0 -> vec 11, handler RTE)
+; ---- fsnull  n=16  (FSAVE -(A7) ; FRESTORE (A7)+, NULL frame (pair))
 	moveq	#1,d7	; two passes, second is reported
 T191:
-	fmove.x	(c1p2345).l,fp0
-	fmove.x	(c1p2345).l,fp1
-	fmove.x	(c1p2345).l,fp2
-	fmove.x	(c1p2345).l,fp3
-	fmove.x	(c1p2345).l,fp4
-	fmove.x	(c1p2345).l,fp5
-	fmove.x	(c1p2345).l,fp6
-	fmove.x	(c1p2345).l,fp7
-	move.l	#h_rte,(44).w
+	clr.l	-(a7)
+	frestore	(a7)+
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
 	fnop
 	move.w	#191,(STAMP).l
 	dbra	d7,T191
-; ---- fintrz_rte  n=32  (FINTRZ.X FP1,FP0 -> vec 11, handler RTE)
+; ---- fsnull  n=32  (FSAVE -(A7) ; FRESTORE (A7)+, NULL frame (pair))
 	moveq	#1,d7	; two passes, second is reported
 T192:
-	fmove.x	(c1p2345).l,fp0
-	fmove.x	(c1p2345).l,fp1
-	fmove.x	(c1p2345).l,fp2
-	fmove.x	(c1p2345).l,fp3
-	fmove.x	(c1p2345).l,fp4
-	fmove.x	(c1p2345).l,fp5
-	fmove.x	(c1p2345).l,fp6
-	fmove.x	(c1p2345).l,fp7
-	move.l	#h_rte,(44).w
+	clr.l	-(a7)
+	frestore	(a7)+
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
 	fnop
 	move.w	#192,(STAMP).l
 	dbra	d7,T192
-; ---- fintrz_rte  n=64  (FINTRZ.X FP1,FP0 -> vec 11, handler RTE)
+; ---- fsnull  n=64  (FSAVE -(A7) ; FRESTORE (A7)+, NULL frame (pair))
 	moveq	#1,d7	; two passes, second is reported
 T193:
-	fmove.x	(c1p2345).l,fp0
-	fmove.x	(c1p2345).l,fp1
-	fmove.x	(c1p2345).l,fp2
-	fmove.x	(c1p2345).l,fp3
-	fmove.x	(c1p2345).l,fp4
-	fmove.x	(c1p2345).l,fp5
-	fmove.x	(c1p2345).l,fp6
-	fmove.x	(c1p2345).l,fp7
-	move.l	#h_rte,(44).w
+	clr.l	-(a7)
+	frestore	(a7)+
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
 	fnop
 	move.w	#193,(STAMP).l
 	dbra	d7,T193
-; ---- fintrz_fs  n=16  (FINTRZ.X FP1,FP0 -> vec 11, handler FSAVE/FRESTORE/RTE)
+; ---- fsidle  n=16  (FSAVE -(A7) ; FRESTORE (A7)+, IDLE frame after FMOVE (pair))
 	moveq	#1,d7	; two passes, second is reported
 T194:
 	fmove.x	(c1p2345).l,fp0
@@ -16888,30 +16979,46 @@ T194:
 	fmove.x	(c1p2345).l,fp5
 	fmove.x	(c1p2345).l,fp6
 	fmove.x	(c1p2345).l,fp7
-	move.l	#h_fsave,(44).w
+	fmove.x	fp0,fp1
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
 	fnop
 	move.w	#194,(STAMP).l
 	dbra	d7,T194
-; ---- fintrz_fs  n=32  (FINTRZ.X FP1,FP0 -> vec 11, handler FSAVE/FRESTORE/RTE)
+; ---- fsidle  n=32  (FSAVE -(A7) ; FRESTORE (A7)+, IDLE frame after FMOVE (pair))
 	moveq	#1,d7	; two passes, second is reported
 T195:
 	fmove.x	(c1p2345).l,fp0
@@ -16922,46 +17029,78 @@ T195:
 	fmove.x	(c1p2345).l,fp5
 	fmove.x	(c1p2345).l,fp6
 	fmove.x	(c1p2345).l,fp7
-	move.l	#h_fsave,(44).w
+	fmove.x	fp0,fp1
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
 	fnop
 	move.w	#195,(STAMP).l
 	dbra	d7,T195
-; ---- fintrz_fs  n=64  (FINTRZ.X FP1,FP0 -> vec 11, handler FSAVE/FRESTORE/RTE)
+; ---- fsidle  n=64  (FSAVE -(A7) ; FRESTORE (A7)+, IDLE frame after FMOVE (pair))
 	moveq	#1,d7	; two passes, second is reported
 T196:
 	fmove.x	(c1p2345).l,fp0
@@ -16972,78 +17111,142 @@ T196:
 	fmove.x	(c1p2345).l,fp5
 	fmove.x	(c1p2345).l,fp6
 	fmove.x	(c1p2345).l,fp7
-	move.l	#h_fsave,(44).w
+	fmove.x	fp0,fp1
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
+	fsave	-(a7)
+	frestore	(a7)+
 	fnop
 	move.w	#196,(STAMP).l
 	dbra	d7,T196
-; ---- fmovecr_rte  n=16  (FMOVECR #0,FP0 -> vec 11, handler RTE)
+; ---- fintrz_rte  n=16  (FINTRZ.X FP1,FP0 -> vec 11, handler RTE)
 	moveq	#1,d7	; two passes, second is reported
 T197:
 	fmove.x	(c1p2345).l,fp0
@@ -17058,26 +17261,26 @@ T197:
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
 	fnop
 	move.w	#197,(STAMP).l
 	dbra	d7,T197
-; ---- fmovecr_rte  n=32  (FMOVECR #0,FP0 -> vec 11, handler RTE)
+; ---- fintrz_rte  n=32  (FINTRZ.X FP1,FP0 -> vec 11, handler RTE)
 	moveq	#1,d7	; two passes, second is reported
 T198:
 	fmove.x	(c1p2345).l,fp0
@@ -17092,6 +17295,338 @@ T198:
 	fnop
 	nop
 	move.w	#1,(STAMP).l
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fnop
+	move.w	#198,(STAMP).l
+	dbra	d7,T198
+; ---- fintrz_rte  n=64  (FINTRZ.X FP1,FP0 -> vec 11, handler RTE)
+	moveq	#1,d7	; two passes, second is reported
+T199:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c1p2345).l,fp7
+	move.l	#h_rte,(44).w
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fnop
+	move.w	#199,(STAMP).l
+	dbra	d7,T199
+; ---- fintrz_fs  n=16  (FINTRZ.X FP1,FP0 -> vec 11, handler FSAVE/FRESTORE/RTE)
+	moveq	#1,d7	; two passes, second is reported
+T200:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c1p2345).l,fp7
+	move.l	#h_fsave,(44).w
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fnop
+	move.w	#200,(STAMP).l
+	dbra	d7,T200
+; ---- fintrz_fs  n=32  (FINTRZ.X FP1,FP0 -> vec 11, handler FSAVE/FRESTORE/RTE)
+	moveq	#1,d7	; two passes, second is reported
+T201:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c1p2345).l,fp7
+	move.l	#h_fsave,(44).w
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fnop
+	move.w	#201,(STAMP).l
+	dbra	d7,T201
+; ---- fintrz_fs  n=64  (FINTRZ.X FP1,FP0 -> vec 11, handler FSAVE/FRESTORE/RTE)
+	moveq	#1,d7	; two passes, second is reported
+T202:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c1p2345).l,fp7
+	move.l	#h_fsave,(44).w
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fnop
+	move.w	#202,(STAMP).l
+	dbra	d7,T202
+; ---- fmovecr_rte  n=16  (FMOVECR #0,FP0 -> vec 11, handler RTE)
+	moveq	#1,d7	; two passes, second is reported
+T203:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c1p2345).l,fp7
+	move.l	#h_rte,(44).w
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fnop
+	move.w	#203,(STAMP).l
+	dbra	d7,T203
+; ---- fmovecr_rte  n=32  (FMOVECR #0,FP0 -> vec 11, handler RTE)
+	moveq	#1,d7	; two passes, second is reported
+T204:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c1p2345).l,fp7
+	move.l	#h_rte,(44).w
+	fnop
+	nop
+	move.w	#1,(STAMP).l
 	fmovecr.x	#0,fp0
 	fmovecr.x	#0,fp0
 	fmovecr.x	#0,fp0
@@ -17125,11 +17660,11 @@ T198:
 	fmovecr.x	#0,fp0
 	fmovecr.x	#0,fp0
 	fnop
-	move.w	#198,(STAMP).l
-	dbra	d7,T198
+	move.w	#204,(STAMP).l
+	dbra	d7,T204
 ; ---- fmovecr_rte  n=64  (FMOVECR #0,FP0 -> vec 11, handler RTE)
 	moveq	#1,d7	; two passes, second is reported
-T199:
+T205:
 	fmove.x	(c1p2345).l,fp0
 	fmove.x	(c1p2345).l,fp1
 	fmove.x	(c1p2345).l,fp2
@@ -17207,387 +17742,387 @@ T199:
 	fmovecr.x	#0,fp0
 	fmovecr.x	#0,fp0
 	fnop
-	move.w	#199,(STAMP).l
-	dbra	d7,T199
-; ---- fmovecr_fs  n=16  (FMOVECR #0,FP0 -> vec 11, handler FSAVE/FRESTORE/RTE)
-	moveq	#1,d7	; two passes, second is reported
-T200:
-	fmove.x	(c1p2345).l,fp0
-	fmove.x	(c1p2345).l,fp1
-	fmove.x	(c1p2345).l,fp2
-	fmove.x	(c1p2345).l,fp3
-	fmove.x	(c1p2345).l,fp4
-	fmove.x	(c1p2345).l,fp5
-	fmove.x	(c1p2345).l,fp6
-	fmove.x	(c1p2345).l,fp7
-	move.l	#h_fsave,(44).w
-	fnop
-	nop
-	move.w	#1,(STAMP).l
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fnop
-	move.w	#200,(STAMP).l
-	dbra	d7,T200
-; ---- fmovecr_fs  n=32  (FMOVECR #0,FP0 -> vec 11, handler FSAVE/FRESTORE/RTE)
-	moveq	#1,d7	; two passes, second is reported
-T201:
-	fmove.x	(c1p2345).l,fp0
-	fmove.x	(c1p2345).l,fp1
-	fmove.x	(c1p2345).l,fp2
-	fmove.x	(c1p2345).l,fp3
-	fmove.x	(c1p2345).l,fp4
-	fmove.x	(c1p2345).l,fp5
-	fmove.x	(c1p2345).l,fp6
-	fmove.x	(c1p2345).l,fp7
-	move.l	#h_fsave,(44).w
-	fnop
-	nop
-	move.w	#1,(STAMP).l
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fnop
-	move.w	#201,(STAMP).l
-	dbra	d7,T201
-; ---- fmovecr_fs  n=64  (FMOVECR #0,FP0 -> vec 11, handler FSAVE/FRESTORE/RTE)
-	moveq	#1,d7	; two passes, second is reported
-T202:
-	fmove.x	(c1p2345).l,fp0
-	fmove.x	(c1p2345).l,fp1
-	fmove.x	(c1p2345).l,fp2
-	fmove.x	(c1p2345).l,fp3
-	fmove.x	(c1p2345).l,fp4
-	fmove.x	(c1p2345).l,fp5
-	fmove.x	(c1p2345).l,fp6
-	fmove.x	(c1p2345).l,fp7
-	move.l	#h_fsave,(44).w
-	fnop
-	nop
-	move.w	#1,(STAMP).l
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fnop
-	move.w	#202,(STAMP).l
-	dbra	d7,T202
-; ---- trap  n=16  (TRAP #0 -> handler RTE)
-	moveq	#1,d7	; two passes, second is reported
-T203:
-	move.l	#h_rte,(128).w
-	fnop
-	nop
-	move.w	#1,(STAMP).l
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	fnop
-	move.w	#203,(STAMP).l
-	dbra	d7,T203
-; ---- trap  n=32  (TRAP #0 -> handler RTE)
-	moveq	#1,d7	; two passes, second is reported
-T204:
-	move.l	#h_rte,(128).w
-	fnop
-	nop
-	move.w	#1,(STAMP).l
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	fnop
-	move.w	#204,(STAMP).l
-	dbra	d7,T204
-; ---- trap  n=64  (TRAP #0 -> handler RTE)
-	moveq	#1,d7	; two passes, second is reported
-T205:
-	move.l	#h_rte,(128).w
-	fnop
-	nop
-	move.w	#1,(STAMP).l
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	trap	#0
-	fnop
 	move.w	#205,(STAMP).l
 	dbra	d7,T205
-; ---- aline  n=16  (A-line $A000 -> handler ADDQ.L #2,2(SP); RTE)
+; ---- fmovecr_fs  n=16  (FMOVECR #0,FP0 -> vec 11, handler FSAVE/FRESTORE/RTE)
 	moveq	#1,d7	; two passes, second is reported
 T206:
-	move.l	#h_aline,(40).w
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c1p2345).l,fp7
+	move.l	#h_fsave,(44).w
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
 	fnop
 	move.w	#206,(STAMP).l
 	dbra	d7,T206
-; ---- aline  n=32  (A-line $A000 -> handler ADDQ.L #2,2(SP); RTE)
+; ---- fmovecr_fs  n=32  (FMOVECR #0,FP0 -> vec 11, handler FSAVE/FRESTORE/RTE)
 	moveq	#1,d7	; two passes, second is reported
 T207:
-	move.l	#h_aline,(40).w
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c1p2345).l,fp7
+	move.l	#h_fsave,(44).w
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
-	dc.w	$a000
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
 	fnop
 	move.w	#207,(STAMP).l
 	dbra	d7,T207
-; ---- aline  n=64  (A-line $A000 -> handler ADDQ.L #2,2(SP); RTE)
+; ---- fmovecr_fs  n=64  (FMOVECR #0,FP0 -> vec 11, handler FSAVE/FRESTORE/RTE)
 	moveq	#1,d7	; two passes, second is reported
 T208:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c1p2345).l,fp7
+	move.l	#h_fsave,(44).w
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fnop
+	move.w	#208,(STAMP).l
+	dbra	d7,T208
+; ---- trap  n=16  (TRAP #0 -> handler RTE)
+	moveq	#1,d7	; two passes, second is reported
+T209:
+	move.l	#h_rte,(128).w
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	fnop
+	move.w	#209,(STAMP).l
+	dbra	d7,T209
+; ---- trap  n=32  (TRAP #0 -> handler RTE)
+	moveq	#1,d7	; two passes, second is reported
+T210:
+	move.l	#h_rte,(128).w
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	fnop
+	move.w	#210,(STAMP).l
+	dbra	d7,T210
+; ---- trap  n=64  (TRAP #0 -> handler RTE)
+	moveq	#1,d7	; two passes, second is reported
+T211:
+	move.l	#h_rte,(128).w
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	trap	#0
+	fnop
+	move.w	#211,(STAMP).l
+	dbra	d7,T211
+; ---- aline  n=16  (A-line $A000 -> handler ADDQ.L #2,2(SP); RTE)
+	moveq	#1,d7	; two passes, second is reported
+T212:
+	move.l	#h_aline,(40).w
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	fnop
+	move.w	#212,(STAMP).l
+	dbra	d7,T212
+; ---- aline  n=32  (A-line $A000 -> handler ADDQ.L #2,2(SP); RTE)
+	moveq	#1,d7	; two passes, second is reported
+T213:
+	move.l	#h_aline,(40).w
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	dc.w	$a000
+	fnop
+	move.w	#213,(STAMP).l
+	dbra	d7,T213
+; ---- aline  n=64  (A-line $A000 -> handler ADDQ.L #2,2(SP); RTE)
+	moveq	#1,d7	; two passes, second is reported
+T214:
 	move.l	#h_aline,(40).w
 	fnop
 	nop
@@ -17657,11 +18192,11 @@ T208:
 	dc.w	$a000
 	dc.w	$a000
 	fnop
-	move.w	#208,(STAMP).l
-	dbra	d7,T208
+	move.w	#214,(STAMP).l
+	dbra	d7,T214
 ; ---- nop_rte  n=16  (handler-only reference: BSR to RTS (not a trap))
 	moveq	#1,d7	; two passes, second is reported
-T209:
+T215:
 	bra.w	.skip
 .rts:	rts
 .skip:
@@ -17685,11 +18220,11 @@ T209:
 	bsr.w	.rts
 	bsr.w	.rts
 	fnop
-	move.w	#209,(STAMP).l
-	dbra	d7,T209
+	move.w	#215,(STAMP).l
+	dbra	d7,T215
 ; ---- nop_rte  n=32  (handler-only reference: BSR to RTS (not a trap))
 	moveq	#1,d7	; two passes, second is reported
-T210:
+T216:
 	bra.w	.skip
 .rts:	rts
 .skip:
@@ -17729,11 +18264,11 @@ T210:
 	bsr.w	.rts
 	bsr.w	.rts
 	fnop
-	move.w	#210,(STAMP).l
-	dbra	d7,T210
+	move.w	#216,(STAMP).l
+	dbra	d7,T216
 ; ---- nop_rte  n=64  (handler-only reference: BSR to RTS (not a trap))
 	moveq	#1,d7	; two passes, second is reported
-T211:
+T217:
 	bra.w	.skip
 .rts:	rts
 .skip:
@@ -17805,8 +18340,8 @@ T211:
 	bsr.w	.rts
 	bsr.w	.rts
 	fnop
-	move.w	#211,(STAMP).l
-	dbra	d7,T211
+	move.w	#217,(STAMP).l
+	dbra	d7,T217
 	move.w	#$600d,(DONE).l
 	bra.s	*
 h_rte:	rte

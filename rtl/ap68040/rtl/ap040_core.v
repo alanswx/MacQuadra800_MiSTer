@@ -1934,8 +1934,12 @@ task issue_ifetch;
 endtask
 
 // Start the architecturally required four-longword prefetch which concludes
-// reset and exception processing.  Word requests are intentional: an entry
-// at page offset $FFE must translate/fault the second page independently.
+// reset and exception processing.  P257: aligned longword requests, as
+// issue_ifetch makes them -- an aligned longword cannot span a page, so it
+// translates and faults exactly as its two words would have.  Only an entry
+// at an odd word address (page offset $FFE included) starts with a word
+// request, and the last word of the window is a word request then too.
+// This halves the requests in the 26-clock fill every exception paid.
 task exception_prefetch;
 	input [31:0] a;
 	input        s;
@@ -1948,7 +1952,7 @@ task exception_prefetch;
 		pc <= a;
 		pc_i <= a;
 		ifr_req <= 1;
-		ifr_size <= `AP040_SZ_W; ifr_addr <= a;
+		ifr_size <= a[1] ? `AP040_SZ_W : `AP040_SZ_L; ifr_addr <= a;
 		ifr_fc <= s ? `AP040_FC_SUPER_PROG : `AP040_FC_USER_PROG;
 		epf_issue = 1;
 		state <= S_EPF_FILL;
@@ -5660,9 +5664,17 @@ always @(posedge clk) begin
 			// Any fault in this window is itself a double bus fault.
 			S_EPF_FILL: begin
 				if (i_err) fatal_halt;
-				else if (i_ack) begin
-					epf_data[epf_fill] <= mem_rdata[15:0];
-					if (epf_fill == 3'd7) begin
+				else if (i_ack) begin : epf_fill_ack
+					// P257: a longword request lands two words (the lower address
+					// in the upper half; the bus right-aligns by size)
+					reg epf_lw;
+					epf_lw = (ifr_size == `AP040_SZ_L);
+					if (epf_lw) begin
+						epf_data[epf_fill] <= mem_rdata[31:16];
+						epf_data[epf_fill + 3'd1] <= mem_rdata[15:0];
+					end
+					else epf_data[epf_fill] <= mem_rdata[15:0];
+					if (epf_fill == 3'd7 || (epf_lw && epf_fill == 3'd6)) begin
 						epf_count <= 4'd8;
 						epf_head <= 0;
 						// eight words wrap the ring: the append index
@@ -5677,7 +5689,7 @@ always @(posedge clk) begin
 						state <= S_EPF_READY;
 					end
 					else begin
-						epf_fill <= epf_fill + 3'd1;
+						epf_fill <= epf_fill + (epf_lw ? 3'd2 : 3'd1);
 						state <= S_EPF_GAP;
 					end
 				end
@@ -5688,7 +5700,10 @@ always @(posedge clk) begin
 			// completed request look like a duplicate transaction.
 			S_EPF_GAP: begin
 				ifr_req <= 1;
-				ifr_size <= `AP040_SZ_W;
+				// P257: the rest of the window in aligned longwords; the eighth
+				// word alone, and any odd-word address, as a word
+				ifr_size <= ((epf_base[1] ^ epf_fill[0]) || (epf_fill == 3'd7)) ?
+				            `AP040_SZ_W : `AP040_SZ_L;
 				ifr_addr <= epf_base + {28'd0, epf_fill, 1'b0};
 				ifr_fc <= epf_super ? `AP040_FC_SUPER_PROG : `AP040_FC_USER_PROG;
 				state <= S_EPF_FILL;

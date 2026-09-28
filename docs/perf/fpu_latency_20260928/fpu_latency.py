@@ -151,6 +151,11 @@ t('fft', 'FFT: 2x FMOVE.S d16(A0),FPn; FSUB.X; FMUL.X; FADD.X; 2x FMOVE.S FPn,d1
              '\tfadd.x\tfp0,fp1', '\tfmove.s\tfp0,24(a0)', '\tfmove.s\tfp1,28(a0)'] * n, 7)
 t('fldd16_i', 'FMOVE.D d16(A0),FPn', A0_TAB, lambda n: ['\tfmove.d\t8(a0),fp%d' % r8(i) for i in range(n)])
 t('fstd16_i', 'FMOVE.D FPn,d16(A0)', all_regs('c1000', 'c1p1') + A0_BUF, lambda n: ['\tfmove.d\tfp%d,8(a0)' % r8(i) for i in range(n)])
+# ---- FSAVE / FRESTORE pairs (added for the trap traces)
+t('fsnull', 'FSAVE -(A7) ; FRESTORE (A7)+, NULL frame (pair)', ['\tclr.l\t-(a7)', '\tfrestore\t(a7)+'],
+  lambda n: ['\tfsave\t-(a7)', '\tfrestore\t(a7)+'] * n, 2)
+t('fsidle', 'FSAVE -(A7) ; FRESTORE (A7)+, IDLE frame after FMOVE (pair)', all_regs('c1p2345') + ['\tfmove.x\tfp0,fp1'],
+  lambda n: ['\tfsave\t-(a7)', '\tfrestore\t(a7)+'] * n, 2)
 # traps: one exception per copy, checked from the bench's S_EXC0 count
 SETV = lambda vec, h: ['\tmove.l\t#%s,(%d).w' % (h, vec * 4)]
 t('fintrz_rte', 'FINTRZ.X FP1,FP0 -> vec 11, handler RTE', all_regs('c1p2345') + SETV(11, 'h_rte'),
