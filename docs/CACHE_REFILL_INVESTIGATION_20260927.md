@@ -14,9 +14,10 @@ refill path. Agreement of the aggregate FPU scores was insufficient evidence
 for agreement of those internal costs.
 
 The MMU walker already snoops page-table writes through `wsnp_pend` in
-`wombat_cpu.sv`. Removing data-cache invalidation from cache-push instructions
-still requires architectural and coherence/ordering review; no such change
-is part of the current candidate.
+`wombat_cpu.sv`. Subsequent architectural review ruled out retaining selected
+clean lines across CPUSH: the MC68040 manual requires their invalidation too.
+Write-through operation and snooping do not remove that requirement; see
+`NEXT_PERFORMANCE_PLAN_20260927.md` for the source and decision.
 
 ## Production memory-path measurement
 
