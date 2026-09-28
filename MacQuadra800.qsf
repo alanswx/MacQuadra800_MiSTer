@@ -29,7 +29,8 @@ set_global_assignment -name OPTIMIZE_POWER_DURING_FITTING OFF
 set_global_assignment -name FINAL_PLACEMENT_OPTIMIZATION ALWAYS
 set_global_assignment -name FITTER_EFFORT "STANDARD FIT"
 # Sep24: effort 3.0 still failed routing; restore baseline for RTL area trials.
-set_global_assignment -name PLACEMENT_EFFORT_MULTIPLIER 1.0
+set_global_assignment -name PLACEMENT_EFFORT_MULTIPLIER 2.0
+set_global_assignment -name ROUTER_TIMING_OPTIMIZATION_LEVEL MAXIMUM
 # Speed-first fitting (the stock MiSTer template values).  These were
 # briefly flipped to AGGRESSIVE AREA / TECHNIQUE AREA / duplication OFF as
 # a hedge while the design was over capacity; the block-RAM conversions
@@ -398,7 +399,17 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # 22 CPU -1.179 / SDRAM -2.264 / HDMI -0.967; 25 CPU -1.341; 27 CPU +0.193, SDRAM +0.295, HDMI -0.025
 # (RBF md5 85924646; hardware: Mix 1.781/1.781, Color 8-bit 9.944 s, FPU 0.684, clean shutdown).
 # 28 CPU -0.065 only; 29, 30 router failed; 31 HDMI -0.455 only (CPU +0.823, SDRAM +0.548); 32-35 router failed.  Walk stopped.
-set_global_assignment -name SEED 21
+# 2026-09-28: FPU issue/latency work P250..P258 (ad7a0d4; docs/perf/fpu_p254_seed_walk,
+# fpu_p258_nopipels_builds, fpu_p258_fitter_settings).  With the old fitter settings: seed 21
+# CPU -0.381/HDMI -0.947 (P253); on ad7a0d4 seeds 24, 27, 23 router failed, 31 CPU -0.226/HDMI -0.116
+# (RBF md5 19beb5b2; hardware trial: FPU 0.978, Mix 1.793, Bubble Sort 12 % slower, clean shutdown);
+# dropping PIPELINE_LOADS/STORES saved nothing (seed 21 CPU -0.317).  PHYSICAL_SYNTHESIS_REGISTER_
+# DUPLICATION ON is a no-op on this flow (seed 31 rbf byte-identical).  PLACEMENT_EFFORT_MULTIPLIER
+# 2.0 + ROUTER_TIMING_OPTIMIZATION_LEVEL MAXIMUM (FITTER_EFFORT stays STANDARD FIT) at seed 31: all
+# clocks met -- CPU +0.103 (ifr_addr -> ATC -> s_ack -> brf_seed_a -> epf_data), SDRAM +0.612,
+# HDMI +0.006, hold +0.220, crossings +1.432/+0.586, 39,191 ALMs (94 %), 468 M10K, 36 DSP, fitter
+# 13m14s, RBF md5 b7e88b81.  These two settings are now the recipe.
+set_global_assignment -name SEED 31
 # 2026-09-24: NEVER grew the full BRF fit by398 ALMs; retain the better ALWAYS setting.
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
