@@ -2516,5 +2516,19 @@ frame's save and restore as 103 of the 167-clock FPSP round trip. Two more:
 - **P258**: FSAVE frame words issued back to back from one state; FSAVE
   stores and FRESTORE reads hinted (`hint_st_fsave`, `hint_frest`).
 
-Guest scores for P252 onwards are pending the paired full-machine runs
-(Opus agents, results under `docs/perf/`).
+**Simulated guest results** ([qualification](perf/p252_p256_fpu_qual/README.md);
+same calibrated RAM model, one iteration per test, every final screen
+reviewed):
+
+| Speedometer 4.02 | 0b2d265 | 3c3ade8 (P250-251) | b2ed1b0 (P252-256) | ad7a0d4 (P257-258) | real Quadra 800 |
+|---|---:|---:|---:|---:|---:|
+| FPU average | 0.698 | 0.745 | 0.978 | **0.985** | 1.011 |
+| KWhetstones/s (FPU) | 3849 | 4058 | 4480 | **4591** | 5457 |
+| Matrix Multiply | 0.991 s | 0.921 s | 0.667 s | **0.667 s** | 0.713 s |
+| Fast Fourier | 0.447 s | 0.417 s | 0.283 s | **0.283 s** | 0.288 s |
+| CPU Mix | 1.798 | 1.809 | 1.816 | not run | 1.899 |
+| Color 8-bit | 9.878 s | 9.878 s | 9.878 s | not run | 8.211 s |
+
+Native kernels on the SDRAM path give byte-identical results with 14 %
+(Whetstone), 33 % (Matrix) and 37 % (FFT) fewer clocks, matching the guest
+time cuts. Hardware confirmation is pending a fit that meets the CPU clock.
