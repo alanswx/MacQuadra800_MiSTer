@@ -1972,7 +1972,10 @@ always @(posedge clk) begin
 			end
 
 			F_MULT: begin : f_mult
-				if (loop_n == 7'd1) begin : mul_fin
+				// P254: F_BIN registered the one 64x64 DSP product (P251); this
+				// state only finishes.  The former second multiply here was
+				// unreachable but still synthesized: nine extra DSP blocks.
+				begin : mul_fin
 					// mul_pd is the registered full 128-bit product, exactly
 					// the value the former 32-cycle radix-4 loop accumulated.
 					if (mul_pd[127]) begin
@@ -1986,13 +1989,6 @@ always @(posedge clk) begin
 					end
 					a_t <= T_NUM;
 					fst <= F_ROUND;
-				end
-				else begin
-					// One registered 64x64 DSP-tree multiply replaces the
-					// 32-cycle serial radix-4 loop.  At this clock (34.8 ns
-					// budget) the cascade closes in a single cycle.
-					mul_pd <= a_m * b_m;
-					loop_n <= 7'd1;
 				end
 			end
 
