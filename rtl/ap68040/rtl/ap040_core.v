@@ -829,6 +829,7 @@ localparam S_EXC4B     = 8'd174;
 localparam S_MRD_B     = 8'd175;
 localparam S_MWR_B     = 8'd176;
 localparam S_FPU_CRI   = 8'd177;
+localparam S_FPU_ISSUE = 8'd200;   // P250: wait for the FPU before issuing
 localparam S_EPF_FILL  = 8'd178;
 localparam S_EPF_GAP   = 8'd179;
 localparam S_EPF_READY = 8'd180;
@@ -1803,6 +1804,41 @@ task go_fp_fline;
 	begin
 		fpu_req <= 0;
 		exc(`AP040_VEC_FLINE, 4'd0, pc_i, 32'd0);
+	end
+endtask
+
+// P250: FPU issue overlap.  S_FPU_DEC used to hold every FPU instruction
+// until the released (background) operation before it had retired, so the
+// decode, effective address and operand reads of instruction N+1 were
+// serialized after the whole of N.  Now only the ISSUE waits: the request
+// to the FPU (and its FPIAR write) is raised by fp_issue, which first
+// requires the FPU to be free and no released-op exception to be pending.
+// The FPU reads its source and destination registers at dispatch, after
+// N's writeback, so nothing inside ap040_fpu changes.  Encodings that can
+// fault in S_FPU_DEC itself, and the control-register / FMOVEM classes
+// that read or write FPSR/FPCR or the register file from the core, keep
+// the old wait so the pending pre-instruction exception is still delivered
+// ahead of them.
+wire fp_dec_overlap_ok =
+	(imm[15:13] == 3'b000) ? (fp_opmode_class(imm[6:0]) == 2'd0) :
+	(imm[15:13] == 3'b010) ? ((imm[12:10] == 3'd7) ||
+	                          ((fp_opmode_class(imm[6:0]) == 2'd0) &&
+	                           (d_mode != 3'b001) &&
+	                           !((d_mode == 3'b000) && (fp_bytes(imm[12:10]) > 4'd4)))) :
+	(imm[15:13] == 3'b011) ? ((imm[12:10] != 3'd3) && (imm[12:10] != 3'd7) &&
+	                          (d_mode != 3'b001) && !dst_not_alt &&
+	                          !((d_mode == 3'b111) && d_rn[1]) &&
+	                          !((d_mode == 3'b000) && (fp_bytes(imm[12:10]) > 4'd4))) :
+	1'b0;
+
+task fp_issue;
+	begin
+		if ((fpu_bg && !fpu_done) || fpu_pend_exc) state <= S_FPU_ISSUE;
+		else begin
+			fpu_iawe <= 1;
+			fpu_req  <= 1;
+			state    <= S_FPU_GO;
+		end
 	end
 endtask
 
@@ -5996,9 +6032,7 @@ always @(posedge clk) begin
                             4'd2: fpb[63:32] <= mem_rdata;
                             default: fpb[31:0] <= mem_rdata;
                         endcase
-                        fpu_iawe <= 1;
-                        fpu_req <= 1;
-                        state <= S_FPU_GO;
+                        fp_issue;
                     end
                     // Queue the next ordinary multiword FPU operand read
                     // after a successful beat. Faults and split transfers retain
@@ -7868,7 +7902,10 @@ always @(posedge clk) begin
 				// P208: the background operation's done pulse (never raised
 				// with an enabled exception; the FPU is back in F_IDLE) is
 				// retirement enough: fpu_bg itself clears on this same edge
-				if (fpu_bg && !fpu_done) begin
+				// P250: the arithmetic, load and store classes no longer wait
+				// here; their decode, EA and operand reads overlap the released
+				// operation and fp_issue waits at the request instead.
+				if (fpu_bg && !fpu_done && !fp_dec_overlap_ok) begin
 					// hold the dispatch until the background FPU
 					// operation has retired
 				end
@@ -7902,9 +7939,7 @@ always @(posedge clk) begin
 						if (fp_opmode_class(imm[6:0]) == 2'd1) go_fp_fline;
 						else if (fp_opmode_class(imm[6:0]) == 2'd2) go_illegal;
 						else begin
-							fpu_iawe <= 1;
-							fpu_req <= 1;
-							state <= S_FPU_GO;
+							fp_issue;
 						end
 					end
 					3'b001: go_fp_fline;   // undefined opclass
@@ -7918,9 +7953,7 @@ always @(posedge clk) begin
 						         fp_opmode_class(imm[6:0]) == 2'd2) go_illegal;
 						else if (imm[12:10] == 3'd7) begin
 							// FMOVECR: no EA; not hardware on the 040
-							fpu_iawe <= 1;
-							fpu_req <= 1;
-							state <= S_FPU_GO;
+							fp_issue;
 						end
 						else if (d_mode == 3'b000) begin
 							// A data-register EA only supplies a 32-bit value.  D/X/P
@@ -7944,8 +7977,7 @@ always @(posedge clk) begin
 							end
 							else begin
 								rr_a <= {1'b0, d_rn};
-								fpu_iawe <= 1;
-								state <= S_FPU_DREG;
+								state <= S_FPU_DREG;   // P250: FPIAR is written at issue
 							end
 						end
 						else if (d_mode == 3'b001) begin
@@ -7997,9 +8029,7 @@ always @(posedge clk) begin
 							// wins over the unimplemented-EA check and, with no
 							// addressable destination, the format-$3 EA is zero.
 							if (imm[12:10] == 3'd3 || imm[12:10] == 3'd7) begin
-								fpu_iawe <= 1;
-								fpu_req <= 1;
-								state <= S_FPU_GO;
+								fp_issue;
 							end
 							// A data register cannot hold a double or
 							// extended result: the 68040 reports these as
@@ -8016,9 +8046,7 @@ always @(posedge clk) begin
 							end
 							else begin
 								rr_a <= {1'b0, d_rn};
-								fpu_iawe <= 1;
-								fpu_req <= 1;
-								state <= S_FPU_GO;
+								fp_issue;
 							end
 						end
 						else if (d_mode == 3'b001) begin
@@ -8049,9 +8077,7 @@ always @(posedge clk) begin
 							fp_ea_pd <= (d_mode == 3'b100);
 							fp_ea_pi <= (d_mode == 3'b011);
 							t_a      <= (d_mode == 3'b100) ? (rf_capture_a - {25'd0, fpu_an_adj}) : rf_capture_a;
-							fpu_iawe <= 1;
-							fpu_req  <= 1;
-							state    <= S_FPU_GO;
+							fp_issue;
 						end
 						else if (d_mode == 3'b011 || d_mode == 3'b100 || d_mode == 3'b010) begin
 							rr_a <= {1'b1, d_rn};
@@ -8197,9 +8223,7 @@ always @(posedge clk) begin
 				case (fpu_class)
 					3'b010: state <= S_FPU_RD;
 					3'b011: begin
-						fpu_iawe <= 1;
-						fpu_req <= 1;
-						state <= S_FPU_GO;
+						fp_issue;
 					end
 					3'b100, 3'b101: state <= S_FPU_CR;
 					default: state <= S_FPU_MVM;
@@ -8212,9 +8236,7 @@ always @(posedge clk) begin
 				case (fpu_class)
 					3'b010: state <= S_FPU_RD;
 					3'b011: begin
-						fpu_iawe <= 1;
-						fpu_req <= 1;
-						state <= S_FPU_GO;
+						fp_issue;
 					end
 					3'b100, 3'b101: state <= S_FPU_CR;
 					default: state <= S_FPU_MVM;
@@ -8228,9 +8250,7 @@ always @(posedge clk) begin
 					3'd6: fpb <= {rf_rdata_a[7:0], 88'd0};
 					default: fpb <= {rf_rdata_a, 64'd0};
 				endcase
-				fpu_iawe <= 1;
-				fpu_req <= 1;
-				state <= S_FPU_GO;
+				fp_issue;
 			end
 
 			S_FPU_IMM: begin
@@ -8248,9 +8268,7 @@ always @(posedge clk) begin
 				    (fp_nb == 4'd4 && fp_n == 4'd1) ||
 				    (fp_nb == 4'd8 && fp_n == 4'd2) ||
 				    (fp_nb == 4'd12 && fp_n == 4'd3)) begin
-					fpu_iawe <= 1;
-					fpu_req <= 1;
-					state <= S_FPU_GO;
+					fp_issue;
 				end
 				else begin
 					fp_n <= fp_n + 4'd1;
@@ -8272,9 +8290,7 @@ always @(posedge clk) begin
 				if ((fp_nb <= 4'd4 && fp_n != 4'd0) ||
 				    (fp_nb == 4'd8 && fp_n == 4'd2) ||
 				    (fp_nb == 4'd12 && fp_n == 4'd3)) begin
-					fpu_iawe <= 1;
-					fpu_req <= 1;
-					state <= S_FPU_GO;
+					fp_issue;
 				end
 				else begin
 					if (fp_nb == 4'd1)
@@ -8284,6 +8300,24 @@ always @(posedge clk) begin
 					else
 						mrd(t_a + {26'd0, fp_n, 2'b00}, `AP040_SZ_L, S_FPU_RD);
 					fp_n <= fp_n + 4'd1;
+				end
+			end
+
+			S_FPU_ISSUE: begin
+				// P250: the operand is in fpb and the EA resolved; wait for
+				// the released operation to retire, deliver its pending
+				// pre-instruction exception (stacked PC = this instruction,
+				// whose (An)+/-(An) update has not been committed), or issue.
+				if (fpu_bg && !fpu_done) begin
+				end
+				else if (fpu_pend_exc) begin
+					fpu_pend_exc <= 0;
+					exc(fpu_pend_vec, 4'd0, pc_i, pc_i);
+				end
+				else begin
+					fpu_iawe <= 1;
+					fpu_req  <= 1;
+					state    <= S_FPU_GO;
 				end
 			end
 
