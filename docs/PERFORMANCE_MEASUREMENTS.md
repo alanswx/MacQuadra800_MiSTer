@@ -2531,4 +2531,26 @@ reviewed):
 
 Native kernels on the SDRAM path give byte-identical results with 14 %
 (Whetstone), 33 % (Matrix) and 37 % (FFT) fewer clocks, matching the guest
-time cuts. Hardware confirmation is pending a fit that meets the CPU clock.
+time cuts.
+
+## On hardware: FPU 0.973, Mix 1.803 (2026-09-28 evening)
+
+`ad7a0d4`, disposable QuadSquad8 copy, 32 MB, Main `ff404af9` (the
+FujiNet/printer Main that was on the box; both Quadra checks pass). Two fits
+of the same RTL ([evidence](perf/hw_p258_seed31_20260928/README.md)):
+
+| | marginal seed 31 (CPU -0.226, md5 `19beb5b2`) | **clean seed 31 + effort settings (CPU +0.103, md5 `b7e88b81`)** | 6f0f159 | real Q800 |
+|---|---:|---:|---:|---:|
+| FPU average, median of 5 | 0.978 | **0.973** | 0.684 | 1.011 |
+| KWhet / Matrix / FFT | 4571 / 0.688 s / 0.279 s | 4563 / 0.693 s / 0.280 s | 3865 / 1.017 / 0.454 | 5457 / 0.713 / 0.288 |
+| Mix, median of 5 | 1.793 | **1.803** | 1.781 | 1.899 |
+| Color 8-bit | 9.876 / 9.829 s | 9.900 / 9.851 s | 9.944 | 8.211 |
+
+No invalid run in 24; the clock kept step with the MiSTer's for the whole
+session; Finder idle four minutes; clean Shut Down both times. Individual
+Mix rows move by up to 20 % between the two fits (Sieve 1.046 -> 0.842 s,
+Int. Matrix 0.463 -> 0.515, Bubble 0.710 -> 0.682) while each row is stable
+to a few ms within a session: per-row differences between builds are
+memory placement per boot, so only whole-Mix medians compare across builds.
+The clean fit needs `PLACEMENT_EFFORT_MULTIPLIER 2.0` and
+`ROUTER_TIMING_OPTIMIZATION_LEVEL MAXIMUM`, now in the `.qsf`.
