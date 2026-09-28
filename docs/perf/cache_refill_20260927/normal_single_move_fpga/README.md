@@ -1,0 +1,11 @@
+# Normal-single-move FPU FPGA evidence
+
+This archive records the isolated Quartus A&S run, failed seed-21 full fit, and successful seed-27 full fit for the same approved FPU candidate (FPU SHA-256 `73bc156d147e4f8b1c7ee08f0bb03c7f1cd720d4e78293d8252f63bf992f0b1f`). Source base is pinned commit `708c12542a74c0b92872910d330a6e989b6a2181`. Seed 21 used QSF SHA-256 `75c69f933515f05c729076108b26515f3f6aff84a36692fdd58d2f95077fe1fd`; seed 27 changed only `SEED 21` to `SEED 27` (QSF SHA-256 `9b6fa7c352dd7667339e6e6ec4f03a00d1894b7e7fce14908f8b57b99c059ec4`). The tracked delta from the pinned source is the candidate FPU file plus the QSF seed setting.
+
+- `analysis_synthesis/` preserves the seed-21 candidate A&S output, RAM inference table, run identity, and log. A&S succeeded, but its 37,598 ALM figure is an estimate; AUTO RAM selection and fitted area/timing were unresolved. No matched baseline A&S run supports an area delta.
+- `seed21_failed_fit/` records seed 21's routing-congestion failure. Fitter placement completed, routing failed (16618/188026, 170143), and Quartus reported Error 11802. It produced no fresh RBF or STA report. The fit summary's 38,659 ALMs and 468 RAM blocks describe that failed attempt and do not establish a usable fit.
+- `seed27_successful_fit/` preserves the successful seed-27 flow, full timing summary, fitted RAM table, and tagged cross-domain reports. It completed with 38,750 ALMs, 468 M10K blocks, 36 DSP blocks, and worst reported slack +0.212 ns. Crossing slacks are +1.818 ns sys→RAM and +0.743 ns RAM→sys. The 91-ALM cross-seed difference is placement-dependent and is not an RTL area delta.
+
+The seed-27 bitstream remains only in the preserved scratch tree; no binary or Quartus database was copied into this archive. Scratch RBF: `/home/alans/mister/MacQuadra800_MiSTer/scratch/fpu_normal_single_move_quartus_20260928_seed27/tree/output_files/MacQuadra800.rbf`, 4,457,856 bytes, SHA-256 `cc948b77d304b42b27d530030e81dec10f5f880c828f8d17088d94a0e03f2185`. It was not deployed. Full identities, outputs, logs, and preserved databases remain under their scratch project directories.
+
+`SHA256SUMS` covers every file in this documentation archive except itself.
