@@ -2303,3 +2303,37 @@ $4080D000, $40809000, $4080E000 and $40811000.
 build; no seed of 11 has closed yet, see the `.qsf`).  RBF md5 `85924646`, Main
 `mac-printer-writebuffer` (`45182b73`).  Mix 1.781 / 1.781, Color 8-bit 9.944 s, FPU
 0.684, clean Shut Down: the same as `faf9d98`.  Screens: `docs/perf/prefetchfix_20260927/`.
+
+## Enabled normal-single FPU move: simulated guest gain (2026-09-28)
+
+The scratch candidate `6c157b3b` permits the exact normal `FMOVE.S` shortcut
+with FPCR exception enables set, retaining the existing ROUND/writeback
+exception handling. With the full CPU recipe, 8+8 KB caches and prefetch-fault
+fix, its completed Speedometer 4.02 guest FPU score is **0.729**, versus
+**0.698** for the previous `55ff9b3c` candidate: **+4.44%** in displayed score.
+These runs use the same calibrated Verilator RAM model and one iteration per
+test. They are not FPGA measurements.
+
+FPU rows below are sorted from lowest to highest current Speedometer rating.
+The percentage column uses Speedometer's Quadra 650 reference, not the real
+Quadra 800 comparison elsewhere in this document.
+
+| Test | Previous 55ff | Candidate 6c | Reference speed | Throughput change |
+|---|---:|---:|---:|---:|
+| Fast Fourier | 0.447 s | 0.418 s | 68.7% | +6.94% |
+| Whetstone | 3850.048 KWhetstones/s | 3850.048 KWhetstones/s | 73.9% | unchanged |
+| Matrix multiply | 0.991 s | 0.928 s | 76.1% | +6.79% |
+
+Time-based throughput changes use `previous_time / candidate_time - 1` and
+the displayed, rounded values. The corresponding Color8 run completed in
+**9.878 s**, unchanged. CPU Mix qualification remains pending at this checkpoint.
+The hardware target of at least 0.759 remains unproven.
+
+Setup and completed screenshots, immutable source/model identities, strict
+profile checks and manual reviews are archived in
+[FPU evidence](perf/cache_refill_20260927/normal_single_enabled_fullmachine_fpu/README.md)
+and [Color evidence](perf/cache_refill_20260927/normal_single_enabled_fullmachine_color/README.md).
+The separate SDRAM queue handoff timing change is covered by
+[paired physical-memory tests](perf/cache_refill_20260927/wq_available_handoff/README.md);
+the full-guest RAM model does not exercise that bridge. No new hardware result
+or release qualification is established by these simulations.
