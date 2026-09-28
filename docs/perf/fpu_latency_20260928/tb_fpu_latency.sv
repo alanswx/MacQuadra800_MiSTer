@@ -20,7 +20,7 @@ module tb_fpu_latency;
  wire [31:0] addr, wdata;
  reg ack=0;
  reg [31:0] rdata=0;
- reg [15:0] mem[0:65535];          // 128 KB
+ reg [15:0] mem[0:131071];         // 256 KB
  integer latency=3, waitleft=0, cycles=0, j, bytes;
  integer stamp_prev=0, exc_count=0, last_vec=0, trace_lo=-1, trace_hi=-1;
  reg [31:0] trace_pc=0, body_pc=32'hffffffff;
@@ -42,17 +42,17 @@ module tb_fpu_latency;
  .nmi_ack_toggle(),.cacr_out(),.vbr_out(),.debug_busy(),
  .debug_fault(fault),.debug_halted(halted),.debug_status(),.debug_status2());
  function [15:0] w(input [31:0] a);
-  w = (a<131072) ? mem[a>>1] : 16'h0000;
+  w = (a<262144) ? mem[a>>1] : 16'h0000;
  endfunction
  function is_exc_entry(input [7:0] st);
   is_exc_entry = st==dut.core.S_EXC0 || st==dut.core.S_EXC0_F2 || st==dut.core.S_EXC0_F3 || st==dut.core.S_EXC0_F4;
  endfunction
  function [7:0] readbyte(input integer a);
-  if(a<0 || a>=131072) $fatal(1,"RAM read out of range %h pc=%h",a,dut.core.pc_i);
+  if(a<0 || a>=262144) $fatal(1,"RAM read out of range %h pc=%h",a,dut.core.pc_i);
   readbyte = a[0] ? mem[a>>1][7:0] : mem[a>>1][15:8];
  endfunction
  task writebyte(input integer a,input [7:0] value);
-  if(a<0 || a>=131072) $fatal(1,"RAM write out of range %h pc=%h",a,dut.core.pc_i);
+  if(a<0 || a>=262144) $fatal(1,"RAM write out of range %h pc=%h",a,dut.core.pc_i);
   if(a[0]) mem[a>>1][7:0]=value; else mem[a>>1][15:8]=value;
  endtask
  initial begin
@@ -60,7 +60,7 @@ module tb_fpu_latency;
   if($value$plusargs("latency=%d",latency)) begin end
   if($value$plusargs("tracelo=%h",trace_lo)) begin end
   if($value$plusargs("tracehi=%h",trace_hi)) begin end
-  for(j=0;j<65536;j=j+1) mem[j]=0;
+  for(j=0;j<131072;j=j+1) mem[j]=0;
   $readmemh(path,mem);
   repeat(20) @(negedge clk);
   nreset=1;

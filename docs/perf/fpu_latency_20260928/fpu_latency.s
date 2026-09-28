@@ -2,11 +2,11 @@
 STAMP	equ	$F108
 DONE	equ	$F102
 	org	0
-	dc.l	$1E000,start
+	dc.l	$3F000,start
 	rept	254
 	dc.l	failh
 	endr
-	org	$400
+	org	$10000	; code; $F100-$F10F are the bench registers
 start:
 	move.w	#$2700,sr
 	move.l	#$80008000,d0	; I and D caches on
@@ -6685,53 +6685,53 @@ T131:
 	nop
 	move.w	#1,(STAMP).l
 	fcmp.x	fp7,fp0
-	fbeq.w	.T131_0
-.T131_0:
+	fbeq.w	.b0
+.b0:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T131_1
-.T131_1:
+	fbeq.w	.b1
+.b1:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T131_2
-.T131_2:
+	fbeq.w	.b2
+.b2:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T131_3
-.T131_3:
+	fbeq.w	.b3
+.b3:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T131_4
-.T131_4:
+	fbeq.w	.b4
+.b4:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T131_5
-.T131_5:
+	fbeq.w	.b5
+.b5:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T131_6
-.T131_6:
+	fbeq.w	.b6
+.b6:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T131_7
-.T131_7:
+	fbeq.w	.b7
+.b7:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T131_8
-.T131_8:
+	fbeq.w	.b8
+.b8:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T131_9
-.T131_9:
+	fbeq.w	.b9
+.b9:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T131_10
-.T131_10:
+	fbeq.w	.b10
+.b10:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T131_11
-.T131_11:
+	fbeq.w	.b11
+.b11:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T131_12
-.T131_12:
+	fbeq.w	.b12
+.b12:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T131_13
-.T131_13:
+	fbeq.w	.b13
+.b13:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T131_14
-.T131_14:
+	fbeq.w	.b14
+.b14:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T131_15
-.T131_15:
+	fbeq.w	.b15
+.b15:
 	fnop
 	move.w	#131,(STAMP).l
 	dbra	d7,T131
@@ -6750,101 +6750,101 @@ T132:
 	nop
 	move.w	#1,(STAMP).l
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_0
-.T132_0:
+	fbeq.w	.b0
+.b0:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_1
-.T132_1:
+	fbeq.w	.b1
+.b1:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_2
-.T132_2:
+	fbeq.w	.b2
+.b2:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_3
-.T132_3:
+	fbeq.w	.b3
+.b3:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_4
-.T132_4:
+	fbeq.w	.b4
+.b4:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_5
-.T132_5:
+	fbeq.w	.b5
+.b5:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_6
-.T132_6:
+	fbeq.w	.b6
+.b6:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_7
-.T132_7:
+	fbeq.w	.b7
+.b7:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_8
-.T132_8:
+	fbeq.w	.b8
+.b8:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_9
-.T132_9:
+	fbeq.w	.b9
+.b9:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_10
-.T132_10:
+	fbeq.w	.b10
+.b10:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_11
-.T132_11:
+	fbeq.w	.b11
+.b11:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_12
-.T132_12:
+	fbeq.w	.b12
+.b12:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_13
-.T132_13:
+	fbeq.w	.b13
+.b13:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_14
-.T132_14:
+	fbeq.w	.b14
+.b14:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_15
-.T132_15:
+	fbeq.w	.b15
+.b15:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_16
-.T132_16:
+	fbeq.w	.b16
+.b16:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_17
-.T132_17:
+	fbeq.w	.b17
+.b17:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_18
-.T132_18:
+	fbeq.w	.b18
+.b18:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_19
-.T132_19:
+	fbeq.w	.b19
+.b19:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_20
-.T132_20:
+	fbeq.w	.b20
+.b20:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_21
-.T132_21:
+	fbeq.w	.b21
+.b21:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_22
-.T132_22:
+	fbeq.w	.b22
+.b22:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_23
-.T132_23:
+	fbeq.w	.b23
+.b23:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_24
-.T132_24:
+	fbeq.w	.b24
+.b24:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_25
-.T132_25:
+	fbeq.w	.b25
+.b25:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_26
-.T132_26:
+	fbeq.w	.b26
+.b26:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_27
-.T132_27:
+	fbeq.w	.b27
+.b27:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_28
-.T132_28:
+	fbeq.w	.b28
+.b28:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_29
-.T132_29:
+	fbeq.w	.b29
+.b29:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_30
-.T132_30:
+	fbeq.w	.b30
+.b30:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T132_31
-.T132_31:
+	fbeq.w	.b31
+.b31:
 	fnop
 	move.w	#132,(STAMP).l
 	dbra	d7,T132
@@ -6863,197 +6863,197 @@ T133:
 	nop
 	move.w	#1,(STAMP).l
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_0
-.T133_0:
+	fbeq.w	.b0
+.b0:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_1
-.T133_1:
+	fbeq.w	.b1
+.b1:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_2
-.T133_2:
+	fbeq.w	.b2
+.b2:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_3
-.T133_3:
+	fbeq.w	.b3
+.b3:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_4
-.T133_4:
+	fbeq.w	.b4
+.b4:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_5
-.T133_5:
+	fbeq.w	.b5
+.b5:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_6
-.T133_6:
+	fbeq.w	.b6
+.b6:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_7
-.T133_7:
+	fbeq.w	.b7
+.b7:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_8
-.T133_8:
+	fbeq.w	.b8
+.b8:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_9
-.T133_9:
+	fbeq.w	.b9
+.b9:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_10
-.T133_10:
+	fbeq.w	.b10
+.b10:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_11
-.T133_11:
+	fbeq.w	.b11
+.b11:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_12
-.T133_12:
+	fbeq.w	.b12
+.b12:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_13
-.T133_13:
+	fbeq.w	.b13
+.b13:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_14
-.T133_14:
+	fbeq.w	.b14
+.b14:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_15
-.T133_15:
+	fbeq.w	.b15
+.b15:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_16
-.T133_16:
+	fbeq.w	.b16
+.b16:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_17
-.T133_17:
+	fbeq.w	.b17
+.b17:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_18
-.T133_18:
+	fbeq.w	.b18
+.b18:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_19
-.T133_19:
+	fbeq.w	.b19
+.b19:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_20
-.T133_20:
+	fbeq.w	.b20
+.b20:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_21
-.T133_21:
+	fbeq.w	.b21
+.b21:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_22
-.T133_22:
+	fbeq.w	.b22
+.b22:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_23
-.T133_23:
+	fbeq.w	.b23
+.b23:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_24
-.T133_24:
+	fbeq.w	.b24
+.b24:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_25
-.T133_25:
+	fbeq.w	.b25
+.b25:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_26
-.T133_26:
+	fbeq.w	.b26
+.b26:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_27
-.T133_27:
+	fbeq.w	.b27
+.b27:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_28
-.T133_28:
+	fbeq.w	.b28
+.b28:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_29
-.T133_29:
+	fbeq.w	.b29
+.b29:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_30
-.T133_30:
+	fbeq.w	.b30
+.b30:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_31
-.T133_31:
+	fbeq.w	.b31
+.b31:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_32
-.T133_32:
+	fbeq.w	.b32
+.b32:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_33
-.T133_33:
+	fbeq.w	.b33
+.b33:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_34
-.T133_34:
+	fbeq.w	.b34
+.b34:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_35
-.T133_35:
+	fbeq.w	.b35
+.b35:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_36
-.T133_36:
+	fbeq.w	.b36
+.b36:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_37
-.T133_37:
+	fbeq.w	.b37
+.b37:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_38
-.T133_38:
+	fbeq.w	.b38
+.b38:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_39
-.T133_39:
+	fbeq.w	.b39
+.b39:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_40
-.T133_40:
+	fbeq.w	.b40
+.b40:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_41
-.T133_41:
+	fbeq.w	.b41
+.b41:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_42
-.T133_42:
+	fbeq.w	.b42
+.b42:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_43
-.T133_43:
+	fbeq.w	.b43
+.b43:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_44
-.T133_44:
+	fbeq.w	.b44
+.b44:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_45
-.T133_45:
+	fbeq.w	.b45
+.b45:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_46
-.T133_46:
+	fbeq.w	.b46
+.b46:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_47
-.T133_47:
+	fbeq.w	.b47
+.b47:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_48
-.T133_48:
+	fbeq.w	.b48
+.b48:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_49
-.T133_49:
+	fbeq.w	.b49
+.b49:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_50
-.T133_50:
+	fbeq.w	.b50
+.b50:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_51
-.T133_51:
+	fbeq.w	.b51
+.b51:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_52
-.T133_52:
+	fbeq.w	.b52
+.b52:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_53
-.T133_53:
+	fbeq.w	.b53
+.b53:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_54
-.T133_54:
+	fbeq.w	.b54
+.b54:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_55
-.T133_55:
+	fbeq.w	.b55
+.b55:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_56
-.T133_56:
+	fbeq.w	.b56
+.b56:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_57
-.T133_57:
+	fbeq.w	.b57
+.b57:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_58
-.T133_58:
+	fbeq.w	.b58
+.b58:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_59
-.T133_59:
+	fbeq.w	.b59
+.b59:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_60
-.T133_60:
+	fbeq.w	.b60
+.b60:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_61
-.T133_61:
+	fbeq.w	.b61
+.b61:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_62
-.T133_62:
+	fbeq.w	.b62
+.b62:
 	fcmp.x	fp7,fp0
-	fbeq.w	.T133_63
-.T133_63:
+	fbeq.w	.b63
+.b63:
 	fnop
 	move.w	#133,(STAMP).l
 	dbra	d7,T133
@@ -7072,38 +7072,38 @@ T134:
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	fbeq.w	.T134_0
-.T134_0:
-	fbeq.w	.T134_1
-.T134_1:
-	fbeq.w	.T134_2
-.T134_2:
-	fbeq.w	.T134_3
-.T134_3:
-	fbeq.w	.T134_4
-.T134_4:
-	fbeq.w	.T134_5
-.T134_5:
-	fbeq.w	.T134_6
-.T134_6:
-	fbeq.w	.T134_7
-.T134_7:
-	fbeq.w	.T134_8
-.T134_8:
-	fbeq.w	.T134_9
-.T134_9:
-	fbeq.w	.T134_10
-.T134_10:
-	fbeq.w	.T134_11
-.T134_11:
-	fbeq.w	.T134_12
-.T134_12:
-	fbeq.w	.T134_13
-.T134_13:
-	fbeq.w	.T134_14
-.T134_14:
-	fbeq.w	.T134_15
-.T134_15:
+	fbeq.w	.b0
+.b0:
+	fbeq.w	.b1
+.b1:
+	fbeq.w	.b2
+.b2:
+	fbeq.w	.b3
+.b3:
+	fbeq.w	.b4
+.b4:
+	fbeq.w	.b5
+.b5:
+	fbeq.w	.b6
+.b6:
+	fbeq.w	.b7
+.b7:
+	fbeq.w	.b8
+.b8:
+	fbeq.w	.b9
+.b9:
+	fbeq.w	.b10
+.b10:
+	fbeq.w	.b11
+.b11:
+	fbeq.w	.b12
+.b12:
+	fbeq.w	.b13
+.b13:
+	fbeq.w	.b14
+.b14:
+	fbeq.w	.b15
+.b15:
 	fnop
 	move.w	#134,(STAMP).l
 	dbra	d7,T134
@@ -7122,70 +7122,70 @@ T135:
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	fbeq.w	.T135_0
-.T135_0:
-	fbeq.w	.T135_1
-.T135_1:
-	fbeq.w	.T135_2
-.T135_2:
-	fbeq.w	.T135_3
-.T135_3:
-	fbeq.w	.T135_4
-.T135_4:
-	fbeq.w	.T135_5
-.T135_5:
-	fbeq.w	.T135_6
-.T135_6:
-	fbeq.w	.T135_7
-.T135_7:
-	fbeq.w	.T135_8
-.T135_8:
-	fbeq.w	.T135_9
-.T135_9:
-	fbeq.w	.T135_10
-.T135_10:
-	fbeq.w	.T135_11
-.T135_11:
-	fbeq.w	.T135_12
-.T135_12:
-	fbeq.w	.T135_13
-.T135_13:
-	fbeq.w	.T135_14
-.T135_14:
-	fbeq.w	.T135_15
-.T135_15:
-	fbeq.w	.T135_16
-.T135_16:
-	fbeq.w	.T135_17
-.T135_17:
-	fbeq.w	.T135_18
-.T135_18:
-	fbeq.w	.T135_19
-.T135_19:
-	fbeq.w	.T135_20
-.T135_20:
-	fbeq.w	.T135_21
-.T135_21:
-	fbeq.w	.T135_22
-.T135_22:
-	fbeq.w	.T135_23
-.T135_23:
-	fbeq.w	.T135_24
-.T135_24:
-	fbeq.w	.T135_25
-.T135_25:
-	fbeq.w	.T135_26
-.T135_26:
-	fbeq.w	.T135_27
-.T135_27:
-	fbeq.w	.T135_28
-.T135_28:
-	fbeq.w	.T135_29
-.T135_29:
-	fbeq.w	.T135_30
-.T135_30:
-	fbeq.w	.T135_31
-.T135_31:
+	fbeq.w	.b0
+.b0:
+	fbeq.w	.b1
+.b1:
+	fbeq.w	.b2
+.b2:
+	fbeq.w	.b3
+.b3:
+	fbeq.w	.b4
+.b4:
+	fbeq.w	.b5
+.b5:
+	fbeq.w	.b6
+.b6:
+	fbeq.w	.b7
+.b7:
+	fbeq.w	.b8
+.b8:
+	fbeq.w	.b9
+.b9:
+	fbeq.w	.b10
+.b10:
+	fbeq.w	.b11
+.b11:
+	fbeq.w	.b12
+.b12:
+	fbeq.w	.b13
+.b13:
+	fbeq.w	.b14
+.b14:
+	fbeq.w	.b15
+.b15:
+	fbeq.w	.b16
+.b16:
+	fbeq.w	.b17
+.b17:
+	fbeq.w	.b18
+.b18:
+	fbeq.w	.b19
+.b19:
+	fbeq.w	.b20
+.b20:
+	fbeq.w	.b21
+.b21:
+	fbeq.w	.b22
+.b22:
+	fbeq.w	.b23
+.b23:
+	fbeq.w	.b24
+.b24:
+	fbeq.w	.b25
+.b25:
+	fbeq.w	.b26
+.b26:
+	fbeq.w	.b27
+.b27:
+	fbeq.w	.b28
+.b28:
+	fbeq.w	.b29
+.b29:
+	fbeq.w	.b30
+.b30:
+	fbeq.w	.b31
+.b31:
 	fnop
 	move.w	#135,(STAMP).l
 	dbra	d7,T135
@@ -7204,134 +7204,134 @@ T136:
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	fbeq.w	.T136_0
-.T136_0:
-	fbeq.w	.T136_1
-.T136_1:
-	fbeq.w	.T136_2
-.T136_2:
-	fbeq.w	.T136_3
-.T136_3:
-	fbeq.w	.T136_4
-.T136_4:
-	fbeq.w	.T136_5
-.T136_5:
-	fbeq.w	.T136_6
-.T136_6:
-	fbeq.w	.T136_7
-.T136_7:
-	fbeq.w	.T136_8
-.T136_8:
-	fbeq.w	.T136_9
-.T136_9:
-	fbeq.w	.T136_10
-.T136_10:
-	fbeq.w	.T136_11
-.T136_11:
-	fbeq.w	.T136_12
-.T136_12:
-	fbeq.w	.T136_13
-.T136_13:
-	fbeq.w	.T136_14
-.T136_14:
-	fbeq.w	.T136_15
-.T136_15:
-	fbeq.w	.T136_16
-.T136_16:
-	fbeq.w	.T136_17
-.T136_17:
-	fbeq.w	.T136_18
-.T136_18:
-	fbeq.w	.T136_19
-.T136_19:
-	fbeq.w	.T136_20
-.T136_20:
-	fbeq.w	.T136_21
-.T136_21:
-	fbeq.w	.T136_22
-.T136_22:
-	fbeq.w	.T136_23
-.T136_23:
-	fbeq.w	.T136_24
-.T136_24:
-	fbeq.w	.T136_25
-.T136_25:
-	fbeq.w	.T136_26
-.T136_26:
-	fbeq.w	.T136_27
-.T136_27:
-	fbeq.w	.T136_28
-.T136_28:
-	fbeq.w	.T136_29
-.T136_29:
-	fbeq.w	.T136_30
-.T136_30:
-	fbeq.w	.T136_31
-.T136_31:
-	fbeq.w	.T136_32
-.T136_32:
-	fbeq.w	.T136_33
-.T136_33:
-	fbeq.w	.T136_34
-.T136_34:
-	fbeq.w	.T136_35
-.T136_35:
-	fbeq.w	.T136_36
-.T136_36:
-	fbeq.w	.T136_37
-.T136_37:
-	fbeq.w	.T136_38
-.T136_38:
-	fbeq.w	.T136_39
-.T136_39:
-	fbeq.w	.T136_40
-.T136_40:
-	fbeq.w	.T136_41
-.T136_41:
-	fbeq.w	.T136_42
-.T136_42:
-	fbeq.w	.T136_43
-.T136_43:
-	fbeq.w	.T136_44
-.T136_44:
-	fbeq.w	.T136_45
-.T136_45:
-	fbeq.w	.T136_46
-.T136_46:
-	fbeq.w	.T136_47
-.T136_47:
-	fbeq.w	.T136_48
-.T136_48:
-	fbeq.w	.T136_49
-.T136_49:
-	fbeq.w	.T136_50
-.T136_50:
-	fbeq.w	.T136_51
-.T136_51:
-	fbeq.w	.T136_52
-.T136_52:
-	fbeq.w	.T136_53
-.T136_53:
-	fbeq.w	.T136_54
-.T136_54:
-	fbeq.w	.T136_55
-.T136_55:
-	fbeq.w	.T136_56
-.T136_56:
-	fbeq.w	.T136_57
-.T136_57:
-	fbeq.w	.T136_58
-.T136_58:
-	fbeq.w	.T136_59
-.T136_59:
-	fbeq.w	.T136_60
-.T136_60:
-	fbeq.w	.T136_61
-.T136_61:
-	fbeq.w	.T136_62
-.T136_62:
-	fbeq.w	.T136_63
-.T136_63:
+	fbeq.w	.b0
+.b0:
+	fbeq.w	.b1
+.b1:
+	fbeq.w	.b2
+.b2:
+	fbeq.w	.b3
+.b3:
+	fbeq.w	.b4
+.b4:
+	fbeq.w	.b5
+.b5:
+	fbeq.w	.b6
+.b6:
+	fbeq.w	.b7
+.b7:
+	fbeq.w	.b8
+.b8:
+	fbeq.w	.b9
+.b9:
+	fbeq.w	.b10
+.b10:
+	fbeq.w	.b11
+.b11:
+	fbeq.w	.b12
+.b12:
+	fbeq.w	.b13
+.b13:
+	fbeq.w	.b14
+.b14:
+	fbeq.w	.b15
+.b15:
+	fbeq.w	.b16
+.b16:
+	fbeq.w	.b17
+.b17:
+	fbeq.w	.b18
+.b18:
+	fbeq.w	.b19
+.b19:
+	fbeq.w	.b20
+.b20:
+	fbeq.w	.b21
+.b21:
+	fbeq.w	.b22
+.b22:
+	fbeq.w	.b23
+.b23:
+	fbeq.w	.b24
+.b24:
+	fbeq.w	.b25
+.b25:
+	fbeq.w	.b26
+.b26:
+	fbeq.w	.b27
+.b27:
+	fbeq.w	.b28
+.b28:
+	fbeq.w	.b29
+.b29:
+	fbeq.w	.b30
+.b30:
+	fbeq.w	.b31
+.b31:
+	fbeq.w	.b32
+.b32:
+	fbeq.w	.b33
+.b33:
+	fbeq.w	.b34
+.b34:
+	fbeq.w	.b35
+.b35:
+	fbeq.w	.b36
+.b36:
+	fbeq.w	.b37
+.b37:
+	fbeq.w	.b38
+.b38:
+	fbeq.w	.b39
+.b39:
+	fbeq.w	.b40
+.b40:
+	fbeq.w	.b41
+.b41:
+	fbeq.w	.b42
+.b42:
+	fbeq.w	.b43
+.b43:
+	fbeq.w	.b44
+.b44:
+	fbeq.w	.b45
+.b45:
+	fbeq.w	.b46
+.b46:
+	fbeq.w	.b47
+.b47:
+	fbeq.w	.b48
+.b48:
+	fbeq.w	.b49
+.b49:
+	fbeq.w	.b50
+.b50:
+	fbeq.w	.b51
+.b51:
+	fbeq.w	.b52
+.b52:
+	fbeq.w	.b53
+.b53:
+	fbeq.w	.b54
+.b54:
+	fbeq.w	.b55
+.b55:
+	fbeq.w	.b56
+.b56:
+	fbeq.w	.b57
+.b57:
+	fbeq.w	.b58
+.b58:
+	fbeq.w	.b59
+.b59:
+	fbeq.w	.b60
+.b60:
+	fbeq.w	.b61
+.b61:
+	fbeq.w	.b62
+.b62:
+	fbeq.w	.b63
+.b63:
 	fnop
 	move.w	#136,(STAMP).l
 	dbra	d7,T136
@@ -7350,38 +7350,38 @@ T137:
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	fbne.w	.T137_0
-.T137_0:
-	fbne.w	.T137_1
-.T137_1:
-	fbne.w	.T137_2
-.T137_2:
-	fbne.w	.T137_3
-.T137_3:
-	fbne.w	.T137_4
-.T137_4:
-	fbne.w	.T137_5
-.T137_5:
-	fbne.w	.T137_6
-.T137_6:
-	fbne.w	.T137_7
-.T137_7:
-	fbne.w	.T137_8
-.T137_8:
-	fbne.w	.T137_9
-.T137_9:
-	fbne.w	.T137_10
-.T137_10:
-	fbne.w	.T137_11
-.T137_11:
-	fbne.w	.T137_12
-.T137_12:
-	fbne.w	.T137_13
-.T137_13:
-	fbne.w	.T137_14
-.T137_14:
-	fbne.w	.T137_15
-.T137_15:
+	fbne.w	.b0
+.b0:
+	fbne.w	.b1
+.b1:
+	fbne.w	.b2
+.b2:
+	fbne.w	.b3
+.b3:
+	fbne.w	.b4
+.b4:
+	fbne.w	.b5
+.b5:
+	fbne.w	.b6
+.b6:
+	fbne.w	.b7
+.b7:
+	fbne.w	.b8
+.b8:
+	fbne.w	.b9
+.b9:
+	fbne.w	.b10
+.b10:
+	fbne.w	.b11
+.b11:
+	fbne.w	.b12
+.b12:
+	fbne.w	.b13
+.b13:
+	fbne.w	.b14
+.b14:
+	fbne.w	.b15
+.b15:
 	fnop
 	move.w	#137,(STAMP).l
 	dbra	d7,T137
@@ -7400,70 +7400,70 @@ T138:
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	fbne.w	.T138_0
-.T138_0:
-	fbne.w	.T138_1
-.T138_1:
-	fbne.w	.T138_2
-.T138_2:
-	fbne.w	.T138_3
-.T138_3:
-	fbne.w	.T138_4
-.T138_4:
-	fbne.w	.T138_5
-.T138_5:
-	fbne.w	.T138_6
-.T138_6:
-	fbne.w	.T138_7
-.T138_7:
-	fbne.w	.T138_8
-.T138_8:
-	fbne.w	.T138_9
-.T138_9:
-	fbne.w	.T138_10
-.T138_10:
-	fbne.w	.T138_11
-.T138_11:
-	fbne.w	.T138_12
-.T138_12:
-	fbne.w	.T138_13
-.T138_13:
-	fbne.w	.T138_14
-.T138_14:
-	fbne.w	.T138_15
-.T138_15:
-	fbne.w	.T138_16
-.T138_16:
-	fbne.w	.T138_17
-.T138_17:
-	fbne.w	.T138_18
-.T138_18:
-	fbne.w	.T138_19
-.T138_19:
-	fbne.w	.T138_20
-.T138_20:
-	fbne.w	.T138_21
-.T138_21:
-	fbne.w	.T138_22
-.T138_22:
-	fbne.w	.T138_23
-.T138_23:
-	fbne.w	.T138_24
-.T138_24:
-	fbne.w	.T138_25
-.T138_25:
-	fbne.w	.T138_26
-.T138_26:
-	fbne.w	.T138_27
-.T138_27:
-	fbne.w	.T138_28
-.T138_28:
-	fbne.w	.T138_29
-.T138_29:
-	fbne.w	.T138_30
-.T138_30:
-	fbne.w	.T138_31
-.T138_31:
+	fbne.w	.b0
+.b0:
+	fbne.w	.b1
+.b1:
+	fbne.w	.b2
+.b2:
+	fbne.w	.b3
+.b3:
+	fbne.w	.b4
+.b4:
+	fbne.w	.b5
+.b5:
+	fbne.w	.b6
+.b6:
+	fbne.w	.b7
+.b7:
+	fbne.w	.b8
+.b8:
+	fbne.w	.b9
+.b9:
+	fbne.w	.b10
+.b10:
+	fbne.w	.b11
+.b11:
+	fbne.w	.b12
+.b12:
+	fbne.w	.b13
+.b13:
+	fbne.w	.b14
+.b14:
+	fbne.w	.b15
+.b15:
+	fbne.w	.b16
+.b16:
+	fbne.w	.b17
+.b17:
+	fbne.w	.b18
+.b18:
+	fbne.w	.b19
+.b19:
+	fbne.w	.b20
+.b20:
+	fbne.w	.b21
+.b21:
+	fbne.w	.b22
+.b22:
+	fbne.w	.b23
+.b23:
+	fbne.w	.b24
+.b24:
+	fbne.w	.b25
+.b25:
+	fbne.w	.b26
+.b26:
+	fbne.w	.b27
+.b27:
+	fbne.w	.b28
+.b28:
+	fbne.w	.b29
+.b29:
+	fbne.w	.b30
+.b30:
+	fbne.w	.b31
+.b31:
 	fnop
 	move.w	#138,(STAMP).l
 	dbra	d7,T138
@@ -7482,134 +7482,134 @@ T139:
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	fbne.w	.T139_0
-.T139_0:
-	fbne.w	.T139_1
-.T139_1:
-	fbne.w	.T139_2
-.T139_2:
-	fbne.w	.T139_3
-.T139_3:
-	fbne.w	.T139_4
-.T139_4:
-	fbne.w	.T139_5
-.T139_5:
-	fbne.w	.T139_6
-.T139_6:
-	fbne.w	.T139_7
-.T139_7:
-	fbne.w	.T139_8
-.T139_8:
-	fbne.w	.T139_9
-.T139_9:
-	fbne.w	.T139_10
-.T139_10:
-	fbne.w	.T139_11
-.T139_11:
-	fbne.w	.T139_12
-.T139_12:
-	fbne.w	.T139_13
-.T139_13:
-	fbne.w	.T139_14
-.T139_14:
-	fbne.w	.T139_15
-.T139_15:
-	fbne.w	.T139_16
-.T139_16:
-	fbne.w	.T139_17
-.T139_17:
-	fbne.w	.T139_18
-.T139_18:
-	fbne.w	.T139_19
-.T139_19:
-	fbne.w	.T139_20
-.T139_20:
-	fbne.w	.T139_21
-.T139_21:
-	fbne.w	.T139_22
-.T139_22:
-	fbne.w	.T139_23
-.T139_23:
-	fbne.w	.T139_24
-.T139_24:
-	fbne.w	.T139_25
-.T139_25:
-	fbne.w	.T139_26
-.T139_26:
-	fbne.w	.T139_27
-.T139_27:
-	fbne.w	.T139_28
-.T139_28:
-	fbne.w	.T139_29
-.T139_29:
-	fbne.w	.T139_30
-.T139_30:
-	fbne.w	.T139_31
-.T139_31:
-	fbne.w	.T139_32
-.T139_32:
-	fbne.w	.T139_33
-.T139_33:
-	fbne.w	.T139_34
-.T139_34:
-	fbne.w	.T139_35
-.T139_35:
-	fbne.w	.T139_36
-.T139_36:
-	fbne.w	.T139_37
-.T139_37:
-	fbne.w	.T139_38
-.T139_38:
-	fbne.w	.T139_39
-.T139_39:
-	fbne.w	.T139_40
-.T139_40:
-	fbne.w	.T139_41
-.T139_41:
-	fbne.w	.T139_42
-.T139_42:
-	fbne.w	.T139_43
-.T139_43:
-	fbne.w	.T139_44
-.T139_44:
-	fbne.w	.T139_45
-.T139_45:
-	fbne.w	.T139_46
-.T139_46:
-	fbne.w	.T139_47
-.T139_47:
-	fbne.w	.T139_48
-.T139_48:
-	fbne.w	.T139_49
-.T139_49:
-	fbne.w	.T139_50
-.T139_50:
-	fbne.w	.T139_51
-.T139_51:
-	fbne.w	.T139_52
-.T139_52:
-	fbne.w	.T139_53
-.T139_53:
-	fbne.w	.T139_54
-.T139_54:
-	fbne.w	.T139_55
-.T139_55:
-	fbne.w	.T139_56
-.T139_56:
-	fbne.w	.T139_57
-.T139_57:
-	fbne.w	.T139_58
-.T139_58:
-	fbne.w	.T139_59
-.T139_59:
-	fbne.w	.T139_60
-.T139_60:
-	fbne.w	.T139_61
-.T139_61:
-	fbne.w	.T139_62
-.T139_62:
-	fbne.w	.T139_63
-.T139_63:
+	fbne.w	.b0
+.b0:
+	fbne.w	.b1
+.b1:
+	fbne.w	.b2
+.b2:
+	fbne.w	.b3
+.b3:
+	fbne.w	.b4
+.b4:
+	fbne.w	.b5
+.b5:
+	fbne.w	.b6
+.b6:
+	fbne.w	.b7
+.b7:
+	fbne.w	.b8
+.b8:
+	fbne.w	.b9
+.b9:
+	fbne.w	.b10
+.b10:
+	fbne.w	.b11
+.b11:
+	fbne.w	.b12
+.b12:
+	fbne.w	.b13
+.b13:
+	fbne.w	.b14
+.b14:
+	fbne.w	.b15
+.b15:
+	fbne.w	.b16
+.b16:
+	fbne.w	.b17
+.b17:
+	fbne.w	.b18
+.b18:
+	fbne.w	.b19
+.b19:
+	fbne.w	.b20
+.b20:
+	fbne.w	.b21
+.b21:
+	fbne.w	.b22
+.b22:
+	fbne.w	.b23
+.b23:
+	fbne.w	.b24
+.b24:
+	fbne.w	.b25
+.b25:
+	fbne.w	.b26
+.b26:
+	fbne.w	.b27
+.b27:
+	fbne.w	.b28
+.b28:
+	fbne.w	.b29
+.b29:
+	fbne.w	.b30
+.b30:
+	fbne.w	.b31
+.b31:
+	fbne.w	.b32
+.b32:
+	fbne.w	.b33
+.b33:
+	fbne.w	.b34
+.b34:
+	fbne.w	.b35
+.b35:
+	fbne.w	.b36
+.b36:
+	fbne.w	.b37
+.b37:
+	fbne.w	.b38
+.b38:
+	fbne.w	.b39
+.b39:
+	fbne.w	.b40
+.b40:
+	fbne.w	.b41
+.b41:
+	fbne.w	.b42
+.b42:
+	fbne.w	.b43
+.b43:
+	fbne.w	.b44
+.b44:
+	fbne.w	.b45
+.b45:
+	fbne.w	.b46
+.b46:
+	fbne.w	.b47
+.b47:
+	fbne.w	.b48
+.b48:
+	fbne.w	.b49
+.b49:
+	fbne.w	.b50
+.b50:
+	fbne.w	.b51
+.b51:
+	fbne.w	.b52
+.b52:
+	fbne.w	.b53
+.b53:
+	fbne.w	.b54
+.b54:
+	fbne.w	.b55
+.b55:
+	fbne.w	.b56
+.b56:
+	fbne.w	.b57
+.b57:
+	fbne.w	.b58
+.b58:
+	fbne.w	.b59
+.b59:
+	fbne.w	.b60
+.b60:
+	fbne.w	.b61
+.b61:
+	fbne.w	.b62
+.b62:
+	fbne.w	.b63
+.b63:
 	fnop
 	move.w	#139,(STAMP).l
 	dbra	d7,T139
@@ -13903,425 +13903,3233 @@ T160:
 	fnop
 	move.w	#160,(STAMP).l
 	dbra	d7,T160
-; ---- fintrz_rte  n=16  (FINTRZ.X FP1,FP0 -> vec 11, handler RTE)
+; ---- flds16_i  n=16  (FMOVE.S d16(A0),FPn)
 	moveq	#1,d7	; two passes, second is reported
 T161:
-	fmove.x	(c1p2345).l,fp0
-	fmove.x	(c1p2345).l,fp1
-	fmove.x	(c1p2345).l,fp2
-	fmove.x	(c1p2345).l,fp3
-	fmove.x	(c1p2345).l,fp4
-	fmove.x	(c1p2345).l,fp5
-	fmove.x	(c1p2345).l,fp6
-	fmove.x	(c1p2345).l,fp7
-	move.l	#h_rte,(44).w
+	lea	(sdat).l,a0
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
+	fmove.s	8(a0),fp0
+	fmove.s	8(a0),fp1
+	fmove.s	8(a0),fp2
+	fmove.s	8(a0),fp3
+	fmove.s	8(a0),fp4
+	fmove.s	8(a0),fp5
+	fmove.s	8(a0),fp6
+	fmove.s	8(a0),fp7
+	fmove.s	8(a0),fp0
+	fmove.s	8(a0),fp1
+	fmove.s	8(a0),fp2
+	fmove.s	8(a0),fp3
+	fmove.s	8(a0),fp4
+	fmove.s	8(a0),fp5
+	fmove.s	8(a0),fp6
+	fmove.s	8(a0),fp7
 	fnop
 	move.w	#161,(STAMP).l
 	dbra	d7,T161
-; ---- fintrz_rte  n=32  (FINTRZ.X FP1,FP0 -> vec 11, handler RTE)
+; ---- flds16_i  n=32  (FMOVE.S d16(A0),FPn)
 	moveq	#1,d7	; two passes, second is reported
 T162:
-	fmove.x	(c1p2345).l,fp0
-	fmove.x	(c1p2345).l,fp1
-	fmove.x	(c1p2345).l,fp2
-	fmove.x	(c1p2345).l,fp3
-	fmove.x	(c1p2345).l,fp4
-	fmove.x	(c1p2345).l,fp5
-	fmove.x	(c1p2345).l,fp6
-	fmove.x	(c1p2345).l,fp7
-	move.l	#h_rte,(44).w
+	lea	(sdat).l,a0
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
+	fmove.s	8(a0),fp0
+	fmove.s	8(a0),fp1
+	fmove.s	8(a0),fp2
+	fmove.s	8(a0),fp3
+	fmove.s	8(a0),fp4
+	fmove.s	8(a0),fp5
+	fmove.s	8(a0),fp6
+	fmove.s	8(a0),fp7
+	fmove.s	8(a0),fp0
+	fmove.s	8(a0),fp1
+	fmove.s	8(a0),fp2
+	fmove.s	8(a0),fp3
+	fmove.s	8(a0),fp4
+	fmove.s	8(a0),fp5
+	fmove.s	8(a0),fp6
+	fmove.s	8(a0),fp7
+	fmove.s	8(a0),fp0
+	fmove.s	8(a0),fp1
+	fmove.s	8(a0),fp2
+	fmove.s	8(a0),fp3
+	fmove.s	8(a0),fp4
+	fmove.s	8(a0),fp5
+	fmove.s	8(a0),fp6
+	fmove.s	8(a0),fp7
+	fmove.s	8(a0),fp0
+	fmove.s	8(a0),fp1
+	fmove.s	8(a0),fp2
+	fmove.s	8(a0),fp3
+	fmove.s	8(a0),fp4
+	fmove.s	8(a0),fp5
+	fmove.s	8(a0),fp6
+	fmove.s	8(a0),fp7
 	fnop
 	move.w	#162,(STAMP).l
 	dbra	d7,T162
-; ---- fintrz_rte  n=64  (FINTRZ.X FP1,FP0 -> vec 11, handler RTE)
+; ---- flds16_i  n=64  (FMOVE.S d16(A0),FPn)
 	moveq	#1,d7	; two passes, second is reported
 T163:
-	fmove.x	(c1p2345).l,fp0
-	fmove.x	(c1p2345).l,fp1
-	fmove.x	(c1p2345).l,fp2
-	fmove.x	(c1p2345).l,fp3
-	fmove.x	(c1p2345).l,fp4
-	fmove.x	(c1p2345).l,fp5
-	fmove.x	(c1p2345).l,fp6
-	fmove.x	(c1p2345).l,fp7
-	move.l	#h_rte,(44).w
+	lea	(sdat).l,a0
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
+	fmove.s	8(a0),fp0
+	fmove.s	8(a0),fp1
+	fmove.s	8(a0),fp2
+	fmove.s	8(a0),fp3
+	fmove.s	8(a0),fp4
+	fmove.s	8(a0),fp5
+	fmove.s	8(a0),fp6
+	fmove.s	8(a0),fp7
+	fmove.s	8(a0),fp0
+	fmove.s	8(a0),fp1
+	fmove.s	8(a0),fp2
+	fmove.s	8(a0),fp3
+	fmove.s	8(a0),fp4
+	fmove.s	8(a0),fp5
+	fmove.s	8(a0),fp6
+	fmove.s	8(a0),fp7
+	fmove.s	8(a0),fp0
+	fmove.s	8(a0),fp1
+	fmove.s	8(a0),fp2
+	fmove.s	8(a0),fp3
+	fmove.s	8(a0),fp4
+	fmove.s	8(a0),fp5
+	fmove.s	8(a0),fp6
+	fmove.s	8(a0),fp7
+	fmove.s	8(a0),fp0
+	fmove.s	8(a0),fp1
+	fmove.s	8(a0),fp2
+	fmove.s	8(a0),fp3
+	fmove.s	8(a0),fp4
+	fmove.s	8(a0),fp5
+	fmove.s	8(a0),fp6
+	fmove.s	8(a0),fp7
+	fmove.s	8(a0),fp0
+	fmove.s	8(a0),fp1
+	fmove.s	8(a0),fp2
+	fmove.s	8(a0),fp3
+	fmove.s	8(a0),fp4
+	fmove.s	8(a0),fp5
+	fmove.s	8(a0),fp6
+	fmove.s	8(a0),fp7
+	fmove.s	8(a0),fp0
+	fmove.s	8(a0),fp1
+	fmove.s	8(a0),fp2
+	fmove.s	8(a0),fp3
+	fmove.s	8(a0),fp4
+	fmove.s	8(a0),fp5
+	fmove.s	8(a0),fp6
+	fmove.s	8(a0),fp7
+	fmove.s	8(a0),fp0
+	fmove.s	8(a0),fp1
+	fmove.s	8(a0),fp2
+	fmove.s	8(a0),fp3
+	fmove.s	8(a0),fp4
+	fmove.s	8(a0),fp5
+	fmove.s	8(a0),fp6
+	fmove.s	8(a0),fp7
+	fmove.s	8(a0),fp0
+	fmove.s	8(a0),fp1
+	fmove.s	8(a0),fp2
+	fmove.s	8(a0),fp3
+	fmove.s	8(a0),fp4
+	fmove.s	8(a0),fp5
+	fmove.s	8(a0),fp6
+	fmove.s	8(a0),fp7
 	fnop
 	move.w	#163,(STAMP).l
 	dbra	d7,T163
-; ---- fintrz_fs  n=16  (FINTRZ.X FP1,FP0 -> vec 11, handler FSAVE/FRESTORE/RTE)
+; ---- fldsx_i  n=16  (FMOVE.S d8(A0,D0.L),FPn)
 	moveq	#1,d7	; two passes, second is reported
 T164:
-	fmove.x	(c1p2345).l,fp0
-	fmove.x	(c1p2345).l,fp1
-	fmove.x	(c1p2345).l,fp2
-	fmove.x	(c1p2345).l,fp3
-	fmove.x	(c1p2345).l,fp4
-	fmove.x	(c1p2345).l,fp5
-	fmove.x	(c1p2345).l,fp6
-	fmove.x	(c1p2345).l,fp7
-	move.l	#h_fsave,(44).w
+	lea	(sdat).l,a0
+	moveq	#4,d0
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
+	fmove.s	8(a0,d0.l),fp0
+	fmove.s	8(a0,d0.l),fp1
+	fmove.s	8(a0,d0.l),fp2
+	fmove.s	8(a0,d0.l),fp3
+	fmove.s	8(a0,d0.l),fp4
+	fmove.s	8(a0,d0.l),fp5
+	fmove.s	8(a0,d0.l),fp6
+	fmove.s	8(a0,d0.l),fp7
+	fmove.s	8(a0,d0.l),fp0
+	fmove.s	8(a0,d0.l),fp1
+	fmove.s	8(a0,d0.l),fp2
+	fmove.s	8(a0,d0.l),fp3
+	fmove.s	8(a0,d0.l),fp4
+	fmove.s	8(a0,d0.l),fp5
+	fmove.s	8(a0,d0.l),fp6
+	fmove.s	8(a0,d0.l),fp7
 	fnop
 	move.w	#164,(STAMP).l
 	dbra	d7,T164
-; ---- fintrz_fs  n=32  (FINTRZ.X FP1,FP0 -> vec 11, handler FSAVE/FRESTORE/RTE)
+; ---- fldsx_i  n=32  (FMOVE.S d8(A0,D0.L),FPn)
 	moveq	#1,d7	; two passes, second is reported
 T165:
-	fmove.x	(c1p2345).l,fp0
-	fmove.x	(c1p2345).l,fp1
-	fmove.x	(c1p2345).l,fp2
-	fmove.x	(c1p2345).l,fp3
-	fmove.x	(c1p2345).l,fp4
-	fmove.x	(c1p2345).l,fp5
-	fmove.x	(c1p2345).l,fp6
-	fmove.x	(c1p2345).l,fp7
-	move.l	#h_fsave,(44).w
+	lea	(sdat).l,a0
+	moveq	#4,d0
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
+	fmove.s	8(a0,d0.l),fp0
+	fmove.s	8(a0,d0.l),fp1
+	fmove.s	8(a0,d0.l),fp2
+	fmove.s	8(a0,d0.l),fp3
+	fmove.s	8(a0,d0.l),fp4
+	fmove.s	8(a0,d0.l),fp5
+	fmove.s	8(a0,d0.l),fp6
+	fmove.s	8(a0,d0.l),fp7
+	fmove.s	8(a0,d0.l),fp0
+	fmove.s	8(a0,d0.l),fp1
+	fmove.s	8(a0,d0.l),fp2
+	fmove.s	8(a0,d0.l),fp3
+	fmove.s	8(a0,d0.l),fp4
+	fmove.s	8(a0,d0.l),fp5
+	fmove.s	8(a0,d0.l),fp6
+	fmove.s	8(a0,d0.l),fp7
+	fmove.s	8(a0,d0.l),fp0
+	fmove.s	8(a0,d0.l),fp1
+	fmove.s	8(a0,d0.l),fp2
+	fmove.s	8(a0,d0.l),fp3
+	fmove.s	8(a0,d0.l),fp4
+	fmove.s	8(a0,d0.l),fp5
+	fmove.s	8(a0,d0.l),fp6
+	fmove.s	8(a0,d0.l),fp7
+	fmove.s	8(a0,d0.l),fp0
+	fmove.s	8(a0,d0.l),fp1
+	fmove.s	8(a0,d0.l),fp2
+	fmove.s	8(a0,d0.l),fp3
+	fmove.s	8(a0,d0.l),fp4
+	fmove.s	8(a0,d0.l),fp5
+	fmove.s	8(a0,d0.l),fp6
+	fmove.s	8(a0,d0.l),fp7
 	fnop
 	move.w	#165,(STAMP).l
 	dbra	d7,T165
-; ---- fintrz_fs  n=64  (FINTRZ.X FP1,FP0 -> vec 11, handler FSAVE/FRESTORE/RTE)
+; ---- fldsx_i  n=64  (FMOVE.S d8(A0,D0.L),FPn)
 	moveq	#1,d7	; two passes, second is reported
 T166:
-	fmove.x	(c1p2345).l,fp0
-	fmove.x	(c1p2345).l,fp1
-	fmove.x	(c1p2345).l,fp2
-	fmove.x	(c1p2345).l,fp3
-	fmove.x	(c1p2345).l,fp4
-	fmove.x	(c1p2345).l,fp5
-	fmove.x	(c1p2345).l,fp6
-	fmove.x	(c1p2345).l,fp7
-	move.l	#h_fsave,(44).w
+	lea	(sdat).l,a0
+	moveq	#4,d0
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
-	fintrz.x	fp1,fp0
+	fmove.s	8(a0,d0.l),fp0
+	fmove.s	8(a0,d0.l),fp1
+	fmove.s	8(a0,d0.l),fp2
+	fmove.s	8(a0,d0.l),fp3
+	fmove.s	8(a0,d0.l),fp4
+	fmove.s	8(a0,d0.l),fp5
+	fmove.s	8(a0,d0.l),fp6
+	fmove.s	8(a0,d0.l),fp7
+	fmove.s	8(a0,d0.l),fp0
+	fmove.s	8(a0,d0.l),fp1
+	fmove.s	8(a0,d0.l),fp2
+	fmove.s	8(a0,d0.l),fp3
+	fmove.s	8(a0,d0.l),fp4
+	fmove.s	8(a0,d0.l),fp5
+	fmove.s	8(a0,d0.l),fp6
+	fmove.s	8(a0,d0.l),fp7
+	fmove.s	8(a0,d0.l),fp0
+	fmove.s	8(a0,d0.l),fp1
+	fmove.s	8(a0,d0.l),fp2
+	fmove.s	8(a0,d0.l),fp3
+	fmove.s	8(a0,d0.l),fp4
+	fmove.s	8(a0,d0.l),fp5
+	fmove.s	8(a0,d0.l),fp6
+	fmove.s	8(a0,d0.l),fp7
+	fmove.s	8(a0,d0.l),fp0
+	fmove.s	8(a0,d0.l),fp1
+	fmove.s	8(a0,d0.l),fp2
+	fmove.s	8(a0,d0.l),fp3
+	fmove.s	8(a0,d0.l),fp4
+	fmove.s	8(a0,d0.l),fp5
+	fmove.s	8(a0,d0.l),fp6
+	fmove.s	8(a0,d0.l),fp7
+	fmove.s	8(a0,d0.l),fp0
+	fmove.s	8(a0,d0.l),fp1
+	fmove.s	8(a0,d0.l),fp2
+	fmove.s	8(a0,d0.l),fp3
+	fmove.s	8(a0,d0.l),fp4
+	fmove.s	8(a0,d0.l),fp5
+	fmove.s	8(a0,d0.l),fp6
+	fmove.s	8(a0,d0.l),fp7
+	fmove.s	8(a0,d0.l),fp0
+	fmove.s	8(a0,d0.l),fp1
+	fmove.s	8(a0,d0.l),fp2
+	fmove.s	8(a0,d0.l),fp3
+	fmove.s	8(a0,d0.l),fp4
+	fmove.s	8(a0,d0.l),fp5
+	fmove.s	8(a0,d0.l),fp6
+	fmove.s	8(a0,d0.l),fp7
+	fmove.s	8(a0,d0.l),fp0
+	fmove.s	8(a0,d0.l),fp1
+	fmove.s	8(a0,d0.l),fp2
+	fmove.s	8(a0,d0.l),fp3
+	fmove.s	8(a0,d0.l),fp4
+	fmove.s	8(a0,d0.l),fp5
+	fmove.s	8(a0,d0.l),fp6
+	fmove.s	8(a0,d0.l),fp7
+	fmove.s	8(a0,d0.l),fp0
+	fmove.s	8(a0,d0.l),fp1
+	fmove.s	8(a0,d0.l),fp2
+	fmove.s	8(a0,d0.l),fp3
+	fmove.s	8(a0,d0.l),fp4
+	fmove.s	8(a0,d0.l),fp5
+	fmove.s	8(a0,d0.l),fp6
+	fmove.s	8(a0,d0.l),fp7
 	fnop
 	move.w	#166,(STAMP).l
 	dbra	d7,T166
-; ---- fmovecr_rte  n=16  (FMOVECR #0,FP0 -> vec 11, handler RTE)
+; ---- flds0_i  n=16  (FMOVE.S (A0),FPn)
 	moveq	#1,d7	; two passes, second is reported
 T167:
-	fmove.x	(c1p2345).l,fp0
-	fmove.x	(c1p2345).l,fp1
-	fmove.x	(c1p2345).l,fp2
-	fmove.x	(c1p2345).l,fp3
-	fmove.x	(c1p2345).l,fp4
-	fmove.x	(c1p2345).l,fp5
-	fmove.x	(c1p2345).l,fp6
-	fmove.x	(c1p2345).l,fp7
-	move.l	#h_rte,(44).w
+	lea	(sdat).l,a0
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
+	fmove.s	(a0),fp0
+	fmove.s	(a0),fp1
+	fmove.s	(a0),fp2
+	fmove.s	(a0),fp3
+	fmove.s	(a0),fp4
+	fmove.s	(a0),fp5
+	fmove.s	(a0),fp6
+	fmove.s	(a0),fp7
+	fmove.s	(a0),fp0
+	fmove.s	(a0),fp1
+	fmove.s	(a0),fp2
+	fmove.s	(a0),fp3
+	fmove.s	(a0),fp4
+	fmove.s	(a0),fp5
+	fmove.s	(a0),fp6
+	fmove.s	(a0),fp7
 	fnop
 	move.w	#167,(STAMP).l
 	dbra	d7,T167
-; ---- fmovecr_rte  n=32  (FMOVECR #0,FP0 -> vec 11, handler RTE)
+; ---- flds0_i  n=32  (FMOVE.S (A0),FPn)
 	moveq	#1,d7	; two passes, second is reported
 T168:
-	fmove.x	(c1p2345).l,fp0
-	fmove.x	(c1p2345).l,fp1
-	fmove.x	(c1p2345).l,fp2
-	fmove.x	(c1p2345).l,fp3
-	fmove.x	(c1p2345).l,fp4
-	fmove.x	(c1p2345).l,fp5
-	fmove.x	(c1p2345).l,fp6
-	fmove.x	(c1p2345).l,fp7
-	move.l	#h_rte,(44).w
+	lea	(sdat).l,a0
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
-	fmovecr.x	#0,fp0
+	fmove.s	(a0),fp0
+	fmove.s	(a0),fp1
+	fmove.s	(a0),fp2
+	fmove.s	(a0),fp3
+	fmove.s	(a0),fp4
+	fmove.s	(a0),fp5
+	fmove.s	(a0),fp6
+	fmove.s	(a0),fp7
+	fmove.s	(a0),fp0
+	fmove.s	(a0),fp1
+	fmove.s	(a0),fp2
+	fmove.s	(a0),fp3
+	fmove.s	(a0),fp4
+	fmove.s	(a0),fp5
+	fmove.s	(a0),fp6
+	fmove.s	(a0),fp7
+	fmove.s	(a0),fp0
+	fmove.s	(a0),fp1
+	fmove.s	(a0),fp2
+	fmove.s	(a0),fp3
+	fmove.s	(a0),fp4
+	fmove.s	(a0),fp5
+	fmove.s	(a0),fp6
+	fmove.s	(a0),fp7
+	fmove.s	(a0),fp0
+	fmove.s	(a0),fp1
+	fmove.s	(a0),fp2
+	fmove.s	(a0),fp3
+	fmove.s	(a0),fp4
+	fmove.s	(a0),fp5
+	fmove.s	(a0),fp6
+	fmove.s	(a0),fp7
 	fnop
 	move.w	#168,(STAMP).l
 	dbra	d7,T168
-; ---- fmovecr_rte  n=64  (FMOVECR #0,FP0 -> vec 11, handler RTE)
+; ---- flds0_i  n=64  (FMOVE.S (A0),FPn)
 	moveq	#1,d7	; two passes, second is reported
 T169:
+	lea	(sdat).l,a0
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmove.s	(a0),fp0
+	fmove.s	(a0),fp1
+	fmove.s	(a0),fp2
+	fmove.s	(a0),fp3
+	fmove.s	(a0),fp4
+	fmove.s	(a0),fp5
+	fmove.s	(a0),fp6
+	fmove.s	(a0),fp7
+	fmove.s	(a0),fp0
+	fmove.s	(a0),fp1
+	fmove.s	(a0),fp2
+	fmove.s	(a0),fp3
+	fmove.s	(a0),fp4
+	fmove.s	(a0),fp5
+	fmove.s	(a0),fp6
+	fmove.s	(a0),fp7
+	fmove.s	(a0),fp0
+	fmove.s	(a0),fp1
+	fmove.s	(a0),fp2
+	fmove.s	(a0),fp3
+	fmove.s	(a0),fp4
+	fmove.s	(a0),fp5
+	fmove.s	(a0),fp6
+	fmove.s	(a0),fp7
+	fmove.s	(a0),fp0
+	fmove.s	(a0),fp1
+	fmove.s	(a0),fp2
+	fmove.s	(a0),fp3
+	fmove.s	(a0),fp4
+	fmove.s	(a0),fp5
+	fmove.s	(a0),fp6
+	fmove.s	(a0),fp7
+	fmove.s	(a0),fp0
+	fmove.s	(a0),fp1
+	fmove.s	(a0),fp2
+	fmove.s	(a0),fp3
+	fmove.s	(a0),fp4
+	fmove.s	(a0),fp5
+	fmove.s	(a0),fp6
+	fmove.s	(a0),fp7
+	fmove.s	(a0),fp0
+	fmove.s	(a0),fp1
+	fmove.s	(a0),fp2
+	fmove.s	(a0),fp3
+	fmove.s	(a0),fp4
+	fmove.s	(a0),fp5
+	fmove.s	(a0),fp6
+	fmove.s	(a0),fp7
+	fmove.s	(a0),fp0
+	fmove.s	(a0),fp1
+	fmove.s	(a0),fp2
+	fmove.s	(a0),fp3
+	fmove.s	(a0),fp4
+	fmove.s	(a0),fp5
+	fmove.s	(a0),fp6
+	fmove.s	(a0),fp7
+	fmove.s	(a0),fp0
+	fmove.s	(a0),fp1
+	fmove.s	(a0),fp2
+	fmove.s	(a0),fp3
+	fmove.s	(a0),fp4
+	fmove.s	(a0),fp5
+	fmove.s	(a0),fp6
+	fmove.s	(a0),fp7
+	fnop
+	move.w	#169,(STAMP).l
+	dbra	d7,T169
+; ---- fsts16_i  n=16  (FMOVE.S FPn,d16(A0))
+	moveq	#1,d7	; two passes, second is reported
+T170:
+	fmove.x	(c1000).l,fp0
+	fmove.x	(c1000).l,fp1
+	fmove.x	(c1000).l,fp2
+	fmove.x	(c1000).l,fp3
+	fmove.x	(c1000).l,fp4
+	fmove.x	(c1000).l,fp5
+	fmove.x	(c1000).l,fp6
+	fmove.x	(c1p1).l,fp7
+	lea	(sbuf).l,a0
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmove.s	fp0,8(a0)
+	fmove.s	fp1,8(a0)
+	fmove.s	fp2,8(a0)
+	fmove.s	fp3,8(a0)
+	fmove.s	fp4,8(a0)
+	fmove.s	fp5,8(a0)
+	fmove.s	fp6,8(a0)
+	fmove.s	fp7,8(a0)
+	fmove.s	fp0,8(a0)
+	fmove.s	fp1,8(a0)
+	fmove.s	fp2,8(a0)
+	fmove.s	fp3,8(a0)
+	fmove.s	fp4,8(a0)
+	fmove.s	fp5,8(a0)
+	fmove.s	fp6,8(a0)
+	fmove.s	fp7,8(a0)
+	fnop
+	move.w	#170,(STAMP).l
+	dbra	d7,T170
+; ---- fsts16_i  n=32  (FMOVE.S FPn,d16(A0))
+	moveq	#1,d7	; two passes, second is reported
+T171:
+	fmove.x	(c1000).l,fp0
+	fmove.x	(c1000).l,fp1
+	fmove.x	(c1000).l,fp2
+	fmove.x	(c1000).l,fp3
+	fmove.x	(c1000).l,fp4
+	fmove.x	(c1000).l,fp5
+	fmove.x	(c1000).l,fp6
+	fmove.x	(c1p1).l,fp7
+	lea	(sbuf).l,a0
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmove.s	fp0,8(a0)
+	fmove.s	fp1,8(a0)
+	fmove.s	fp2,8(a0)
+	fmove.s	fp3,8(a0)
+	fmove.s	fp4,8(a0)
+	fmove.s	fp5,8(a0)
+	fmove.s	fp6,8(a0)
+	fmove.s	fp7,8(a0)
+	fmove.s	fp0,8(a0)
+	fmove.s	fp1,8(a0)
+	fmove.s	fp2,8(a0)
+	fmove.s	fp3,8(a0)
+	fmove.s	fp4,8(a0)
+	fmove.s	fp5,8(a0)
+	fmove.s	fp6,8(a0)
+	fmove.s	fp7,8(a0)
+	fmove.s	fp0,8(a0)
+	fmove.s	fp1,8(a0)
+	fmove.s	fp2,8(a0)
+	fmove.s	fp3,8(a0)
+	fmove.s	fp4,8(a0)
+	fmove.s	fp5,8(a0)
+	fmove.s	fp6,8(a0)
+	fmove.s	fp7,8(a0)
+	fmove.s	fp0,8(a0)
+	fmove.s	fp1,8(a0)
+	fmove.s	fp2,8(a0)
+	fmove.s	fp3,8(a0)
+	fmove.s	fp4,8(a0)
+	fmove.s	fp5,8(a0)
+	fmove.s	fp6,8(a0)
+	fmove.s	fp7,8(a0)
+	fnop
+	move.w	#171,(STAMP).l
+	dbra	d7,T171
+; ---- fsts16_i  n=64  (FMOVE.S FPn,d16(A0))
+	moveq	#1,d7	; two passes, second is reported
+T172:
+	fmove.x	(c1000).l,fp0
+	fmove.x	(c1000).l,fp1
+	fmove.x	(c1000).l,fp2
+	fmove.x	(c1000).l,fp3
+	fmove.x	(c1000).l,fp4
+	fmove.x	(c1000).l,fp5
+	fmove.x	(c1000).l,fp6
+	fmove.x	(c1p1).l,fp7
+	lea	(sbuf).l,a0
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmove.s	fp0,8(a0)
+	fmove.s	fp1,8(a0)
+	fmove.s	fp2,8(a0)
+	fmove.s	fp3,8(a0)
+	fmove.s	fp4,8(a0)
+	fmove.s	fp5,8(a0)
+	fmove.s	fp6,8(a0)
+	fmove.s	fp7,8(a0)
+	fmove.s	fp0,8(a0)
+	fmove.s	fp1,8(a0)
+	fmove.s	fp2,8(a0)
+	fmove.s	fp3,8(a0)
+	fmove.s	fp4,8(a0)
+	fmove.s	fp5,8(a0)
+	fmove.s	fp6,8(a0)
+	fmove.s	fp7,8(a0)
+	fmove.s	fp0,8(a0)
+	fmove.s	fp1,8(a0)
+	fmove.s	fp2,8(a0)
+	fmove.s	fp3,8(a0)
+	fmove.s	fp4,8(a0)
+	fmove.s	fp5,8(a0)
+	fmove.s	fp6,8(a0)
+	fmove.s	fp7,8(a0)
+	fmove.s	fp0,8(a0)
+	fmove.s	fp1,8(a0)
+	fmove.s	fp2,8(a0)
+	fmove.s	fp3,8(a0)
+	fmove.s	fp4,8(a0)
+	fmove.s	fp5,8(a0)
+	fmove.s	fp6,8(a0)
+	fmove.s	fp7,8(a0)
+	fmove.s	fp0,8(a0)
+	fmove.s	fp1,8(a0)
+	fmove.s	fp2,8(a0)
+	fmove.s	fp3,8(a0)
+	fmove.s	fp4,8(a0)
+	fmove.s	fp5,8(a0)
+	fmove.s	fp6,8(a0)
+	fmove.s	fp7,8(a0)
+	fmove.s	fp0,8(a0)
+	fmove.s	fp1,8(a0)
+	fmove.s	fp2,8(a0)
+	fmove.s	fp3,8(a0)
+	fmove.s	fp4,8(a0)
+	fmove.s	fp5,8(a0)
+	fmove.s	fp6,8(a0)
+	fmove.s	fp7,8(a0)
+	fmove.s	fp0,8(a0)
+	fmove.s	fp1,8(a0)
+	fmove.s	fp2,8(a0)
+	fmove.s	fp3,8(a0)
+	fmove.s	fp4,8(a0)
+	fmove.s	fp5,8(a0)
+	fmove.s	fp6,8(a0)
+	fmove.s	fp7,8(a0)
+	fmove.s	fp0,8(a0)
+	fmove.s	fp1,8(a0)
+	fmove.s	fp2,8(a0)
+	fmove.s	fp3,8(a0)
+	fmove.s	fp4,8(a0)
+	fmove.s	fp5,8(a0)
+	fmove.s	fp6,8(a0)
+	fmove.s	fp7,8(a0)
+	fnop
+	move.w	#172,(STAMP).l
+	dbra	d7,T172
+; ---- ldmul  n=16  (FMOVE.S d16(A0),FP0 ; FMUL.X FP0,FP1 (pair))
+	moveq	#1,d7	; two passes, second is reported
+T173:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c1p2345).l,fp7
+	lea	(sdat).l,a0
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fnop
+	move.w	#173,(STAMP).l
+	dbra	d7,T173
+; ---- ldmul  n=32  (FMOVE.S d16(A0),FP0 ; FMUL.X FP0,FP1 (pair))
+	moveq	#1,d7	; two passes, second is reported
+T174:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c1p2345).l,fp7
+	lea	(sdat).l,a0
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fnop
+	move.w	#174,(STAMP).l
+	dbra	d7,T174
+; ---- ldmul  n=64  (FMOVE.S d16(A0),FP0 ; FMUL.X FP0,FP1 (pair))
+	moveq	#1,d7	; two passes, second is reported
+T175:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c1p2345).l,fp7
+	lea	(sdat).l,a0
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fmove.s	8(a0),fp0
+	fmul.x	fp0,fp1
+	fnop
+	move.w	#175,(STAMP).l
+	dbra	d7,T175
+; ---- mulst  n=16  (FMUL.X FP1,FP2 ; FMOVE.S FP2,d16(A0) (pair))
+	moveq	#1,d7	; two passes, second is reported
+T176:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(cmul).l,fp7
+	fmove.x	(cmul).l,fp1
+	lea	(sbuf).l,a0
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fnop
+	move.w	#176,(STAMP).l
+	dbra	d7,T176
+; ---- mulst  n=32  (FMUL.X FP1,FP2 ; FMOVE.S FP2,d16(A0) (pair))
+	moveq	#1,d7	; two passes, second is reported
+T177:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(cmul).l,fp7
+	fmove.x	(cmul).l,fp1
+	lea	(sbuf).l,a0
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fnop
+	move.w	#177,(STAMP).l
+	dbra	d7,T177
+; ---- mulst  n=64  (FMUL.X FP1,FP2 ; FMOVE.S FP2,d16(A0) (pair))
+	moveq	#1,d7	; two passes, second is reported
+T178:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(cmul).l,fp7
+	fmove.x	(cmul).l,fp1
+	lea	(sbuf).l,a0
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fmul.x	fp1,fp2
+	fmove.s	fp2,8(a0)
+	fnop
+	move.w	#178,(STAMP).l
+	dbra	d7,T178
+; ---- matrix  n=16  (Matrix: FMOVE.S 0(A0,D0.L),FP0; FMUL.X FP1,FP0; FADD.X FP0,FP2; ADDQ.L #4,D0 (group))
+	moveq	#1,d7	; two passes, second is reported
+T179:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c1p2345).l,fp7
+	lea	(sdat).l,a0
+	moveq	#0,d0
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fnop
+	move.w	#179,(STAMP).l
+	dbra	d7,T179
+; ---- matrix  n=32  (Matrix: FMOVE.S 0(A0,D0.L),FP0; FMUL.X FP1,FP0; FADD.X FP0,FP2; ADDQ.L #4,D0 (group))
+	moveq	#1,d7	; two passes, second is reported
+T180:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c1p2345).l,fp7
+	lea	(sdat).l,a0
+	moveq	#0,d0
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fnop
+	move.w	#180,(STAMP).l
+	dbra	d7,T180
+; ---- matrix  n=64  (Matrix: FMOVE.S 0(A0,D0.L),FP0; FMUL.X FP1,FP0; FADD.X FP0,FP2; ADDQ.L #4,D0 (group))
+	moveq	#1,d7	; two passes, second is reported
+T181:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c1p2345).l,fp7
+	lea	(sdat).l,a0
+	moveq	#0,d0
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fmove.s	0(a0,d0.l),fp0
+	fmul.x	fp1,fp0
+	fadd.x	fp0,fp2
+	addq.l	#4,d0
+	fnop
+	move.w	#181,(STAMP).l
+	dbra	d7,T181
+; ---- fft  n=16  (FFT: 2x FMOVE.S d16(A0),FPn; FSUB.X; FMUL.X; FADD.X; 2x FMOVE.S FPn,d16(A0) (group))
+	moveq	#1,d7	; two passes, second is reported
+T182:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c0p7071).l,fp7
+	fmove.x	(c0p7071).l,fp3
+	lea	(fdat).l,a0
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fnop
+	move.w	#182,(STAMP).l
+	dbra	d7,T182
+; ---- fft  n=32  (FFT: 2x FMOVE.S d16(A0),FPn; FSUB.X; FMUL.X; FADD.X; 2x FMOVE.S FPn,d16(A0) (group))
+	moveq	#1,d7	; two passes, second is reported
+T183:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c0p7071).l,fp7
+	fmove.x	(c0p7071).l,fp3
+	lea	(fdat).l,a0
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fnop
+	move.w	#183,(STAMP).l
+	dbra	d7,T183
+; ---- fft  n=64  (FFT: 2x FMOVE.S d16(A0),FPn; FSUB.X; FMUL.X; FADD.X; 2x FMOVE.S FPn,d16(A0) (group))
+	moveq	#1,d7	; two passes, second is reported
+T184:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c0p7071).l,fp7
+	fmove.x	(c0p7071).l,fp3
+	lea	(fdat).l,a0
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fmove.s	16(a0),fp0
+	fmove.s	20(a0),fp1
+	fsub.x	fp1,fp0
+	fmul.x	fp3,fp0
+	fadd.x	fp0,fp1
+	fmove.s	fp0,24(a0)
+	fmove.s	fp1,28(a0)
+	fnop
+	move.w	#184,(STAMP).l
+	dbra	d7,T184
+; ---- fldd16_i  n=16  (FMOVE.D d16(A0),FPn)
+	moveq	#1,d7	; two passes, second is reported
+T185:
+	lea	(dtab).l,a0
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmove.d	8(a0),fp0
+	fmove.d	8(a0),fp1
+	fmove.d	8(a0),fp2
+	fmove.d	8(a0),fp3
+	fmove.d	8(a0),fp4
+	fmove.d	8(a0),fp5
+	fmove.d	8(a0),fp6
+	fmove.d	8(a0),fp7
+	fmove.d	8(a0),fp0
+	fmove.d	8(a0),fp1
+	fmove.d	8(a0),fp2
+	fmove.d	8(a0),fp3
+	fmove.d	8(a0),fp4
+	fmove.d	8(a0),fp5
+	fmove.d	8(a0),fp6
+	fmove.d	8(a0),fp7
+	fnop
+	move.w	#185,(STAMP).l
+	dbra	d7,T185
+; ---- fldd16_i  n=32  (FMOVE.D d16(A0),FPn)
+	moveq	#1,d7	; two passes, second is reported
+T186:
+	lea	(dtab).l,a0
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmove.d	8(a0),fp0
+	fmove.d	8(a0),fp1
+	fmove.d	8(a0),fp2
+	fmove.d	8(a0),fp3
+	fmove.d	8(a0),fp4
+	fmove.d	8(a0),fp5
+	fmove.d	8(a0),fp6
+	fmove.d	8(a0),fp7
+	fmove.d	8(a0),fp0
+	fmove.d	8(a0),fp1
+	fmove.d	8(a0),fp2
+	fmove.d	8(a0),fp3
+	fmove.d	8(a0),fp4
+	fmove.d	8(a0),fp5
+	fmove.d	8(a0),fp6
+	fmove.d	8(a0),fp7
+	fmove.d	8(a0),fp0
+	fmove.d	8(a0),fp1
+	fmove.d	8(a0),fp2
+	fmove.d	8(a0),fp3
+	fmove.d	8(a0),fp4
+	fmove.d	8(a0),fp5
+	fmove.d	8(a0),fp6
+	fmove.d	8(a0),fp7
+	fmove.d	8(a0),fp0
+	fmove.d	8(a0),fp1
+	fmove.d	8(a0),fp2
+	fmove.d	8(a0),fp3
+	fmove.d	8(a0),fp4
+	fmove.d	8(a0),fp5
+	fmove.d	8(a0),fp6
+	fmove.d	8(a0),fp7
+	fnop
+	move.w	#186,(STAMP).l
+	dbra	d7,T186
+; ---- fldd16_i  n=64  (FMOVE.D d16(A0),FPn)
+	moveq	#1,d7	; two passes, second is reported
+T187:
+	lea	(dtab).l,a0
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmove.d	8(a0),fp0
+	fmove.d	8(a0),fp1
+	fmove.d	8(a0),fp2
+	fmove.d	8(a0),fp3
+	fmove.d	8(a0),fp4
+	fmove.d	8(a0),fp5
+	fmove.d	8(a0),fp6
+	fmove.d	8(a0),fp7
+	fmove.d	8(a0),fp0
+	fmove.d	8(a0),fp1
+	fmove.d	8(a0),fp2
+	fmove.d	8(a0),fp3
+	fmove.d	8(a0),fp4
+	fmove.d	8(a0),fp5
+	fmove.d	8(a0),fp6
+	fmove.d	8(a0),fp7
+	fmove.d	8(a0),fp0
+	fmove.d	8(a0),fp1
+	fmove.d	8(a0),fp2
+	fmove.d	8(a0),fp3
+	fmove.d	8(a0),fp4
+	fmove.d	8(a0),fp5
+	fmove.d	8(a0),fp6
+	fmove.d	8(a0),fp7
+	fmove.d	8(a0),fp0
+	fmove.d	8(a0),fp1
+	fmove.d	8(a0),fp2
+	fmove.d	8(a0),fp3
+	fmove.d	8(a0),fp4
+	fmove.d	8(a0),fp5
+	fmove.d	8(a0),fp6
+	fmove.d	8(a0),fp7
+	fmove.d	8(a0),fp0
+	fmove.d	8(a0),fp1
+	fmove.d	8(a0),fp2
+	fmove.d	8(a0),fp3
+	fmove.d	8(a0),fp4
+	fmove.d	8(a0),fp5
+	fmove.d	8(a0),fp6
+	fmove.d	8(a0),fp7
+	fmove.d	8(a0),fp0
+	fmove.d	8(a0),fp1
+	fmove.d	8(a0),fp2
+	fmove.d	8(a0),fp3
+	fmove.d	8(a0),fp4
+	fmove.d	8(a0),fp5
+	fmove.d	8(a0),fp6
+	fmove.d	8(a0),fp7
+	fmove.d	8(a0),fp0
+	fmove.d	8(a0),fp1
+	fmove.d	8(a0),fp2
+	fmove.d	8(a0),fp3
+	fmove.d	8(a0),fp4
+	fmove.d	8(a0),fp5
+	fmove.d	8(a0),fp6
+	fmove.d	8(a0),fp7
+	fmove.d	8(a0),fp0
+	fmove.d	8(a0),fp1
+	fmove.d	8(a0),fp2
+	fmove.d	8(a0),fp3
+	fmove.d	8(a0),fp4
+	fmove.d	8(a0),fp5
+	fmove.d	8(a0),fp6
+	fmove.d	8(a0),fp7
+	fnop
+	move.w	#187,(STAMP).l
+	dbra	d7,T187
+; ---- fstd16_i  n=16  (FMOVE.D FPn,d16(A0))
+	moveq	#1,d7	; two passes, second is reported
+T188:
+	fmove.x	(c1000).l,fp0
+	fmove.x	(c1000).l,fp1
+	fmove.x	(c1000).l,fp2
+	fmove.x	(c1000).l,fp3
+	fmove.x	(c1000).l,fp4
+	fmove.x	(c1000).l,fp5
+	fmove.x	(c1000).l,fp6
+	fmove.x	(c1p1).l,fp7
+	lea	(sbuf).l,a0
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmove.d	fp0,8(a0)
+	fmove.d	fp1,8(a0)
+	fmove.d	fp2,8(a0)
+	fmove.d	fp3,8(a0)
+	fmove.d	fp4,8(a0)
+	fmove.d	fp5,8(a0)
+	fmove.d	fp6,8(a0)
+	fmove.d	fp7,8(a0)
+	fmove.d	fp0,8(a0)
+	fmove.d	fp1,8(a0)
+	fmove.d	fp2,8(a0)
+	fmove.d	fp3,8(a0)
+	fmove.d	fp4,8(a0)
+	fmove.d	fp5,8(a0)
+	fmove.d	fp6,8(a0)
+	fmove.d	fp7,8(a0)
+	fnop
+	move.w	#188,(STAMP).l
+	dbra	d7,T188
+; ---- fstd16_i  n=32  (FMOVE.D FPn,d16(A0))
+	moveq	#1,d7	; two passes, second is reported
+T189:
+	fmove.x	(c1000).l,fp0
+	fmove.x	(c1000).l,fp1
+	fmove.x	(c1000).l,fp2
+	fmove.x	(c1000).l,fp3
+	fmove.x	(c1000).l,fp4
+	fmove.x	(c1000).l,fp5
+	fmove.x	(c1000).l,fp6
+	fmove.x	(c1p1).l,fp7
+	lea	(sbuf).l,a0
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmove.d	fp0,8(a0)
+	fmove.d	fp1,8(a0)
+	fmove.d	fp2,8(a0)
+	fmove.d	fp3,8(a0)
+	fmove.d	fp4,8(a0)
+	fmove.d	fp5,8(a0)
+	fmove.d	fp6,8(a0)
+	fmove.d	fp7,8(a0)
+	fmove.d	fp0,8(a0)
+	fmove.d	fp1,8(a0)
+	fmove.d	fp2,8(a0)
+	fmove.d	fp3,8(a0)
+	fmove.d	fp4,8(a0)
+	fmove.d	fp5,8(a0)
+	fmove.d	fp6,8(a0)
+	fmove.d	fp7,8(a0)
+	fmove.d	fp0,8(a0)
+	fmove.d	fp1,8(a0)
+	fmove.d	fp2,8(a0)
+	fmove.d	fp3,8(a0)
+	fmove.d	fp4,8(a0)
+	fmove.d	fp5,8(a0)
+	fmove.d	fp6,8(a0)
+	fmove.d	fp7,8(a0)
+	fmove.d	fp0,8(a0)
+	fmove.d	fp1,8(a0)
+	fmove.d	fp2,8(a0)
+	fmove.d	fp3,8(a0)
+	fmove.d	fp4,8(a0)
+	fmove.d	fp5,8(a0)
+	fmove.d	fp6,8(a0)
+	fmove.d	fp7,8(a0)
+	fnop
+	move.w	#189,(STAMP).l
+	dbra	d7,T189
+; ---- fstd16_i  n=64  (FMOVE.D FPn,d16(A0))
+	moveq	#1,d7	; two passes, second is reported
+T190:
+	fmove.x	(c1000).l,fp0
+	fmove.x	(c1000).l,fp1
+	fmove.x	(c1000).l,fp2
+	fmove.x	(c1000).l,fp3
+	fmove.x	(c1000).l,fp4
+	fmove.x	(c1000).l,fp5
+	fmove.x	(c1000).l,fp6
+	fmove.x	(c1p1).l,fp7
+	lea	(sbuf).l,a0
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmove.d	fp0,8(a0)
+	fmove.d	fp1,8(a0)
+	fmove.d	fp2,8(a0)
+	fmove.d	fp3,8(a0)
+	fmove.d	fp4,8(a0)
+	fmove.d	fp5,8(a0)
+	fmove.d	fp6,8(a0)
+	fmove.d	fp7,8(a0)
+	fmove.d	fp0,8(a0)
+	fmove.d	fp1,8(a0)
+	fmove.d	fp2,8(a0)
+	fmove.d	fp3,8(a0)
+	fmove.d	fp4,8(a0)
+	fmove.d	fp5,8(a0)
+	fmove.d	fp6,8(a0)
+	fmove.d	fp7,8(a0)
+	fmove.d	fp0,8(a0)
+	fmove.d	fp1,8(a0)
+	fmove.d	fp2,8(a0)
+	fmove.d	fp3,8(a0)
+	fmove.d	fp4,8(a0)
+	fmove.d	fp5,8(a0)
+	fmove.d	fp6,8(a0)
+	fmove.d	fp7,8(a0)
+	fmove.d	fp0,8(a0)
+	fmove.d	fp1,8(a0)
+	fmove.d	fp2,8(a0)
+	fmove.d	fp3,8(a0)
+	fmove.d	fp4,8(a0)
+	fmove.d	fp5,8(a0)
+	fmove.d	fp6,8(a0)
+	fmove.d	fp7,8(a0)
+	fmove.d	fp0,8(a0)
+	fmove.d	fp1,8(a0)
+	fmove.d	fp2,8(a0)
+	fmove.d	fp3,8(a0)
+	fmove.d	fp4,8(a0)
+	fmove.d	fp5,8(a0)
+	fmove.d	fp6,8(a0)
+	fmove.d	fp7,8(a0)
+	fmove.d	fp0,8(a0)
+	fmove.d	fp1,8(a0)
+	fmove.d	fp2,8(a0)
+	fmove.d	fp3,8(a0)
+	fmove.d	fp4,8(a0)
+	fmove.d	fp5,8(a0)
+	fmove.d	fp6,8(a0)
+	fmove.d	fp7,8(a0)
+	fmove.d	fp0,8(a0)
+	fmove.d	fp1,8(a0)
+	fmove.d	fp2,8(a0)
+	fmove.d	fp3,8(a0)
+	fmove.d	fp4,8(a0)
+	fmove.d	fp5,8(a0)
+	fmove.d	fp6,8(a0)
+	fmove.d	fp7,8(a0)
+	fmove.d	fp0,8(a0)
+	fmove.d	fp1,8(a0)
+	fmove.d	fp2,8(a0)
+	fmove.d	fp3,8(a0)
+	fmove.d	fp4,8(a0)
+	fmove.d	fp5,8(a0)
+	fmove.d	fp6,8(a0)
+	fmove.d	fp7,8(a0)
+	fnop
+	move.w	#190,(STAMP).l
+	dbra	d7,T190
+; ---- fintrz_rte  n=16  (FINTRZ.X FP1,FP0 -> vec 11, handler RTE)
+	moveq	#1,d7	; two passes, second is reported
+T191:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c1p2345).l,fp7
+	move.l	#h_rte,(44).w
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fnop
+	move.w	#191,(STAMP).l
+	dbra	d7,T191
+; ---- fintrz_rte  n=32  (FINTRZ.X FP1,FP0 -> vec 11, handler RTE)
+	moveq	#1,d7	; two passes, second is reported
+T192:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c1p2345).l,fp7
+	move.l	#h_rte,(44).w
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fnop
+	move.w	#192,(STAMP).l
+	dbra	d7,T192
+; ---- fintrz_rte  n=64  (FINTRZ.X FP1,FP0 -> vec 11, handler RTE)
+	moveq	#1,d7	; two passes, second is reported
+T193:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c1p2345).l,fp7
+	move.l	#h_rte,(44).w
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fnop
+	move.w	#193,(STAMP).l
+	dbra	d7,T193
+; ---- fintrz_fs  n=16  (FINTRZ.X FP1,FP0 -> vec 11, handler FSAVE/FRESTORE/RTE)
+	moveq	#1,d7	; two passes, second is reported
+T194:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c1p2345).l,fp7
+	move.l	#h_fsave,(44).w
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fnop
+	move.w	#194,(STAMP).l
+	dbra	d7,T194
+; ---- fintrz_fs  n=32  (FINTRZ.X FP1,FP0 -> vec 11, handler FSAVE/FRESTORE/RTE)
+	moveq	#1,d7	; two passes, second is reported
+T195:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c1p2345).l,fp7
+	move.l	#h_fsave,(44).w
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fnop
+	move.w	#195,(STAMP).l
+	dbra	d7,T195
+; ---- fintrz_fs  n=64  (FINTRZ.X FP1,FP0 -> vec 11, handler FSAVE/FRESTORE/RTE)
+	moveq	#1,d7	; two passes, second is reported
+T196:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c1p2345).l,fp7
+	move.l	#h_fsave,(44).w
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fintrz.x	fp1,fp0
+	fnop
+	move.w	#196,(STAMP).l
+	dbra	d7,T196
+; ---- fmovecr_rte  n=16  (FMOVECR #0,FP0 -> vec 11, handler RTE)
+	moveq	#1,d7	; two passes, second is reported
+T197:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c1p2345).l,fp7
+	move.l	#h_rte,(44).w
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fnop
+	move.w	#197,(STAMP).l
+	dbra	d7,T197
+; ---- fmovecr_rte  n=32  (FMOVECR #0,FP0 -> vec 11, handler RTE)
+	moveq	#1,d7	; two passes, second is reported
+T198:
+	fmove.x	(c1p2345).l,fp0
+	fmove.x	(c1p2345).l,fp1
+	fmove.x	(c1p2345).l,fp2
+	fmove.x	(c1p2345).l,fp3
+	fmove.x	(c1p2345).l,fp4
+	fmove.x	(c1p2345).l,fp5
+	fmove.x	(c1p2345).l,fp6
+	fmove.x	(c1p2345).l,fp7
+	move.l	#h_rte,(44).w
+	fnop
+	nop
+	move.w	#1,(STAMP).l
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fmovecr.x	#0,fp0
+	fnop
+	move.w	#198,(STAMP).l
+	dbra	d7,T198
+; ---- fmovecr_rte  n=64  (FMOVECR #0,FP0 -> vec 11, handler RTE)
+	moveq	#1,d7	; two passes, second is reported
+T199:
 	fmove.x	(c1p2345).l,fp0
 	fmove.x	(c1p2345).l,fp1
 	fmove.x	(c1p2345).l,fp2
@@ -14399,11 +17207,11 @@ T169:
 	fmovecr.x	#0,fp0
 	fmovecr.x	#0,fp0
 	fnop
-	move.w	#169,(STAMP).l
-	dbra	d7,T169
+	move.w	#199,(STAMP).l
+	dbra	d7,T199
 ; ---- fmovecr_fs  n=16  (FMOVECR #0,FP0 -> vec 11, handler FSAVE/FRESTORE/RTE)
 	moveq	#1,d7	; two passes, second is reported
-T170:
+T200:
 	fmove.x	(c1p2345).l,fp0
 	fmove.x	(c1p2345).l,fp1
 	fmove.x	(c1p2345).l,fp2
@@ -14433,11 +17241,11 @@ T170:
 	fmovecr.x	#0,fp0
 	fmovecr.x	#0,fp0
 	fnop
-	move.w	#170,(STAMP).l
-	dbra	d7,T170
+	move.w	#200,(STAMP).l
+	dbra	d7,T200
 ; ---- fmovecr_fs  n=32  (FMOVECR #0,FP0 -> vec 11, handler FSAVE/FRESTORE/RTE)
 	moveq	#1,d7	; two passes, second is reported
-T171:
+T201:
 	fmove.x	(c1p2345).l,fp0
 	fmove.x	(c1p2345).l,fp1
 	fmove.x	(c1p2345).l,fp2
@@ -14483,11 +17291,11 @@ T171:
 	fmovecr.x	#0,fp0
 	fmovecr.x	#0,fp0
 	fnop
-	move.w	#171,(STAMP).l
-	dbra	d7,T171
+	move.w	#201,(STAMP).l
+	dbra	d7,T201
 ; ---- fmovecr_fs  n=64  (FMOVECR #0,FP0 -> vec 11, handler FSAVE/FRESTORE/RTE)
 	moveq	#1,d7	; two passes, second is reported
-T172:
+T202:
 	fmove.x	(c1p2345).l,fp0
 	fmove.x	(c1p2345).l,fp1
 	fmove.x	(c1p2345).l,fp2
@@ -14565,11 +17373,11 @@ T172:
 	fmovecr.x	#0,fp0
 	fmovecr.x	#0,fp0
 	fnop
-	move.w	#172,(STAMP).l
-	dbra	d7,T172
+	move.w	#202,(STAMP).l
+	dbra	d7,T202
 ; ---- trap  n=16  (TRAP #0 -> handler RTE)
 	moveq	#1,d7	; two passes, second is reported
-T173:
+T203:
 	move.l	#h_rte,(128).w
 	fnop
 	nop
@@ -14591,11 +17399,11 @@ T173:
 	trap	#0
 	trap	#0
 	fnop
-	move.w	#173,(STAMP).l
-	dbra	d7,T173
+	move.w	#203,(STAMP).l
+	dbra	d7,T203
 ; ---- trap  n=32  (TRAP #0 -> handler RTE)
 	moveq	#1,d7	; two passes, second is reported
-T174:
+T204:
 	move.l	#h_rte,(128).w
 	fnop
 	nop
@@ -14633,11 +17441,11 @@ T174:
 	trap	#0
 	trap	#0
 	fnop
-	move.w	#174,(STAMP).l
-	dbra	d7,T174
+	move.w	#204,(STAMP).l
+	dbra	d7,T204
 ; ---- trap  n=64  (TRAP #0 -> handler RTE)
 	moveq	#1,d7	; two passes, second is reported
-T175:
+T205:
 	move.l	#h_rte,(128).w
 	fnop
 	nop
@@ -14707,11 +17515,11 @@ T175:
 	trap	#0
 	trap	#0
 	fnop
-	move.w	#175,(STAMP).l
-	dbra	d7,T175
+	move.w	#205,(STAMP).l
+	dbra	d7,T205
 ; ---- aline  n=16  (A-line $A000 -> handler ADDQ.L #2,2(SP); RTE)
 	moveq	#1,d7	; two passes, second is reported
-T176:
+T206:
 	move.l	#h_aline,(40).w
 	fnop
 	nop
@@ -14733,11 +17541,11 @@ T176:
 	dc.w	$a000
 	dc.w	$a000
 	fnop
-	move.w	#176,(STAMP).l
-	dbra	d7,T176
+	move.w	#206,(STAMP).l
+	dbra	d7,T206
 ; ---- aline  n=32  (A-line $A000 -> handler ADDQ.L #2,2(SP); RTE)
 	moveq	#1,d7	; two passes, second is reported
-T177:
+T207:
 	move.l	#h_aline,(40).w
 	fnop
 	nop
@@ -14775,11 +17583,11 @@ T177:
 	dc.w	$a000
 	dc.w	$a000
 	fnop
-	move.w	#177,(STAMP).l
-	dbra	d7,T177
+	move.w	#207,(STAMP).l
+	dbra	d7,T207
 ; ---- aline  n=64  (A-line $A000 -> handler ADDQ.L #2,2(SP); RTE)
 	moveq	#1,d7	; two passes, second is reported
-T178:
+T208:
 	move.l	#h_aline,(40).w
 	fnop
 	nop
@@ -14849,147 +17657,156 @@ T178:
 	dc.w	$a000
 	dc.w	$a000
 	fnop
-	move.w	#178,(STAMP).l
-	dbra	d7,T178
+	move.w	#208,(STAMP).l
+	dbra	d7,T208
 ; ---- nop_rte  n=16  (handler-only reference: BSR to RTS (not a trap))
 	moveq	#1,d7	; two passes, second is reported
-T179:
+T209:
+	bra.w	.skip
+.rts:	rts
+.skip:
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
 	fnop
-	move.w	#179,(STAMP).l
-	dbra	d7,T179
+	move.w	#209,(STAMP).l
+	dbra	d7,T209
 ; ---- nop_rte  n=32  (handler-only reference: BSR to RTS (not a trap))
 	moveq	#1,d7	; two passes, second is reported
-T180:
+T210:
+	bra.w	.skip
+.rts:	rts
+.skip:
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
 	fnop
-	move.w	#180,(STAMP).l
-	dbra	d7,T180
+	move.w	#210,(STAMP).l
+	dbra	d7,T210
 ; ---- nop_rte  n=64  (handler-only reference: BSR to RTS (not a trap))
 	moveq	#1,d7	; two passes, second is reported
-T181:
+T211:
+	bra.w	.skip
+.rts:	rts
+.skip:
 	fnop
 	nop
 	move.w	#1,(STAMP).l
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
-	bsr.w	h_rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
+	bsr.w	.rts
 	fnop
-	move.w	#181,(STAMP).l
-	dbra	d7,T181
+	move.w	#211,(STAMP).l
+	dbra	d7,T211
 	move.w	#$600d,(DONE).l
 	bra.s	*
 h_rte:	rte
@@ -15000,10 +17817,9 @@ h_fsave:
 h_aline:
 	addq.l	#2,2(sp)
 	rte
-h_rts:	rts
 failh:	move.w	#$bad0,(DONE).l
 	bra.s	*
-	org	$10000
+	org	$38000	; data
 c1p2345:	dc.l	$3fff0000,$9e041893,$74bc6800
 cmul:	dc.l	$3fff0000,$8000672e,$0c82c800
 c1p1:	dc.l	$3fff0000,$8ccccccc,$ccccd000
@@ -15017,6 +17833,7 @@ c1p01:	dc.l	$3fff0000,$8147ae14,$7ae14800
 c2p5:	dc.l	$40000000,$a0000000,$00000000
 cbig:	dc.l	$43e30000,$ebf3f380,$b091b000
 ctwo:	dc.l	$40000000,$80000000,$00000000
+c0p7071:	dc.l	$3ffe0000,$b504f32e,$e13ef800
 mx:	dc.l	$3fff0000,$8000672e,$0c82c800
 md:	dc.l	$3ff0000c,$e5c19059
 ms:	dc.l	$3f800067
@@ -15088,3 +17905,95 @@ dtab:
 	dc.l	$3ff19999,$9999999a
 	cnop	0,16
 sbuf:	ds.b	64
+	cnop	0,16
+sdat:
+	dc.l	$3f8ccccd
+	dc.l	$3f8e147b
+	dc.l	$3f8f5c29
+	dc.l	$3f90a3d7
+	dc.l	$3f91eb85
+	dc.l	$3f933333
+	dc.l	$3f947ae1
+	dc.l	$3f95c28f
+	dc.l	$3f970a3d
+	dc.l	$3f9851ec
+	dc.l	$3f99999a
+	dc.l	$3f9ae148
+	dc.l	$3f9c28f6
+	dc.l	$3f9d70a4
+	dc.l	$3f9eb852
+	dc.l	$3fa00000
+	dc.l	$3fa147ae
+	dc.l	$3fa28f5c
+	dc.l	$3fa3d70a
+	dc.l	$3fa51eb8
+	dc.l	$3fa66666
+	dc.l	$3fa7ae14
+	dc.l	$3fa8f5c3
+	dc.l	$3faa3d71
+	dc.l	$3fab851f
+	dc.l	$3faccccd
+	dc.l	$3fae147b
+	dc.l	$3faf5c29
+	dc.l	$3fb0a3d7
+	dc.l	$3fb1eb85
+	dc.l	$3fb33333
+	dc.l	$3fb47ae1
+	dc.l	$3fb5c28f
+	dc.l	$3fb70a3d
+	dc.l	$3fb851ec
+	dc.l	$3fb9999a
+	dc.l	$3fbae148
+	dc.l	$3fbc28f6
+	dc.l	$3fbd70a4
+	dc.l	$3fbeb852
+	dc.l	$3fc00000
+	dc.l	$3fc147ae
+	dc.l	$3fc28f5c
+	dc.l	$3fc3d70a
+	dc.l	$3fc51eb8
+	dc.l	$3fc66666
+	dc.l	$3fc7ae14
+	dc.l	$3fc8f5c3
+	dc.l	$3fca3d71
+	dc.l	$3fcb851f
+	dc.l	$3fcccccd
+	dc.l	$3fce147b
+	dc.l	$3fcf5c29
+	dc.l	$3fd0a3d7
+	dc.l	$3fd1eb85
+	dc.l	$3fd33333
+	dc.l	$3fd47ae1
+	dc.l	$3fd5c28f
+	dc.l	$3fd70a3d
+	dc.l	$3fd851ec
+	dc.l	$3fd9999a
+	dc.l	$3fdae148
+	dc.l	$3fdc28f6
+	dc.l	$3fdd70a4
+	dc.l	$3fdeb852
+	dc.l	$3fe00000
+	dc.l	$3fe147ae
+	dc.l	$3fe28f5c
+	dc.l	$3fe3d70a
+	dc.l	$3fe51eb8
+	dc.l	$3fe66666
+	dc.l	$3fe7ae14
+	dc.l	$3fe8f5c3
+	dc.l	$3fea3d71
+	dc.l	$3feb851f
+	dc.l	$3feccccd
+	dc.l	$3fee147b
+	dc.l	$3fef5c29
+	dc.l	$3ff0a3d7
+	dc.l	$3ff1eb85
+	cnop	0,16
+fdat:
+	dc.l	$3f800000
+	dc.l	$3f800000
+	dc.l	$3f800000
+	dc.l	$3f800000
+	dc.l	$3fc00000
+	dc.l	$3fa00000
+	dc.l	$00000000
+	dc.l	$00000000

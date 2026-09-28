@@ -457,6 +457,29 @@ wire [63:0] din_m = din_norm_x ? din[63:0] :
                     din_norm_d ? {1'b1, din[83:32], 11'd0} :
                                  {1'b1, din[86:64], 40'd0};
 
+// P255: a single or double store of a normal register value, packed in the
+// dispatch clock (F_SRC's pk_s / pk_d normal arms).  Used only when the value
+// is in that format's normal range and an inexact result would not trap; the
+// tiny, overflowing, special and trapping cases keep the F_SRC / F_STDONE path.
+wire        st_norm = fr_src_m[63] && (fr_src_e != 15'h7FFF);
+wire signed [17:0] st_sE = $signed({3'd0, fr_src_e}) - 18'sd16383;
+wire        st_s_up  = round_up_m(fr_src_m[40], fr_src_m[39], fr_src_m[38:0] != 0, fr_src_s, fpcr[5:4]);
+wire        st_s_inx = fr_src_m[39:0] != 0;
+wire [24:0] st_s_mr  = {1'b0, fr_src_m[63:40]} + {24'd0, st_s_up};
+wire [16:0] st_s_eun = fr_src_e + {16'd0, st_s_mr[24]};
+wire [16:0] st_s_enc = st_s_eun - 17'd16256;           // -16383 + 127
+wire [22:0] st_s_frac = st_s_mr[24] ? 23'd0 : st_s_mr[22:0];
+wire        st_s_ok  = st_norm && (st_sE >= -18'sd126) &&
+                       ($signed({1'b0, st_s_eun}) - 18'sd16383 <= 18'sd127);
+wire        st_d_up  = round_up_m(fr_src_m[11], fr_src_m[10], fr_src_m[9:0] != 0, fr_src_s, fpcr[5:4]);
+wire        st_d_inx = fr_src_m[10:0] != 0;
+wire [53:0] st_d_mr  = {1'b0, fr_src_m[63:11]} + {53'd0, st_d_up};
+wire [16:0] st_d_eun = fr_src_e + {16'd0, st_d_mr[53]};
+wire [16:0] st_d_enc = st_d_eun - 17'd15360;           // -16383 + 1023
+wire [51:0] st_d_frac = st_d_mr[53] ? 52'd0 : st_d_mr[51:0];
+wire        st_d_ok  = st_norm && (st_sE >= -18'sd1022) &&
+                       ($signed({1'b0, st_d_eun}) - 18'sd16383 <= 18'sd1023);
+
 // result precision for an opmode: 0 extended (per FPCR), 1 single, 2 double
 function [1:0] prec_of;
 	input [6:0] op;
@@ -1048,6 +1071,20 @@ always @(posedge clk) begin
 						// P222: the raw extended store F_SRC would make next
 						// clock (it sets no status bits and needs no trap check)
 						dout <= {fr_src_s, fr_src_e, 16'd0, fr_src_m};
+						done_r <= 1; fpu_used <= 1;
+						r_op <= 7'h7F;
+					end
+					else if (src_fmt == 3'd1 && st_s_ok && !(st_s_inx && fpcr[9])) begin
+						// P255: normal single store packed here, done now
+						dout <= {fr_src_s, st_s_enc[7:0], st_s_frac, 64'd0};
+						if (st_s_inx) begin fpsr[9] <= 1; fpsr[3] <= 1; end
+						done_r <= 1; fpu_used <= 1;
+						r_op <= 7'h7F;
+					end
+					else if (src_fmt == 3'd5 && st_d_ok && !(st_d_inx && fpcr[9])) begin
+						// P255: normal double store packed here, done now
+						dout <= {fr_src_s, st_d_enc[10:0], st_d_frac, 32'd0};
+						if (st_d_inx) begin fpsr[9] <= 1; fpsr[3] <= 1; end
 						done_r <= 1; fpu_used <= 1;
 						r_op <= 7'h7F;
 					end

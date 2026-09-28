@@ -48,6 +48,7 @@ CONSTS = {  # name -> list of longwords
     'c2p5':     xbits(2.5),
     'cbig':     xbits(1.2345e300),
     'ctwo':     xbits(2.0),
+    'c0p7071':  xbits(0.70710678),
 }
 DOUBLE = struct.unpack('>2L', struct.pack('>d', 1.0000123))
 SINGLE = struct.unpack('>L', struct.pack('>f', 1.0000123))[0]
@@ -64,6 +65,8 @@ A0_D = ['\tlea\t(md).l,a0']
 A0_S = ['\tlea\t(ms).l,a0']
 A0_TAB = ['\tlea\t(dtab).l,a0']
 A0_BUF = ['\tlea\t(sbuf).l,a0']
+A0_SDAT = ['\tlea\t(sdat).l,a0']
+A0_FDAT = ['\tlea\t(fdat).l,a0']
 
 # ---------------------------------------------------------------- tests
 # (key, row label, setup lines, body(n) -> lines, ops per copy)
@@ -129,6 +132,25 @@ t('divint8', 'FDIV.X FP7,FPn + 8 ADD.L (group)', all_regs('c1234', 'c1p01') + ['
   lambda n: sum([['\tfdiv.x\tfp7,fp%d' % r7(i)] + ['\tadd.l\td0,d%d' % (1 + k % 5) for k in range(8)] for i in range(n)], []), 9)
 t('divint24', 'FDIV.X FP7,FPn + 24 ADD.L (group)', all_regs('c1234', 'c1p01') + ['\tmoveq\t#3,d0'],
   lambda n: sum([['\tfdiv.x\tfp7,fp%d' % r7(i)] + ['\tadd.l\td0,d%d' % (1 + k % 5) for k in range(24)] for i in range(n)], []), 25)
+# ---- Speedometer Matrix / FFT shapes (added 2026-09-28 afternoon)
+r8 = lambda i: i % 8
+t('flds16_i', 'FMOVE.S d16(A0),FPn', A0_SDAT, lambda n: ['\tfmove.s\t8(a0),fp%d' % r8(i) for i in range(n)])
+t('fldsx_i', 'FMOVE.S d8(A0,D0.L),FPn', A0_SDAT + ['\tmoveq\t#4,d0'], lambda n: ['\tfmove.s\t8(a0,d0.l),fp%d' % r8(i) for i in range(n)])
+t('flds0_i', 'FMOVE.S (A0),FPn', A0_SDAT, lambda n: ['\tfmove.s\t(a0),fp%d' % r8(i) for i in range(n)])
+t('fsts16_i', 'FMOVE.S FPn,d16(A0)', all_regs('c1000', 'c1p1') + A0_BUF, lambda n: ['\tfmove.s\tfp%d,8(a0)' % r8(i) for i in range(n)])
+t('ldmul', 'FMOVE.S d16(A0),FP0 ; FMUL.X FP0,FP1 (pair)', all_regs('c1p2345') + A0_SDAT,
+  lambda n: ['\tfmove.s\t8(a0),fp0', '\tfmul.x\tfp0,fp1'] * n, 2)
+t('mulst', 'FMUL.X FP1,FP2 ; FMOVE.S FP2,d16(A0) (pair)', all_regs('c1p2345', 'cmul') + ['\tfmove.x\t(cmul).l,fp1'] + A0_BUF,
+  lambda n: ['\tfmul.x\tfp1,fp2', '\tfmove.s\tfp2,8(a0)'] * n, 2)
+t('matrix', 'Matrix: FMOVE.S 0(A0,D0.L),FP0; FMUL.X FP1,FP0; FADD.X FP0,FP2; ADDQ.L #4,D0 (group)',
+  all_regs('c1p2345') + A0_SDAT + ['\tmoveq\t#0,d0'],
+  lambda n: ['\tfmove.s\t0(a0,d0.l),fp0', '\tfmul.x\tfp1,fp0', '\tfadd.x\tfp0,fp2', '\taddq.l\t#4,d0'] * n, 4)
+t('fft', 'FFT: 2x FMOVE.S d16(A0),FPn; FSUB.X; FMUL.X; FADD.X; 2x FMOVE.S FPn,d16(A0) (group)',
+  all_regs('c1p2345', 'c0p7071') + ['\tfmove.x\t(c0p7071).l,fp3'] + A0_FDAT,
+  lambda n: ['\tfmove.s\t16(a0),fp0', '\tfmove.s\t20(a0),fp1', '\tfsub.x\tfp1,fp0', '\tfmul.x\tfp3,fp0',
+             '\tfadd.x\tfp0,fp1', '\tfmove.s\tfp0,24(a0)', '\tfmove.s\tfp1,28(a0)'] * n, 7)
+t('fldd16_i', 'FMOVE.D d16(A0),FPn', A0_TAB, lambda n: ['\tfmove.d\t8(a0),fp%d' % r8(i) for i in range(n)])
+t('fstd16_i', 'FMOVE.D FPn,d16(A0)', all_regs('c1000', 'c1p1') + A0_BUF, lambda n: ['\tfmove.d\tfp%d,8(a0)' % r8(i) for i in range(n)])
 # traps: one exception per copy, checked from the bench's S_EXC0 count
 SETV = lambda vec, h: ['\tmove.l\t#%s,(%d).w' % (h, vec * 4)]
 t('fintrz_rte', 'FINTRZ.X FP1,FP0 -> vec 11, handler RTE', all_regs('c1p2345') + SETV(11, 'h_rte'),
@@ -141,7 +163,7 @@ t('fmovecr_fs', 'FMOVECR #0,FP0 -> vec 11, handler FSAVE/FRESTORE/RTE', all_regs
   lambda n: ['\tfmovecr.x\t#0,fp0'] * n)
 t('trap', 'TRAP #0 -> handler RTE', SETV(32, 'h_rte'), lambda n: ['\ttrap\t#0'] * n)
 t('aline', 'A-line $A000 -> handler ADDQ.L #2,2(SP); RTE', SETV(10, 'h_aline'), lambda n: ['\tdc.w\t$a000'] * n)
-t('nop_rte', 'handler-only reference: BSR to RTS (not a trap)', [], lambda n: ['\tbsr.w\th_rts'] * n)
+t('nop_rte', 'handler-only reference: BSR to RTS (not a trap)', ['\tbra.w\t.skip', '.rts:\trts', '.skip:'], lambda n: ['\tbsr.w\t.rts'] * n)
 
 EXPECT_EXC = {'fintrz_rte': 11, 'fintrz_fs': 11, 'fmovecr_rte': 11, 'fmovecr_fs': 11, 'trap': 32, 'aline': 10}
 
@@ -153,11 +175,11 @@ def gen(path):
     a('STAMP\tequ\t$F108')
     a('DONE\tequ\t$F102')
     a('\torg\t0')
-    a('\tdc.l\t$1E000,start')
+    a('\tdc.l\t$3F000,start')
     a('\trept\t254')
     a('\tdc.l\tfailh')
     a('\tendr')
-    a('\torg\t$400')
+    a('\torg\t$10000\t; code; $F100-$F10F are the bench registers')
     a('start:')
     a('\tmove.w\t#$2700,sr')
     a('\tmove.l\t#$80008000,d0\t; I and D caches on')
@@ -179,7 +201,7 @@ def gen(path):
             a('\tnop')
             a('\tmove.w\t#1,(STAMP).l')
             for line in body(n):
-                a(line.replace('.b', '.%s_' % lbl) if line.lstrip().startswith(('fb', '.b')) else line)
+                a(line)   # local .labels are scoped by the block's T label
             a('\tfnop')
             a('\tmove.w\t#%d,(STAMP).l' % tag)
             a('\tdbra\td7,%s' % lbl)
@@ -194,10 +216,9 @@ def gen(path):
     a('h_aline:')
     a('\taddq.l\t#2,2(sp)')
     a('\trte')
-    a('h_rts:\trts')
     a('failh:\tmove.w\t#$bad0,(DONE).l')
     a('\tbra.s\t*')
-    a('\torg\t$10000')
+    a('\torg\t$38000\t; data')
     for name, lw in CONSTS.items():
         a('%s:\tdc.l\t$%08x,$%08x,$%08x' % ((name,) + tuple(lw)))
     a('mx:\tdc.l\t$%08x,$%08x,$%08x' % xbits(1.0000123))
@@ -209,6 +230,14 @@ def gen(path):
         a('\tdc.l\t$%08x,$%08x' % struct.unpack('>2L', struct.pack('>d', 1.1)))
     a('\tcnop\t0,16')
     a('sbuf:\tds.b\t64')
+    a('\tcnop\t0,16')
+    a('sdat:')
+    for i in range(80):
+        a('\tdc.l\t$%08x' % struct.unpack('>L', struct.pack('>f', 1.1 + 0.01 * i))[0])
+    a('\tcnop\t0,16')
+    a('fdat:')
+    for v in (1.0, 1.0, 1.0, 1.0, 1.5, 1.25, 0.0, 0.0):
+        a('\tdc.l\t$%08x' % struct.unpack('>L', struct.pack('>f', v))[0])
     path.write_text('\n'.join(L) + '\n')
     return tags
 
@@ -218,9 +247,9 @@ def assemble(src, out):
                        capture_output=True, text=True)
     if r.returncode: sys.exit(r.stdout + r.stderr)
     data = binf.read_bytes()
-    # program text must stay below the $F108 stamp register
-    m = re.search(r'org\d+:400\(\S+\):\s+(\d+) bytes', r.stdout)
-    if not m or 0x400 + int(m.group(1)) > 0xF000: sys.exit('program text overlaps $F000:\n' + r.stdout)
+    # program text runs from $10000 and must stay below the data at $38000
+    m = re.search(r'org\d+:10000\(\S+\):\s+(\d+) bytes', r.stdout)
+    if not m or 0x10000 + int(m.group(1)) > 0x38000: sys.exit('program text overlaps the data:\n' + r.stdout)
     with open(out / 'fpu_latency.hex', 'w') as f:
         d = data + (b'\0' if len(data) % 2 else b'')
         for i in range(0, len(d), 2):
