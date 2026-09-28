@@ -1,7 +1,9 @@
 # Performance measurements — Speedometer 4.02
 
 **Current checkpoint (2026-09-28):** see [handoff](../HANDOFF-20260928.md) and
-the final sections below for 6c FPU/cache-v2 results. Earlier sections are
+the final sections below for 6c FPU/cache-v2 results. The goal is paused;
+the terminal cache-v2 FPU/Mix guest trial failed timing qualification despite
+passing automated capture checks. Earlier sections are
 dated measurements; their hardware addresses and mounted-disk descriptions
 are historical observations, not current access instructions.
 
@@ -2377,7 +2379,7 @@ while C_PASS occupancy falls804,428→630,743 samples. These are coarse counters
 not exact candidate per-address attribution. Evidence:
 [native cache-v2 results](perf/cache_refill_20260927/native_fpu_whetstone_cache_v2_candidate/README.md).
 This native result is not a full-guest or FPGA benchmark, and does not prove
-the 0.759 hardware target. Three full-machine FPU/Mix/Color8 runs are active.
+the0.759 hardware target. The subsequent full-machine trial is terminal and failed guest qualification, as recorded below.
 
 The combined 6c FPU + cache-v2, original-bridge seed31 FPGA build completed
 with 38,760/41,910 ALMs (92%), 468 RAM blocks and 36 DSPs. Final setup slack:
@@ -2389,3 +2391,38 @@ Evidence project: `scratch/cache_xline_first_fill_quartus_seed31_20260928/tree/`
 This establishes fit/timing, not hardware functionality or speed.
 
 FPGA reports and provenance are preserved in the [seed31 archive](perf/cache_refill_20260927/cache_v2_fpga_seed31/README.md). Timing passes under the unchanged release constraints; external I/O including SDRAM_DQ remains unconstrained as in the baseline. This is not board-level I/O signoff.
+
+
+## Cache-v2 fullguest trial: invalid FPU/Mix timings (2026-09-28)
+
+The combined6c FPU + cache9e8c0582 trial **failed qualification**. All three
+original runs completed with exit0, unchanged223-input source hashes and
+passing refill/observer checks. Setup4277 images and controls are byte-exact
+completed6c. Nevertheless, the reviewed final guest displays are anomalous:
+
+| Run | Completed6c | Cache-v2 display | Interpretation |
+|---|---|---|---|
+| FPU | Average0.729; Whet3850.048; Matrix0.928s; FFT0.418s | Average−96.774; Whet11460.135; Matrix0.007s; FFT−738.000s | Invalid timing; no speed credit |
+| Mix | Average1.798 | Average330.532; Bubble−4548s, Queens−293s, Puzzle0.000s, Sieve−19808s | Invalid timing; no speed credit |
+| Color8 | 9.878s | 9.856s, rating1.075, iteration1 | Isolated visible result; does not qualify the combined trial |
+
+The Mix modal hides some rating/iteration cells; no hidden values are inferred.
+Automated PASS verifies capture/guard reconciliation and identities, not the
+guest timing oracle. Cause is **unproven**; these anomalies must not be
+classified as a harmless timer artifact. No aggregate improvement or hardware
+gain follows from this trial. Earlier native/fit results retain their own scope.
+
+FPU finished12:25:28UTC, Mix12:28:08UTC, Color12:01:32UTC. All original model
+and supervisor processes were absent at final verification. Vemu SHA727eb129…,
+source manifest8c70ed5a…, FPU6c157b3b and sole cache delta7cba7f73→9e8c0582
+remain pinned. The original calibrated4/2/fullrelease10CPU+SCSI_CACHE_OFF/
+unroll256/8+8KB recipe and separate golden disks were used. No retries or
+subsequent simulations, RTL edits, hardware tests or deployment occurred.
+
+[Compact evidence and comparisons](perf/cache_refill_20260927/cache_v2_fullmachine_guest_results/README.md)
+preserve exact setup/final screens, completed6c comparisons, terminal/checker
+records and separate manual reviews without rewriting original metadata.
+The goal is **paused**; the user chooses subsequent work. A possible next
+step, requiring authorization, is focused review of cross-line replay/coherence
+and guest timer reads/writes before any instrumented matched replay. No new
+run or corrective cause is claimed here.
