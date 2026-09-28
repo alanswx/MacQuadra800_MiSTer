@@ -63,6 +63,13 @@ recognizer. Correct and verify the actual generated-model adapter, including
 recognition diagnostics, before repeating the long workload. Host-only
 recognizer tests and a zero-span boot smoke did not prove this integration.
 
+The corrected capture launched at 01:04:11 UTC on 2026-09-28 after real-model
+boot, selector/helper/timer fixtures, an early-branch boundary regression,
+and an actual decoder eligibility check passed. The live adapter sanity gate
+now sees instruction fetches and known opcodes. Actual OS benchmark coverage
+remains unproven until all three timed sites pass strict validation; see the
+active-run handles and frozen identities in `RESUME-20260927.md`.
+
 ## Work sequence
 
 1. **Establish the baseline and profile the path.** Preserve the existing
