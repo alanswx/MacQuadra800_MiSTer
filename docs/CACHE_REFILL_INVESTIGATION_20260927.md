@@ -19,6 +19,23 @@ clean lines across CPUSH: the MC68040 manual requires their invalidation too.
 Write-through operation and snooping do not remove that requirement; see
 `NEXT_PERFORMANCE_PLAN_20260927.md` for the source and decision.
 
+## Native workload measurement scope
+
+The native `tEsT12000` selector-1 Whetstone callback now executes in the
+preserved ROM/runtime fixture: 8,726,508 loop clocks, passing ABI/code and
+chip/bus checks, with no independent numerical oracle. Evidence is in
+`docs/perf/cache_refill_20260927/native_fpu_whetstone/`.
+
+Its 8,294 C_FILL clocks (0.095%) are only fill-state occupancy. Crossing
+longword reads whose first line misses can use C_PASS directly, without
+allocating a line; a second-line miss after a first-line hit may instead
+fill that next line. The native log contains 9,773 bus32 long reads at
+line offset E, taking 173,150 aggregate request clocks. Their pattern is
+compatible with the crossing path but is not per-transaction proof of the
+cache cause. Do not call C_FILL occupancy the total memory penalty or use
+it alone to rule out memory-path optimization. Cache lookups, tag commit,
+bypass transfers and overlap with core execution remain relevant.
+
 ## Production memory-path measurement
 
 An isolated bench connects the actual cache, transaction adapter, SDRAM
