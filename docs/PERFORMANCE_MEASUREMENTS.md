@@ -2554,3 +2554,35 @@ to a few ms within a session: per-row differences between builds are
 memory placement per boot, so only whole-Mix medians compare across builds.
 The clean fit needs `PLACEMENT_EFFORT_MULTIPLIER 2.0` and
 `ROUTER_TIMING_OPTIMIZATION_LEVEL MAXIMUM`, now in the `.qsf`.
+
+
+## Disk: the first throughput numbers (2026-09-28 evening)
+
+Release core `b7e88b81` (`SCSI_CACHE_OFF` recipe), disposable QuadSquad8
+copy, Main `ff404af9` with the write buffer, Samsung 239 GiB SDXC at 50 MHz
+high-speed, exFAT `sync,dirsync`, image opened `O_SYNC`. Evidence:
+[guest side](perf/disk_guest_20260928/README.md), [Main path](disk-main-path-20260928.md).
+
+| measure | result |
+|---|---|
+| Speedometer 4.02 PR Disk, median of 5 | **1.623** (1.579-1.626; real Quadra 800 3.443, 47 %) |
+| Finder duplicate, 3.96 MB Photoshop, 4 runs | 7.0 s median = **565 kB/s** (read phase then write phase) |
+| Finder duplicate, 5.2 MB Illustrator, source not in Linux's page cache | 9.0 s = 577 kB/s (same as cached: the SD card does not limit reads) |
+| sequential read | **1.5-1.9 MiB/s** (2.4 in the best 0.26 s window); about 205 us per 512-byte sector at best, 275-305 sustained |
+| sequential write | **0.96 MiB/s**; about 510 us per sector; Main's write buffer turns them into ~62 KiB `write()` calls and spends 15-20 % of the write phase blocked in them |
+| Main CPU | a busy-poll loop that always takes one whole core; not overloaded |
+
+Where the time goes (Main-side trace, same document): every hard-disk
+request is one 512-byte block, the 53C96 engine raises the next request only
+after the guest has drained or filled its single sector buffer, and Main
+serves one request per main-loop pass: about 110 us of SPI per read and 150
+per write (the 257-word data command; at 512 bytes per trip reads cannot
+pass about 4.4 MiB/s even with no waiting) plus 100-200 us from one request
+to the next. So roughly half of a read round trip is the transfer and half is
+Main's turnaround. The Performance Rating run also gave PR CPU 0.796 against
+0.895 on `31b6e99`, on one boot; Benchmark Mix on the same code went up, so
+that component needs a second boot before it means anything.
+
+Next, in order: the tight service loop in Main (built, `scratch/mac_main_sdprof_20260928/`,
+not installed; removes the turnaround, no FPGA change), then multi-block
+requests, then the DDR3 path if the SPI wire itself is the limit.
