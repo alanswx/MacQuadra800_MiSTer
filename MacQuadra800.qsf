@@ -413,7 +413,11 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # same-clock ASC edge; PDMA watchdog frozen through the ack).  Seed 31, same recipe, MET: CPU +0.864,
 # SDRAM +0.409, HDMI +0.110, hold +0.250, crossings +1.128/+0.867, 39,102 ALMs (93 %), 468 M10K, 36 DSP,
 # RBF md5 dc281d64.  Hardware: 30/30 Finder duplicates over two boots, 0 hangs (docs/perf/iosbfix_hw_20260929).  SEED 31 kept.
-set_global_assignment -name SEED 31
+# 2026-09-29: P260 (2b30d64, two-half sector buffer, ncr_sbuf 512x16 still 1 M10K).  Seeds 31, 22 router
+# failed / 21 CPU -0.253 on 583a98c; on 2b30d64 seed 31 HDMI -0.384, 24 HDMI -0.360, 27 MET: CPU +0.299,
+# SDRAM +0.678, HDMI +0.299, hold +0.207, crossings +0.707/+0.600, 39,246 ALMs (94 %), 468 M10K, 36 DSP,
+# RBF md5 f769b9e1 (docs/perf/p260_fpga_20260929).  SEED 27.
+set_global_assignment -name SEED 27
 # 2026-09-24: NEVER grew the full BRF fit by398 ALMs; retain the better ALWAYS setting.
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
