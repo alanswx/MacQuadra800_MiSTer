@@ -412,7 +412,7 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # 2026-09-29: + the IOSB interrupt fix (f9f6da6: VIA2 IFR write keeps the live 53C96 INT/DRQ and a
 # same-clock ASC edge; PDMA watchdog frozen through the ack).  Seed 31, same recipe, MET: CPU +0.864,
 # SDRAM +0.409, HDMI +0.110, hold +0.250, crossings +1.128/+0.867, 39,102 ALMs (93 %), 468 M10K, 36 DSP,
-# RBF md5 dc281d64.  Hardware: Finder duplicates 0 hangs (docs/perf/iosbfix_hw_20260929).  SEED 31 kept.
+# RBF md5 dc281d64.  Hardware: 30/30 Finder duplicates over two boots, 0 hangs (docs/perf/iosbfix_hw_20260929).  SEED 31 kept.
 set_global_assignment -name SEED 31
 # 2026-09-24: NEVER grew the full BRF fit by398 ALMs; retain the better ALWAYS setting.
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS

@@ -11,7 +11,8 @@
 
 - **Fit:** the release recipe meets every clock. CPU is +0.864 ns.
 - **Hang gate:** ten Finder duplicates of Photoshop 3.0.1 in a row
-  completed, with **0 hangs**.
+  completed, with **0 hangs**. A second boot of the same bitstream ran
+  twenty more (section "Second session"): **30 of 30 clean, 0 hangs**.
 - **Speed:** unchanged within run-to-run spread. PR Disk median 1.699, FPU
   0.955 / 0.960 / 0.981.
 - **Idle and shutdown:** the 8.1 idle check passed, and Shut Down reached
@@ -127,7 +128,7 @@ delta, which must be at least 3,958,000 B. The scripts are copies of
   strong evidence is the sim: g14's deterministic reproduction completes on
   the fix, and the directed bench passes all 24 offsets. More copies on this
   bitstream would tighten the hardware bound: 30 clean copies would put the
-  old rate below 5 % chance.
+  old rate below 5 % chance. The second session below brings the total to 30.
 
 ### Speedometer 4.02 (after the copies, Speedometer launched from its alias)
 
@@ -183,13 +184,74 @@ The production reference (`b7e88b81` with the same Main,
   explicit button-up at the end) reached "It is now safe to switch off your
   Macintosh" (`halt.png`). After that, `write_bytes` did not change.
 
+## Second session: twenty more duplicates (same rbf `dc281d64`)
+
+- **Redeploy:** from the halt screen at 06:56 UTC, with Main's
+  `write_bytes` flat over 5 s, `bash scripts/deploy_screenshot.sh` pushed the
+  same rbf. It reported "Timing OK", verified md5 `dc281d64` on the box and
+  loaded the core.
+- **Boot:** the Finder came up by 95 s with no bomb (`boot2_95s.png`). The
+  folder showed 43 items and 1 GB free.
+- **Copies:** `ps_open.sh run2`, then `p_dup.sh run2 1..20` in four batches
+  of five: the same scripts, timing and completion test as above.
+- **Free space:** 991.3 MB after copy 10 and 953.5 MB after copy 20, far
+  above the 100 MB stop line.
+
+| copy | time (s) | kB/s | written (B) | read phase | write phase |
+|---:|---:|---:|---:|---|---|
+| 1 (cold) | 6.95 | 570 | 3,964,928 | 3.51 s, 1.30 MiB/s | 3.77 s, 1.00 MiB/s |
+| 2 | 6.92 | 572 | 3,966,464 | 2.51 s, 1.65 | 4.00 s, 0.94 |
+| 3 | 6.67 | 593 | 3,966,976 | 2.51 s, 1.65 | 3.74 s, 1.01 |
+| 4 | 6.67 | 593 | 3,968,000 | 2.52 s, 1.65 | 3.74 s, 1.01 |
+| 5 | 6.66 | 595 | 3,965,952 | 2.50 s, 1.65 | 3.98 s, 0.95 |
+| 6 | 6.60 | 599 | 3,966,976 | 2.51 s, 1.65 | 3.73 s, 1.01 |
+| 7 | 6.70 | 591 | 3,964,928 | 2.51 s, 1.65 | 3.74 s, 1.01 |
+| 8 | 6.44 | 615 | 3,965,952 | 2.52 s, 1.64 | 3.75 s, 1.01 |
+| 9 | 6.65 | 595 | 3,971,584 | 2.51 s, 1.65 | 3.74 s, 1.01 |
+| 10 | 6.64 | 597 | 3,964,928 | 2.51 s, 1.65 | 3.99 s, 0.95 |
+| 11 | 6.68 | 593 | 3,965,952 | 2.50 s, 1.66 | 3.73 s, 1.01 |
+| 12 | 6.68 | 593 | 3,966,976 | 2.51 s, 1.65 | 3.75 s, 1.01 |
+| 13 | 6.71 | 590 | 3,964,928 | 2.53 s, 1.64 | 4.01 s, 0.94 |
+| 14 | 6.67 | 594 | 3,968,512 | 2.52 s, 1.64 | 3.75 s, 1.01 |
+| 15 | 6.92 | 572 | 3,968,512 | 2.50 s, 1.66 | 4.00 s, 0.94 |
+| 16 | 6.66 | 594 | 3,964,928 | 2.50 s, 1.64 | 3.74 s, 1.01 |
+| 17 | 6.69 | 592 | 3,965,952 | 2.51 s, 1.65 | 3.75 s, 1.01 |
+| 18 | 6.70 | 591 | 3,966,976 | 2.51 s, 1.65 | 3.75 s, 1.01 |
+| 19 | 6.68 | 593 | 3,967,488 | 2.51 s, 1.63 | 3.74 s, 1.01 |
+| 20 | 6.69 | 592 | 3,965,952 | 2.53 s, 1.64 | 3.75 s, 1.01 |
+| **median** | **6.68** | 593 | | min 6.44, max 6.95 | |
+
+- **All twenty completed.** The folder went from 43 to 63 items
+  (`run2_dup20_after.png`).
+- **Hangs: 0 of 20. Bombs: 0.** No reboot was needed.
+- **The median is the same 6.68 s as the first session.** The 6.9 s copies
+  (1, 2, 15) carry one extra 0.25 s write-phase window, the same pattern as
+  the first session's 3.98-4.00 s write phases.
+- **Shut Down:** `shutdown.sh run2` reached "It is now safe to switch off
+  your Macintosh" (`run2_halt.png`). After that, `write_bytes` was flat at
+  90,017,792.
+
+**Both sessions: 30 of 30 duplicates clean, 0 hangs.**
+
+What that rules out:
+
+- The old RTL hung in about 1 of 10-20 copies (1 in 8, then 2 in about 25,
+  across the earlier sessions). At that rate it would have come through 30
+  copies clean only 4 % of the time at 1 in 10, 11 % at 1 in 14, and 21 %
+  at 1 in 20.
+- Together with the sim (g14's deterministic stop completes on the fix) and
+  the directed bench (all 24 offsets pass), the hang is fixed with good
+  confidence.
+
 ## Box state at the end
 
-- Guest halted at "safe to switch off". The core `MacQuadra800` is running
-  from `_Unstable/MacQuadra800.rbf`, md5 `dc281d64`.
-- Main `75e00b65`. MiSTer uptime 4:00; no reboot was needed.
-- `.s0` is still the disposable disk. It now holds ten more Photoshop copies:
-  43 items in the folder, 1 GB free.
+- Guest halted at "safe to switch off" (07:19:50 UTC). The core
+  `MacQuadra800` is running from `_Unstable/MacQuadra800.rbf`, md5
+  `dc281d64`.
+- Main `75e00b65`. MiSTer uptime 4:27; no reboot was needed in either
+  session.
+- `.s0` is still the disposable disk. It now holds thirty more Photoshop
+  copies: 63 items in the folder, 953.5 MB free. Nothing was deleted.
 - CFG byte 0 is `0x40`. `/media/fat` is 99 % full, with 2.9 GB free.
 - The checkout's `output_files/` holds this build: rbf `dc281d64`, plus its
   fit and sta summaries.
@@ -200,7 +262,7 @@ The production reference (`b7e88b81` with the same Main,
 # 2026-09-29: + the IOSB interrupt fix (f9f6da6: VIA2 IFR write keeps the live 53C96 INT/DRQ and a same-clock ASC edge;
 # PDMA watchdog frozen through the ack).  Seed 31, same recipe, MET: CPU +0.864, SDRAM +0.409, HDMI +0.110, hold +0.250,
 # crossings +1.128/+0.867, 39,102 ALMs (93 %), 468 M10K, 36 DSP, fitter 16m39s, RBF md5 dc281d64.  Hardware: 10/10 Finder
-# duplicates, 0 hangs (docs/perf/iosbfix_hw_20260929).  SEED 31 kept.
+# duplicates + 20/20 on a second boot, 0 hangs (docs/perf/iosbfix_hw_20260929).  SEED 31 kept.
 ```
 
 ## Files
@@ -210,4 +272,5 @@ The production reference (`b7e88b81` with the same Main,
 - `scratch/iosbfix_hw_20260929/`:
   - `scripts/`, `deploy.log`;
   - `run/`: every screenshot, the `dup*_arm.txt` samplers, `log.txt`;
+  - `run2/`, `deploy2.log`, `boot2_95s.png`: the second session;
   - `prev_output_files/`.
