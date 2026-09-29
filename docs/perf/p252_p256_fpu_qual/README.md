@@ -209,6 +209,53 @@ runs are under `scratch/p256_qual_20260928/{fpu,mix,color8,p258_fpu}_run/`,
 with logs gzipped. The `run.hda` copies and all Verilator obj directories
 have been deleted.
 
+## 6. CPU Mix on ad7a0d4: does P257/P258 slow Bubble or Quick Sort?
+
+On hardware, the ad7a0d4 seed-31 build shows Bubble Sort at 0.710 s (0.633 s
+on the previous build) and Quick Sort at 0.531 s (0.516 s), the same across
+five runs. To check whether the RTL itself causes this, the full-machine
+Mix was run on ad7a0d4 with the same recipe as section 5: the same control
+(`eafdd1b9…`), a fresh golden disk and one iteration. The Vemu is a
+deterministic rebuild with SHA256 `75780da4…`, identical to the section-5
+FPU run's. The run exited 0 and the setup screen is byte-identical. I
+reviewed the final screen: "The tests are done!" with all values positive
+and plausible. **Valid.**
+
+| Test | 0b2d265 | b2ed1b0 | **ad7a0d4** |
+|---|---:|---:|---:|
+| KWhetstones/sec | 1762.002 | 1812.727 | **1830.837** |
+| Dhrystones/sec | 17931.816 | 17932.124 | **17934.009** |
+| Towers (s) | .479 | .479 | **.479** |
+| Quick Sort (s) | .507 | .507 | **.507** |
+| Bubble Sort (s) | .602 | .602 | **.602** |
+| Queens (s) | .362 | .362 | **.362** |
+| Puzzle (s) | .755 | .756 | **.755** |
+| Permutations (s) | .712 | .712 | **.712** |
+| Int. Matrix (s) | .495 | .495 | **.495** |
+| Sieve (s) | .845 | .845 | **.844** |
+| Average | 1.798 | 1.816 | **1.822** |
+
+**P257/P258 do not change Bubble Sort or Quick Sort in simulation.** Every
+integer row is the same as b2ed1b0 and 0b2d265 to the displayed millisecond,
+except for 1 ms of rounding noise on Puzzle and Sieve. Whetstone gains again
+from the cheaper FPSP trap path.
+
+The simulation therefore does not reproduce the hardware slowdown. That fits
+a fit-specific effect on the hardware build, such as the reported timing
+miss on the store buffer's `s_ack -> fast_read_retire` path. It does not fit
+a cycle-level change in the RTL. Two limits apply. The sim contains the real
+CPU and the store buffer (`wombat_cpu`), but not the production SDRAM
+controller timing or any setup/hold behaviour. Its absolute sort times also
+differ from hardware (Bubble .602 in sim against .633 on the earlier hardware
+build). So this result rules out an RTL cause in the modelled path; it does
+not prove the cause on hardware. A timing-clean ad7a0d4 seed on hardware
+would settle it.
+
+Screens: `screens/mix_final_f7382_ad7a0d4.png` and
+`screens/mix_setup_f4277_ad7a0d4.png`. Metadata:
+`p258/mix_run.meta_ad7a0d4.txt`. Scratch run:
+`scratch/p256_qual_20260928/p258_mix_run/`.
+
 ## Verdict
 
 Both b2ed1b0 (P252–P256) and ad7a0d4 (+P257/P258) pass every correctness
