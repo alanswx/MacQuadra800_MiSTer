@@ -313,3 +313,37 @@ guest (CLAUDE.md binding rules).
    57600 8N1, handshake off) to type and receive.
 5. Confirm the 1200-baud catch-all bug (optional): with the same terminal
    program at 1200 baud, the host sees nothing sensible.
+
+
+## Addendum, same evening: what changed in the core, and the daemon branch
+
+The user reports that with a new StyleWriter branch of the printer emulation
+(the daemon trying 57600) **no data reached the daemon at all**. That is the
+handshake signature rather than a rate one: the StyleWriter driver waits for
+the printer's DTR, which is the SCC's /CTS, and RR0's CTS bit was a constant
+"not ready" in this core, so the driver never transmitted. Two core changes
+landed (`rtl/scc.v`, `MacQuadra800.sv`):
+
+1. **RR0 CTS is now the real pin.** `serialCTS` is `UART_CTS` (the HPS UART's
+   RTS as the framework presents it, active low like /CTS), synchronised with
+   two flops, and RR0 bit 5 reads its inverse as on the Z8530: a daemon or
+   pppd opened with RTS/CTS flow control reads as "clear to send". DCD stays 0.
+   `tb_scc_printer` now shows RR0 $24 with the pin low and $04 with it high.
+   A daemon that does not assert RTS will still hold a handshake-honouring
+   driver off, which is the correct behaviour and the same as before.
+2. **The 1200-baud bug (review finding 3):** the ROM-selftest shortcut
+   (WR12 $5E, WR4 $44/$4C -> 4 clocks per bit) is gated on local loopback,
+   which is how the ROM runs the test, and the diagnostic-disk 600-baud
+   shortcut is simulation-only. Real 1200 and 600 baud ports now run at their
+   rates. `tb_scc_midi`'s ROM-style loopback prelude still passes.
+
+Not changed: RR1 still reports no receive errors, the receiver still waits 16
+idle bit times after a framing error, Tx Empty still asserts at end of
+character (review findings 5 and 6 and the framing note above).
+
+**For the daemon branch:** open the tty at 57600 8N1 with `crtscts` (so Linux
+asserts RTS and the Mac sees CTS), answer the driver's status queries, and
+check `stty -F /dev/ttyS1 -a` on the box shows 57600 with `crtscts` while a
+job is pending. With RR0 CTS live, the first thing to look at if the Mac
+still sends nothing is the polarity: RR0 must read $2x while the daemon has
+the port open.

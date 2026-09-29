@@ -659,7 +659,13 @@ video_freak video_freak
 //////////////////////////////////////////////////////////////////
 wire serialOut, serialRTS;
 wire serialOutB;                           // printer port TX — unused for now
-wire serialCTS = 1'b1;                     // idle/deasserted: no device attached
+// The HPS UART's RTS, as the framework presents it (active low, like the
+// SCC's /CTS pin it feeds): a printer daemon or pppd with RTS/CTS on asserts
+// it when it can take data, and the Mac's StyleWriter driver waits for RR0's
+// CTS bit before it sends a byte.  It used to be a constant "no device", so a
+// driver that honours the handshake never sent anything
+// (docs/serial-printer-20260929.md).
+wire serialCTS = UART_CTS;
 wire [7:0] uart_mode;                      // from hps_io; 3 = MIDI
 
 wire userport_midi_in = (uart_mode == 8'd3) ? mt32_midi_rx : 1'b1;
