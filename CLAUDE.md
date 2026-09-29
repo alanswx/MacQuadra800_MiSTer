@@ -1,8 +1,9 @@
 # MacQuadra800_MiSTer — working notes for Claude
 
-Start with [HANDOFF-20260928.md](HANDOFF-20260928.md) for the current FPU/cache
-candidate, live guest jobs, passing FPGA fit and remaining hardware gates.
-`RESUME-20260927.md` is the detailed historical experiment journal.
+Start with [HANDOFF-20260928.md](HANDOFF-20260928.md): the current release
+state (the 2026-09-28/29 FPU, disk and IOSB work, what is owed for a final
+release, what is next). `RESUME-20260927.md` is the historical experiment
+journal. `releases/README.md` is the per-build record.
 
 Macintosh Quadra 800 core for the MiSTer FPGA (DE10-Nano). Authentic 33 MHz
 68040 bus clock, AP68040 CPU (git submodule), 128 MB SDRAM main memory, DAFB
@@ -99,17 +100,25 @@ bash scripts/build_only.sh --check    # Analysis & Synthesis only (~13 min), no 
   path reports (`docs/sdram-open-row-crossing.md`) before trusting the build.
 - `SCSI_TRACE` in the `.qsf` makes a **debug** build that hijacks the serial
   port. It must stay commented out for anything released.
-- **The qsf's default settings ARE the release recipe** (updated 2026-09-27;
-  `SEED 21` and every seed tried is in the `.qsf` comment block).  On top of
-  the 2026-09-08 recipe below it now sets: all the `AP040_*PIPELINE*` /
-  `XSTORE` / `LEA` CPU macros (the second integer pipeline, back since
-  `31b6e99`), `SCSI_CACHE_OFF` (the core's SCSI block cache off -- **needs
-  the write-buffer Main**, below, or every disk write waits ~4 ms on the SD
-  card), and the release-lite framework trims `MISTER_BYPASS_AUDIO_FILTER`,
-  `MISTER_DISABLE_VIDEO_CALC`, `VIDEO_512_OFF`, `MISTER_DISABLE_SHADOWMASK`;
-  CPU caches are 8+8 KB (`SETW = 7` in `ap040_cache.v`; 16+16 KB fits the
-  M10K budget but misses the CPU clock).  The build sits at 92 % ALMs, 468 of
-  553 M10K; `docs/AREA_BUDGET_20260924.md` has the per-feature costs.
+- **The qsf's default settings ARE the release recipe** (updated 2026-09-29;
+  the seed and every seed tried is in the `.qsf` comment block, with
+  `PLACEMENT_EFFORT_MULTIPLIER 2.0` and `ROUTER_TIMING_OPTIMIZATION_LEVEL
+  MAXIMUM` since 2026-09-28, without which no seed met the CPU clock at
+  94 %).  On top of the 2026-09-08 recipe below it sets: all the
+  `AP040_*PIPELINE*` / `XSTORE` / `LEA` CPU macros (the second integer
+  pipeline, back since `31b6e99`), `SCSI_CACHE_OFF` (the core's SCSI block
+  cache off -- it no longer fits, `docs/perf/disk_cacheon_builds_20260928/`;
+  the 53C96 engine's two-half sector buffer, P260, does the overlap instead
+  -- **needs the write-buffer Main**, below, or every disk write waits ~4 ms
+  on the SD card), and the release-lite framework trims
+  `MISTER_BYPASS_AUDIO_FILTER`, `MISTER_DISABLE_VIDEO_CALC`,
+  `MISTER_DISABLE_SHADOWMASK` (`VIDEO_512_OFF` was dropped on 2026-09-29: the
+  512x384 monitor option is in the release); CPU caches are 8+8 KB (`SETW =
+  7` in `ap040_cache.v`; 16+16 KB fits the M10K budget but misses the CPU
+  clock).  The build sits at 94 % ALMs, 468 of 553 M10K, and every RTL
+  change re-rolls the placement: expect a 2-4 seed walk per change
+  (`docs/perf/*_fpga_*`); `docs/AREA_BUDGET_20260924.md` has the per-feature
+  costs.
   The 2026-09-08 recipe:
   balanced synthesis, register duplication off, and the switches
   `CACHE_CD_OFF` (the CD passes through the block cache), `CACHE_SMALL`
@@ -126,13 +135,22 @@ bash scripts/build_only.sh --check    # Analysis & Synthesis only (~13 min), no 
   is the `CDROM` parameter on `ncr53c96` (plumbed through `iosb` and
   `quadra800`). Default on; a release build never sets it.
 
-## Simulation (WSL)
+## Simulation
 
-Verilator 5 lives in WSL (`wsl.exe -e bash -lc '…'`; the `Failed to mount I:\`
-line on stderr is harmless).
+Verilator 5 is `/home/alans/verilator5/bin` on this box (put it first on
+PATH; the system verilator is too old), vasm is
+`/home/alans/mister/MacQuadra800_fixtures/wombat-vasm/vasmm68k_mot`
+(`VASM=... sh rtl/ap68040/tb/run_tests.sh`, also with `CPU_TEST_LEA=1
+CPU_TEST_XSTORE=1`; keep `CPU_TEST_WORK` a short path). The WSL notes below
+are the pre-2026-09-13 Windows setup. Long runs go under `systemd-run --user
+--collect`; never `pkill -f` (it kills the shell). The full-machine guest
+recipe the 2026-09-28/29 qualifications used (golden disk copy, control
+stream, model 4/2, screenshots) is under `docs/perf/p252_p256_fpu_qual/` and
+`docs/perf/p260_pingpong_sim_20260929/` (which also has the randomised
+sector-latency harness that found the IOSB hang).
 
 ```bash
-# directed testbenches, from verilator/ (run on /mnt/c or synced tree)
+# directed testbenches, from verilator/
 make tb_sdram tb_wombat_bus32 tb_store_buffer tb_memory_path tb_memory_path_registered_first_miss tb_ncr53c96 tb_easc tb_scsi_irq_ack_race tb_sdma_ack_watchdog tb_iosb_scc
 # full machine sim: sync sources to ~/MacQuadra800 (ext4), build Vemu + ROM hexes
 bash scripts/sim_wsl.sh build
@@ -162,9 +180,14 @@ ROM + A/UX disk and is the golden reference for SCSI/ESP behaviour.
 
 Target is the DE10-Nano at the address in `scripts/local.env`
 (`192.168.99.143`, ssh key `~/.ssh/mister_only`, mrext remote on `:8182`).
-**Since 2026-09-18 the box is `10.3.89.233` (`MiSTer.local`), key
-`~/.ssh/id_rsa`** -- `scripts/local.env` has it; the addresses in this section
-are the old LAN's.  The box is shared with other cores' sessions (FM-7, Apple
+**Since 2026-09-18 the box is `10.3.89.233` (`MiSTer.local`) over Wi-Fi, key
+`~/.ssh/id_rsa`; since 2026-09-29 its USB (and so the Wi-Fi dongle) is dead
+and it is reached on wired eth0 `10.3.164.251`** -- `scripts/local.env` has
+the current address; the addresses in this section are the old LAN's. This
+box's mrext ignores mouse commands: `mac_shutdown.sh` cannot press Shut
+Down, use the `vmouse.py` recipe below (the 2026-09-28/29 hardware READMEs
+under `docs/perf/` have the exact scripts). Main on the box since 2026-09-29
+is `releases/MiSTer_20260928` (the tight disk service loop).  The box is shared with other cores' sessions (FM-7, Apple
 IIgs, ...): look at the screen before loading anything, and the user says when
 it is free.  The mouse is driven with
 `ssh ... python3 /media/fat/Scripts/q800tools/vmouse.py` (Finder Shut Down:
