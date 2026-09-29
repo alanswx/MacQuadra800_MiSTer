@@ -52,6 +52,23 @@ menu and the display working. It is meant for the Ethernet core built from
 `add-ethernet` (`b2e5377` and later), released as `MacQuadra800_20260919.rbf`
 (below); the older released cores run under it with Ethernet simply absent.
 
+### `MiSTer_20260928` — Main with the tight disk service loop
+
+md5 `75e00b65d443e17c288c3297e5e93caf`. `alanswx/Main_MiSTer` branch
+`mac-printer-fujinet-tightloop`, commit `be6604e` (one commit on the
+FujiNet/printer/write-buffer build `b4192cd`, md5 `ff404af9`), clean build
+2026-09-28; passes both CLAUDE.md greps. After serving a Quadra 800
+hard-disk request on slot 0/1 it spins on the SD status for up to 250 us
+and keeps serving while requests keep coming, for at most 2 ms per pass,
+instead of waiting a whole Main pass for every 512-byte sector
+(`MAC_SD_SPIN_US` / `MAC_SD_BUDGET_US` environment overrides, spin 0 = the
+old behaviour). On `MacQuadra800_20260928.rbf`: Speedometer PR Disk
+1.704 / 1.745 / 1.741 (1.52 for the instrumented spin-0 control, 1.62 on
+`ff404af9`), 4 MB Photoshop duplicate 6.68 / 6.69 / 6.94 s (7.34 for the
+control, about 7.2 on `ff404af9`), mouse and guest Ethernet unaffected
+(`docs/perf/disk_tightloop_20260928/production.md`). Install as for the
+binary above; no inittab change is needed.
+
 ## `MacQuadra800_20260928.rbf`
 
 md5 `b7e88b8163679a607680e2e80669f396`, sha256
