@@ -2586,3 +2586,33 @@ that component needs a second boot before it means anything.
 Next, in order: the tight service loop in Main (built, `scratch/mac_main_sdprof_20260928/`,
 not installed; removes the turnaround, no FPGA change), then multi-block
 requests, then the DDR3 path if the SPI wire itself is the limit.
+
+
+## Disk: the ping-pong sector buffer, PR Disk 1.70 -> 2.46 (2026-09-29)
+
+`2b30d64` (P260, the 53C96 engine's sector buffer as two halves in the same
+M10K: reads prefetch sector n+1 while the guest drains n, writes flush one
+half while the guest fills the other), seed 27, every clock met, RBF md5
+`f769b9e1`, `MiSTer_20260928` (tight loop), 32 MB, disposable Quad Squad
+copy. Evidence: [hardware](perf/p260_hw_20260929/README.md),
+[simulation](perf/p260_pingpong_sim_20260929/README.md).
+
+| | 20260928 baseline (`ff404af9` Main) | tight-loop Main (`dc281d64`) | **P260 + tight loop (`f769b9e1`)** | real Quadra 800 |
+|---|---:|---:|---:|---:|
+| PR Disk, median of 5 | 1.623 | 1.699-1.741 | **2.462** | 3.443 |
+| PR | 1.124 | 1.211 | **1.266** | 1.605 |
+| 4 MB Finder duplicate, median | 7.0 s | 6.68 s | **4.95 s** | |
+| read phase | 1.5-1.9 MiB/s | 1.65 | **2.06-2.36** (best 0.25 s window 4.1) | |
+| write phase | 0.96 | 0.94-1.01 | **1.37-1.53** | |
+| CPU / Graphics / Math (PR) | 0.796* / 1.159 / 21.46 | 0.895 / 1.155 / 21.4 | 0.896 / 1.167 / 21.46 | |
+| FPU / Mix | | 0.955-0.981 / | 0.951 cold, 0.976 warm / 1.807 | 1.011 / 1.899 |
+
+(* a one-boot effect.) 30 duplicates on one boot, no hang; idle clock in
+step; clean Shut Down. In the sim the same engine made the randomised-
+latency copies 18-34 % faster and byte-identical; hardware gives 26 %. The
+disk is now at 72 % of the real machine on Speedometer's rating. What is left
+per sector: the 108 us SPI transfer of 512 bytes (the wire: 4.4 MiB/s at
+this transfer size) and, for writes, the O_SYNC card write behind Main's
+write buffer; the next levers are command-sized transfers (needs buffer
+space the chip does not have as ALMs) or the DDR3 path, and a flush thread
+in Main.
