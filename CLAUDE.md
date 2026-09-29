@@ -133,7 +133,7 @@ line on stderr is harmless).
 
 ```bash
 # directed testbenches, from verilator/ (run on /mnt/c or synced tree)
-make tb_sdram tb_wombat_bus32 tb_store_buffer tb_memory_path tb_memory_path_registered_first_miss tb_ncr53c96 tb_easc
+make tb_sdram tb_wombat_bus32 tb_store_buffer tb_memory_path tb_memory_path_registered_first_miss tb_ncr53c96 tb_easc tb_scsi_irq_ack_race tb_sdma_ack_watchdog tb_iosb_scc
 # full machine sim: sync sources to ~/MacQuadra800 (ext4), build Vemu + ROM hexes
 bash scripts/sim_wsl.sh build
 bash scripts/sim_wsl.sh disk <image.hda>      # writable copy

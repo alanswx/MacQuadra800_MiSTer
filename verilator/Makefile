@@ -123,6 +123,11 @@ $(EXE): $(VOUT) $(SIM_HEADERS)
 		[ -e obj_dir/sim_main.o ] && [ $$f -nt obj_dir/sim_main.o ] && rm -f obj_dir/sim_main.o || true; done
 	$(MAKE) -C obj_dir -f Vemu.mk
 
+# Directed benches (each `make <name>` builds and runs one; none needs a ROM or
+# a disk): tb_easc tb_sonic_mbx tb_sdram tb_scsi_cache tb_scsi_cache_mbcd
+# tb_ncr53c96 tb_wombat_bus32 tb_store_buffer tb_memory_path*
+# tb_line_dma tb_scsi_irq_ack_race tb_sdma_ack_watchdog tb_iosb_scc
+
 # Directed unit test for the EASC (rtl/easc.sv). Runs in seconds and does not
 # need a ROM or a disk, which is the point: the machine only touches the sound
 # chip's FIFO billions of cycles into a boot.
@@ -248,5 +253,39 @@ tb_memory_path_registered_first_miss:
 	$V --binary --timing -Wno-fatal -Wno-WIDTH -Wno-WIDTHEXPAND -Wno-WIDTHTRUNC -Wno-UNSIGNED -Wno-CMPCONST -Wno-DECLFILENAME +define+SIMULATION=1 --top-module tb_memory_path -GFAST_BYPASS=1 -GDIRECT_FIRST_MISS=1 -GREGISTERED_FIRST_MISS=1 -GADAPTER_LINE_HIT=1 -GDIRECT_MEM_ACK=0 -GREGISTERED_LINE_HIT=1 --Mdir ./obj_dir_tb_mempath_registered_first_miss -o tb_memory_path_registered_first_miss tb_memory_path.sv tb_sdram.sv $(RTL)/wombat_bus32.sv $(RTL)/sdram_beat32.sv $(RTL)/sdram.sv altddio_out_stub.v
 	./obj_dir_tb_mempath_registered_first_miss/tb_memory_path_registered_first_miss
 
+# iosb.sv benches: the whole IOSB (pseudo-VIA2, 53C96 + CD engine, SCC, EASC,
+# ADB, RTC, pseudo-DMA) driven from the beat bus, with the HPS block interface
+# modelled in the bench.  They share one dependency list.
+IOSB_TB_W = -Wno-fatal -Wno-WIDTH -Wno-UNUSED -Wno-PINMISSING -Wno-DECLFILENAME -Wno-MISINDENT \
+	-Wno-CASEINCOMPLETE -Wno-SYNCASYNCNET -Wno-BLKANDNBLK -Wno-PINCONNECTEMPTY -Wno-MULTIDRIVEN \
+	-Wno-COMBDLY -Wno-BLKSEQ -Wno-UNSIGNED -Wno-CMPCONST -Wno-IMPLICIT -Wno-LATCH -Wno-UNOPTFLAT
+IOSB_TB_DEPS = $(RTL)/iosb.sv $(RTL)/scc.v $(RTL)/uart/txuart.v $(RTL)/uart/rxuart.v \
+	$(RTL)/via6522.sv $(RTL)/easc.sv $(RTL)/ncr53c96.sv $(RTL)/cd_audio.sv $(RTL)/adb.sv \
+	$(RTL)/rtc3430042.sv $(RTL)/dpram.v altsyncram_stub.v
+IOSB_TB = $V --binary -j 8 $(IOSB_TB_W) --timescale 1ns/1ps -I$(RTL) +define+SIMULATION=1
+
+# The lost 53C96 interrupt (docs/scsi-write-hang-20260928.md): a VIA2 IFR
+# bit 3 acknowledge swept across the chip's next INT edge must not drop it.
+# FAILS on the iosb.sv of f9f6da6~1.
+#   make tb_scsi_irq_ack_race
+tb_scsi_irq_ack_race:
+	$(IOSB_TB) --top-module tb_scsi_irq_ack_race --Mdir ./obj_dir_tb_irq_race -o tb_scsi_irq_ack_race tb_scsi_irq_ack_race.v $(IOSB_TB_DEPS)
+	./obj_dir_tb_irq_race/tb_scsi_irq_ack_race
+
+# The pseudo-DMA watchdog must stay frozen while the platform holds io_ack
+# (the HPS SPI transfer), not only while io_rd/io_wr are up
+# (docs/scsi-write-hang-20260928.md).  FAILS on the iosb.sv of f9f6da6~1.
+#   make tb_sdma_ack_watchdog
+tb_sdma_ack_watchdog:
+	$(IOSB_TB) --top-module tb_sdma_ack_watchdog --Mdir ./obj_dir_tb_sdma_wd -o tb_sdma_ack_watchdog tb_sdma_ack_watchdog.v $(IOSB_TB_DEPS)
+	./obj_dir_tb_sdma_wd/tb_sdma_ack_watchdog
+
+# The SCC's beat-bus adapter inside iosb.sv: decode, channel select, the CS
+# window across back-to-back accesses, and 31250 baud at 33 MHz.
+#   make tb_iosb_scc
+tb_iosb_scc:
+	$(IOSB_TB) --top-module tb_iosb_scc --Mdir ./obj_dir_tb_iosb_scc -o tb_iosb_scc tb_iosb_scc.v $(IOSB_TB_DEPS)
+	./obj_dir_tb_iosb_scc/tb_iosb_scc
+
 clean:
-	rm -rf obj_dir obj_dir_tb obj_dir_tb_bus32 obj_dir_tb_store_buffer obj_dir_tb_mempath obj_dir_tb_mempath_safe obj_dir_tb_mempath_ordered_line obj_dir_tb_mempath_stock_machine obj_dir_tb_mempath_registered_line obj_dir_tb_mempath_registered_bus_line obj_dir_tb_mempath_registered_first_miss
+	rm -rf obj_dir obj_dir_tb obj_dir_tb_bus32 obj_dir_tb_store_buffer obj_dir_tb_mempath obj_dir_tb_mempath_safe obj_dir_tb_mempath_ordered_line obj_dir_tb_mempath_stock_machine obj_dir_tb_mempath_registered_line obj_dir_tb_mempath_registered_bus_line obj_dir_tb_mempath_registered_first_miss obj_dir_tb_line_dma obj_dir_tbc obj_dir_tbc_mbcd obj_dir_tb_irq_race obj_dir_tb_sdma_wd obj_dir_tb_iosb_scc
