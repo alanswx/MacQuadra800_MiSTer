@@ -54,9 +54,8 @@ assign BUTTONS = 0;
 //////////////////////////////////////////////////////////////////
 
 wire [1:0] ar = status[122:121];
-
-assign VIDEO_ARX = (!ar) ? 12'd4 : (ar - 1'd1);
-assign VIDEO_ARY = (!ar) ? 12'd3 : 12'd0;
+// VIDEO_ARX/ARY and VGA_DE come from the framework's video_freak below
+// (aspect ratio plus the OSD's integer-scaling choice, status[13:12]).
 
 `include "build_id.v"
 localparam CONF_STR = {
@@ -87,6 +86,7 @@ localparam CONF_STR = {
 	"O[5],Monitor (on reset),13in 640x480,12in 512x384;",
 `endif
 	"O[122:121],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
+	"O[13:12],Scale,Normal,V-Integer,Narrower HV-Integer,Wider HV-Integer;",
 	// Built-in Ethernet (rtl/sonic_mbx.sv + the Main fork's support/mac).  Off by
 	// default: the machine is then bit for bit the one without it.  The core reads
 	// only [6]; the interface choice is the Main's.  The guest's MAC is 08:00:07 +
@@ -95,11 +95,6 @@ localparam CONF_STR = {
 	"-;",
 	"O[6],Ethernet (on reset),Off,On;",
 	"O[8:7],Net interface,eth0,eth1,wlan0,tap0;",
-	// BRING-UP ONLY (2026-09-18, remove before a release): machine fast paths off, to find what
-	// Open Transport's CAS/CAS2 list code trips over.  All latched under reset.
-	"O[9],Dbg store buffer,On,Off;",
-	"O[10],Dbg SDRAM line,On,Off;",
-	"O[11],Dbg DMA snoop,On,Off;",
 `endif
 	"-;",
 	"T[0],Reset;",
@@ -511,10 +506,13 @@ localparam SONIC_EN = 0;
 localparam SONIC_EN = 1;
 `endif
 reg         eth_ena = 1'b0;
-reg   [2:0] dbg_sw  = 3'd0;
+// The machine's three fast-path switches (store buffer, SDRAM line, DMA
+// snoop) were OSD "Dbg" options during the Ethernet bring-up; the paths
+// have been on in every release since, so the OSD lines are gone and the
+// switches are tied to their normal state.
+wire  [2:0] dbg_sw  = 3'd0;
 always @(posedge clk_sys) if (reset) begin
 	eth_ena <= (SONIC_EN != 0) && status[6];
-	dbg_sw  <= status[11:9];
 end
 wire [11:0] eth_mem_addr;
 wire        eth_mem_rd, eth_mem_we;
@@ -615,7 +613,29 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS), .CDROM(CDROM_EN), .SONIC(SONIC_EN)) m
 
 wire m_hblank, m_vblank;
 assign CLK_VIDEO = clk_vid;
-assign VGA_DE = ~(m_hblank | m_vblank);
+wire mac_de = ~(m_hblank | m_vblank);
+
+// Aspect ratio and integer scaling are the framework's: video_freak turns
+// the OSD's Scale choice into the VIDEO_ARX/ARY scaled-size form the
+// scaler understands (V-Integer keeps every Mac line an integer number of
+// output lines).  No crop.
+video_freak video_freak
+(
+	.CLK_VIDEO(clk_vid),
+	.CE_PIXEL(CE_PIXEL),
+	.VGA_VS(VGA_VS),
+	.HDMI_WIDTH(HDMI_WIDTH),
+	.HDMI_HEIGHT(HDMI_HEIGHT),
+	.VGA_DE(VGA_DE),
+	.VIDEO_ARX(VIDEO_ARX),
+	.VIDEO_ARY(VIDEO_ARY),
+	.VGA_DE_IN(mac_de),
+	.ARX((!ar) ? 12'd4 : (ar - 1'd1)),
+	.ARY((!ar) ? 12'd3 : 12'd0),
+	.CROP_SIZE(12'd0),
+	.CROP_OFF(5'd0),
+	.SCALE({1'b0, status[13:12]})
+);
 
 //////////////////////////////////////////////////////////////////
 // SCC serial — MidiLink / PPP / console on channel A, MT32-pi on the user port
