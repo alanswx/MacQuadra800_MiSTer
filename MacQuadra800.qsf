@@ -417,6 +417,10 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # failed / 21 CPU -0.253 on 583a98c; on 2b30d64 seed 31 HDMI -0.384, 24 HDMI -0.360, 27 MET: CPU +0.299,
 # SDRAM +0.678, HDMI +0.299, hold +0.207, crossings +0.707/+0.600, 39,246 ALMs (94 %), 468 M10K, 36 DSP,
 # RBF md5 f769b9e1 (docs/perf/p260_fpga_20260929).  SEED 27.
+# 2026-09-29: hardware, f769b9e1 (Main 75e00b65, 32 MB): PR Disk 2.462 median (dc281d64 1.699, +45 %);
+# Photoshop 3.0.1 Finder duplicate 4.95 s median over 30 (6.68 s, -26 %), read phase 2.06-2.36 MiB/s
+# (1.65), write 1.37-1.53 (1.01); CPU 0.896, FPU 0.951 cold / 0.976 warm, Mix 1.807 unchanged; 30/30
+# duplicates, 0 hangs; idle clock and Shut Down clean (docs/perf/p260_hw_20260929).  SEED 27 kept.
 set_global_assignment -name SEED 27
 # 2026-09-24: NEVER grew the full BRF fit by398 ALMs; retain the better ALWAYS setting.
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS

@@ -12,6 +12,7 @@ must never be flashed (`scripts/deploy_screenshot.sh` refuses one).
 
 | build | md5 | timing | notes |
 |---|---|---|---|
+| `MacQuadra800_20260929_2.rbf` | `f769b9e1ef496428be071d4ded9e90ae` | met, **+0.299 ns setup (CPU and HDMI) / +0.207 ns hold worst** (`clk_ram` +0.678; crossings +0.707 / +0.600) | **Disk 45 % faster: the 53C96 engine's sector buffer is two halves in the same M10K, so the platform transfer of sector n+1 overlaps the guest draining sector n, and a write flushes one half while the guest fills the other.** Speedometer PR Disk 1.70 -> **2.46** (72 % of a real Quadra 800), a 4 MB Finder duplicate 6.68 -> 4.95 s, read phase 1.65 -> 2.1-2.4 MiB/s, write 1.0 -> 1.4-1.5 MiB/s; CPU, FPU (0.976), Mix (1.807) and Graphics unchanged; 30 duplicates with no hang; idle and Shut Down clean. Everything else as 20260929. **Use with `MiSTer_20260928`.** A/UX and CD audio still not run. Seed 27; 39,246 ALMs (94 %). |
 | `MacQuadra800_20260929.rbf` | `dc281d649d54f1cbbddd4650423e204b` | met, **+0.110 ns setup (HDMI) / +0.250 ns hold worst** (`clk_sys` +0.864, `clk_ram` +0.409; crossings +1.128 / +0.867) | **20260928 plus the IOSB interrupt fix: a Finder copy could hang mid-write** when the ROM's VBL dispatcher wrote the VIA2 IFR in the clock the 53C96 raised its interrupt (the edge was lost; about one copy in ten to twenty). Also the PDMA watchdog no longer ages through a slow acknowledge. Found by reproducing the hang in the full-machine sim with randomised sector latency; directed benches in `verilator/`. Hardware: 30 Finder duplicates over two boots with no hang, PR Disk 1.70 with the tight-loop Main, FPU 0.96-0.98, idle and shutdown clean. **Use with `MiSTer_20260928`** (the tight disk service loop, PR Disk 1.62 -> 1.74). A/UX and CD audio still not run. Seed 31; 39,102 ALMs (93 %). |
 | `MacQuadra800_20260928.rbf` | `b7e88b8163679a607680e2e80669f396` | met, **+0.006 ns setup (HDMI) / +0.220 ns hold worst** (`clk_sys` +0.103, `clk_ram` +0.612; crossings +1.432 / +0.586) | **The FPU catches the real Quadra 800: Speedometer 4.02 FPU Benchmarks 0.973 on hardware (0.684 on the 2026-09-27 build; a real Quadra 800 scores 1.011), Benchmark Mix 1.803 (1.781), Color 8-bit unchanged.** Nine CPU commits (P250..P258): FP decode and operand fetch overlap the running FP op, FADD/FMUL in 4 clocks, results written back in the rounding clock, S/D operands unpacked and packed at dispatch, d16 and indexed FP operands resolved in the decode clock, exception prefetch in longwords, FSAVE/FRESTORE loops tightened. Mac OS 8.1 gate passed (24 valid benchmark runs, idle clock, clean shutdowns). **A/UX 3.1 and CD audio NOT run on this bitstream** (the images are no longer on the test box). Needs a Main with the Quadra support and the Mac write buffer (`45182b73` or the FujiNet/printer `ff404af9` it was tested with). Seed 31 with `PLACEMENT_EFFORT_MULTIPLIER 2.0` and `ROUTER_TIMING_OPTIMIZATION_LEVEL MAXIMUM`; 39,191 ALMs (94 %), 468 M10K, 36 DSP. |
 | `MacQuadra800_20260919.rbf` | `933b421a0880177be1b5fb2861dcea15` | met, **+0.107 ns setup / +0.190 ns hold worst** (HDMI +0.107, `clk_ram` +0.415, `clk_sys` +0.622) | **Built-in Ethernet.** The Quadra 800's onboard DP83932 SONIC at its real addresses, so Apple's own driver binds to it: DHCP, ping, FTP both ways byte-exact, on Mac OS 8.1 with Open Transport. OSD **Ethernet (on reset)**, default Off; needs the Main binary `releases/MiSTer`. With it Off the machine is the 20260918 one. Carries three `Dbg ...` bring-up lines in the OSD: leave them at On. |
@@ -69,6 +70,41 @@ old behaviour). On `MacQuadra800_20260928.rbf`: Speedometer PR Disk
 control, about 7.2 on `ff404af9`), mouse and guest Ethernet unaffected
 (`docs/perf/disk_tightloop_20260928/production.md`). Install as for the
 binary above; no inittab change is needed.
+
+## `MacQuadra800_20260929_2.rbf`
+
+md5 `f769b9e1ef496428be071d4ded9e90ae`, sha256
+`28c40b4b3999ca2f64d783892c13da760d17fadebb6fff3cfae5f2b2d38bdfa9`, seed 27,
+the 20260928 recipe. **Timing met on every clock**: `clk_sys` +0.299 ns,
+`clk_ram` +0.678 ns, HDMI +0.299 ns, worst hold +0.207 ns, crossings +0.707 /
++0.600 ns. 39,246 ALMs (94 %), 468 M10K, 36 DSP. Built 2026-09-29 from
+`2b30d64` on `add-ethernet` (the `.qsf` at `d2a9207`).
+
+**What is new: the ping-pong sector buffer (P260).** The 53C96 target's
+sector buffer is 512 x 16 in the same single M10K, two 256-word halves. A
+READ prefetches the next sector into the idle half as soon as the platform
+channel and that half are free, while the guest is still draining the active
+one; the halves swap when the active one is spent. A WRITE flushes a full
+half and hands the other to the guest at once; intermediate chunks complete
+with the flush in flight, the command's last chunk still waits for its flush
+so STATUS GOOD means the data was accepted. Before this the engine raised the
+next request only after the guest had drained or filled its single buffer,
+so every sector cost the SPI transfer plus the guest's drain in series.
+Qualified in the full-machine sim with randomised sector-service latency (18
+of 18 copies byte-identical, 18-34 % faster) and by two new directed tests in
+`tb_ncr53c96` (T21 the ROM boot shape, T22 random-timing 8-block READ/WRITE),
+`docs/perf/p260_pingpong_sim_20260929`.
+
+**Hardware** (`docs/perf/p260_hw_20260929`, disposable Quad Squad copy, 32 MB,
+`MiSTer_20260928`): Performance Rating five runs, **Disk 2.462 median**
+(20260929: 1.699; real Quadra 800 3.443), PR 1.266 (1.211), CPU / Graphics /
+Math unchanged; 30 Photoshop duplicates on one boot, median **4.95 s** (6.68),
+read phase 2.06-2.36 MiB/s (1.65), write phase 1.37-1.53 MiB/s (0.94-1.01);
+FPU 0.951 cold / 0.976 warm, Benchmark Mix 1.807; 0 hangs in 30 copies; four
+minutes idle with the clock in step; Shut Down to the halt screen.
+
+**Main:** `MiSTer_20260928` (the tight disk service loop). **Gate status:**
+Mac OS 8.1 passed; A/UX 3.1 at 32 MB and CD audio still not run.
 
 ## `MacQuadra800_20260929.rbf`
 
