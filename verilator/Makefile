@@ -287,5 +287,13 @@ tb_iosb_scc:
 	$(IOSB_TB) --top-module tb_iosb_scc --Mdir ./obj_dir_tb_iosb_scc -o tb_iosb_scc tb_iosb_scc.v $(IOSB_TB_DEPS)
 	./obj_dir_tb_iosb_scc/tb_iosb_scc
 
+# The modem port as a serial printer sees it (docs/serial-printer-20260929.md):
+# 57600 and 9600 8N1 TX clk/bit, RX at nominal / HPS / +-3 % and a sweep,
+# RR0 CTS/DCD and the rts pin, and the BRG catch-alls per driver setting.
+#   make tb_scc_printer
+tb_scc_printer:
+	$(IOSB_TB) --top-module tb_scc_printer --Mdir ./obj_dir_tb_scc_printer -o tb_scc_printer tb_scc_printer.v $(IOSB_TB_DEPS)
+	./obj_dir_tb_scc_printer/tb_scc_printer > obj_dir_tb_scc_printer/run.log 2>&1; rc=$$?; grep "^TB" obj_dir_tb_scc_printer/run.log; exit $$rc
+
 clean:
-	rm -rf obj_dir obj_dir_tb obj_dir_tb_bus32 obj_dir_tb_store_buffer obj_dir_tb_mempath obj_dir_tb_mempath_safe obj_dir_tb_mempath_ordered_line obj_dir_tb_mempath_stock_machine obj_dir_tb_mempath_registered_line obj_dir_tb_mempath_registered_bus_line obj_dir_tb_mempath_registered_first_miss obj_dir_tb_line_dma obj_dir_tbc obj_dir_tbc_mbcd obj_dir_tb_irq_race obj_dir_tb_sdma_wd obj_dir_tb_iosb_scc
+	rm -rf obj_dir obj_dir_tb obj_dir_tb_bus32 obj_dir_tb_store_buffer obj_dir_tb_mempath obj_dir_tb_mempath_safe obj_dir_tb_mempath_ordered_line obj_dir_tb_mempath_stock_machine obj_dir_tb_mempath_registered_line obj_dir_tb_mempath_registered_bus_line obj_dir_tb_mempath_registered_first_miss obj_dir_tb_line_dma obj_dir_tbc obj_dir_tbc_mbcd obj_dir_tb_irq_race obj_dir_tb_sdma_wd obj_dir_tb_iosb_scc obj_dir_tb_scc_printer

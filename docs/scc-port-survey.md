@@ -65,6 +65,15 @@ instance inside `iosb` and not just the module default.
   **Decision (user, 2026-09-27): leave the UART on the modem port for now so
   PPP cannot break.**  An ImageWriter set to the modem port may work with the
   Printer mode as is (untested; the baud rates must match).
+- **2026-09-29, printing:** the ImageWriter at 9600 prints; a StyleWriter
+  (57600, DTR/CTS handshake) does not.  `verilator/tb_scc_printer.v` shows
+  channel A clean at 57600 and 9600 both ways (573 / 3438 clk/bit, +0.015 %,
+  RX tolerant to +-5 %), so the cause is Main-side: `mister_printerd` has no
+  StyleWriter model, never answers the driver, and runs at one OSD-chosen
+  speed.  Also found: RR0 CTS ignores `UART_CTS` (no flow control towards the
+  Mac), and the ROM-selftest BRG catch-all hijacks the Serial Driver's
+  **1200 baud** setting (TC=94, WR4=$44/$4C -> 4 clk/bit).  Details and the
+  hardware checks: `docs/serial-printer-20260929.md`.
 
 ## Decision (2026-08-31): port the LC's `scc.v`, use MAME as an oracle
 
