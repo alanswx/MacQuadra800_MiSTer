@@ -12,6 +12,7 @@ must never be flashed (`scripts/deploy_screenshot.sh` refuses one).
 
 | build | md5 | timing | notes |
 |---|---|---|---|
+| `MacQuadra800_20260929.rbf` | `dc281d649d54f1cbbddd4650423e204b` | met, **+0.110 ns setup (HDMI) / +0.250 ns hold worst** (`clk_sys` +0.864, `clk_ram` +0.409; crossings +1.128 / +0.867) | **20260928 plus the IOSB interrupt fix: a Finder copy could hang mid-write** when the ROM's VBL dispatcher wrote the VIA2 IFR in the clock the 53C96 raised its interrupt (the edge was lost; about one copy in ten to twenty). Also the PDMA watchdog no longer ages through a slow acknowledge. Found by reproducing the hang in the full-machine sim with randomised sector latency; directed benches in `verilator/`. Hardware: Finder duplicates in a row with no hang, PR Disk 1.70 with the tight-loop Main, FPU 0.96-0.98, idle and shutdown clean. **Use with `MiSTer_20260928`** (the tight disk service loop, PR Disk 1.62 -> 1.74). A/UX and CD audio still not run. Seed 31; 39,102 ALMs (93 %). |
 | `MacQuadra800_20260928.rbf` | `b7e88b8163679a607680e2e80669f396` | met, **+0.006 ns setup (HDMI) / +0.220 ns hold worst** (`clk_sys` +0.103, `clk_ram` +0.612; crossings +1.432 / +0.586) | **The FPU catches the real Quadra 800: Speedometer 4.02 FPU Benchmarks 0.973 on hardware (0.684 on the 2026-09-27 build; a real Quadra 800 scores 1.011), Benchmark Mix 1.803 (1.781), Color 8-bit unchanged.** Nine CPU commits (P250..P258): FP decode and operand fetch overlap the running FP op, FADD/FMUL in 4 clocks, results written back in the rounding clock, S/D operands unpacked and packed at dispatch, d16 and indexed FP operands resolved in the decode clock, exception prefetch in longwords, FSAVE/FRESTORE loops tightened. Mac OS 8.1 gate passed (24 valid benchmark runs, idle clock, clean shutdowns). **A/UX 3.1 and CD audio NOT run on this bitstream** (the images are no longer on the test box). Needs a Main with the Quadra support and the Mac write buffer (`45182b73` or the FujiNet/printer `ff404af9` it was tested with). Seed 31 with `PLACEMENT_EFFORT_MULTIPLIER 2.0` and `ROUTER_TIMING_OPTIMIZATION_LEVEL MAXIMUM`; 39,191 ALMs (94 %), 468 M10K, 36 DSP. |
 | `MacQuadra800_20260919.rbf` | `933b421a0880177be1b5fb2861dcea15` | met, **+0.107 ns setup / +0.190 ns hold worst** (HDMI +0.107, `clk_ram` +0.415, `clk_sys` +0.622) | **Built-in Ethernet.** The Quadra 800's onboard DP83932 SONIC at its real addresses, so Apple's own driver binds to it: DHCP, ping, FTP both ways byte-exact, on Mac OS 8.1 with Open Transport. OSD **Ethernet (on reset)**, default Off; needs the Main binary `releases/MiSTer`. With it Off the machine is the 20260918 one. Carries three `Dbg ...` bring-up lines in the OSD: leave them at On. |
 | `MacQuadra800_20260918.rbf` | `fde49a3cf474d5c07aff26c592200125` | met, **+0.204 ns hold / +0.527 ns setup worst** (HDMI +0.527, `clk_ram` +0.668, `clk_sys` +0.772) | **The CPU pipeline increments: Speedometer 4.02 Benchmark Mix 0.9285 (0.855 on 20260916_2, +8.6 %), Color QuickDraw 0.670, on a core 1,055 ALMs smaller.** A one-clock data-cache hit on a dedicated hint bus, redirects that hint and issue their target from the retire that pops them (BRA/BSR/JSR/JMP, DBcc, short Bcc), pops/pushes/MOVEM issued in place, a one-clock posted store with a write-side MMU verdict, and a read that may pass one queued store to another line. Mac OS 8.1 and A/UX 3.1 (32 MB) pass the gate; eight Mix runs + CQD + FPU with zero anomalous values. **The CD-audio item of the gate was NOT run on this bitstream** (the CD/SCSI RTL is unchanged from 20260916_2). Seed 21; 86 % ALMs. |
@@ -68,6 +69,46 @@ old behaviour). On `MacQuadra800_20260928.rbf`: Speedometer PR Disk
 control, about 7.2 on `ff404af9`), mouse and guest Ethernet unaffected
 (`docs/perf/disk_tightloop_20260928/production.md`). Install as for the
 binary above; no inittab change is needed.
+
+## `MacQuadra800_20260929.rbf`
+
+md5 `dc281d649d54f1cbbddd4650423e204b`, sha256
+`c12571b540f0f1c34165f608499c1d759f626b1b33f894f23c3190c64fed1273`, seed 31,
+the 20260928 recipe. **Timing met on every clock**: `clk_sys` +0.864 ns,
+`clk_ram` +0.409 ns, HDMI +0.110 ns, worst hold +0.250 ns, crossings +1.128 /
++0.867 ns. 39,102 ALMs (93 %), 468 M10K, 36 DSP. Built 2026-09-29 from
+`f9f6da6` on `add-ethernet`.
+
+**What is new: two IOSB fixes** (`docs/scsi-write-hang-20260928.md`). While
+measuring the disk, Finder copies of a 4 MB file hung in the write phase about
+one time in ten to twenty: writes stopped, the 53C96 raised no further sector
+request, the pointer still moved, the clock froze. Reproduced deterministically
+in the full-machine sim with randomised sector-service latency (seed 14 of 18)
+and traced to the VIA2 emulation: the IFR write assigns the whole flag register
+after the edge latches in the same always block, so the ROM's VBL dispatcher
+writing `$02` in the very clock the 53C96 raised INT erased the just-latched
+bit 3, and since the chip holds INT until its ISR is read no further edge ever
+came. The IFR write now carries the live INT and DRQ levels (the latch already
+follows the level at both edges) and a same-clock ASC edge. Second, the PDMA
+beat watchdog aged through the platform acknowledge, so a guest beat waiting
+through an acknowledge longer than 7.9 ms (Main preempted mid-transfer) got a
+spurious bus error; it now freezes while `io_ack` is up. `make
+tb_scsi_irq_ack_race tb_sdma_ack_watchdog` in `verilator/` fail on the old
+IOSB and pass now; the sim completes the hanging copy byte-identically.
+
+**Hardware** (`docs/perf/iosbfix_hw_20260929`): Finder duplicates in a row on
+the disposable Quad Squad copy with zero hangs, PR Disk 1.70 / PR 1.21 with
+`MiSTer_20260928`, FPU 0.955-0.981, four minutes idle with the clock in step,
+type-select alive, Shut Down to the halt screen. Speed unchanged from 20260928.
+
+**Main:** `MiSTer_20260928` (md5 `75e00b65`, branch `mac-printer-fujinet-tightloop`
+of alanswx/Main_MiSTer): the Quadra support, the Mac write buffer, and the tight
+disk service loop that removes Main's per-sector turnaround (PR Disk 1.62 ->
+1.74, 4 MB copies 7.0 -> 6.7 s, input and ping unaffected). `ff404af9` and
+`45182b73` also work, more slowly on disk.
+
+**Gate status:** Mac OS 8.1 passed. A/UX 3.1 at 32 MB and the CD audio
+transport still not run (no images on the test box).
 
 ## `MacQuadra800_20260928.rbf`
 
