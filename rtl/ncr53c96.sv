@@ -1232,8 +1232,13 @@ always @(posedge clk) begin
 		// 02a3ce56a7 notes that this is precisely what makes EMILE boot on
 		// m68k -- i.e. a Mac bootloader hitting the identical stall.
 		// docs/scsi/qemu-esp-behavior.md:357-369.
+		// P260: a sector waiting in the idle half (pf_valid, one clock before
+		// the swap) is not an underflow either -- the ROM issues the next
+		// sector's first PIO TI before that sector has landed, and without
+		// this term the boot's last block ended at STATUS with 511 bytes
+		// unread (docs/perf/p260_pingpong_sim_20260929).
 		if (xfer_pio_in && !byte_avail && blocks_left == 0 && !nexus_io &&
-		    !synth_on) begin
+		    !synth_on && !pf_valid) begin
 			xfer_pio_in <= 0;
 			phase <= PH_STAT;
 			raise(I_BUS);
