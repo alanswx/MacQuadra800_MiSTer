@@ -347,3 +347,25 @@ check `stty -F /dev/ttyS1 -a` on the box shows 57600 with `crtscts` while a
 job is pending. With RR0 CTS live, the first thing to look at if the Mac
 still sends nothing is the polarity: RR0 must read $2x while the daemon has
 the port open.
+
+
+## Hardware result, 2026-09-29 late (trial build 48a23a78, `docs/perf/p262_trial_hw_20260929`)
+
+The first CTS draft had the polarity backwards for the Mac. With the printer
+daemon holding RTS the Mac reported "The Printer is not responding"; with RTS
+cleared by hand it sent 24,978 bytes at full 9600 speed and the daemon produced
+a correct two-page PDF. So the Mac's drivers read RR0 bit 5 = 0 as clear to
+send, which is what the old constant 0 gave them and why the ImageWriter always
+printed. The core now passes the framework's active-low `UART_CTS` through
+UNinverted: a daemon with the port open (RTS low) reads as ready, no daemon
+or a dropped RTS holds the Mac off. This is now real flow control in the Mac
+-> daemon direction, which is what a StyleWriter's small buffer needs.
+
+Consequence for the StyleWriter: with the corrected polarity an open daemon
+reads exactly as before the change, so the fact that no data reached the
+StyleWriter daemon is not the CTS bit; the missing piece is the daemon's
+status replies (the driver queries the printer before sending) and 57600
+with `crtscts` on the tty. Also seen on the box, unrelated to the core's SCC:
+a near-blank PDF appears in `/media/fat/printers` at every core load (line
+noise during the load, Main-side); the guest's ImageWriter on the disposable
+disk is now set to the Modem port.

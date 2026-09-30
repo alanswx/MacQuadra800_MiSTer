@@ -659,12 +659,12 @@ video_freak video_freak
 //////////////////////////////////////////////////////////////////
 wire serialOut, serialRTS;
 wire serialOutB;                           // printer port TX — unused for now
-// The HPS UART's RTS, as the framework presents it (active low, like the
-// SCC's /CTS pin it feeds): a printer daemon or pppd with RTS/CTS on asserts
-// it when it can take data, and the Mac's StyleWriter driver waits for RR0's
-// CTS bit before it sends a byte.  It used to be a constant "no device", so a
-// driver that honours the handshake never sent anything
-// (docs/serial-printer-20260929.md).
+// The HPS UART's RTS, as the framework presents it (active low): a printer
+// daemon or pppd opened with RTS/CTS asserts it (low) when it can take data.
+// It reaches RR0's CTS bit uninverted, which is the polarity the Mac's
+// drivers want (hardware-settled, docs/perf/p262_trial_hw_20260929): 0 =
+// clear to send, and a daemon that is not running or drops RTS holds the
+// Mac off.  It used to be a constant 1 (never reaching RR0, which read 0).
 wire serialCTS = UART_CTS;
 wire [7:0] uart_mode;                      // from hps_io; 3 = MIDI
 

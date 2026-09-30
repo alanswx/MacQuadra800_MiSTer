@@ -937,18 +937,21 @@ module scc
 	// Per MAME z80scc.cpp: loopback forces CTS/DCD active internally for
 	// TX/RX state machines but does NOT change RR0 bits 5/3. RR0 reflects
 	// external pin state only.
-	// Channel A's CTS is the real pin (2026-09-29): RR0 bit 5 is the INVERTED
-	// state of /CTS (Z8530 RR0), so an asserted (low) /CTS from the attached
-	// device's DTR reads 1 = clear to send.  Two flops synchronise the
-	// asynchronous input.  With the bit stuck at 0 a driver that honours
-	// DTR/CTS handshake (the StyleWriter's) never transmitted.  DCD stays 0:
-	// no device drives GPi here.
+	// Channel A's CTS is the real pin (2026-09-29), two flops synchronising
+	// the asynchronous input.  Polarity was settled on hardware, not from the
+	// datasheet: the Mac's drivers treat RR0 bit 5 = 0 as "clear to send" as
+	// this core presents it (the constant 0 it used to be is why the
+	// ImageWriter always printed), so the framework's active-low UART_CTS
+	// (the daemon's RTS) passes through UNinverted: RTS asserted -> 0 ->
+	// ready, RTS dropped -> 1 -> the Mac holds off.  The inverted first draft
+	// made the ImageWriter report "printer not responding" until RTS was
+	// cleared by hand (docs/perf/p262_trial_hw_20260929).  DCD stays 0.
 	reg cts_s1 = 1'b1, cts_s2 = 1'b1;
 	always @(posedge clk) begin
 		cts_s1 <= cts;
 		cts_s2 <= cts_s1;
 	end
-	wire rr0_cts_a = ~cts_s2;
+	wire rr0_cts_a = cts_s2;
 	wire rr0_dcd_a = 1'b0;
 	wire rr0_cts_b = 1'b0;
 	wire rr0_dcd_b = 1'b0;
