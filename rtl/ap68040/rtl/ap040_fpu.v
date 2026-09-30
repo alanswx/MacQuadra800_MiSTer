@@ -84,13 +84,6 @@ module ap040_fpu
 	// acknowledges it.  FRESTORE can reinstate that pending state.
 	output reg        fpu_used,    // 0: NULL frame, 1: IDLE or exception frame
 	output reg        fstate_unimp,
-	output reg [15:0] fstate_cmd1,
-	output reg [15:0] fstate_cmd3,
-	output reg  [2:0] fstate_stag,
-	output reg  [2:0] fstate_dtag,
-	output reg  [2:0] fstate_flags, // {E1,E3,T}
-	output reg [95:0] fstate_fpt,
-	output reg [95:0] fstate_et,
 	input             fsave_ack,
 	input             frestore_idle,
 	input             frestore_unimp,
@@ -105,26 +98,23 @@ module ap040_fpu
 	output      [7:0] cur_vec,
 	output            frestore_e1_pend,
 	// FPSP requests execution of the normalized BUSY command with CU_SAVEPC=fe.
-	input       [7:0] frestore_cusavepc,
-	input             frestore_et15, frestore_fpt15,
 	output            frestore_resume,
-	output reg  [2:0] fstate_grs,
-	output reg        fstate_wbte15,
 	output reg        fstate_busy,      // the pending frame is $41/$60 BUSY
-	output reg [95:0] fstate_wbt,       // WBTEMP: the internal intermediate
-	output reg [31:0] fstate_fpiar_c,   // FPIARCU
-	input      [95:0] frestore_wbt,
-	input      [31:0] frestore_fpiar,
-	input             frestore_busy,
-	input      [15:0] frestore_cmd1,
-	input      [15:0] frestore_cmd3,
-	input       [2:0] frestore_stag,
-	input       [2:0] frestore_dtag,
-	input       [2:0] frestore_flags,
-	input      [95:0] frestore_fpt,
-	input      [95:0] frestore_et,
-	input       [2:0] frestore_grs,
-	input             frestore_wbte15,
+	input             frestore_busy,    // with frestore_unimp: install as BUSY
+	input             frestore_nocmd3,  // with frestore_unimp: the frame had no CMDREG3B
+	// FRESTORE frame write port: each UNIMP/BUSY frame longword is written
+	// straight into the frame registers (fstate_*, and sh_src/sh_dst for
+	// ETEMP/FPTEMP) as the core reads it, indexed by its position in the
+	// 100-byte BUSY frame (the UNIMP frame is that frame's tail).  Nothing
+	// becomes visible until frestore_unimp installs the frame; the first
+	// word hides any prepared frame (fstate_unimp=0), so a bus fault part-way
+	// leaves the IDLE state, never a mixed frame.  FSAVE reads the prepared
+	// frame through the same index: frame_rd is payload longword frame_idx
+	// (reserved words and the header slots read zero).
+	input             frame_we,
+	input       [4:0] frame_idx,
+	input      [31:0] frame_wd,
+	output reg [31:0] frame_rd,
 	input             fp_reset     // FRESTORE of a NULL frame
 );
 
@@ -390,6 +380,26 @@ reg  [1:0] pk_isz;            // 0 byte, 1 word, 2 long
 // nests until the stack faults during exception processing -- a double
 // fault, which halts the core silently.
 reg        fstate_resig;
+// The prepared/restored exception frame (FSAVE reads it via frame_rd).
+reg [15:0] fstate_cmd1;
+reg [15:0] fstate_cmd3;
+reg  [2:0] fstate_stag;
+reg  [2:0] fstate_dtag;
+reg  [2:0] fstate_flags;   // {E1,E3,T}
+// FPTEMP and ETEMP have no registers of their own: they are the operand
+// shadows sh_dst and sh_src (declared below), which the frame captures and
+// the FRESTORE write port load directly.  Every other writer of the shadows
+// runs only while no frame is visible (fstate_unimp == 0: a new dispatch
+// clears it in the same clock, the resume path cleared it at install), so
+// an FSAVE always reads exactly what the capture or FRESTORE left there.
+reg  [2:0] fstate_grs;
+reg        fstate_wbte15;
+// WBTEMP has no register of its own either: it is F_ROUND's wb_s/wb_e/wb_m
+// capture (declared below), which only an operation in flight rewrites --
+// never while a frame is visible.  wbt_zero is a datatype frame's all-zero
+// WBTEMP; the FRESTORE write port loads wb_* directly.
+reg        wbt_zero;
+reg [31:0] fstate_fpiar_c; // FPIARCU
 
 // hardware subset at this stage: move/abs/neg/tst/cmp families
 function op_in_hw;
@@ -680,11 +690,15 @@ function arith5;
 	end
 endfunction
 
-wire [6:0] fr_cmd_op = (frestore_cmd1[6:0] == 7'h05) ? 7'h04
-                                                     : frestore_cmd1[6:0];
-assign frestore_resume = frestore_busy && frestore_cusavepc == 8'hfe &&
-                         (frestore_cmd1[15:13] == 3'd0 ||
-                          frestore_cmd1[15:13] == 3'd2) && op_in_hw(fr_cmd_op);
+// Frame fields the FRESTORE write port loads that FSAVE never stores:
+// CU_SAVEPC (only whether it is $fe matters) and the ETE15/FPTE15 bits.
+reg        frame_cusave_fe;
+reg        frame_et15, frame_fpt15;
+wire [6:0] fr_cmd_op = (fstate_cmd1[6:0] == 7'h05) ? 7'h04
+                                                   : fstate_cmd1[6:0];
+assign frestore_resume = frestore_busy && frame_cusave_fe &&
+                         (fstate_cmd1[15:13] == 3'd0 ||
+                          fstate_cmd1[15:13] == 3'd2) && op_in_hw(fr_cmd_op);
 
 // FPSP get_op (mk_norm/fix_stag) and bugfix set ETE15/FPTE15 for normal
 // operands whose exponent is below $4000 too: e.g. 0.1 has e=$3ffb,
@@ -694,8 +708,8 @@ assign frestore_resume = frestore_busy && frestore_cusavepc == 8'hfe &&
 // counts above 63 produce signed zero. WinUAE's unconditional esign test
 // also loses ordinary FPSP operands; do not reproduce that behavior here.
 // Reuse F_SHR for both operands instead of adding two 64-bit barrel shifters.
-wire restore_et_negative = frestore_et15 && frestore_et[94];
-wire restore_fpt_negative = frestore_fpt15 && frestore_fpt[94];
+wire restore_et_negative = frame_et15 && sh_src[94];
+wire restore_fpt_negative = frame_fpt15 && sh_dst[94];
 function [6:0] restore_shift;
 	input esign;
 	input [14:0] e;
@@ -704,9 +718,31 @@ function [6:0] restore_shift;
 		                (e < 15'h7fc1) ? 7'd64 : (7'd0 - e[6:0]);
 	end
 endfunction
-assign frestore_e1_pend = (frestore_flags[2] || frestore_flags[1]) &&
+assign frestore_e1_pend = (fstate_flags[2] || fstate_flags[1]) &&
                           op_in_hw(fr_cmd_op) &&
                           (|(fpsr[15:8] & fpcr[15:8]));
+
+always @* begin
+	case (frame_idx)
+		5'd6:  frame_rd = wbt_zero ? 32'd0 : {wb_s, wb_e[14:0], 16'd0};
+		5'd7:  frame_rd = wbt_zero ? 32'd0 : wb_m[63:32];
+		5'd8:  frame_rd = wbt_zero ? 32'd0 : wb_m[31:0];
+		5'd10: frame_rd = fstate_fpiar_c;
+		5'd13: frame_rd = {fstate_cmd3, 16'd0};
+		5'd15: frame_rd = {fstate_stag, 3'd0, fstate_grs, 23'd0};
+		5'd16: frame_rd = {fstate_cmd1, 16'd0};
+		5'd17: frame_rd = {fstate_dtag, 8'd0, fstate_wbte15, 20'd0};
+		5'd18: frame_rd = {5'd0, fstate_flags[2], fstate_flags[1], 4'd0,
+		                   fstate_flags[0], 20'd0};
+		5'd19: frame_rd = sh_dst[95:64];
+		5'd20: frame_rd = sh_dst[63:32];
+		5'd21: frame_rd = sh_dst[31:0];
+		5'd22: frame_rd = sh_src[95:64];
+		5'd23: frame_rd = sh_src[63:32];
+		5'd24: frame_rd = sh_src[31:0];
+		default: frame_rd = 32'd0;
+	endcase
+end
 
 function [15:0] frame_cmd1;
 	input [15:0] cmd;
@@ -748,8 +784,8 @@ task capture_unimp;
 		// claiming one sends its dispatch down the arithmetic path.
 		fstate_flags <= 3'b000; // E1=E3=T=0
 
-		fstate_fpt   <= dst;
-		fstate_et    <= src;
+		sh_dst       <= dst;   // FPTEMP
+		sh_src       <= src;   // ETEMP
 		fstate_e1    <= 0;
 		fstate_grs   <= 0;
 		fstate_wbte15 <= 0;
@@ -788,11 +824,11 @@ task capture_datatype;
 		fstate_stag  <= stag;
 		fstate_dtag  <= dtag;
 		fstate_flags <= {e1_flag, 1'b0, t_flag};   // {E1,E3,T}
-		fstate_fpt   <= dst;
-		fstate_et    <= src;
+		sh_dst       <= dst;   // FPTEMP
+		sh_src       <= src;   // ETEMP
 		fstate_grs   <= 0;
 		fstate_wbte15 <= 0;
-		fstate_wbt   <= 0;
+		wbt_zero     <= 1;     // WBTEMP reads as zero
 		// Stores can dispatch on the same edge as the FPIAR side-port
 		// update.  Capture this instruction, not the previous FPIAR value.
 		fstate_fpiar_c <= ia_we ? ia_wdata : fpiar;
@@ -817,9 +853,9 @@ always @(posedge clk) begin
 		fstate_resig <= 0;
 		fstate_cmd1 <= 0; fstate_cmd3 <= 0;
 		fstate_stag <= 0; fstate_dtag <= 0; fstate_flags <= 0;
-		fstate_fpt <= 0; fstate_et <= 0;
 		fstate_e1 <= 0; fstate_grs <= 0; fstate_wbte15 <= 0;
-		fstate_busy <= 0; fstate_wbt <= 0; fstate_fpiar_c <= 0;
+		fstate_busy <= 0; wbt_zero <= 0; fstate_fpiar_c <= 0;
+		frame_cusave_fe <= 0; frame_et15 <= 0; frame_fpt15 <= 0;
 		sh_cmd <= 0; sh_src <= 0; sh_stag <= 0;
 		sh_dst <= 0; sh_dtag <= 0;
 		wb_s <= 0; wb_e <= 0; wb_m <= 0; wb_grs <= 0;
@@ -881,8 +917,7 @@ always @(posedge clk) begin
 				fstate_stag  <= sh_stag;
 				fstate_dtag  <= 0;
 				fstate_flags <= 3'b100;   // E1
-				fstate_fpt   <= 0;
-				fstate_et    <= sh_src;
+				sh_dst       <= 0;        // FPTEMP; ETEMP is sh_src itself
 				fstate_grs   <= (pv == `AP040_VEC_FP_SNAN) ? 3'd7 : 3'd1;
 				fstate_wbte15 <= (pv == `AP040_VEC_FP_SNAN);
 				fstate_busy  <= 0;
@@ -898,19 +933,18 @@ always @(posedge clk) begin
 				fstate_cmd1  <= frame_cmd1(sh_cmd);
 				fstate_cmd3  <= frame_cmd3(frame_cmd1(sh_cmd));
 				fstate_stag  <= sh_stag;
-				fstate_et    <= sh_src;
+				// ETEMP is sh_src itself; a dyadic op keeps sh_dst as FPTEMP
 				if ((sh_cmd[5:4] == 2'b10)) begin  // dyadic: 0x20-0x2F range
-					fstate_fpt  <= sh_dst;
 					fstate_dtag <= sh_dtag;
 				end
 				else begin
-					fstate_fpt  <= 0;
+					sh_dst      <= 0;
 					fstate_dtag <= 0;
 				end
 				fstate_flags <= 3'b010;   // E3
 				fstate_grs   <= wb_grs;
 				fstate_wbte15 <= (pv == `AP040_VEC_FP_UNFL);
-				fstate_wbt   <= {wb_s, wb_e[14:0], 16'd0, wb_m};
+				wbt_zero     <= 0;        // WBTEMP is wb_* itself
 				fstate_fpiar_c <= fpiar;
 				fstate_busy  <= 1;
 				fstate_e1    <= 1;        // arithmetic E-state (either tier)
@@ -957,26 +991,51 @@ always @(posedge clk) begin
 			// AP040 already models that separately through fstate_e1 and
 			// frestore_e1_pend below, so nothing is lost here.
 			fstate_resig <= 0;
-			fstate_cmd1 <= frestore_cmd1;
-			fstate_cmd3 <= frestore_cmd3;
-			fstate_stag <= frestore_stag;
-			fstate_dtag <= frestore_dtag;
-			fstate_flags <= frestore_flags;
-			fstate_fpt <= frestore_fpt;
-			fstate_et <= frestore_et;
-			fstate_grs <= frestore_grs;
-			fstate_wbte15 <= frestore_wbte15;
+			// the frame's fields were written by the frame port as the
+			// core read them; only the format is left to install
 			fstate_busy <= frestore_busy;
-			fstate_wbt <= frestore_wbt;
-			fstate_fpiar_c <= frestore_fpiar;
+			if (frestore_nocmd3) fstate_cmd3 <= 0;
 			// an E1 frame whose command the hardware implements is a
 			// deferred ARITHMETIC exception, not an unimplemented
 			// instruction: the core re-arms the pend (frestore_e1_pend)
 			// and delivery happens at the next dispatch; if the enables
 			// were cleared before the restore, the state simply executes
 			// through (see the F_IDLE dispatch gate)
-			fstate_e1 <= (frestore_flags[2] || frestore_flags[1]) &&
+			fstate_e1 <= (fstate_flags[2] || fstate_flags[1]) &&
 			             op_in_hw(fr_cmd_op);
+		end
+		if (frame_we) begin
+			fstate_unimp <= 0;
+			case (frame_idx)
+				5'd2:  frame_cusave_fe <= (frame_wd[31:24] == 8'hfe);
+				5'd6:  begin
+					{wb_s, wb_e[14:0]} <= frame_wd[31:16];
+					wbt_zero <= 0;
+				end
+				5'd7:  wb_m[63:32] <= frame_wd;
+				5'd8:  wb_m[31:0]  <= frame_wd;
+				5'd10: fstate_fpiar_c <= frame_wd;
+				5'd13: fstate_cmd3 <= frame_wd[31:16];
+				5'd15: begin
+					fstate_stag <= frame_wd[31:29];
+					frame_et15  <= frame_wd[28];
+					fstate_grs  <= frame_wd[25:23];
+				end
+				5'd16: fstate_cmd1 <= frame_wd[31:16];
+				5'd17: begin
+					fstate_dtag   <= frame_wd[31:29];
+					frame_fpt15   <= frame_wd[28];
+					fstate_wbte15 <= frame_wd[20];
+				end
+				5'd18: fstate_flags <= {frame_wd[26], frame_wd[25], frame_wd[20]};
+				5'd19: sh_dst[95:64] <= frame_wd;
+				5'd20: sh_dst[63:32] <= frame_wd;
+				5'd21: sh_dst[31:0]  <= frame_wd;
+				5'd22: sh_src[95:64]  <= frame_wd;
+				5'd23: sh_src[63:32]  <= frame_wd;
+				5'd24: sh_src[31:0]   <= frame_wd;
+				default: ;
+			endcase
 		end
 
 		case (fst)
@@ -994,15 +1053,15 @@ always @(posedge clk) begin
 				r_ae7 <= fpsr[7];
 				r_op <= fr_cmd_op;
 				r_fmt <= 3'd2; // already converted to extended, even opclass 0
-				r_dst <= frestore_cmd1[9:7];
-				sh_cmd <= frestore_cmd1;
-				{a_s, a_e, a_m, a_t} <= unpack_x(frestore_et[95],
-				    restore_et_negative ? 15'd0 : frestore_et[94:80], frestore_et[63:0]);
-				{b_s, b_e, b_m, b_t} <= unpack_x(frestore_fpt[95],
-				    restore_fpt_negative ? 15'd0 : frestore_fpt[94:80], frestore_fpt[63:0]);
-				sh_v <= {frestore_et[63:0], 3'd0};
-				sh_cnt <= restore_shift(frestore_et15, frestore_et[94:80]);
-				loop_n <= restore_shift(frestore_fpt15, frestore_fpt[94:80]);
+				r_dst <= fstate_cmd1[9:7];
+				sh_cmd <= fstate_cmd1;
+				{a_s, a_e, a_m, a_t} <= unpack_x(sh_src[95],
+				    restore_et_negative ? 15'd0 : sh_src[94:80], sh_src[63:0]);
+				{b_s, b_e, b_m, b_t} <= unpack_x(sh_dst[95],
+				    restore_fpt_negative ? 15'd0 : sh_dst[94:80], sh_dst[63:0]);
+				sh_v <= {sh_src[63:0], 3'd0};
+				sh_cnt <= restore_shift(frame_et15, sh_src[94:80]);
+				loop_n <= restore_shift(frame_fpt15, sh_dst[94:80]);
 				sh_ret <= F_RESTORE_A;
 				fst <= F_SHR;
 			end
