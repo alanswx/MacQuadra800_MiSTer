@@ -12,6 +12,7 @@ must never be flashed (`scripts/deploy_screenshot.sh` refuses one).
 
 | build | md5 | timing | notes |
 |---|---|---|---|
+| `MacQuadra800_20260930.rbf` | `49951492d3576add9470bc1d1ef28e5d` | met, **+0.310 ns setup (HDMI) / +0.219 ns hold worst** (`clk_sys` +0.507, `clk_ram` +0.834; crossings +1.201 / +0.507) | **Release polish: the three `Dbg` OSD lines are gone, an OSD Scale option (Normal / V-Integer / Narrower and Wider HV-Integer) through the framework's `video_freak`, the 12in 512x384 monitor option is back, and the SCC's CTS bit reads the way the Mac serial driver wants, so printing over the Modem port works with the daemon's RTS asserted and a printer that drops RTS gets "not responding".** Room made by keeping the FPU state frame once (P263, -159 ALMs / -595 registers); the CPU and disk paths are otherwise 20260929_2's: PR 1.267, Disk 2.488, FPU 0.961-0.968 warm, Mix 1.808, 4 MB duplicate 5.24 s median, 0 hangs in 10; all four Scale modes and 512x384 through OSD resets; ImageWriter prints at 9600; idle and Shut Down clean. Known: PRAM starts zeroed at every core load, so the Chooser's port choice must be made again after a load. **Use with `MiSTer_20260928`.** A/UX and CD audio still not run. Seed 24; 39,300 ALMs (94 %). |
 | `MacQuadra800_20260929_2.rbf` | `f769b9e1ef496428be071d4ded9e90ae` | met, **+0.299 ns setup (CPU and HDMI) / +0.207 ns hold worst** (`clk_ram` +0.678; crossings +0.707 / +0.600) | **Disk 45 % faster: the 53C96 engine's sector buffer is two halves in the same M10K, so the platform transfer of sector n+1 overlaps the guest draining sector n, and a write flushes one half while the guest fills the other.** Speedometer PR Disk 1.70 -> **2.46** (72 % of a real Quadra 800), a 4 MB Finder duplicate 6.68 -> 4.95 s, read phase 1.65 -> 2.1-2.4 MiB/s, write 1.0 -> 1.4-1.5 MiB/s; CPU, FPU (0.976), Mix (1.807) and Graphics unchanged; 30 duplicates with no hang; idle and Shut Down clean. Everything else as 20260929. **Use with `MiSTer_20260928`.** A/UX and CD audio still not run. Seed 27; 39,246 ALMs (94 %). |
 | `MacQuadra800_20260929.rbf` | `dc281d649d54f1cbbddd4650423e204b` | met, **+0.110 ns setup (HDMI) / +0.250 ns hold worst** (`clk_sys` +0.864, `clk_ram` +0.409; crossings +1.128 / +0.867) | **20260928 plus the IOSB interrupt fix: a Finder copy could hang mid-write** when the ROM's VBL dispatcher wrote the VIA2 IFR in the clock the 53C96 raised its interrupt (the edge was lost; about one copy in ten to twenty). Also the PDMA watchdog no longer ages through a slow acknowledge. Found by reproducing the hang in the full-machine sim with randomised sector latency; directed benches in `verilator/`. Hardware: 30 Finder duplicates over two boots with no hang, PR Disk 1.70 with the tight-loop Main, FPU 0.96-0.98, idle and shutdown clean. **Use with `MiSTer_20260928`** (the tight disk service loop, PR Disk 1.62 -> 1.74). A/UX and CD audio still not run. Seed 31; 39,102 ALMs (93 %). |
 | `MacQuadra800_20260928.rbf` | `b7e88b8163679a607680e2e80669f396` | met, **+0.006 ns setup (HDMI) / +0.220 ns hold worst** (`clk_sys` +0.103, `clk_ram` +0.612; crossings +1.432 / +0.586) | **The FPU catches the real Quadra 800: Speedometer 4.02 FPU Benchmarks 0.973 on hardware (0.684 on the 2026-09-27 build; a real Quadra 800 scores 1.011), Benchmark Mix 1.803 (1.781), Color 8-bit unchanged.** Nine CPU commits (P250..P258): FP decode and operand fetch overlap the running FP op, FADD/FMUL in 4 clocks, results written back in the rounding clock, S/D operands unpacked and packed at dispatch, d16 and indexed FP operands resolved in the decode clock, exception prefetch in longwords, FSAVE/FRESTORE loops tightened. Mac OS 8.1 gate passed (24 valid benchmark runs, idle clock, clean shutdowns). **A/UX 3.1 and CD audio NOT run on this bitstream** (the images are no longer on the test box). Needs a Main with the Quadra support and the Mac write buffer (`45182b73` or the FujiNet/printer `ff404af9` it was tested with). Seed 31 with `PLACEMENT_EFFORT_MULTIPLIER 2.0` and `ROUTER_TIMING_OPTIMIZATION_LEVEL MAXIMUM`; 39,191 ALMs (94 %), 468 M10K, 36 DSP. |
@@ -70,6 +71,59 @@ old behaviour). On `MacQuadra800_20260928.rbf`: Speedometer PR Disk
 control, about 7.2 on `ff404af9`), mouse and guest Ethernet unaffected
 (`docs/perf/disk_tightloop_20260928/production.md`). Install as for the
 binary above; no inittab change is needed.
+
+## `MacQuadra800_20260930.rbf`
+
+md5 `49951492d3576add9470bc1d1ef28e5d`, sha256
+`2627bf94d547200cfc5d2151b9487b21e379f145e3e0bb2945246f188cf7ccf0`, seed 24,
+the 20260928 recipe with `VIDEO_512_OFF` dropped. **Timing met on every
+clock**: `clk_sys` +0.507 ns, `clk_ram` +0.834 ns, HDMI +0.310 ns, worst hold
++0.219 ns, crossings +1.201 / +0.507 ns. 39,300 ALMs (94 %), 24,668
+registers, 468 M10K, 36 DSP. Built 2026-09-30 from `6ce38c8` on
+`add-ethernet` (the `.qsf` at `b89ab9e`). Seed walk:
+`docs/perf/p263_fpga_20260930` (seeds 27 and 28 failed routing, 31 missed the
+CPU clock, 23 missed HDMI only and was hardware-trialled first,
+`docs/perf/p263_hw_20260930`).
+
+**What is new: the release polish.** The three `Dbg ...` bring-up lines are
+gone from the OSD (the store buffer, SDRAM line and DMA snoop fast paths are
+simply on, as in every release since 20260919). The OSD has a **Scale**
+option (Normal, V-Integer, Narrower HV-Integer, Wider HV-Integer) through
+the framework's `video_freak`, and the **12in 512x384** monitor option is
+back (`pll_cfg`, about 360 ALMs). The SCC's RR0 CTS bit now reads the way
+the Mac serial driver expects, so printing over the Modem port with the
+daemon's RTS asserted works again and a printer that drops RTS gets "The
+printer is not responding" instead of a stalled queue. To make room, the
+FPU's state frame is kept once (P263: the core's FRESTORE staging and the
+FPU's duplicate copies are gone, -159 ALMs / -595 registers,
+`docs/cpu-fsave-compaction-20260929.md`); the CPU is otherwise the
+20260929_2 one, so every FPU/disk figure is unchanged within boot-to-boot
+spread.
+
+**Hardware** (`docs/perf/p263_release_hw_20260930`, disposable Quad Squad copy,
+32 MB, `MiSTer_20260928`; the seed-23 trial of the same RTL in
+`docs/perf/p263_hw_20260930`): Performance Rating five runs, PR 1.267, CPU
+0.896, Disk **2.488** median (20260929_2: 1.266 / 0.896 / 2.462); FPU 0.953
+cold, 0.961 and 0.968 warm (0.976; the difference is the Matrix Multiply
+subtest's boot-to-boot spread, 0.68-0.75 s over five runs on this RTL);
+Benchmark Mix 1.808 (1.807); ten Photoshop duplicates, median 5.24 s
+(4.98-5.27; 20260929_2 4.95 s, whose two write modes both recur), 0 hangs;
+Scale Normal 960x720, the three integer modes 640x480, back to Normal; 12in
+512x384 desktop through an OSD reset and 13in 640x480 through another, halt
+screens intact; Print Desktop to the ImageWriter on the Modem port at 9600
+with RTS asserted, 19,146 bytes at line rate and a two-page PDF, no alert
+(at seed 23 the same job with RTS dropped by hand gave "The printer is not
+responding" and resumed when RTS returned); four minutes idle with the
+clock in step; three clean Shut Downs.
+
+**Known on this build:** PRAM powers up zeroed at every core load
+(`rtl/rtc3430042.sv`), so the Chooser's serial-port choice for the printer
+reverts to the Printer port after a load and must be set to Modem Port
+again; after an OSD reset the guest clock re-seeds to the core-load time.
+
+**Main:** `MiSTer_20260928` (the tight disk service loop). **Gate status:**
+Mac OS 8.1 passed on the shipped bitstream; A/UX 3.1 at 32 MB and CD audio
+still not run (the images are not on the test box).
 
 ## `MacQuadra800_20260929_2.rbf`
 
