@@ -951,16 +951,17 @@ wire ex_st    = m3.r.v && (m3.r.mem != M_LD);
 wire dc2_slow = m2.r.v && !fast_now && !fast_wait && !(st_simple && !e_job) && !e_dc2_done && !e_job &&
                 !ex_st;
 //--------------------------------------------------------------------------
-// posted stores (MacQuadra800 local change): a store to a noncachable,
-// nonserialized page (CM 10, the 68040's imprecise mode, MC68040UM 4.3)
-// that is naturally aligned, unlocked, not MOVE16, no acknowledge cycle and
-// hits no cached line goes into a write buffer and completes in its WB
-// cycle, as the real 68040's does; the buffer drains in order through its
-// own BIU port.  Every engine job -- fills, pushes, inhibited and
-// serialized accesses, table walks, maintenance -- waits for the buffer to
-// be empty first, so nothing of this processor's reaches the bus ahead of
-// a posted write.  A bus error on a posted write is lost (the mode is
-// imprecise); simulation reports it.
+// posted stores (MacQuadra800 local change): a store into the PA_P window
+// (noncachable, nonserialized -- CM 10, the 68040's imprecise mode -- by
+// the rule above) that is naturally aligned, unlocked, not MOVE16, no
+// acknowledge cycle and hits no cached line goes into a write buffer and
+// completes in its WB cycle; the buffer drains in order through its own
+// BIU port.  Every engine job -- fills, pushes, inhibited and serialized
+// accesses, table walks, maintenance -- waits for the buffer to be empty
+// first, so nothing of this processor's reaches the bus ahead of a posted
+// write.  A bus error on a posted write is lost; simulation reports it.
+// Only the window: a CM 10 page elsewhere keeps the core's precise
+// behaviour (its tests expect an access error on such a store).
 //--------------------------------------------------------------------------
 localparam int WBN = 4;
 typedef struct packed {
@@ -976,7 +977,8 @@ logic [$clog2(WBN)-1:0] wb_rp, wb_wp;
 logic                  wb_inflight;   // the head is on the bus (granted, not done)
 wire                   wbuf_v    = (wb_cnt != 0);
 wire                   wbuf_full = (wb_cnt == WBN);
-wire wb_post = wb_st && !m4.split && m4.x.ok && !m4.x.flt && (m4.x.cm == 2'b10) &&
+wire wb_pwin = ((m4.x.pa & PA_P_MASK) == PA_P_MATCH);
+wire wb_post = wb_st && !m4.split && m4.x.ok && !m4.x.flt && (m4.x.cm == 2'b10) && wb_pwin &&
                !m4.r.lock && (m4.r.msz != SZ_Q) && (m4.r.ack == 2'd0) &&
                !(m4.x.hit && dc_en) && (e_st == E_IDLE) && !e_wst_done && !wbuf_full &&
                ((m4.r.msz == SZ_B) || (m4.r.msz == SZ_W && !m4.r.a[0]) ||
