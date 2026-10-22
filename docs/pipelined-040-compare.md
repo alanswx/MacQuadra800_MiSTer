@@ -156,9 +156,13 @@ Bubble 0.472, Queens 0.320, Puzzle 0.779, Permutations 0.570, Int. Matrix
 (Quadra 650 = 1.0).  The integer tests gain 5-15 % each; Whetstone/Math
 barely move, as the microbenchmarks predicted (Speedometer keeps its
 doubles in memory: FP stores, FDIV and FSQRT are untouched by the FPU
-pipeline).  The Dhrystone figure has varied between runs (28,391 on the
-first clean boot of the fixed core, 23,526 and 24,896 since) and needs a
-controlled re-measurement before the three builds are ranked on it.
+pipeline).  Speedometer's Dhrystone and Int. Matrix vary run to run on this core
+far more than on the old one: two Mix runs four minutes apart on the same
+boot of this build gave Dhrystones 24,896 then 30,221 and Int. Matrix
+0.455 then 0.572 s (Towers, the sorts, Queens and Sieve within 1 %).  The
+4 KB caches make those two tests sensitive to what else is resident and
+where the 60 Hz interrupt lands; rank the builds on the stable tests, or
+on the median of several Mix runs.
 
 | build | PR | CPU | Graphics | Mix avg |
 |---|---:|---:|---:|---:|
