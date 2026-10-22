@@ -112,7 +112,14 @@ that is always CM 10: the DAFB frame buffer, which the earlier
 `PA_IO_SERIAL` rule had forced serialized with the rest of the non-RAM
 space.  Bench test 17 (`tb_quadra_cpu040`): a 32-store loop 547 -> 280
 clocks with 1-4 clock acks; every posted write is in memory before a
-serialized write that follows.
+serialized write that follows.  On hardware (seed 40, 33,470 ALMs, all
+clocks positive) Speedometer's Graphics went 0.846 -> 0.924 (Color
+Benchmarks 0.89-0.92 at every depth), PR 1.473 -> 1.530, Int. Matrix
+0.596 -> 0.488 s; Sieve unchanged.  The bus probe shows why the rest of
+the Graphics gap is not the writes: quadra800 acks a VRAM write in 1 clock
+and a VRAM read in 3, and the Finder phase does 2,581 VRAM writes to 1,461
+VRAM reads -- each read still costs the serialized 14 clocks, and
+QuickDraw's A-line entry and JSR/RTS the rest.
 
 ## The bug the port found
 
