@@ -145,6 +145,28 @@ sequence (test 11 fails without the fix).  Also fixed on the way:
 speculatively -- the Mac ROM never sets MMU cache modes, so with
 translation off everything was cacheable to it, FIFOs included.
 
+### The configuration switches (`FPU_PIPE`, `LOOP_PRED`, `EARLY_RES` on)
+
+Built on top of the write buffer at seed 40: 35,648 ALMs (85 %), all
+clocks positive (+0.289 / +0.420 / +1.133 ns).  Speedometer: PR 1.543
+(CPU 1.715, Graphics 0.927, Disk 2.376, Math 13.508); Mix average 1.727
+(KWhetstones 1,219, Dhrystones 24,896, Towers 0.349 s, Quick Sort 0.442,
+Bubble 0.472, Queens 0.320, Puzzle 0.779, Permutations 0.570, Int. Matrix
+0.455, Sieve 1.803); Color Benchmarks 0.89-0.94; FPU Benchmarks 0.728
+(Quadra 650 = 1.0).  The integer tests gain 5-15 % each; Whetstone/Math
+barely move, as the microbenchmarks predicted (Speedometer keeps its
+doubles in memory: FP stores, FDIV and FSQRT are untouched by the FPU
+pipeline).  The Dhrystone figure has varied between runs (28,391 on the
+first clean boot of the fixed core, 23,526 and 24,896 since) and needs a
+controlled re-measurement before the three builds are ranked on it.
+
+| build | PR | CPU | Graphics | Mix avg |
+|---|---:|---:|---:|---:|
+| old ap040 | 1.195 | 0.798 | 1.176 | 1.790 |
+| pipelined, fixed (seed 38) | 1.473 | 1.717 | 0.846 | 1.612 |
+| + write buffer (seed 40) | 1.530 | 1.700 | 0.924 | 1.647 |
+| + FPU_PIPE/LOOP_PRED/EARLY_RES (seed 40) | 1.543 | 1.715 | 0.927 | 1.727 |
+
 ## Tools
 
     make -C verilator tb_quadra_cpu040      # the bridge + core against quadra800-shaped acks
