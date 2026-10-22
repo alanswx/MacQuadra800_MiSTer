@@ -343,7 +343,7 @@ tb_sysmem_vbuf_gate:
 # and pushes, an autovectored interrupt, the FPU); +fast adds next-clock acks.
 FAST040 = ../rtl/ap68040_faster/rtl
 FAST040_SRC = $(addprefix $(FAST040)/,$(shell grep -o '"[^"]*v"' $(FAST040)/ap68040.qip | tr -d '"'))
-tb_quadra_cpu040: tb_cpu040/prog.s tb_cpu040/tb_quadra_cpu040.sv ../rtl/quadra_cpu040.sv
+tb_quadra_cpu040: tb_cpu040/prog.s tb_cpu040/tb_quadra_cpu040.sv ../rtl/quadra_cpu040.sv $(FAST040_SRC)
 	vasmm68k_mot -m68040 -Fbin -quiet -o tb_cpu040/prog.bin tb_cpu040/prog.s
 	xxd -p -c4 tb_cpu040/prog.bin > tb_cpu040/prog.hex
 	$V --binary --timing -Wno-fatal -Wno-lint -Wno-style -I$(FAST040) -I$(FAST040)/gen -I$(FAST040)/fpu --top-module tb_quadra_cpu040 --Mdir ./obj_dir_tb_cpu040 -o tb_quadra_cpu040 $(FAST040_SRC) ../rtl/quadra_cpu040.sv tb_cpu040/tb_quadra_cpu040.sv

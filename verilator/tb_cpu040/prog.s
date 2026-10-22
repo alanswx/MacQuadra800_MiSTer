@@ -195,6 +195,16 @@ start:
 	bne	fail
 	cmp.w	#$1234,$F9000082
 	bne	fail
+	moveq	#18,d7		; test 18: a stream of reads from the window, back to back
+	lea	$F9000100,a0
+	move.l	#3,$5000000C
+	rept	16
+	move.l	(a0)+,d0
+	move.l	(a0)+,d1
+	endr
+	move.l	#4,$5000000C
+	cmp.l	#31,d1
+	bne	fail
 	cpusha	dc
 	move.l	#$A5A5A5A5,$50000000
 	cpusha	dc
