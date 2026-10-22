@@ -172,6 +172,29 @@ start:
 	lea	$10(a0),a0
 	cmpa.l	#$210,a0
 	bne	fail
+	moveq	#17,d7		; test 17: posted writes to the imprecise window ($F9xxxxxx, the frame buffer)
+	move.l	#0,$5000000C	; the bench stamps the clock at each write here
+	lea	$F9000100,a0
+	moveq	#0,d0
+	move.w	#32-1,d1
+.p17	move.l	d0,(a0)+	; 32 longs: posted, the loop runs on
+	addq.l	#1,d0
+	dbf	d1,.p17
+	move.l	#1,$5000000C	; serialized: the bench checks all 32 are in memory by now
+	lea	$F9000100,a0
+	moveq	#0,d0
+	move.w	#32-1,d1
+.r17	cmp.l	(a0)+,d0	; read back through the window
+	bne	fail
+	addq.l	#1,d0
+	dbf	d1,.r17
+	move.b	#$5A,$F9000081	; a byte and a word, then the serialized check again
+	move.w	#$1234,$F9000082
+	move.l	#2,$5000000C
+	cmp.b	#$5A,$F9000081
+	bne	fail
+	cmp.w	#$1234,$F9000082
+	bne	fail
 	cpusha	dc
 	move.l	#$A5A5A5A5,$50000000
 	cpusha	dc

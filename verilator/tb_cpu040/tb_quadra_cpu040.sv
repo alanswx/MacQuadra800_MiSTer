@@ -81,6 +81,18 @@ always @(posedge clk) begin
 					$finish; end
 				end
 				if (bus_write && bus_addr[3:0] == 4) ipl <= 3'b111;
+				if (bus_write && bus_addr[3:0] == 12) begin
+					// test 17's ordering check: a serialized write arrives
+					// only after every posted write before it landed
+					$display("order check %0d at cycle %0d", bus_wdata, cyc);
+					if (bus_wdata == 1) for (i = 0; i < 32; i = i + 1)
+						if ({mem[16'h100+4*i], mem[16'h101+4*i], mem[16'h102+4*i], mem[16'h103+4*i]} != i) begin
+							$display("FAIL: posted write %0d not in memory before the serialized write", i); $finish;
+						end
+					if (bus_wdata == 2 && (mem[16'h81] != 8'h5A || mem[16'h82] != 8'h12 || mem[16'h83] != 8'h34)) begin
+						$display("FAIL: posted byte/word not in memory before the serialized write"); $finish;
+					end
+				end
 				if (bus_write && bus_addr[3:0] == 8) begin
 					if (!bus_wdata[0]) $display("storm: %0d interrupts during the copy, %0d port reads", storm_iacks, port_cnt);
 					storm <= bus_wdata[0]; port_cnt <= 0;

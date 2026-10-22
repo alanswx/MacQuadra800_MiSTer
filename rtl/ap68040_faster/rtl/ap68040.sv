@@ -25,7 +25,8 @@ module ap68040
 	// platform cacheability (ap68040_dmu): 0 = as upstream
 	parameter bit          PA_IO_SERIAL = 0,
 	parameter logic [31:0] PA_C0_MASK = 32'h0, PA_C0_MATCH = 32'h0,
-	parameter logic [31:0] PA_C1_MASK = 32'h0, PA_C1_MATCH = 32'h0
+	parameter logic [31:0] PA_C1_MASK = 32'h0, PA_C1_MATCH = 32'h0,
+	parameter logic [31:0] PA_P_MASK = 32'h0, PA_P_MATCH = 32'hFFFF_FFFF   // always CM 10 (posted writes)
 )(
 
 	input  logic        clk,
@@ -149,7 +150,7 @@ always_ff @(posedge clk)
 //--------------------------------------------------------------------------
 // BIU: client 0 data (DMU), client 1 instruction fetch
 //--------------------------------------------------------------------------
-localparam int NC = 2;
+localparam int NC = 3;             // BIU clients: 0 the DMU's engine, 1 the fetch, 2 the DMU's write buffer
 logic [NC-1:0] b_req, b_gnt, b_done, b_err;
 logic          b_own;
 logic [31:0]   b_d_o, sn_d_o;
@@ -157,7 +158,7 @@ logic          b_d_oe, sn_d_oe;
 busreq_t       b_breq [NC];
 logic [127:0]  b_wdata [NC];
 logic          b_rvalid;
-logic          b_rclient;
+logic  [1:0]   b_rclient;
 logic [31:0]   b_rdata;
 logic  [1:0]   b_rbeat;
 logic          b_ravec, b_rtci;
@@ -170,11 +171,11 @@ logic          b_drop;
 ap68040_biu #(.NC(NC)) biu (
 	.clk(clk), .nreset(nreset), .bclk_en(bclk_en),
 	// (client 1, the fetch, is held while stopped, halted or resetting)
-	.req(b_req & ~{be_fstop || rsto_busy, 1'b0}), .breq(b_breq), .wdata(b_wdata),
+	.req(b_req & ~{1'b0, be_fstop || rsto_busy, 1'b0}), .breq(b_breq), .wdata(b_wdata),
 	.gnt(b_gnt), .done(b_done), .err(b_err),
 	.rvalid(b_rvalid), .rclient(b_rclient), .rdata(b_rdata), .rbeat(b_rbeat),
 	.ravec(b_ravec), .rtci(b_rtci), .errbeat(b_errbeat), .idle(b_idle), .own(b_own),
-	.unlock(lk_abandon), .halt(dbg_halted), .more({1'b0, 1'b0}), .drop({1'b0, b_drop}),
+	.unlock(lk_abandon), .halt(dbg_halted), .more({1'b0, 1'b0, 1'b0}), .drop({1'b0, 1'b0, b_drop}),
 	.rsto_req(rsto_req), .rsto_busy(rsto_busy),
 	.a_o(a_o), .a_oe(a_oe), .d_i(d_i), .d_o(b_d_o), .d_oe(b_d_oe),
 	.rw_n(rw_n), .siz(siz), .tt(tt), .tm(tm), .tln(tln), .upa(upa),
@@ -286,7 +287,8 @@ ap68040_backend #(.FPU_REVISION(FPU_REVISION), .FPU_PIPE(FPU_PIPE), .EARLY_RES(E
 
 ap68040_dmu #(.DC1_ATC(DC1_ATC), .PA_IO_SERIAL(PA_IO_SERIAL),
 	.PA_C0_MASK(PA_C0_MASK), .PA_C0_MATCH(PA_C0_MATCH),
-	.PA_C1_MASK(PA_C1_MASK), .PA_C1_MATCH(PA_C1_MATCH)) dmu (
+	.PA_C1_MASK(PA_C1_MASK), .PA_C1_MATCH(PA_C1_MATCH),
+	.PA_P_MASK(PA_P_MASK), .PA_P_MATCH(PA_P_MATCH)) dmu (
 	.clk(clk), .nreset(nreset),
 	.adv_ag(adv_ag), .dm_req(dm_req), .dm_va(dm_va), .dm_mem(dm_mem),
 	.dm_msz(dm_msz), .dm_fc(dm_fc), .dm_lock(dm_lock), .dm_locke(dm_locke),
@@ -314,8 +316,10 @@ ap68040_dmu #(.DC1_ATC(DC1_ATC), .PA_IO_SERIAL(PA_IO_SERIAL),
 	.iatc_wfc2(iatc_wfc2), .iatc_went(iatc_went),
 	.b_req(b_req[0]), .b_breq(b_breq[0]), .b_wdata(b_wdata[0]),
 	.b_gnt(b_gnt[0]), .b_done(b_done[0]), .b_err(b_err[0]), .b_drop(b_drop),
-	.b_rvalid(b_rvalid && b_rclient == 1'b0), .b_rdata(b_rdata), .b_rbeat(b_rbeat),
+	.b_rvalid(b_rvalid && b_rclient == 2'd0), .b_rdata(b_rdata), .b_rbeat(b_rbeat),
 	.b_ravec(b_ravec), .b_rtci(b_rtci),
+	.b2_req(b_req[2]), .b2_breq(b_breq[2]), .b2_wdata(b_wdata[2]),
+	.b2_gnt(b_gnt[2]), .b2_done(b_done[2]), .b2_err(b_err[2]),
 	.sn_req(sn_req), .sn_pa(sn_pa), .sn_look(sn_look), .sn_hit(sn_hit),
 	.sn_dirty(sn_dirty), .sn_line(sn_line), .sn_inv(sn_inv), .sn_wr(sn_wr),
 	.sn_wbe(sn_wbe), .sn_wword(sn_wword)
@@ -383,7 +387,7 @@ ap68040_fetch fetch (
 	.sn_ihit(sn_ihit),
 	.b_req(b_req[1]), .b_breq(b_breq[1]),
 	.b_gnt(b_gnt[1]), .b_done(b_done[1]), .b_err(b_err[1]),
-	.b_rvalid(b_rvalid && b_rclient == 1'b1), .b_rdata(b_rdata), .b_rbeat(b_rbeat),
+	.b_rvalid(b_rvalid && b_rclient == 2'd1), .b_rdata(b_rdata), .b_rbeat(b_rbeat),
 	.b_rtci(b_rtci)
 );
 assign b_wdata[1] = '0;

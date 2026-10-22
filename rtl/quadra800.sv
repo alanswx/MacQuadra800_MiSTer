@@ -354,6 +354,31 @@ always @(posedge clk) if (nreset && bus_req && bus_ack && (bus_addr[31:28] == 4'
                           $test$plusargs("ncrbus"))
 	$display("[NCRBUS] %s %08h sz%0d %08h pc=%08h", bus_write ? "W" : "R", bus_addr, bus_size,
 	         bus_write ? bus_wdata : bus_rdata, debug_status[31:0]);
+// sim only (+fillprobe): every bus_req burst (held across a line's beats by
+// either CPU): its beats and clocks, for the memory latency each CPU sees
+logic        fp_req = 1'b0, fp_on = 1'b0;
+logic [63:0] fp_after;
+logic [31:0] fp_clk, fp_beats, fp_addr;
+logic        fp_wr, fp_busy = 1'b0;
+initial begin
+	fp_req = $test$plusargs("fillprobe");
+	if (!$value$plusargs("fillprobe_after=%d", fp_after)) fp_after = 0;   // (sim time units)
+end
+always @(posedge clk) if (fp_req && !fp_on && $time >= fp_after) fp_on <= 1'b1;
+always @(posedge clk) if (fp_on && nreset) begin
+	if (bus_req && !fp_busy) begin
+		fp_busy <= 1'b1; fp_clk <= 32'd1; fp_beats <= bus_ack ? 32'd1 : 32'd0;
+		fp_addr <= bus_addr; fp_wr <= bus_write;
+	end
+	else if (fp_busy) begin
+		fp_clk <= fp_clk + 32'd1;
+		if (bus_ack) fp_beats <= fp_beats + 32'd1;
+		if (!bus_req) begin
+			fp_busy <= 1'b0;
+			$display("[FILL] %s %08h beats=%0d clocks=%0d", fp_wr ? "W" : "R", fp_addr, fp_beats, fp_clk - 32'd1);
+		end
+	end
+end
 `endif
 
 wire        b_req, b_write;

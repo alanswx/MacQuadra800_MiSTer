@@ -64,7 +64,10 @@ module ap68040_dmu
 	// cacheable, and the bus's TCI comes too late to stop a speculative read.
 	parameter bit          PA_IO_SERIAL = 0,
 	parameter logic [31:0] PA_C0_MASK = 32'h0, PA_C0_MATCH = 32'h0,
-	parameter logic [31:0] PA_C1_MASK = 32'h0, PA_C1_MATCH = 32'h0
+	parameter logic [31:0] PA_C1_MASK = 32'h0, PA_C1_MATCH = 32'h0,
+	// ... and a window (the frame buffer) that is always noncachable,
+	// nonserialized (CM 10): its writes are posted (see the write buffer)
+	parameter logic [31:0] PA_P_MASK = 32'h0, PA_P_MATCH = 32'hFFFF_FFFF
 )
 (
 	input  logic        clk,
@@ -166,6 +169,14 @@ module ap68040_dmu
 	input  logic  [1:0] b_rbeat,
 	input  logic        b_ravec,
 	input  logic        b_rtci,
+
+	// BIU client of the write buffer (posted stores)
+	output logic        b2_req,
+	output busreq_t     b2_breq,
+	output logic [127:0] b2_wdata,
+	input  logic        b2_gnt,
+	input  logic        b2_done,
+	input  logic        b2_err,
 
 	// bus snooper
 	input  logic        sn_req,         // level: the snooper wants the cache
@@ -582,9 +593,12 @@ function automatic xres_t xlate(input logic [31:0] la, input logic s, input logi
 		else x.ok = 1'b1;
 	end
 	else x.walk = 1'b1;
-	if (PA_IO_SERIAL && x.ok && !x.flt &&
-	    ((x.pa & PA_C0_MASK) != PA_C0_MATCH) && ((x.pa & PA_C1_MASK) != PA_C1_MATCH))
-		x.cm = 2'b11;
+	if (PA_IO_SERIAL && x.ok && !x.flt) begin
+		if ((x.pa & PA_P_MASK) == PA_P_MATCH)
+			x.cm = 2'b10;
+		else if (((x.pa & PA_C0_MASK) != PA_C0_MATCH) && ((x.pa & PA_C1_MASK) != PA_C1_MATCH))
+			x.cm = 2'b11;
+	end
 	tg = x.pa[31:10];
 	if (x.ok && !x.flt) begin
 		if (valid[0] && t0 == tg) begin x.hit = 1'b1; x.way = 2'd0; end
@@ -936,12 +950,80 @@ wire fast_wait = m2.r.v && m2.fast && (hzf || (dw && !dwp && dw_set == m2.r.a[9:
 wire ex_st    = m3.r.v && (m3.r.mem != M_LD);
 wire dc2_slow = m2.r.v && !fast_now && !fast_wait && !(st_simple && !e_job) && !e_dc2_done && !e_job &&
                 !ex_st;
-wire wb_slow  = wb_st && !wb_fast && !wb_fs && !wfs_p1 && !e_wst_done;
+//--------------------------------------------------------------------------
+// posted stores (MacQuadra800 local change): a store to a noncachable,
+// nonserialized page (CM 10, the 68040's imprecise mode, MC68040UM 4.3)
+// that is naturally aligned, unlocked, not MOVE16, no acknowledge cycle and
+// hits no cached line goes into a write buffer and completes in its WB
+// cycle, as the real 68040's does; the buffer drains in order through its
+// own BIU port.  Every engine job -- fills, pushes, inhibited and
+// serialized accesses, table walks, maintenance -- waits for the buffer to
+// be empty first, so nothing of this processor's reaches the bus ahead of
+// a posted write.  A bus error on a posted write is lost (the mode is
+// imprecise); simulation reports it.
+//--------------------------------------------------------------------------
+localparam int WBN = 4;
+typedef struct packed {
+	logic [31:0] pa;
+	logic  [2:0] n;       // bytes: 1, 2 or 4
+	logic [31:0] d;       // left aligned
+	logic  [2:0] fc;
+	logic  [1:0] upa;
+} wbe_t;
+wbe_t                  wbq [WBN];
+logic [$clog2(WBN):0]  wb_cnt;        // entries held
+logic [$clog2(WBN)-1:0] wb_rp, wb_wp;
+logic                  wb_inflight;   // the head is on the bus (granted, not done)
+wire                   wbuf_v    = (wb_cnt != 0);
+wire                   wbuf_full = (wb_cnt == WBN);
+wire wb_post = wb_st && !m4.split && m4.x.ok && !m4.x.flt && (m4.x.cm == 2'b10) &&
+               !m4.r.lock && (m4.r.msz != SZ_Q) && (m4.r.ack == 2'd0) &&
+               !(m4.x.hit && dc_en) && (e_st == E_IDLE) && !e_wst_done && !wbuf_full &&
+               ((m4.r.msz == SZ_B) || (m4.r.msz == SZ_W && !m4.r.a[0]) ||
+                (m4.r.msz == SZ_L && m4.r.a[1:0] == 2'b00));
+wire wb_push = wb_post && adv_wb && !sn_frz;
+wire wb_pop  = b2_done || b2_err;
+always_ff @(posedge clk) begin
+	if (!nreset) begin
+		wb_cnt <= '0; wb_rp <= '0; wb_wp <= '0; wb_inflight <= 1'b0;
+	end
+	else begin
+		if (wb_push) begin
+			wbq[wb_wp] <= '{pa: m4.x.pa, n: nbytes(m4.r.msz), d: lalign(st_data, m4.r.msz),
+			                fc: m4.r.fc, upa: m4.x.upa};
+			wb_wp <= wb_wp + 1'b1;
+		end
+		if (wb_pop) wb_rp <= wb_rp + 1'b1;
+		wb_cnt <= wb_cnt + {{$clog2(WBN){1'b0}}, wb_push} - {{$clog2(WBN){1'b0}}, wb_pop};
+		if (b2_gnt) wb_inflight <= 1'b1;
+		if (wb_pop) wb_inflight <= 1'b0;
+	end
+end
+assign b2_req = wbuf_v && !wb_inflight;
+always_comb begin
+	b2_breq       = '0;
+	b2_breq.addr  = wbq[wb_rp].pa;
+	b2_breq.siz   = (wbq[wb_rp].n == 3'd1) ? SIZ_B : (wbq[wb_rp].n == 3'd2) ? SIZ_W : SIZ_L;
+	b2_breq.rd    = 1'b0;
+	b2_breq.tt    = fc_tt(wbq[wb_rp].fc);
+	b2_breq.tm    = fc_tm(wbq[wb_rp].fc);
+	b2_breq.upa   = wbq[wb_rp].upa;
+	b2_breq.ci    = 1'b1;
+	b2_wdata      = {96'd0, (wbq[wb_rp].n == 3'd1) ? {4{wbq[wb_rp].d[31:24]}} :
+	                        (wbq[wb_rp].n == 3'd2) ? {2{wbq[wb_rp].d[31:16]}} : wbq[wb_rp].d};
+end
+// synthesis translate_off
+always @(posedge clk)
+	if (nreset && b2_err) $display("[DMU] bus error on a posted write to %h lost", wbq[wb_rp].pa);
+// synthesis translate_on
+
+wire wb_slow  = wb_st && !wb_fast && !wb_fs && !wfs_p1 && !e_wst_done && !wb_post;
 
 // store ready: the fast store answers in its own WB cycle (the engine's
 // stores through the registered pulse)
 logic st_rdy_r, st_fault_r;
-assign st_rdy   = st_rdy_r || (wb_fast && !sn_frz) || (wfs_p1 && m4.x1.hit && !sn_frz);
+assign st_rdy   = st_rdy_r || (wb_fast && !sn_frz) || (wfs_p1 && m4.x1.hit && !sn_frz) ||
+                  (wb_post && !sn_frz);
 assign st_fault = st_rdy_r && st_fault_r;
 
 // a failed line fill: the long words of the line the access needs (this
@@ -1232,6 +1314,8 @@ always_ff @(posedge clk) begin
 			end
 			if (wfs_p1)
 				;                       // a split WB store's second part next
+			else if (wbuf_v)
+				;                       // posted writes drain first: no bus job overtakes them
 			else if (mt_v && !mt_done)
 				e_st <= E_M_START;
 			else if (wb_slow)
