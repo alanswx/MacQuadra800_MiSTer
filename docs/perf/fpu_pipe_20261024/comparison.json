@@ -1,0 +1,61 @@
+{
+  "decision": "retain FPU_PIPE=0 for the smaller memory core; preserve candidate as an experiment",
+  "hardware_iterations_each": 1,
+  "performance_repeatability_established": false,
+  "alms_baseline": 34554,
+  "alms_candidate": 35631,
+  "alms_added": 1077,
+  "alm_increase_percent": 3.1169,
+  "cpu_bus_sdram_mhz": [
+    33,
+    33,
+    99
+  ],
+  "baseline_source": "6bfd9c0",
+  "candidate_source": "bd398e4",
+  "baseline_rbf_md5": "500c366118057e8034d7a93d93dd107f",
+  "candidate_rbf_md5": "f1289c23369dda33a76bb79ef33123b1",
+  "scores": {
+    "fpu_first": {
+      "baseline": 0.741,
+      "candidate": 0.75,
+      "change_percent": 1.2146
+    },
+    "fpu_after_mix": {
+      "baseline": 0.744,
+      "candidate": 0.749,
+      "change_percent": 0.672
+    },
+    "mix": {
+      "baseline": 1.802,
+      "candidate": 1.806,
+      "change_percent": 0.222
+    },
+    "cpu_pr": {
+      "baseline": 1.807,
+      "candidate": 1.806,
+      "change_percent": -0.0553
+    },
+    "graphics_pr": {
+      "baseline": 0.985,
+      "candidate": 0.985,
+      "change_percent": 0.0
+    },
+    "disk_pr": {
+      "baseline": 2.228,
+      "candidate": 2.417,
+      "change_percent": 8.4829
+    },
+    "math_pr": {
+      "baseline": 13.313,
+      "candidate": 13.313,
+      "change_percent": 0.0
+    },
+    "overall_pr": {
+      "baseline": 1.604,
+      "candidate": 1.623,
+      "change_percent": 1.1845
+    }
+  },
+  "interpretation": "PR CPU, graphics and Math do not improve. Disk variation accompanies the overall PR change. Small FPU changes do not establish a repeatable gain."
+}

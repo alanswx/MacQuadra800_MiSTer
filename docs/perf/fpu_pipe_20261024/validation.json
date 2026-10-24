@@ -54,7 +54,7 @@
       "pass": true
     }
   ],
-  "hardware_tested": false,
+  "hardware_tested": true,
   "differential_fpu_cases": [
     {
       "name": "fpu-differential.log",
@@ -72,5 +72,7 @@
       "pipeline_cycles": 86398,
       "pass": true
     }
-  ]
+  ],
+  "hardware_evidence": "candidate33/mac/result.json",
+  "release_qualified": false
 }

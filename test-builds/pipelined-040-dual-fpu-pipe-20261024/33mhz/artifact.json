@@ -59,5 +59,32 @@
     }
   ],
   "minimum_hold": 0.109,
-  "hardware_tested": false
+  "hardware_tested": true,
+  "hardware_qualification": {
+    "mac_os_8_1_boot": "PASS Finder",
+    "keyboard_mouse": "PASS",
+    "benchmark_order": [
+      "FPU first",
+      "Mix",
+      "FPU after Mix",
+      "Full PR"
+    ],
+    "iterations_each": 1,
+    "fpu_first": 0.75,
+    "mix": 1.806,
+    "fpu_after_mix": 0.749,
+    "pr_cpu": 1.806,
+    "pr_graphics": 0.985,
+    "pr_disk": 2.417,
+    "pr_math": 13.313,
+    "pr_overall": 1.623,
+    "shutdown": "PASS: Finder Special > Shut Down; explicit safe-to-switch-off visually verified",
+    "aux": "NOT TESTED",
+    "cd_audio": "NOT TESTED",
+    "evidence": "docs/perf/fpu_pipe_20261024/candidate33/mac",
+    "original_configuration_restored": true,
+    "final_core": "MENU"
+  },
+  "release_qualified": false,
+  "decision": "Keep FPU_PIPE=0 on smaller memory branch; preserve FPU_PIPE=1 as experimental only."
 }

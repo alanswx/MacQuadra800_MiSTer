@@ -1,0 +1,18 @@
+{
+  "rbf": "/media/fat/_Development/MacQuadra800_dual_fpu_pipe33_261024.rbf",
+  "rbf_md5": "f1289c23369dda33a76bb79ef33123b1",
+  "rbf_sha256": "b34586c5c0af555922158bdd57731f0ee08eca5e4549bfca213c5cb4756a3c15",
+  "rbf_bytes": 4429456,
+  "load_epoch": 1792850178.5839865,
+  "source_commit": "bd398e4",
+  "preserved_checkpoint": "535872b",
+  "cpu_mhz": 33,
+  "bus_mhz": 33,
+  "sdram_mhz": 99,
+  "fpu_pipe": 1,
+  "ram_mb": 32,
+  "ethernet": "Off",
+  "image": "TestImages/Dual040/QuadSquad8_dual.hda",
+  "nvr_sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560",
+  "cpu_timing_closed": true
+}
