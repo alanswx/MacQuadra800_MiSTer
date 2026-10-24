@@ -1,0 +1,15 @@
+FP0 = 0 4005 d800000000000000
+FP1 = 0 4030 ea427683e079b000
+FP2 = 0 401c 89906eb000000000
+FP3 = 1 4014 c2fdfb0000000000
+FP4 = 0 4039 93d7d09620420000
+FP5 = 0 0000 0000000000000000
+FP6 = 0 3ff6 8775f1b3f6183800
+FP7 = 0 401f 94bf220000000000
+FPSR 000000e8; operations: 17133 done, 0 unimplemented, 10 unsupported, 0 exceptions; 13116 through the pipeline (3492 forwarded)
+20000 commands, 318 sync points: reference 119017 cycles, pipelined 86398 cycles
+PASS: the pipelined FPU matches the sequential one
+- tb_fpu_pipe.sv:383: Verilog $finish
+- S i m u l a t i o n   R e p o r t: Verilator 5.044 2026-01-01
+- Verilator: $finish at 1ms; walltime 0.066 s; speed 18.178 ms/s
+- Verilator: cpu 0.066 s on 1 threads; alloced 3 MB

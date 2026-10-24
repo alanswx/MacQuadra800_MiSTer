@@ -1,0 +1,76 @@
+{
+  "base_memory_commit": "6bfd9c0103f569c6cd951036d1c832eeb2f81f67",
+  "fpupipe": 1,
+  "loop_pred": 0,
+  "early_res": 0,
+  "skid": 0,
+  "dc1_atc": 0,
+  "dual": 1,
+  "btic": 1,
+  "s1_classes": "011",
+  "cpu_regression_pass": true,
+  "cpu_cases": 225,
+  "adapter_cases": [
+    {
+      "cpu_ratio": 1,
+      "response": "normal",
+      "cycles": 38262,
+      "beats": 2643,
+      "pass": true
+    },
+    {
+      "cpu_ratio": 1,
+      "response": "fast",
+      "cycles": 37046,
+      "beats": 2644,
+      "pass": true
+    },
+    {
+      "cpu_ratio": 1,
+      "response": "platform",
+      "cycles": 37917,
+      "beats": 2648,
+      "pass": true
+    },
+    {
+      "cpu_ratio": 2,
+      "response": "normal",
+      "cycles": 30915,
+      "beats": 2618,
+      "pass": true
+    },
+    {
+      "cpu_ratio": 2,
+      "response": "fast",
+      "cycles": 29450,
+      "beats": 2612,
+      "pass": true
+    },
+    {
+      "cpu_ratio": 2,
+      "response": "platform",
+      "cycles": 29982,
+      "beats": 2611,
+      "pass": true
+    }
+  ],
+  "hardware_tested": false,
+  "differential_fpu_cases": [
+    {
+      "name": "fpu-differential.log",
+      "commands": 20000,
+      "sync_points": 2487,
+      "reference_cycles": 145250,
+      "pipeline_cycles": 136776,
+      "pass": true
+    },
+    {
+      "name": "fpu-pipeonly.log",
+      "commands": 20000,
+      "sync_points": 318,
+      "reference_cycles": 119017,
+      "pipeline_cycles": 86398,
+      "pass": true
+    }
+  ]
+}
