@@ -28,6 +28,9 @@
 //
 
 module sdram
+#(
+	parameter CLK_HZ = 100_000_000   // clk rate; the refresh count below was written for 100 MHz
+)
 (
 	input             init,        // reset to initialize RAM
 	input             clk,         // clock ~100MHz
@@ -88,7 +91,7 @@ localparam NO_WRITE_BURST      = 1'b1;     // 0= write burst enabled, 1=only sin
 localparam MODE                = {3'b000, NO_WRITE_BURST, OP_MODE, CAS_LATENCY, ACCESS_TYPE, BURST_CODE};
 
 localparam sdram_startup_cycles= 14'd12100;// 100us, plus a little more, @ 100MHz
-localparam cycles_per_refresh  = 14'd780;  // (64000*100)/8192-1 Calc'd as (64ms @ 100MHz)/8192 rose
+localparam [13:0] cycles_per_refresh = (64 * (CLK_HZ / 1000)) / 8192 - 1;  // (64ms @ CLK_HZ)/8192 - 1: 780 at 100 MHz, 702 at 90 MHz
 localparam startup_refresh_max = 14'b11111111111111;
 
 // SDRAM commands

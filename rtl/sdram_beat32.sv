@@ -46,6 +46,9 @@
 //============================================================================
 
 module sdram_beat32
+#(
+	parameter RAM_HZ = 100_000_000   // clk_ram rate, for rtl/sdram.sv's refresh interval
+)
 (
 	input             init,          // hold the controller in its power-up sequence
 	input             clk_sys,
@@ -389,7 +392,7 @@ always @(posedge clk_ram) begin
 	end
 end
 
-sdram sdram
+sdram #(.CLK_HZ(RAM_HZ)) sdram
 (
 	.init      (init),
 	.clk       (clk_ram),
