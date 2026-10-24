@@ -30,3 +30,16 @@ commands, comparing registers and FPSR against PIPE=0.
 
 Fit and hardware results are pending. The prior tested memory checkpoint
 remains preserved independently.
+
+Initial synthesis passes the memory/dual guards:36 RF MLAB banks,4 tag
+M10Ks and3 framework M10Ks. Mapped registers increase29,318→30,241;
+block-memory bits remain3,722,339 and DSPs38. Fitted ALMs/timing remain
+pending. The separate project and source manifest preserve the controlled
+comparison.
+
+The seed38 fit passes all setup/hold/recovery/pulse checks. It uses35,631
+ALMs (85.02%),1,077 more than the memory baseline (3.12% relative).
+Fitted registers31,097; M10Ks497 andDSPs38 unchanged. Setup slacks:
+CPU/bus+0.964ns,SDRAM+0.377ns,HDMI+0.357ns;minimumhold+0.109ns.
+All eight extra path reports and the exact experimental RBF are preserved
+under docs/perf/fpu_pipe_20261024/fit-s38 and test-builds/.

@@ -1,0 +1,63 @@
+{
+  "source_commit": "bd398e4bcaa644223f45a1c25e4e8008b87ea940",
+  "baseline_commit": "6bfd9c0",
+  "fpu_pipe": 1,
+  "cpu_mhz": 33,
+  "bus_mhz": 33,
+  "sdram_mhz": 99,
+  "seed": 38,
+  "stamp": "261024",
+  "alms": 35631,
+  "registers": 31097,
+  "mapped_registers": 30241,
+  "m10ks": 497,
+  "dsp": 38,
+  "timing_closed": true,
+  "rbf_bytes": 4429456,
+  "rbf_md5": "f1289c23369dda33a76bb79ef33123b1",
+  "rbf_sha256": "b34586c5c0af555922158bdd57731f0ee08eca5e4549bfca213c5cb4756a3c15",
+  "setup": [
+    {
+      "clock": "Setup 'pll_hdmi|pll_hdmi_inst|altera_pll_i|cyclonev_pll|counter[0].output_counter|divclk'",
+      "slack": 0.357,
+      "tns": 0.0
+    },
+    {
+      "clock": "Setup 'emu|pll|pll_inst|altera_pll_i|general[1].gpll~PLL_OUTPUT_COUNTER|divclk'",
+      "slack": 0.377,
+      "tns": 0.0
+    },
+    {
+      "clock": "Setup 'emu|pll|pll_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'",
+      "slack": 0.964,
+      "tns": 0.0
+    },
+    {
+      "clock": "Setup 'sysmem|fpga_interfaces|clocks_resets|h2f_user0_clk'",
+      "slack": 4.201,
+      "tns": 0.0
+    },
+    {
+      "clock": "Setup 'FPGA_CLK1_50'",
+      "slack": 7.994,
+      "tns": 0.0
+    },
+    {
+      "clock": "Setup 'FPGA_CLK2_50'",
+      "slack": 12.696,
+      "tns": 0.0
+    },
+    {
+      "clock": "Setup 'emu|pllv|altera_pll_i|cyclonev_pll|counter[0].output_counter|divclk'",
+      "slack": 22.51,
+      "tns": 0.0
+    },
+    {
+      "clock": "Setup 'pll_audio|pll_audio_inst|altera_pll_i|general[0].gpll~PLL_OUTPUT_COUNTER|divclk'",
+      "slack": 29.163,
+      "tns": 0.0
+    }
+  ],
+  "minimum_hold": 0.109,
+  "hardware_tested": false
+}
