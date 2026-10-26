@@ -46,12 +46,7 @@ module rom_cache_128k (
 	(* ramstyle = "M10K, no_rw_check" *)
 	reg [10:0] tag_mem [0:LINES-1];
 
-	integer init_i;
-	initial begin
-		for (init_i = 0; init_i < LINES; init_i = init_i + 1) begin
-			tag_mem[init_i] = 11'd0;
-		end
-	end
+
 
 	// Generation / epoch counter for instant O(1) invalidation on reset
 	reg  [7:0] epoch = 8'd1;
