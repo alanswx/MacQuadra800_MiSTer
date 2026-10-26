@@ -42,24 +42,53 @@
 
 ---
 
-## 3. Hardware Benchmark Results (MiSTer `10.0.2.192`)
+## 3. Hardware Benchmark Results (MiSTer `10.0.2.192` vs Real Quadra 800 HW)
 
-Measured live in Speedometer 4.02 on Mac OS 8.1:
+Measured live in Speedometer 4.02 on Mac OS 8.1 against real Quadra 800 hardware (33 MHz 68040):
 
-| Metric | Real Quadra 800 (33 MHz) | Shipping Core (`ap68040`) | DDR3 Baseline (`6f72684`) | Prior Dual (`ab0a7ec`) | **Now (128 KB ROM Cache)** | vs Real HW |
+### Overall Performance Ratings
+| Metric | Real Quadra 800 HW (33 MHz) | Shipping Core (`ap68040`) | DDR3 Baseline (`6f72684`) | Prior Dual (`ab0a7ec`) | **Now (128 KB ROM Cache)** | vs Real HW |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Overall PR** | **1.605** | 1.267 | 1.516 | 1.526 | **1.538** | **96%** |
-| **Graphics PR** | 1.347 | 1.166 | 0.871 | 0.871 | **0.901** | **67%** |
-| **Color QuickDraw 8-bit** | ~10.5 s | ~10.8 s | 13.56 s (0.780) | 13.199 s (0.802) | **12.208 s (0.868)** | **~1.0 s faster** |
-| **Monochrome QD** | — | — | — | — | **7.494 s (0.922)** | |
-| **Two Bit QD** | — | — | — | — | **8.553 s (0.893)** | |
-| **Four Bit QD** | — | — | — | — | **9.619 s (0.904)** | |
-| **Sixteen Bit QD** | — | — | — | — | **16.475 s (0.824)** | |
-| **CPU PR** | 1.186 | 0.896 | 1.804 | 1.804 | **1.803** | **+52% faster** |
-| **CPU Benchmark Mix** | 1.000 | — | 1.820 | 1.820 | **1.930** | |
-| **Math PR** | 20.011 | 21.451 | 16.463 | 15.993 | **16.936** | **85%** |
-| **FPU Suite Average** | 1.000 | — | 0.803 | 0.803 | **0.851** | Matrix 0.938 |
-| **Disk PR** | 3.443 | 2.488 | 2.286 | 2.406 | **2.236** | |
+| **Overall PR** | **1.605** | 1.267 | 1.516 | 1.526 | **1.538** | **95.8%** |
+| **CPU PR** | **1.186** | 0.896 | 1.804 | 1.804 | **1.803** | **+52.0% faster** |
+| **Graphics PR** | **1.347** | 1.166 | 0.871 | 0.871 | **0.901** | **66.9%** |
+| **Math PR** | **20.011** | 21.451 | 16.463 | 15.993 | **16.936** | **84.6%** |
+| **Disk PR** | **3.443** | 2.488 | 2.286 | 2.406 | **2.236** | **64.9%** |
+
+### Detailed Subsystem Breakdown
+
+#### Color QuickDraw Benchmarks (seconds, lower is better)
+| Depth | Real Quadra 800 HW | Real HW Rate | MiSTer (128 KB Cache) | MiSTer Rate | MiSTer vs Real HW |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Monochrome** | **5.264 s** | 1.312 | **7.494 s** | 0.922 | 70.2% |
+| **Two Bit** | **5.957 s** | 1.282 | **8.553 s** | 0.893 | 69.6% |
+| **Four Bit** | **6.772 s** | 1.284 | **9.619 s** | 0.904 | 70.4% |
+| **Eight Bit** | **8.211 s** | 1.290 | **12.208 s** | 0.868 | 67.3% |
+| **Sixteen Bit** | **10.239 s** | 1.326 | **16.475 s** | 0.824 | 62.1% |
+| **Average Rate** | **1.299** | — | **0.882** | — | **67.9%** |
+
+#### FPU Benchmarks (Quadra 650 = 1.0)
+| Test | Real Quadra 800 HW | Real HW Rate | MiSTer (128 KB Cache) | MiSTer Rate | Notes |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **KWhetstones/sec** | **5456.609** | 1.047 | **4388.332** | 0.842 | 80.4% |
+| **Matrix Mult (sec)**| **0.713 s** | 0.990 | **0.753 s** | 0.938 | **94.7% (near match)** |
+| **Fast Fourier (sec)**| **0.288 s** | 0.996 | **0.371 s** | 0.773 | 77.6% |
+| **FPU Average** | **1.011** | — | **0.851** | — | **84.2%** |
+
+#### CPU Benchmark Mix (seconds, lower is better)
+| Test | Real Quadra 800 HW | Real HW Rate | MiSTer (128 KB Cache) | MiSTer Rate | MiSTer vs Real HW |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Dhrystones/sec** | **24,922** | 1.442 | **24,592** | 1.423 | **98.7% match** |
+| **KWhetstones/sec** | **1,980** | 6.732 | **1,532** | 5.210 | 77.4% |
+| **Towers** | **0.468 s** | 1.365 | **0.350 s** | 1.824 | **+33.7% faster** |
+| **Quick Sort** | **0.531 s** | 1.342 | **0.435 s** | 1.639 | **+22.1% faster** |
+| **Bubble Sort** | **0.565 s** | 1.346 | **0.494 s** | 1.540 | **+14.4% faster** |
+| **Queens** | **0.306 s** | 1.319 | **0.329 s** | 1.228 | 93.0% |
+| **Puzzle** | **0.798 s** | 1.368 | **0.737 s** | 1.483 | **+8.3% faster** |
+| **Permutations** | **0.617 s** | 1.317 | **0.551 s** | 1.476 | **+12.0% faster** |
+| **Int. Matrix** | **0.598 s** | 1.346 | **0.446 s** | 1.804 | **+34.1% faster** |
+| **Sieve** | **0.972 s** | 1.411 | **0.821 s** | 1.672 | **+18.4% faster** |
+| **Average Rate** | **1.899** | — | **1.930** | — | **MiSTer beats Real HW** |
 
 ---
 
