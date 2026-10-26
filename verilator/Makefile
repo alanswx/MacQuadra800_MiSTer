@@ -355,7 +355,7 @@ CPU040_TAG ?=
 tb_quadra_cpu040: tb_cpu040/prog.s tb_cpu040/tb_quadra_cpu040.sv ../rtl/quadra_cpu040.sv
 	vasmm68k_mot -m68040 -Fbin -quiet -o tb_cpu040/prog.bin tb_cpu040/prog.s
 	xxd -p -c4 tb_cpu040/prog.bin > tb_cpu040/prog.hex
-	$V --binary --timing -j 8 -Wno-fatal -Wno-lint -Wno-style -I$(FAST040) -I$(FAST040)/gen -I$(FAST040)/fpu --top-module tb_quadra_cpu040 --Mdir ./obj_dir_tb_cpu040$(CPU040_TAG) -o tb_quadra_cpu040 -GVRAM_POST=$(CPU040_VRAM_POST) $(FAST040_SRC) ../rtl/quadra_cpu040.sv tb_cpu040/tb_quadra_cpu040.sv $(FAST040_CHECKS)
+	$V --binary --timing -j 8 -Wno-fatal -Wno-lint -Wno-style -I$(FAST040) -I$(FAST040)/gen -I$(FAST040)/fpu --top-module tb_quadra_cpu040 --Mdir ./obj_dir_tb_cpu040$(CPU040_TAG) -o tb_quadra_cpu040 -GVRAM_POST=$(CPU040_VRAM_POST) $(FAST040_SRC) ../rtl/quadra_cpu040.sv ../rtl/wombat_store_buffer.sv tb_cpu040/tb_quadra_cpu040.sv $(FAST040_CHECKS)
 	./obj_dir_tb_cpu040$(CPU040_TAG)/tb_quadra_cpu040 > obj_dir_tb_cpu040$(CPU040_TAG)/normal.log
 	grep -E 'PASS|FAIL|TIMEOUT|ERROR' obj_dir_tb_cpu040$(CPU040_TAG)/normal.log
 	grep -q '^PASS:' obj_dir_tb_cpu040$(CPU040_TAG)/normal.log
@@ -370,7 +370,7 @@ tb_quadra_cpu040: tb_cpu040/prog.s tb_cpu040/tb_quadra_cpu040.sv ../rtl/quadra_c
 tb_quadra_cpu040_2x: tb_cpu040/prog.s tb_cpu040/tb_quadra_cpu040.sv ../rtl/quadra_cpu040.sv
 	vasmm68k_mot -m68040 -Fbin -quiet -o tb_cpu040/prog.bin tb_cpu040/prog.s
 	xxd -p -c4 tb_cpu040/prog.bin > tb_cpu040/prog.hex
-	$V --binary --timing -j 8 -Wno-fatal -Wno-lint -Wno-style +define+CPU_AP68040_2X=1 -I$(FAST040) -I$(FAST040)/gen -I$(FAST040)/fpu --top-module tb_quadra_cpu040 --Mdir ./obj_dir_tb_cpu040_2x$(CPU040_TAG) -o tb_quadra_cpu040 -GVRAM_POST=$(CPU040_VRAM_POST) $(FAST040_SRC) ../rtl/quadra_cpu040.sv tb_cpu040/tb_quadra_cpu040.sv $(FAST040_CHECKS)
+	$V --binary --timing -j 8 -Wno-fatal -Wno-lint -Wno-style +define+CPU_AP68040_2X=1 -I$(FAST040) -I$(FAST040)/gen -I$(FAST040)/fpu --top-module tb_quadra_cpu040 --Mdir ./obj_dir_tb_cpu040_2x$(CPU040_TAG) -o tb_quadra_cpu040 -GVRAM_POST=$(CPU040_VRAM_POST) $(FAST040_SRC) ../rtl/quadra_cpu040.sv ../rtl/wombat_store_buffer.sv tb_cpu040/tb_quadra_cpu040.sv $(FAST040_CHECKS)
 	./obj_dir_tb_cpu040_2x$(CPU040_TAG)/tb_quadra_cpu040 > obj_dir_tb_cpu040_2x$(CPU040_TAG)/normal.log
 	grep -E 'PASS|FAIL|TIMEOUT|ERROR' obj_dir_tb_cpu040_2x$(CPU040_TAG)/normal.log
 	grep -q '^PASS:' obj_dir_tb_cpu040_2x$(CPU040_TAG)/normal.log

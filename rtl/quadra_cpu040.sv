@@ -137,7 +137,7 @@ ap68040 #(
 
 	.a_o(c_a), .a_oe(c_a_oe), .d_o(c_do), .d_oe(),
 	.rw_n(c_rw_n), .siz(c_siz), .tt(c_tt), .tm(c_tm), .tln(), .upa(),
-	.ciout_n(), .lock_n(), .locke_n(), .ts_n(c_ts_n), .tip_n(),
+	.ciout_n(), .lock_n(c_lock_n), .locke_n(), .ts_n(c_ts_n), .tip_n(),
 	.d_i(c_di), .ta_n(c_ta_n), .tea_n(c_tea_n), .tci_n(c_tci_n), .tbi_n(1'b1),
 	.ipl_n(ipl), .avec_n(c_avec_n), .ipend_n(),
 	// the only master: the bus is granted for good
@@ -152,6 +152,11 @@ ap68040 #(
 //----------------------------------------------------------------------------
 // the transfer on the bus
 //----------------------------------------------------------------------------
+wire        c_lock_n;
+wire        cpu_bus_ack, buffered_store_pending;
+wire [31:0] cpu_bus_rdata;
+wire [31:0] cpu_bus_addr, cpu_bus_wdata;
+wire  [1:0] cpu_bus_size;
 wire        ts      = c_a_oe && !c_ts_n;
 wire        is_ack  = (c_tt == 2'b11);       // interrupt / breakpoint acknowledge
 wire        is_line = (c_siz == 2'b11);
@@ -176,7 +181,7 @@ always @(posedge clk) begin
 			xfer <= 0;
 			beat <= 0;
 		end
-		else if (req && bus_ack) begin
+		else if (req && cpu_bus_ack) begin
 			xfer <= !last;
 			beat <= last ? 2'd0 : beat + 2'd1;
 		end
@@ -185,25 +190,52 @@ always @(posedge clk) begin
 	end
 end
 
-assign bus_req   = req;
-assign bus_write = !c_rw_n;
-assign bus_instr = (c_tm == 3'd2) || (c_tm == 3'd6);
-assign bus_fc    = c_tm;
-assign bus_size  = (c_siz == 2'b01) ? 2'd0 :          // byte
-                   (c_siz == 2'b10) ? 2'd1 : 2'd2;     // word; long, line beat
-assign bus_addr  = is_line ? {c_a[31:4], c_a[3:2] + beat, 2'b00} : c_a;
+wire cpu_bus_instr = (c_tm == 3'd2) || (c_tm == 3'd6);
+assign cpu_bus_size  = (c_siz == 2'b01) ? 2'd0 :          // byte
+                       (c_siz == 2'b10) ? 2'd1 : 2'd2;     // word; long, line beat
+assign cpu_bus_addr  = is_line ? {c_a[31:4], c_a[3:2] + beat, 2'b00} : c_a;
 // wdata right-aligned by size, from the byte lanes the core drives
-assign bus_wdata = (c_siz == 2'b01) ? (c_do >> {~c_a[1:0], 3'd0}) :
-                   (c_siz == 2'b10) ? (c_a[1] ? {16'd0, c_do[15:0]} : {16'd0, c_do[31:16]}) :
-                                      c_do;
+assign cpu_bus_wdata = (c_siz == 2'b01) ? (c_do >> {~c_a[1:0], 3'd0}) :
+                       (c_siz == 2'b10) ? (c_a[1] ? {16'd0, c_do[15:0]} : {16'd0, c_do[31:16]}) :
+                                          c_do;
+
+generate if (AP040_STORE_BUFFER != 0) begin : g_store_buffer
+	// Only non-faulting RAM/VRAM writes can be posted. The host qualifier
+	// excludes the boot overlay, and the queue checks the physical window.
+	// Locked writes go directly to memory. All reads and non-posted writes
+	// drain older stores first, preserving device and RMW ordering.
+	wombat_store_buffer #(.ENABLE(1)) store_buffer (
+		.clk(clk), .nreset(nreset), .ce(ce),
+		.buffer_writes(store_buffer_ok && c_lock_n),
+		.s_req(req), .s_posted(1'b0), .s_write(!c_rw_n),
+		.s_instr(cpu_bus_instr), .s_size(cpu_bus_size),
+		.s_addr(cpu_bus_addr), .s_wdata(cpu_bus_wdata), .s_fc(c_tm),
+		.s_ack(cpu_bus_ack), .s_rdata(cpu_bus_rdata),
+		.m_req(bus_req), .m_write(bus_write), .m_instr(bus_instr),
+		.m_size(bus_size), .m_addr(bus_addr), .m_wdata(bus_wdata), .m_fc(bus_fc),
+		.m_ack(bus_ack), .m_rdata(bus_rdata), .m_err(berr),
+		.pending(buffered_store_pending)
+	);
+end else begin : g_no_store_buffer
+	assign bus_req = req;
+	assign bus_write = !c_rw_n;
+	assign bus_instr = cpu_bus_instr;
+	assign bus_size = cpu_bus_size;
+	assign bus_addr = cpu_bus_addr;
+	assign bus_wdata = cpu_bus_wdata;
+	assign bus_fc = c_tm;
+	assign cpu_bus_ack = bus_ack;
+	assign cpu_bus_rdata = bus_rdata;
+	assign buffered_store_pending = 1'b0;
+end endgenerate
 
 // read data right-aligned by size: replicated onto every lane the size covers
-assign c_di      = (c_siz == 2'b01) ? {4{bus_rdata[7:0]}} :
-                   (c_siz == 2'b10) ? {2{bus_rdata[15:0]}} : bus_rdata;
+assign c_di      = (c_siz == 2'b01) ? {4{cpu_bus_rdata[7:0]}} :
+                   (c_siz == 2'b10) ? {2{cpu_bus_rdata[15:0]}} : cpu_bus_rdata;
 
 wire cacheable   = (c_a[31:30] == 2'b00) || (c_a[31:28] == 4'h4);
 
-assign c_ta_n    = !((req && bus_ack) || iack);
+assign c_ta_n    = !((req && cpu_bus_ack) || iack);
 assign c_tea_n   = !((req && berr) || stall_flt);
 assign c_tci_n   = cacheable;
 assign c_avec_n  = !iack;
@@ -216,7 +248,7 @@ reg  [23:0] stall_cnt;
 reg         stall_r;
 always @(posedge clk) begin
 	stall_r <= 0;
-	if (!nreset || !((ts && !is_ack) || xfer) || bus_ack || stall_hold)
+	if (!nreset || !((ts && !is_ack) || xfer) || cpu_bus_ack || stall_hold)
 		stall_cnt <= 0;
 	else if (&stall_cnt)
 		stall_r <= 1;
