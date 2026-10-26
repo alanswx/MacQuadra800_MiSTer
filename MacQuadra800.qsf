@@ -892,6 +892,7 @@ set_global_assignment -name QIP_FILE rtl/ap68040_faster/rtl/ap68040.qip
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/quadra_cpu040.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/wombat_bus32.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/wombat_store_buffer.sv
+set_global_assignment -name SYSTEMVERILOG_FILE rtl/rom_cache_128k.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/quadra800.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/iosb.sv
 set_global_assignment -name SYSTEMVERILOG_FILE rtl/via6522.sv

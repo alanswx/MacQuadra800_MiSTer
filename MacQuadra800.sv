@@ -1154,6 +1154,27 @@ reg         ddr_rd_beat1;                  // the line's first 64-bit beat is in
 reg        ddr_wait_eth = 1'b0;            // ... for the Ethernet window instead
 assign     eth_mem_rvalid = ddr_wait_eth && DDRAM_DOUT_READY;
 
+// 128 KB on-chip BRAM cache for Quadra 800 ROM
+wire        rom_cache_hit;
+wire [127:0] rom_cache_data;
+reg         rom_cache_fill_we = 1'b0;
+reg  [19:4] rom_cache_fill_addr = 16'd0;
+reg [127:0] rom_cache_fill_data = 128'd0;
+reg         rom_cache_checking = 1'b0;
+reg         rom_ddr_pend = 1'b0;
+
+rom_cache_128k rom_cache (
+	.clk(clk_sys),
+	.rst(reset),
+	.lookup_req(mem_req && mem_is_rom && !mem_write),
+	.lookup_addr(mem_addr[19:4]),
+	.lookup_hit(rom_cache_hit),
+	.lookup_data(rom_cache_data),
+	.fill_we(rom_cache_fill_we),
+	.fill_addr(rom_cache_fill_addr),
+	.fill_data(rom_cache_fill_data)
+);
+
 reg        ddr_wait_vram = 1'b0;
 reg  [7:0] ddr_vram_beats_left = 8'd0;
 reg        ddr_wait_vram_wr = 1'b0;
@@ -1168,6 +1189,35 @@ always @(posedge clk_sys) begin
 	mem_ack_r <= 0;
 	eth_mem_accept <= 0;
 	vram_rd_ack <= 0;
+	rom_cache_fill_we <= 0;
+
+	// ROM writes are discarded immediately
+	if (mem_req && !mem_ack && mem_is_rom && mem_write) begin
+		mem_ack_r <= 1;
+	end
+
+	// ROM on-chip cache lookup (1-2 clock fast path)
+	if (rom_cache_checking) begin
+		rom_cache_checking <= 0;
+		if (rom_cache_hit) begin
+			rom_line <= rom_cache_data;
+			rom_line_tag <= mem_addr[19:4];
+			rom_line_valid <= 1;
+			case (mem_addr[3:2])
+				2'd0: mem_rdata_r <= rom_cache_data[127:96];
+				2'd1: mem_rdata_r <= rom_cache_data[95:64];
+				2'd2: mem_rdata_r <= rom_cache_data[63:32];
+				2'd3: mem_rdata_r <= rom_cache_data[31:0];
+			endcase
+			mem_ack_r <= 1;
+		end
+		else begin
+			rom_ddr_pend <= 1;
+		end
+	end
+	else if (mem_req && !mem_ack && mem_is_rom && !mem_write && !ddr_wait_data && !rom_ddr_pend) begin
+		rom_cache_checking <= 1;
+	end
 
 	if (!vram_ddr_req && !ddr_wait_vram_wr) vram_ddr_accept <= 0;
 
@@ -1213,6 +1263,9 @@ always @(posedge clk_sys) begin
 				endcase
 				mem_ack_r   <= 1;
 				ddr_wait_data <= 0;
+				rom_cache_fill_we   <= 1;
+				rom_cache_fill_addr <= rom_line_tag;
+				rom_cache_fill_data <= {rom_line[127:64], DDRAM_DOUT[31:0], DDRAM_DOUT[63:32]};
 			end
 		end
 	end
@@ -1241,6 +1294,17 @@ always @(posedge clk_sys) begin
 			ioctl_pend     <= 0;
 			ioctl_wait     <= 0;
 		end
+		else if (rom_ddr_pend) begin
+			ddram_addr     <= DDR_ROM_BASE | {12'd0, mem_addr[19:4], 1'b0};
+			ddram_burstcnt <= 8'd2;
+			ddram_rd       <= 1;
+			ddr_rd_word    <= mem_addr[3:2];
+			ddr_rd_beat1   <= 0;
+			rom_line_valid <= 0;
+			rom_line_tag   <= mem_addr[19:4];
+			ddr_wait_data  <= 1;
+			rom_ddr_pend   <= 0;
+		end
 		else if (vram_ddr_req && !vram_ddr_accept) begin
 			ddram_addr      <= vram_ddr_addr;
 			ddram_burstcnt  <= vram_ddr_burstcnt;
@@ -1256,21 +1320,6 @@ always @(posedge clk_sys) begin
 				vram_rd_ack         <= 1;
 			end
 			vram_ddr_accept <= 1;
-		end
-		else if (mem_req && !mem_ack && mem_is_rom) begin
-			if (mem_write) begin
-				mem_ack_r <= 1;            // djMEMC discards ROM writes
-			end
-			else begin
-				ddram_addr     <= DDR_ROM_BASE | {12'd0, mem_addr[19:4], 1'b0};
-				ddram_burstcnt <= 8'd2;
-				ddram_rd       <= 1;
-				ddr_rd_word    <= mem_addr[3:2];
-				ddr_rd_beat1   <= 0;
-				rom_line_valid <= 0;
-				rom_line_tag   <= mem_addr[19:4];
-				ddr_wait_data  <= 1;
-			end
 		end
 		// The Ethernet mailbox comes last: single 64-bit beats, a few hundred a
 		// second when the link is idle.  A ROM beat that arrives behind one waits
@@ -1294,6 +1343,8 @@ always @(posedge clk_sys) begin
 	if (reset && !ioctl_download) begin
 		ddr_wait_data <= 0;
 		ddr_wait_vram <= 0;
+		rom_cache_checking <= 0;
+		rom_ddr_pend <= 0;
 		// ddr_wait_eth is NOT cleared: the bridge will still answer that read, and the
 		// answer must not be taken for the ROM's.
 	end
