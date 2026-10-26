@@ -690,6 +690,7 @@ wire [31:0] bus_wr_left  = (bus_size == 2'd0) ? {bus_wdata[7:0], 24'd0} :
 // loop, the buffer full 15 % of the time).  mem_wq_room means two free
 // entries, and nothing else pushes between the halves.
 reg         wr_split_pend;
+reg         wr_split_vram;
 reg  [31:2] wr_split_addr;
 reg   [3:0] wr_split_be;
 reg  [31:0] wr_split_data;
@@ -709,7 +710,8 @@ wire bus_wr_direct = (DIRECT_WRITES != 0) && (svc == S_IDLE) && !walker_pend && 
 // clocks later at the earliest, after the write has landed.
 wire bus_vram_direct = (DIRECT_WRITES != 0) && (svc == S_IDLE) && !walker_pend && !cpu_berr &&
 	                   !bus_miss_ack && !bus_line_ack && !bus_adapter_active && !wr_split_pend &&
-	                   !bus_ack_adapter && bus_req && bus_write && !bus_wr_span &&
+	                   !bus_ack_adapter && bus_req && bus_write &&
+	                   (!bus_wr_span || (decode(bus_addr[31:2] + 30'd1) == 3'd2)) &&
 	                   (decode(bus_addr[31:2]) == 3'd2) && mem_vram_wq_room;
 
 // A VRAM read inside one longword goes the way of a RAM first miss: into
@@ -779,6 +781,7 @@ always @(posedge clk) begin
 		b_rdata      <= 0;
 		bus_miss_ack   <= 0;
 		wr_split_pend  <= 0;
+		wr_split_vram  <= 0;
 		bus_miss_rdata <= 0;
 		mem_wp_valid   <= 0;
 		mem_wp_addr    <= 0;
@@ -813,10 +816,19 @@ always @(posedge clk) begin
 		// P214: the spanning store's second longword, ahead of everything
 		if (wr_split_pend) begin
 			wr_split_pend  <= 0;
-			mem_wp_valid   <= 1;
-			mem_wp_addr    <= wr_split_addr;
-			mem_wp_be      <= wr_split_be;
-			mem_wp_data    <= wr_split_data;
+			wr_split_vram  <= 0;
+			if (wr_split_vram) begin
+				mem_vram_wp    <= 1;
+				mem_addr       <= wr_split_addr;
+				mem_be         <= wr_split_be;
+				mem_wdata      <= wr_split_data;
+			end
+			else begin
+				mem_wp_valid   <= 1;
+				mem_wp_addr    <= wr_split_addr;
+				mem_wp_be      <= wr_split_be;
+				mem_wp_data    <= wr_split_data;
+			end
 			bus_miss_ack   <= 1;
 			bus_miss_rdata <= 0;
 		end
@@ -880,6 +892,7 @@ always @(posedge clk) begin
 					if (bus_wr_span) begin
 						// the tail: the bytes from the next longword's offset 0
 						wr_split_pend <= 1;
+						wr_split_vram <= 0;
 						wr_split_addr <= bus_addr[31:2] + 30'd1;
 						wr_split_be   <= 4'b1111 << (4'd8 - {1'b0, bus_wr_end});
 						wr_split_data <= bus_wr_left << {3'd4 - {1'b0, bus_addr[1:0]}, 3'd0};
@@ -894,8 +907,18 @@ always @(posedge clk) begin
 					mem_addr       <= bus_addr[31:2];
 					mem_be         <= (4'b1111 << (3'd4 - bus_wr_bytes)) >> bus_addr[1:0];
 					mem_wdata      <= bus_wr_left >> {bus_addr[1:0], 3'd0};
-					bus_miss_ack   <= 1;
-					bus_miss_rdata <= 0;
+					if (bus_wr_span) begin
+						// the tail: the bytes from the next longword's offset 0
+						wr_split_pend <= 1;
+						wr_split_vram <= 1;
+						wr_split_addr <= bus_addr[31:2] + 30'd1;
+						wr_split_be   <= 4'b1111 << (4'd8 - {1'b0, bus_wr_end});
+						wr_split_data <= bus_wr_left << {3'd4 - {1'b0, bus_addr[1:0]}, 3'd0};
+					end
+					else begin
+						bus_miss_ack   <= 1;
+						bus_miss_rdata <= 0;
+					end
 				end
 				else if (!walker_pend && line_cpu_match) begin
 					b_ack   <= 1;
