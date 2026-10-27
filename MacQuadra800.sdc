@@ -6,10 +6,11 @@ derive_clock_uncertainty
 # ----------------------------------------------------------------------------
 # Pixel-clock domain (pll_video) — declare it asynchronous to everything else.
 # ----------------------------------------------------------------------------
-# The DAFB scanout runs on clk_vid (rtl/pll_video.v, 25.175 MHz for the 13"
-# monitor; the 12" 512x384 option retargets the same output to 15.664 MHz at
-# runtime through sys/pll_cfg, which is SLOWER than the static 25.175 MHz
-# constraint derived here, so STA covers both rates). sys_top.sdc
+# The DAFB scanout runs on clk_vid (rtl/pll_video.v).  Its static
+# configuration, and so the clock derived here, is the FASTEST monitor's
+# dot clock (70.49 MHz, the 21" 1152x870); the 13", 12" and 16" options
+# retarget the same output to 25.175 / 15.664 / 54.223 MHz at runtime
+# through sys/pll_cfg, all SLOWER, so STA covers every rate. sys_top.sdc
 # decouples every clock domain with set_clock_groups, but its core-PLL pattern
 # matches only the MAIN pll, so a second PLL lands in NO group and every
 # framework path touching CLK_VIDEO (ascal video-in, OSD, HDMI transfer) gets

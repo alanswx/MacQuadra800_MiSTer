@@ -86,16 +86,19 @@ localparam RAM_ADDR_BITS = 27;                 // ceiling: 128 MB
 // +ram=0|1|2 selects 32/64/128 MB, matching the OSD option on hardware
 reg [1:0] ram_cfg = 2'd0;
 initial if (!$value$plusargs("ram=%d", ram_cfg)) ram_cfg = 2'd0;
+// +monitor=N picks the DAFB monitor (dafb.sv mon_sel): 0 13" 640x480,
+// 1 12" 512x384, 2 16" 832x624, 3 21" 1152x870.  sim_main.cpp reads the same
+// plusarg to size its frame capture.
+reg [1:0] mon_sel = 2'd0;
+initial if (!$value$plusargs("monitor=%d", mon_sel)) mon_sel = 2'd0;
 localparam RAM_WORDS  = 1 << (RAM_ADDR_BITS-2);
 localparam ROM_WORDS  = 262144;                // 1 MB
-// VRAM mirrors MacQuadra800.sv exactly: 308 KB backed, with the 204 KB fold
-// that makes the unbacked 308K..512K window alias downward.  It used to be
-// a flat 1 MB with no fold, so the fold had NEVER executed in sim and
-// hardware-only video corruption was invisible here (RESUME-disk-gate.md
-// carried this as a standing warning).
-localparam VRAM_WORDS = 82016;                 // 320.4 KB: 512*160 + 96 tail
-localparam [16:0] VRAM_FOLD = 17'd52224;       // 204 KB, in words
-localparam [16:0] VRAM_TAIL = 17'd81920;       // 512 rows * 160 words
+// VRAM is the flat 1 MB framebuffer MacQuadra800.sv keeps in DDR3
+// (rtl/vram_ddr3.sv): no fold, no compaction.  The 308 KB block-RAM mapper
+// with its 204 KB fold that this model mirrored until 2026-10-27 is gone
+// from the hardware, and with it here the 832x624 and 1152x870 monitors
+// wrapped a third of the way down the screen (the whole megabyte is needed).
+localparam VRAM_WORDS = 262144;                // 1 MB
 
 wire        mem_req, mem_write;
 wire [31:2] mem_addr;
@@ -147,7 +150,6 @@ reg         mem_ack_r;
 
 wire [21:2] vid_addr;
 wire [13:0] vid_stride;
-wire        vram_compact = (vid_stride == 14'd1024);
 reg  [31:0] vid_rdata;
 
 wire [255:0] m_debug_status;
@@ -164,7 +166,7 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS), .SONIC(0)) machine (
 	.clk_vid(clk_sys),
 	.nreset_vid(~reset),
 	.ram_cfg(ram_cfg),
-	.mon_12in(1'b0),                     // sim scans out the 13" 640x480 shape
+	.mon_sel(mon_sel),                   // +monitor=N, default the 13" 640x480 shape
 	.nreset(~reset),
 	.ce(1'b1),
 
@@ -278,25 +280,11 @@ end
 wire [RAM_ADDR_BITS-3:0] ram_idx  = mem_addr[RAM_ADDR_BITS-1:2];
 wire [17:0]              rom_idx  = mem_addr[19:2];
 
-function [16:0] vram_map(input [16:0] w);      // window word -> storage word
-	reg [8:0] row;
-	reg [7:0] col;
-	begin
-		row = w[16:8];
-		col = w[7:0];
-		if (!vram_compact)
-			vram_map = (w >= VRAM_WORDS) ? (w - VRAM_FOLD) : w;
-		else if (col < 8'd160)
-			vram_map = {row, 7'd0} + {2'd0, row, 5'd0} + {9'd0, col};
-		else
-			vram_map = VRAM_TAIL + {9'd0, (col - 8'd160)};
-	end
-endfunction
-
-wire [16:0]              vram_idx = vram_map(mem_addr[18:2]);
+// the 1 MB window ($F9000000, mirrored across $F9000000-$F91FFFFF)
+wire [17:0]              vram_idx = mem_addr[19:2];
 
 // DAFB scanout port: registered read, 1-cycle latency
-always @(posedge clk_sys) vid_rdata <= vram[vram_map(vid_addr[18:2])];
+always @(posedge clk_sys) vid_rdata <= vram[vid_addr[19:2]];
 
 // posted RAM writes pushed past the beat port (quadra800 DIRECT_WRITES)
 wire [RAM_ADDR_BITS-3:0] wp_idx = mem_wp_addr[RAM_ADDR_BITS-1:2];

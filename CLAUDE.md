@@ -36,6 +36,7 @@ separate codename and are deliberately unchanged.
 | `rtl/wombat_cpu.sv` | AP68040 core + MMU + cache + store buffer wrapper |
 | `rtl/wombat_bus32.sv`, `rtl/wombat_store_buffer.sv` | transaction→beat adapter; two-entry ordered RAM write queue |
 | `rtl/sdram.sv`, `rtl/sdram_beat32.sv` | open-page BL8 SDRAM controller (99 MHz) and the 33↔99 MHz beat bridge with the retained 16-byte line |
+| `rtl/dafb.sv`, `rtl/pll_video.v`, `rtl/vram_ddr3.sv` | DAFB video: four monitors on the OSD (13" 640x480, 12" 512x384, 16" 832x624, 21" 1152x870; sense codes, frames and dot clocks in `docs/video-modes.md`), the retargetable pixel PLL, the 1 MB DDR3 framebuffer with its scanline cache |
 | `rtl/iosb.sv`, `rtl/scc.v`, `rtl/via6522.sv`, `rtl/asc*.sv` | I/O |
 | `rtl/ncr53c96.sv`, `rtl/cd_audio.sv` | 53C96 with three targets (ID 0/1 disks, ID 3 AppleCD CD-ROM) and the CD TOC/audio engine — `docs/cdrom.md` |
 | `rtl/sonic_mbx.sv` | built-in Ethernet: the FPGA half of the DP83932 SONIC (doorbell ring, local ISR/IMR, op-list DMA master); the chip model is in the Main fork — `docs/ethernet.md`. OSD default Off; `ETHERNET_OFF=1` in the `.qsf` builds without it. |

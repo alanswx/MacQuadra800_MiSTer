@@ -560,6 +560,8 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # + 16KB I/D caches (CSB 8): seed40 37353ALMs/332M10K HDMI-.118 CPU+1.127 (video miss only);
 # seed41 37374ALMs HDMI+.183 CPU+.836 ALL MET (recipe); seed42 37369ALMs HDMI+.082 CPU+.340 met.
 # mister192 same-session A/B: Graphics PR 0.924->0.951, Color8bit 12.27->11.77s, Mix 1.883->1.911; cleanhaltPASS.
+# 2026-10-27 + 16in/21in monitors (static video tap 70.49 MHz) + vram_ddr3 fixes 3f50922/5bc9551:
+# seed41 37490ALMs/332M10K HDMI+.170 CPU+.788/+1.231 clk_vid+3.406 ALL MET; mister192 4-monitor boots clean.
 set_global_assignment -name SEED 41
 # 2026-09-24: NEVER grew the full BRF fit by398 ALMs; retain the better ALWAYS setting.
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS

@@ -17,16 +17,22 @@
 // the C0 counter changes per monitor -- the VCO stays put:
 //
 //   VCO/2 = 50 MHz x M(14 + 420906795/2^32) = 704.899999 MHz
-//   C0=28 -> 25.175000 MHz  13" RGB 640x480 -> 59.94 Hz (exact)
-//   C0=45 -> 15.664444 MHz  12" RGB 512x384 -> 60.14 Hz (real DAFB 15.6672)
+//   C0=28 -> 25.175000 MHz  13" RGB  640x480 in  800x525 -> 59.94 Hz (VGA)
+//   C0=45 -> 15.664444 MHz  12" RGB  512x384 in  640x407 -> 60.14 Hz (real DAFB 15.6672)
+//   C0=13 -> 54.223077 MHz  16" RGB  832x624 in 1152x784 -> 60.04 Hz (real 57.2832, 74.55 Hz)
+//   C0=10 -> 70.490000 MHz  21" RGB 1152x870 in 1296x906 -> 60.03 Hz (real 100, 75.06 Hz)
 //
-// STATIC configuration = C0=28 (25.175 MHz). The reconfig FSM in
-// MacQuadra800.sv inits its change-detect to this value, so a 13" boot
-// performs NO runtime reconfig at all: MacLC's first pixel-clock build did a
-// boot-time retarget and the PLL unlock/relock glitched CLK_VIDEO while the
-// HPS was mounting SD images and ascal was locking (BERR storm, hard wedge).
-// The 12" retarget is SLOWER than the 25.175 MHz constraint, so STA stays
-// valid; a faster tap must move the static config to the faster divider.
+// STATIC configuration = C0=10 (70.49 MHz), the FASTEST tap: derive_pll_clocks
+// constrains clk_vid at the static rate, and every runtime retarget is
+// slower, so STA covers them all.  The reconfig FSM in MacQuadra800.sv
+// inits its change-detect to this value, so a 21" boot performs no runtime
+// reconfig and every other boot retargets once, under reset, before the
+// ROM runs -- the 12" option has booted that way since it shipped.  A C0
+// retarget never drops lock (the VCO is untouched); MacLC's early trouble
+// was a full reconfig with a PLL unlock/relock that glitched CLK_VIDEO
+// while the HPS was mounting SD images and ascal was locking (BERR storm,
+// hard wedge).  With VIDEO_512_OFF (no reconfig block at all) the static
+// configuration is the 13" C0=28 and the monitor is fixed at 13".
 //
 // Advanced (explicit-counter) parameter form, cloned from sys/pll_hdmi -- it
 // pins the VCO and makes outclk_0 physical counter 0, so the reconfig
@@ -51,7 +57,11 @@ module pll_video (
 		.pll_dsm_out_sel("1st_order"),
 		.operation_mode("direct"),
 		.number_of_clocks(1),
+`ifdef VIDEO_512_OFF
 		.output_clock_frequency0("25.175000 MHz"),
+`else
+		.output_clock_frequency0("70.490000 MHz"),
+`endif
 		.phase_shift0("0 ps"),
 		.duty_cycle0(50),
 		.output_clock_frequency1("0 MHz"),
@@ -115,8 +125,13 @@ module pll_video (
 		.n_cnt_bypass_en("true"),
 		.m_cnt_odd_div_duty_en("false"),
 		.n_cnt_odd_div_duty_en("false"),
+`ifdef VIDEO_512_OFF
 		.c_cnt_hi_div0(14),
 		.c_cnt_lo_div0(14),
+`else
+		.c_cnt_hi_div0(5),
+		.c_cnt_lo_div0(5),
+`endif
 		.c_cnt_prst0(1),
 		.c_cnt_ph_mux_prst0(0),
 		.c_cnt_in_src0("ph_mux_clk"),

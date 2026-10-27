@@ -84,9 +84,11 @@ localparam CONF_STR = {
 	"O[4:3],RAM (on reset),32MB,64MB,128MB;",
 	// The monitor on the DA-15.  The ROM samples the DAFB sense lines once
 	// at boot and QuickDraw lays out for that geometry, so this is latched
-	// under reset like the RAM size (MacLC does the same).
+	// under reset like the RAM size (MacLC does the same).  The 1 MB VRAM
+	// gives the 16" up to Thousands and the 21" up to 256 colours, as on a
+	// real Quadra 800 with 1 MB (rtl/dafb.sv has the sense codes and frames).
 `ifndef VIDEO_512_OFF
-	"O[5],Monitor (on reset),13in 640x480,12in 512x384;",
+	"O[10:9],Monitor (on reset),13in 640x480,12in 512x384,16in 832x624,21in 1152x870;",
 `endif
 	"O[122:121],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
 	"O[13:12],Scale,Normal,V-Integer,Narrower HV-Integer,Wider HV-Integer;",
@@ -267,13 +269,16 @@ wire pll_locked;
 // across the width).  25.175 MHz gives exactly VGA 640x480 @ 59.94 Hz, which
 // is what the Mac LC core does; see rtl/pll_video.v.
 //
-// The 12" RGB monitor wants 15.664 MHz for its 640x407 frame.  That is a
-// runtime RECONFIG of the one output counter (sys/pll_cfg, the ao486 /
-// MacLC pattern): CLK_VIDEO has to be a raw PLL output, so a clock mux is
-// not an option (Fitter Error 15836).  Only C0 changes, the VCO stays put.
-// The static config is the 13" divider, so a 13" boot performs no reconfig
-// at all -- MacLC's boot-time retarget glitched CLK_VIDEO while the HPS was
-// mounting images and wedged the SCSI path.
+// The other monitors want other dot clocks (15.664 MHz for the 12", 54.223
+// for the 16", 70.49 for the 21").  That is a runtime RECONFIG of the one
+// output counter (sys/pll_cfg, the ao486 / MacLC pattern): CLK_VIDEO has
+// to be a raw PLL output, so a clock mux is not an option (Fitter Error
+// 15836).  Only C0 changes, the VCO stays put, so lock is never lost.
+// The static config is the FASTEST tap (the 21"'s /10, 70.49 MHz) so the
+// clock STA derives covers every runtime rate; every other boot retargets
+// once, under reset, before the ROM runs -- the way the 12" option has
+// booted since it shipped.  (MacLC's boot-time retarget trouble was a full
+// reconfig that dropped lock while the HPS was mounting images.)
 wire clk_vid, pll_video_locked;
 wire [63:0] reconfig_to_pll, reconfig_from_pll;
 pll_video pllv
@@ -288,11 +293,12 @@ pll_video pllv
 
 `ifdef VIDEO_512_OFF
 // VIDEO_512_OFF=1 (qsf): no runtime PLL reconfiguration -- the 13" 640x480
-// divider is the static config and stays.  Saves the pll_cfg block (~360
-// ALMs), the area lever for CPU builds that keep the CD-ROM target.
+// divider is the static config (rtl/pll_video.v follows the same macro) and
+// stays.  Saves the pll_cfg block (~360 ALMs), the area lever for CPU builds
+// that keep the CD-ROM target.
 assign reconfig_to_pll = 64'd0;
 wire   pix_quiet = 1'b0;
-wire   mon_12in  = 1'b0;
+wire [1:0] mon_sel = 2'd0;
 `else
 wire        pixcfg_waitrequest;
 reg         pixcfg_write = 0;
@@ -316,13 +322,18 @@ pll_cfg_hdmi pll_video_cfg
 
 // C0 counter word per monitor: {[22:18] counter#=0, [17] odd-div, [16]
 // bypass, [15:8] high count, [7:0] low count} (sys/pll_cfg/
-// altera_pll_reconfig_core.v).  VCO 704.9 MHz: /28 = 25.175 MHz, /45 =
-// 15.664 MHz.
+// altera_pll_reconfig_core.v).  VCO 704.9 MHz:
+//   /28 = 25.175 MHz  13" 640x480     /45 = 15.664 MHz  12" 512x384
+//   /13 = 54.223 MHz  16" 832x624     /10 = 70.490 MHz  21" 1152x870 (static)
 // The monitor is latched under reset like the RAM size (ram_cfg below):
 // the ROM reads the DAFB sense lines once at boot.
-reg mon_12in = 1'b0;
-always @(posedge clk_sys) if (reset) mon_12in <= status[5];
-wire [31:0] pix_c0 = mon_12in ? 32'h00021716 : 32'h00000E0E;
+reg [1:0] mon_sel = 2'd0;
+always @(posedge clk_sys) if (reset) mon_sel <= status[10:9];
+wire [31:0] pix_c0 = (mon_sel == 2'd1) ? 32'h00021716 :    // /45, odd: 23 + 22
+                     (mon_sel == 2'd2) ? 32'h00020706 :    // /13, odd:  7 +  6
+                     (mon_sel == 2'd3) ? 32'h00000505 :    // /10:        5 +  5
+                                         32'h00000E0E;     // /28:       14 + 14
+localparam [31:0] PIX_C0_STATIC = 32'h00000505;            // = rtl/pll_video.v
 
 // The retarget never drops PLL lock (the VCO is untouched), so the scanout
 // would step to the new rate mid-frame and Main's vsync_adjust would
@@ -333,7 +344,7 @@ wire [31:0] pix_c0 = mon_12in ? 32'h00021716 : 32'h00000E0E;
 reg pix_quiet = 1'b0;
 always @(posedge CLK_50M) begin : pix_reconfig
 	reg [21:0] settle = 22'd0;
-	reg [31:0] c0_cur = 32'h00000E0E;    // = the static 13" config
+	reg [31:0] c0_cur = PIX_C0_STATIC;   // the divider the PLL powers up with
 	reg [31:0] c0_s1, c0_s2;
 	reg [2:0]  state = 0;
 	c0_s1 <= pix_c0;                     // settle across clk_sys -> CLK_50M
@@ -720,7 +731,7 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS), .CDROM(CDROM_EN), .SONIC(SONIC_EN)) m
 	.clk_vid(clk_vid),
 	.nreset_vid(nreset_vid),
 	.ram_cfg(ram_cfg),
-	.mon_12in(mon_12in),
+	.mon_sel(mon_sel),
 
 	.mem_req(mem_req),
 	.mem_write(mem_write),

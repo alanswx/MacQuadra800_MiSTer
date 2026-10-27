@@ -52,7 +52,8 @@ module quadra800
 	// releases — the top folds a change into the reset.
 	//   0 = 32 MB   1 = 64 MB   2 = 128 MB
 	input   [1:0] ram_cfg,
-	input         mon_12in,      // DAFB monitor: 0 = 13" 640x480, 1 = 12" 512x384
+	input   [1:0] mon_sel,       // DAFB monitor (dafb.sv): 0 = 13" 640x480, 1 = 12" 512x384,
+	                             // 2 = 16" 832x624, 3 = 21" 1152x870
 
 	// platform memory beat port
 	output reg        mem_req,
@@ -487,7 +488,7 @@ wire        dafb_ack;
 dafb dafb (
 	.clk_vid(clk_vid),
 	.nreset_vid(nreset_vid),
-	.mon_12in(mon_12in),
+	.mon_sel(mon_sel),
 	.clk(clk),
 	.nreset(nreset),
 	.ce(ce),

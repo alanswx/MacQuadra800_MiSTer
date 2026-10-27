@@ -1100,9 +1100,21 @@ int main(int argc, char** argv, char** env) {
 			while (std::getline(ss, n, ',')) screenshot_frames.push_back(std::stoi(n));
 		} else if (!strcmp(argv[i], "--stop-at-frame") && i + 1 < argc) {
 			stop_at_frame = std::stoi(argv[++i]);
+		} else if (!strncmp(argv[i], "+monitor=", 9)) {
+			// sim.v reads the same plusarg for the DAFB monitor select; size
+			// the frame capture for that monitor's active area (the template's
+			// 800x600 only holds the 13" and 12" pictures)
+			static const int mon_w[4] = {640, 512, 832, 1152};
+			static const int mon_h[4] = {480, 384, 624, 870};
+			int m = atoi(argv[i] + 9) & 3;
+			video.output_width  = mon_w[m] + 160;
+			video.output_height = mon_h[m] + 120;
+			extern unsigned int output_size;
+			output_size = video.output_width * video.output_height * 4;
 		} else if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
 			printf("wombat33 sim: [--headless] [--screenshot F1,F2,..] [--stop-at-frame N]\n"
-			       "              [--no-cpu-trace] [--max-cycles N] [+rom=<hexfile>]\n              [--control PATH] [--cpu-profile FILE]\n");
+			       "              [--no-cpu-trace] [--max-cycles N] [+rom=<hexfile>]\n              [--control PATH] [--cpu-profile FILE]\n"
+			       "              [+ram=0|1|2 (32/64/128 MB)] [+monitor=0|1|2|3 (13in 640x480, 12in 512x384, 16in 832x624, 21in 1152x870)]\n");
 			return 0;
 		}
 	}
