@@ -181,7 +181,7 @@ quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS), .SONIC(0)) machine (
 	.mem_wp_be(mem_wp_be),
 	.mem_wp_data(mem_wp_data),
 	.mem_wq_room(1'b1),
-	.mem_vram_wq_room(1'b1),
+	.mem_vram_wq_room(vram_wq_room),
 	.mem_line_valid(ram_line_model && ram_line_valid),
 	.mem_line_tag(ram_line_tag),
 	.mem_line_data(ram_line),
@@ -314,8 +314,127 @@ wire        mem_is_vram = (mem_memsel != 2'd0) && (mem_memsel != 2'd1);
 reg  [31:0] vram_qa;
 reg         vram_ph = 1'b0;
 wire        mem_port_available = !ram_line_model || !ram_model_busy;
-wire        vram_ack = mem_req && mem_is_vram && vram_ph && mem_port_available;
-wire        va_we = (mem_req && mem_is_vram && mem_write && !vram_ph && mem_port_available) || mem_vram_wp;
+//----------------------------------------------------------------------------
+// Optional DDR3 timing model (+ddr3_model), an abstraction of the DDR3-VRAM
+// branch's vram_ddr3.sv and rom_cache_128k.sv on top of the ideal arrays:
+//   +vram_wr_drain=N  cycles per queued VRAM write beat drained to DDR3
+//                     (16-entry queue; the direct write path closes below 12)
+//   +vram_rd_miss=N   cycles a VRAM read waits when it misses the 4 x 32-byte
+//                     read line cache (a hit keeps the ideal two-clock path)
+//   +rom_cache_kb=N   external direct-mapped ROM cache, 16-byte lines (0: none)
+//   +rom_miss=N       cycles a ROM line fill waits when it misses that cache
+// Off (the default) nothing here changes the ideal behaviour.
+//----------------------------------------------------------------------------
+// All five are public read/write: the control stream's "model KEY VALUE"
+// command (sim_main.cpp) changes them at run time, so a run boots with the
+// ideal memory and switches the model on just before the profiled bracket.
+reg     ddr3_model    /*verilator public_flat_rw*/ = 1'b0;
+integer vram_wr_drain /*verilator public_flat_rw*/ = 3;
+integer vram_rd_miss  /*verilator public_flat_rw*/ = 18;
+integer rom_cache_kb  /*verilator public_flat_rw*/ = 128;
+integer rom_miss      /*verilator public_flat_rw*/ = 40;
+initial begin
+	if ($test$plusargs("ddr3_model")) ddr3_model = 1'b1;
+	if ($value$plusargs("vram_wr_drain=%d", vram_wr_drain)) begin end
+	if ($value$plusargs("vram_rd_miss=%d", vram_rd_miss)) begin end
+	if ($value$plusargs("rom_cache_kb=%d", rom_cache_kb)) begin end
+	if ($value$plusargs("rom_miss=%d", rom_miss)) begin end
+	if (vram_wr_drain < 1) vram_wr_drain = 1;
+	if (ddr3_model)
+		$display("[DDR3-MODEL] vram_wr_drain=%0d vram_rd_miss=%0d rom_cache_kb=%0d rom_miss=%0d",
+		         vram_wr_drain, vram_rd_miss, rom_cache_kb, rom_miss);
+end
+
+// VRAM write queue: one beat per write landing in the array, drained at a
+// fixed rate.  The machine's direct VRAM write path needs wq_room.
+reg   [5:0] wq_count = 6'd0;
+integer     wq_drain_cnt = 0;
+wire        vram_wq_room = !ddr3_model || (wq_count < 6'd12);
+wire        wq_push;
+wire        wq_pop = ddr3_model && (wq_count != 6'd0) && (wq_drain_cnt == 0);
+always @(posedge clk_sys) begin
+	if (ddr3_model) begin
+		// one beat leaves, then the next can leave vram_wr_drain clocks later
+		if (wq_pop) wq_drain_cnt <= vram_wr_drain - 1;
+		else if (wq_drain_cnt != 0) wq_drain_cnt <= wq_drain_cnt - 1;
+		wq_count <= wq_count + (wq_push ? 6'd1 : 6'd0) - (wq_pop ? 6'd1 : 6'd0);
+	end
+end
+
+// VRAM read line cache: 4 x 32-byte lines, round-robin victim, a write to a
+// held line drops it (conservative).  A miss holds the read for vram_rd_miss
+// clocks before the ideal path answers it.
+reg  [15:0] rdc_tag [0:3];
+reg   [3:0] rdc_val = 4'd0;
+reg   [1:0] rdc_victim = 2'd0;
+wire [15:0] rd_line = mem_addr[20:5];
+wire        rdc_hit = (rdc_val[0] && rdc_tag[0] == rd_line) || (rdc_val[1] && rdc_tag[1] == rd_line) ||
+                      (rdc_val[2] && rdc_tag[2] == rd_line) || (rdc_val[3] && rdc_tag[3] == rd_line);
+reg         vram_rd_wait = 1'b0;
+reg         vram_rd_served = 1'b0;      // this request already paid its miss
+integer     vram_rd_cnt = 0;
+wire        vram_rd_req = mem_req && mem_is_vram && !mem_write;
+wire        vram_rd_miss_start = ddr3_model && vram_rd_req && !vram_rd_wait && !rdc_hit && !vram_rd_served;
+// a read waits for its miss; a queued (adapter-path) write waits for queue space
+wire        vram_gate = !ddr3_model ||
+                        (mem_write ? (wq_count < 6'd16)
+                                   : (!vram_rd_req || vram_rd_served || (rdc_hit && !vram_rd_wait)));
+integer     rdc_i;
+always @(posedge clk_sys) begin
+	if (vram_rd_miss_start) begin
+		vram_rd_wait <= 1'b1;
+		vram_rd_cnt  <= vram_rd_miss;
+		rdc_tag[rdc_victim] <= rd_line;
+		rdc_val[rdc_victim] <= 1'b1;
+		rdc_victim <= rdc_victim + 2'd1;
+	end
+	else if (vram_rd_wait) begin
+		if (vram_rd_cnt <= 1) begin vram_rd_wait <= 1'b0; vram_rd_served <= 1'b1; end
+		else vram_rd_cnt <= vram_rd_cnt - 1;
+	end
+	if (vram_rd_served && !vram_rd_req) vram_rd_served <= 1'b0;
+	if (ddr3_model && wq_push)
+		for (rdc_i = 0; rdc_i < 4; rdc_i = rdc_i + 1)
+			if (rdc_tag[rdc_i] == rd_line) rdc_val[rdc_i] <= 1'b0;
+end
+
+// External ROM cache: direct-mapped, 16-byte lines, sized by rom_cache_kb.
+// A ROM line read that misses waits rom_miss clocks before the ideal ack.
+reg  [15:0] romc_tag [0:65535];
+reg         romc_val [0:65535];
+initial begin
+	for (rdc_i = 0; rdc_i < 65536; rdc_i = rdc_i + 1) romc_val[rdc_i] = 1'b0;
+end
+wire        romc_on    = (rom_cache_kb != 0);
+// lines = kb * 64; 1024 KB wraps the 16-bit product to 0 and the mask to all ones
+wire [15:0] romc_mask  = rom_cache_kb[15:0] * 16'd64 - 16'd1;
+wire [15:0] rom_line_a = mem_addr[19:4];
+wire [15:0] romc_idx   = rom_line_a & romc_mask;
+wire        romc_hit   = romc_on && romc_val[romc_idx] && (romc_tag[romc_idx] == rom_line_a);
+wire        rom_rd_req = mem_req && !mem_is_vram && (mem_memsel != 2'd0) && !mem_write;
+reg         rom_wait = 1'b0, rom_served = 1'b0;
+integer     rom_cnt = 0;
+wire        rom_miss_start = ddr3_model && rom_rd_req && !rom_wait && !romc_hit && !rom_served && !mem_ack_r;
+wire        rom_gate = !ddr3_model || !rom_rd_req || rom_served || (romc_hit && !rom_wait);
+always @(posedge clk_sys) begin
+	if (rom_miss_start) begin
+		rom_wait <= 1'b1;
+		rom_cnt  <= rom_miss;
+		if (romc_on) begin
+			romc_tag[romc_idx] <= rom_line_a;
+			romc_val[romc_idx] <= 1'b1;
+		end
+	end
+	else if (rom_wait) begin
+		if (rom_cnt <= 1) begin rom_wait <= 1'b0; rom_served <= 1'b1; end
+		else rom_cnt <= rom_cnt - 1;
+	end
+	if (rom_served && !rom_rd_req) rom_served <= 1'b0;
+end
+
+wire        vram_ack = mem_req && mem_is_vram && vram_ph && mem_port_available && vram_gate;
+wire        va_we = (mem_req && mem_is_vram && mem_write && !vram_ph && mem_port_available && vram_gate) || mem_vram_wp;
+assign      wq_push = va_we;
 assign mem_ack   = mem_ack_r | vram_ack;
 assign mem_rdata = mem_is_vram ? vram_qa : mem_rdata_r;
 
@@ -327,7 +446,7 @@ always @(posedge clk_sys) begin
 		if (mem_be[1]) vram[vram_idx][15:8]  <= mem_wdata[15:8];
 		if (mem_be[0]) vram[vram_idx][7:0]   <= mem_wdata[7:0];
 	end
-	if (mem_req && mem_is_vram && mem_port_available) vram_ph <= !vram_ph;
+	if (mem_req && mem_is_vram && mem_port_available && vram_gate) vram_ph <= !vram_ph;
 end
 
 wire ram_model_accept = ram_line_model && !reset && !ram_model_busy &&
@@ -344,7 +463,7 @@ wire [RAM_ADDR_BITS-3:0] ram_line_base = {ram_service_addr[RAM_ADDR_BITS-1:4], 2
 
 always @(posedge clk_sys) begin
 	mem_ack_r <= 0;
-	if (!ram_line_model && mem_req && !mem_ack_r && !mem_is_vram) begin
+	if (!ram_line_model && mem_req && !mem_ack_r && !mem_is_vram && rom_gate) begin
 		mem_ack_r <= 1;
 		case (mem_memsel)
 		2'd0: begin
@@ -436,7 +555,7 @@ always @(posedge clk_sys) begin
 			end
 			if (ram_model_busy && ram_model_ack_sent && !mem_req && !ram_line_pending)
 				ram_model_busy <= 0;
-			if (!ram_model_busy && mem_req && !mem_ack_r && !mem_is_vram &&
+			if (!ram_model_busy && mem_req && !mem_ack_r && !mem_is_vram && rom_gate &&
 			    mem_memsel != 2'd0) begin
 				// ROM retains its original one-edge response in modeled mode.
 				mem_ack_r <= 1;
@@ -460,5 +579,51 @@ always @(posedge clk_sys) begin
 		end
 	end
 end
+
+`ifdef CPU_AP68040
+//----------------------------------------------------------------------------
+// Profiler probes for sim_main's dual-core bracket (sim_prof040.h): read-only
+// cross-module references into the machine, public so the C++ side can
+// sample them after each rising-edge eval.
+//----------------------------------------------------------------------------
+wire        prof_retire     /*verilator public_flat_rd*/;
+wire        prof_retire2    /*verilator public_flat_rd*/;
+wire [31:0] prof_retired_pc /*verilator public_flat_rd*/;
+wire        prof_c_req      /*verilator public_flat_rd*/;
+wire        prof_c_ack      /*verilator public_flat_rd*/;
+wire        prof_c_last     /*verilator public_flat_rd*/;
+wire        prof_c_write    /*verilator public_flat_rd*/;
+wire        prof_c_instr    /*verilator public_flat_rd*/;
+wire        prof_c_line     /*verilator public_flat_rd*/;
+wire  [1:0] prof_c_size     /*verilator public_flat_rd*/;
+wire [31:0] prof_c_addr     /*verilator public_flat_rd*/;
+wire        prof_m_req      /*verilator public_flat_rd*/;
+wire        prof_m_ack      /*verilator public_flat_rd*/;
+wire        prof_m_write    /*verilator public_flat_rd*/;
+wire [31:0] prof_m_addr     /*verilator public_flat_rd*/;
+wire        prof_sb_pending /*verilator public_flat_rd*/;
+wire        prof_vram_wp    /*verilator public_flat_rd*/;
+wire  [3:0] prof_qcnt       /*verilator public_flat_rd*/;
+wire        prof_dmu_busy   /*verilator public_flat_rd*/;
+assign prof_retire     = machine.cpu.dbg_retire;
+assign prof_retire2    = machine.cpu.cpu.dbg_retire2;
+assign prof_retired_pc = machine.cpu.retired_pc;
+assign prof_c_req      = machine.cpu.req;
+assign prof_c_ack      = machine.cpu.cpu_bus_ack;
+assign prof_c_last     = machine.cpu.last;
+assign prof_c_write    = !machine.cpu.c_rw_n;
+assign prof_c_instr    = machine.cpu.cpu_bus_instr;
+assign prof_c_line     = machine.cpu.is_line;
+assign prof_c_size     = machine.cpu.cpu_bus_size;
+assign prof_c_addr     = machine.cpu.cpu_bus_addr;
+assign prof_m_req      = machine.bus_req;
+assign prof_m_ack      = machine.bus_ack;
+assign prof_m_write    = machine.bus_write;
+assign prof_m_addr     = machine.bus_addr;
+assign prof_sb_pending = machine.cpu.buffered_store_pending;
+assign prof_vram_wp    = mem_vram_wp;
+assign prof_qcnt       = machine.cpu.cpu.qcnt;
+assign prof_dmu_busy   = !machine.cpu.cpu.dmu.e_quiet;
+`endif
 
 endmodule

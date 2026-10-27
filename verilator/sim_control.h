@@ -17,7 +17,10 @@
 // Optional local, newline-delimited control stream. No input is opened or
 // event emitted by construction. All clocks below are simulated rising edges.
 struct SimControlCommand {
-	enum Kind { Down, Up, Wait, Shot, ProfileStart, ProfileStop, RamDump, Quit } kind;
+	// MouseWarp: value = (x << 16) | y in Mac pixels; MouseBtn: value = 0/1;
+	// Model: value = (key << 56) | setting, key 0 ddr3 1 wrdrain 2 rdmiss 3 romkb 4 rommiss
+	// Mv: one open-loop packet, value = (dx & 0xFF) << 8 | (dy & 0xFF), signed bytes
+	enum Kind { Down, Up, Wait, Shot, ProfileStart, ProfileStop, RamDump, Quit, MouseWarp, MouseBtn, Model, Mv } kind;
 	uint64_t value = 0;
 	bool extended = false;
 };
@@ -56,6 +59,7 @@ public:
 	}
 	bool enabled() const { return fd_ >= 0; }
 	size_t queued() const { return queue_.size(); }
+	bool next_is_shot() const { return !queue_.empty() && queue_.front().kind == SimControlCommand::Shot; }
 	size_t rejected() const { return rejected_; }
 	const std::string& read_error() const { return read_error_; }
 
@@ -131,6 +135,13 @@ private:
 		}
 		return true;
 	}
+	static bool signed_number(const std::string& text, long long& value) {
+		uint64_t mag = 0;
+		const bool neg = !text.empty() && text[0] == '-';
+		if (!number(neg ? text.substr(1) : text, 10, mag) || mag > 1000000) return false;
+		value = neg ? -(long long)mag : (long long)mag;
+		return true;
+	}
 	void parse_line() {
 		const auto comment = line_.find('#');
 		std::istringstream in(line_.substr(0, comment));
@@ -157,6 +168,36 @@ private:
 		} else if (op == "quit") {
 			command.kind = SimControlCommand::Quit;
 			valid = !(in >> extra);
+		} else if (op == "mouse") {
+			// mouse X Y: warp the ADB pointer to Mac pixel (X, Y); later
+			// commands wait until the pointer has arrived (or given up)
+			command.kind = SimControlCommand::MouseWarp;
+			uint64_t x = 0, y = 0;
+			valid = bool(in >> arg) && number(arg, 10, x) && x <= 4095 &&
+			        bool(in >> ext) && number(ext, 10, y) && y <= 4095 && !(in >> extra);
+			command.value = (x << 16) | y;
+		} else if (op == "model") {
+			// model ddr3|wrdrain|rdmiss|romkb|rommiss VALUE: sim.v's DDR3 timing model
+			static const char* keys[5] = {"ddr3", "wrdrain", "rdmiss", "romkb", "rommiss"};
+			command.kind = SimControlCommand::Model;
+			uint64_t v = 0;
+			if ((in >> arg) && (in >> ext) && number(ext, 10, v) && v <= 0xFFFFFFFFull && !(in >> extra))
+				for (unsigned k = 0; k < 5; k++) if (arg == keys[k]) {
+					command.value = (uint64_t(k) << 56) | v; valid = true;
+				}
+		} else if (op == "mv") {
+			// mv DX DY: one relative ADB packet (each -63..63), no closed loop
+			command.kind = SimControlCommand::Mv;
+			long long dx = 0, dy = 0;
+			if ((in >> arg) && (in >> ext) && !(in >> extra) &&
+			    signed_number(arg, dx) && signed_number(ext, dy) &&
+			    dx >= -63 && dx <= 63 && dy >= -63 && dy <= 63) {
+				command.value = (uint64_t)(((dx & 0xFF) << 8) | (dy & 0xFF));
+				valid = true;
+			}
+		} else if (op == "btn") {
+			command.kind = SimControlCommand::MouseBtn;
+			valid = bool(in >> arg) && number(arg, 10, command.value) && command.value <= 1 && !(in >> extra);
 		} else if (op == "profile") {
 			if ((in >> arg) && (arg == "start" || arg == "stop") && !(in >> extra)) {
 				command.kind = arg == "start" ? SimControlCommand::ProfileStart : SimControlCommand::ProfileStop;

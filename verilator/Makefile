@@ -108,7 +108,7 @@ quadra800-fastboot.rom.hex: ../releases/quadra800.rom ../docs/tools/make-fastboo
 	xxd -p -c4 .fastboot.tmp.rom > $@
 	rm .fastboot.tmp.rom
 
-SIM_HEADERS = sim_control.h cpu_dispatch_observer.h sim_refill_profile.h sim_ram_snapshot.h ../scripts/fixtures/speedometer_timing_observer/adapter.inc ../scripts/fixtures/speedometer_timing_observer/speedometer_observer.h
+SIM_HEADERS = sim_control.h sim_prof040.h cpu_dispatch_observer.h sim_refill_profile.h sim_ram_snapshot.h ../scripts/fixtures/speedometer_timing_observer/adapter.inc ../scripts/fixtures/speedometer_timing_observer/speedometer_observer.h
 $(VOUT): $(V_SRC) $(C_SRC) $(SIM_HEADERS) Makefile
 	$V -cc $(V_OPT) -LDFLAGS "$(LDFLAGS)" -exe --trace --Mdir ./obj_dir \
 		$(V_DEFINE) $(V_INC) $(TOP) -CFLAGS "$(CFLAGS)" $(V_SRC) $(C_SRC)

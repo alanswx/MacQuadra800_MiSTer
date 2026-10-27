@@ -202,6 +202,48 @@ static void speedometer_after_eval(bool) {}
 #include "sim_ram_snapshot.h"
 #include "sim_refill_profile.h"
 
+#ifdef CPU_AP68040
+// The dual core's exact-workload profiler (sim_prof040.h): the same
+// --cpu-profile FILE and profile start/stop bracket as the old core's,
+// sampled from the prof_* probe wires sim.v publishes.
+#include "sim_prof040.h"
+static Prof040 prof040;
+static std::string prof_trace_file, prof_traps_file = "traps.txt";
+static uint32_t prof_read_long(uint32_t addr) {
+	const size_t words = sizeof(SIMEMU->ram) / sizeof(SIMEMU->ram[0]);
+	return (addr >> 2) < words ? SIMEMU->ram[addr >> 2] : 0;
+}
+static const char* prof_dis(uint32_t pc, unsigned* len) {
+	unsigned short opwords[5];
+	for (int k = 0; k < 5; k++) opwords[k] = sim_read_word(pc + 2*k);
+	*len = 2;
+	return disassemble_68k_ext_len(pc, opwords, 5, len);
+}
+static Prof040Sample prof040_sample() {
+	Prof040Sample s;
+	s.retire     = SIMEMU->prof_retire;
+	s.retire2    = SIMEMU->prof_retire2;
+	s.retired_pc = SIMEMU->prof_retired_pc;
+	s.c_req      = SIMEMU->prof_c_req;
+	s.c_ack      = SIMEMU->prof_c_ack;
+	s.c_last     = SIMEMU->prof_c_last;
+	s.c_write    = SIMEMU->prof_c_write;
+	s.c_instr    = SIMEMU->prof_c_instr;
+	s.c_line     = SIMEMU->prof_c_line;
+	s.c_size     = SIMEMU->prof_c_size;
+	s.c_addr     = SIMEMU->prof_c_addr;
+	s.m_req      = SIMEMU->prof_m_req;
+	s.m_ack      = SIMEMU->prof_m_ack;
+	s.m_write    = SIMEMU->prof_m_write;
+	s.m_addr     = SIMEMU->prof_m_addr;
+	s.sb_pending = SIMEMU->prof_sb_pending;
+	s.vram_wp    = SIMEMU->prof_vram_wp;
+	s.qcnt       = SIMEMU->prof_qcnt;
+	s.dmu_busy   = SIMEMU->prof_dmu_busy;
+	return s;
+}
+#endif
+
 // Simulation-only exact-workload profiler. SIGUSR1 resets/starts the
 // bracket; SIGUSR2 stops it and writes the report.
 // Dispatch means an actual opcode load, before decode/operand execution.
@@ -230,6 +272,10 @@ static void bracket_start_signal(int) { bracket_start_req = 1; }
 static void bracket_stop_signal(int) { bracket_stop_req = 1; }
 
 static void bracket_reset() {
+#ifdef CPU_AP68040
+	prof040.reset();
+	if (!prof_trace_file.empty()) prof040.open_trace(prof_trace_file.c_str());
+#endif
 	bracket_dispatches = 0;
 	bracket_cycles = bracket_rd_accept = bracket_look_hit = bracket_ipred_hit = 0;
 	bracket_ic_enabled = bracket_dc_enabled = bracket_mmu_enabled = 0;
@@ -249,6 +295,10 @@ static void bracket_reset() {
 
 static void bracket_dump() {
 	if (bracket_file.empty()) return;
+#ifdef CPU_AP68040
+	prof040.dump(bracket_file.c_str(), prof_traps_file.c_str(), prof_read_long, prof_dis);
+	return;
+#endif
 	bracket_refill.stop();
 	FILE* f = fopen(bracket_file.c_str(), "w");
 	if (!f) { fprintf(stderr, "[CPU-PROFILE] cannot write %s\n", bracket_file.c_str()); return; }
@@ -433,19 +483,82 @@ static void bracket_step(bool dispatch) {
 		if (bracket_prev_valid) bracket_transitions[bracket_prev_state][state]++;
 		bracket_prev_state=state; bracket_prev_valid=true;
 	}
+#else
+	prof040.step(prof040_sample());
 #endif
 }
 
-// ---- ADB mouse from clicks on the VGA image -------------------------------
+// ---- ADB mouse state (shared by the GUI click path and the control stream) --
+static bool     mouse_btn_down   = false;   // hovered-image button state
+static bool     mouse_btn_sent   = false;   // last button state delivered
+static bool     mouse_btn_dirty  = false;
+static int      mouse_warp_x     = -1;      // target in Mac pixels (-1 = idle)
+static int      mouse_warp_y     = -1;
+static uint32_t mouse_strobe     = 0;       // ps2_mouse[24] toggle
+static uint32_t mouse_last_raw   = 0xFFFFFFFF;
+static int      mouse_stalled    = 0;
+static int      mouse_warp_frames = 0;      // packets sent toward the current target
+
+static void adb_mouse_packet(int dx, int dy, bool btn) {
+	// one MiSTer-format packet; PS/2 y is up-positive
+	const int py = -dy;
+	mouse_strobe ^= 1;
+	VERTOPINTERN->ps2_mouse =
+		(mouse_strobe << 24) |
+		((py & 0xFF) << 16) | ((dx & 0xFF) << 8) |
+		((py < 0) ? 0x20 : 0) | ((dx < 0) ? 0x10 : 0) |
+		(btn ? 0x01 : 0);
+}
 
 // Local control never opens a stream or emits guest input unless --control
 // is supplied. Reuse SimInput's normal PS/2-to-ADB queue and timing contract.
+// A pending mouse warp blocks the following commands (except a screenshot,
+// so a warp in progress can be watched), as a screenshot does.
 static void control_before_eval() {
 	if (!sim_control.enabled()) return;
 	SimControlCommand command{};
-	if (sim_control.step(VERTOPINTERN->reset || control_shot_pending,
+	const bool warp_pause = mouse_warp_x >= 0 && !sim_control.next_is_shot();
+	if (sim_control.step(VERTOPINTERN->reset || control_shot_pending || warp_pause,
 	                     input.keyEvents.empty() && input.keyEventTimer == 0, command)) {
 		switch (command.kind) {
+		case SimControlCommand::MouseWarp:
+			mouse_warp_x = (int)(command.value >> 16);
+			mouse_warp_y = (int)(command.value & 0xFFFF);
+			mouse_stalled = 0;
+			mouse_warp_frames = 0;
+			mouse_last_raw = 0xFFFFFFFF;
+			printf("[SIM-CONTROL] mouse %d %d cycle=%llu\n", mouse_warp_x, mouse_warp_y,
+				(unsigned long long)main_time);
+			break;
+		case SimControlCommand::Mv: {
+			const int dx = (int8_t)(command.value >> 8), dy = (int8_t)(command.value & 0xFF);
+			adb_mouse_packet(dx, dy, mouse_btn_down);
+			mouse_btn_sent = mouse_btn_down;
+			printf("[SIM-CONTROL] mv %d %d cycle=%llu\n", dx, dy, (unsigned long long)main_time);
+			break;
+		}
+		case SimControlCommand::MouseBtn:
+			mouse_btn_down = command.value != 0;
+			mouse_btn_dirty = true;
+			printf("[SIM-CONTROL] btn %d cycle=%llu\n", mouse_btn_down ? 1 : 0,
+				(unsigned long long)main_time);
+			break;
+		case SimControlCommand::Model: {
+			const unsigned key = (unsigned)(command.value >> 56);
+			const uint32_t v = (uint32_t)command.value;
+			switch (key) {
+			case 0: SIMEMU->ddr3_model = v != 0; break;
+			case 1: SIMEMU->vram_wr_drain = v ? v : 1; break;
+			case 2: SIMEMU->vram_rd_miss = v; break;
+			case 3: SIMEMU->rom_cache_kb = v; break;
+			case 4: SIMEMU->rom_miss = v; break;
+			}
+			printf("[SIM-CONTROL] model key=%u value=%u -> ddr3=%u wrdrain=%u rdmiss=%u romkb=%u rommiss=%u cycle=%llu\n",
+				key, v, (unsigned)SIMEMU->ddr3_model, (unsigned)SIMEMU->vram_wr_drain,
+				(unsigned)SIMEMU->vram_rd_miss, (unsigned)SIMEMU->rom_cache_kb, (unsigned)SIMEMU->rom_miss,
+				(unsigned long long)main_time);
+			break;
+		}
 		case SimControlCommand::Down:
 		case SimControlCommand::Up:
 			input.keyEvents.emplace(static_cast<char>(command.value),
@@ -514,15 +627,6 @@ static void control_before_eval() {
 // self-corrects for clamped or overwritten deltas.  Before the System is up
 // nobody maintains RawMouse, so a target that makes no progress is dropped
 // after a few dozen packets instead of being chased forever.
-static bool     mouse_btn_down   = false;   // hovered-image button state
-static bool     mouse_btn_sent   = false;   // last button state delivered
-static bool     mouse_btn_dirty  = false;
-static int      mouse_warp_x     = -1;      // target in Mac pixels (-1 = idle)
-static int      mouse_warp_y     = -1;
-static uint32_t mouse_strobe     = 0;       // ps2_mouse[24] toggle
-static uint32_t mouse_last_raw   = 0xFFFFFFFF;
-static int      mouse_stalled    = 0;
-
 static void adb_mouse_update() {
 	if (mouse_warp_x < 0 && !mouse_btn_dirty) return;
 
@@ -538,29 +642,38 @@ static void adb_mouse_update() {
 		else {
 			dx = mouse_warp_x - h;
 			dy = mouse_warp_y - v;
-			if (dx == 0 && dy == 0) {
-				mouse_warp_x = mouse_warp_y = -1;    // arrived
+			mouse_warp_frames++;
+			if (mouse_warp_frames <= 40 || (mouse_warp_frames % 50) == 0)
+				printf("[MOUSE] warp packet %d: raw h=%d v=%d dx=%d dy=%d\n",
+				       mouse_warp_frames, h, v, dx, dy);
+			// within a pixel is arrived: the Mac's tracking acceleration can
+			// make an exact-zero loop oscillate around the target
+			if (dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1) {
+				printf("[MOUSE] arrived at h=%d v=%d after %d packets\n", h, v, mouse_warp_frames);
+				mouse_warp_x = mouse_warp_y = -1;
+				dx = dy = 0;
+			}
+			else if (mouse_warp_frames > 400) {
+				printf("[MOUSE] gave up at h=%d v=%d (target %d %d)\n", h, v, mouse_warp_x, mouse_warp_y);
+				mouse_warp_x = mouse_warp_y = -1;
+				dx = dy = 0;
 			}
 			else if (raw == mouse_last_raw && ++mouse_stalled > 48) {
+				printf("[MOUSE] no RawMouse change for 48 packets, giving up\n");
 				mouse_warp_x = mouse_warp_y = -1;    // nobody is listening
 				mouse_stalled = 0;
+				dx = dy = 0;
 			}
 			if (raw != mouse_last_raw) mouse_stalled = 0;
 			mouse_last_raw = raw;
 		}
 	}
-	if (mouse_warp_x < 0 && !mouse_btn_dirty) return;
+	if (mouse_warp_x < 0 && !mouse_btn_dirty && dx == 0 && dy == 0) return;
 
-	// one packet: clamp to the ADB event range so nothing is distorted
-	if (dx > 63) dx = 63; else if (dx < -63) dx = -63;
-	if (dy > 63) dy = 63; else if (dy < -63) dy = -63;
-	int py = -dy;                                // PS/2 y is up-positive
-	mouse_strobe ^= 1;
-	VERTOPINTERN->ps2_mouse =
-		(mouse_strobe << 24) |
-		((py & 0xFF) << 16) | ((dx & 0xFF) << 8) |
-		((py < 0) ? 0x20 : 0) | ((dx < 0) ? 0x10 : 0) |
-		(mouse_btn_down ? 0x01 : 0);
+	// one packet; small steps keep the Mac's acceleration out of the loop
+	if (dx > 3) dx = 3; else if (dx < -3) dx = -3;
+	if (dy > 3) dy = 3; else if (dy < -3) dy = -3;
+	adb_mouse_packet(dx, dy, mouse_btn_down);
 	mouse_btn_sent = mouse_btn_down;
 	mouse_btn_dirty = false;
 }
@@ -819,6 +932,9 @@ int verilate() {
 				save_screenshot(video.count_frame);
 				control_shot_pending = false;
 			}
+			// headless: the control stream's mouse warp/button, one ADB
+			// packet per guest frame (the GUI calls this per host frame)
+			if (headless && video.count_frame != previous_frame) adb_mouse_update();
 		}
 
 		main_time++;
@@ -943,6 +1059,12 @@ int main(int argc, char** argv, char** env) {
 			control_file = argv[++i];
 		} else if (!strcmp(argv[i], "--cpu-profile") && i + 1 < argc) {
 			bracket_file = argv[++i];
+#ifdef CPU_AP68040
+		} else if (!strcmp(argv[i], "--prof-trace") && i + 1 < argc) {
+			prof_trace_file = argv[++i];     // binary transaction trace of the bracket
+		} else if (!strcmp(argv[i], "--prof-traps") && i + 1 < argc) {
+			prof_traps_file = argv[++i];     // "A8EC _CopyBits" lines for the TRAP section
+#endif
 		} else if (!strcmp(argv[i], "--no-cpu-trace")) {
 			cpu_trace_disabled = true;
 		} else if (!strcmp(argv[i], "--trace-on-ncr")) {
