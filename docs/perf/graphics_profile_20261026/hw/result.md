@@ -108,3 +108,60 @@ Notes:
   or garbage were seen. The screenshots are spot samples (~76 frames per core), not every frame.
 - a8ba3fa drift: 0.891 median here vs 0.883 in A/B #2. 8-bit 12.778 s vs 12.754 s.
 - Final state: the box is on "It is now safe to switch off your Macintosh" with the a8ba3fa core loaded.
+
+# A/B #4 -- step12_csb8 (16 KB I/D caches) vs step12 -- STOPPED, box taken over by another operator
+
+- The csb8 rbf (md5 d4447e03479611e48f9c0eed8ef3c38c) was copied via misterubuntu and md5-checked on the box. It was loaded
+  with /dev/MiSTer_cmd from the safe-to-switch-off screen (`ab4_00_start.png`).
+- Boot was normal and matched step12/a8ba3fa: black to ~25 s, grey ~30-40 s, Mac OS "Starting Up" ~45-62 s,
+  desktop ~70-75 s (`ab4_cand_boot_t*.png`). There was nothing odd in the picture. Two consecutive still desktop frames
+  were pixel-identical apart from the clock, so the capture showed no HDMI flicker, shift or dropout.
+- About 06:02 UTC (box time), while I was only taking screenshots, someone else began driving the guest:
+  Speedometer was launched, "Not Yet" clicked, and the Tests menu used. /tmp/remote.log shows long smooth
+  human-style mouseMove trajectories and kbdRaw 100 (Right Alt = Command), none of which I sent.
+  Their full PR (CPU + Graphics + ...) was in progress at 6:03 guest time with **CPU 1.803, Graphics 0.960**
+  shown (`ab4_cand_ext_input_1.png`). That was not my run and not my method (all tests, not Graphics only).
+- I stopped sending any input so as not to collide with the other operator. No csb8 or step12
+  measurements of my own were taken. The box was left as the other operator had it: csb8 core, guest up, Speedometer running.
+
+# A/B #4 (resumed) -- step12_csb8 (16 KB I/D caches) vs step12 (8 KB)
+
+The user shut the guest down and handed the box back. I resumed from the safe-to-switch-off screen with a fresh
+load_core of csb8, then step12. Same disk/32 MB/640x480/method as A/B #3, plus one Benchmark Mix (Cmd-B, all
+ten tests, Iter 1; it takes ~30 s). The boot frames from the interrupted first attempt are in `ab4_prev_attempt/`. The user's
+own full-PR run on csb8 (Graphics 0.960, Color 8-bit 11.746 s, Mix 1.958; all tests, a different method) is
+`ab4_user_full_pr_csb8_results.png` and is NOT included below.
+
+| bitstream | md5 | Graphics PR runs | median | Mono s | 2-bit s | 4-bit s | 8-bit s | 16-bit s | boot | shutdown | anomalies |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| csb8 `MacQuadra800_step12_csb8_261026.rbf` | d4447e03479611e48f9c0eed8ef3c38c | 0.952 / 0.951 / 0.951 | **0.951** | 7.527 | 8.597 | 9.585 | **11.770** | 15.566 | OK, desktop ~75 s | OK | none in the Mac's drawing; 2 transient redraw frames (see below) |
+| step12 `MacQuadra800_step12_261026.rbf` | ffc2fa767b7ae5eeef51a5d889b75b6b | 0.925 / 0.923 / 0.924 | **0.924** | 7.449 | 8.602 | 9.752 | **12.266** | 16.384 | OK, desktop ~75 s | OK | none |
+| delta (csb8 - step12) | | | **+0.027 (+2.9 %)** | +1.0 % | -0.1 % | -1.7 % | **-0.496 s (-4.0 %)** | -5.0 % | | | |
+
+Benchmark Mix (one run each):
+
+| | KWhetstones/s | Dhrystones/s | Towers | QSort | Bubble | Queens | Puzzle | Perm | IntMatrix | Sieve | **Average** |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| csb8 | 1473.509 (5.010) | 29892.542 (1.730) | 0.349 | 0.425 | 0.494 | 0.328 | 0.778 | 0.575 | 0.537 | 0.772 | **1.911** |
+| step12 | 1459.221 (4.961) | 29809.138 (1.725) | 0.350 | 0.437 | 0.496 | 0.329 | 0.788 | 0.577 | 0.548 | 0.824 | **1.883** |
+
+The Mix moves +0.028 (+1.5 %): Whetstone +1.0 %, Dhrystone +0.3 %, Sieve -6.3 %, IntMatrix -2.0 %, QSort -2.7 %.
+The Mix was run once per core, so treat sub-1 % differences as noise.
+
+Notes:
+- Stability: there was no hang, freeze, bomb or error dialog on either core in boot, PR, Color, Mix, quit or shutdown.
+- Boot: both cores had the same sequence and timing as earlier runs (desktop ~70-75 s). Nothing looked different on csb8.
+- Mac drawing on csb8: all ~76 frames taken during the tests show correct shapes, patterns and colours (2-bit,
+  4-bit, 8-bit orange ramps, 16-bit rainbow gradients), matching step12. Two frames
+  (`ab4_cand_12_pr2_during_b.png`, `ab4_cand_13_pr3_during_b.png`) caught the instant the full-screen test window
+  closes. Black vertical strips sit where the desktop and Hardware Information window have not been repainted yet, and
+  the readout shows 0000.000 before it updates. A frame captured ~1.5 s later on the same runs is clean. In a burst capture of
+  that moment on step12 (`ab4_base_xtra_endredraw_*.png`, an extra fourth PR run not counted in the table, 0.923) the
+  desktop was also seen half-repainted (icons missing) before settling. So I read the strips as the normal repaint,
+  not stale pixels. I did not catch an identical black-strip frame on step12, though, so this is not proven.
+- HDMI / video output (csb8 missed the HDMI clock by 0.118 ns): seen through the capture stream, no flicker, line
+  dropout, picture shift, sync loss or resolution change on csb8 at any point. The capture stayed 1440x1080 for
+  the guest and 1008x676 for the shutdown screen, the same as step12. Two still desktop frames 8 s apart were
+  pixel-identical except the clock. Caveat: I see the picture only through the kvms capture (sampled frames), not a
+  real monitor, so a brief sparkle or a one-frame dropout between samples could be missed.
+- Final state: the box is on "It is now safe to switch off your Macintosh" with the step12 core loaded.

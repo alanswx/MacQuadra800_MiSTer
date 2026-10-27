@@ -556,7 +556,11 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # Dual memory experiment (33/33/99 MHz), seed38: non-faulting VRAM retirement
 # reuses the existing DMU bus registers; no external write FIFO. Source8e3e0b9.
 # 34554ALMs/30052regs/497M10Ks; CPUbus+1.245 RAM+.511 HDMI+.668 hold+.194ns. AlltimingPASS; MacMix1.801/PR1.617/gfx.982/cleanhaltPASS.
-set_global_assignment -name SEED 40
+# 2026-10-26 DDR3-VRAM branch + vram_ddr3 read cache (4e1e21f) + DMU post release (b27f8fa)
+# + 16KB I/D caches (CSB 8): seed40 37353ALMs/332M10K HDMI-.118 CPU+1.127 (video miss only);
+# seed41 37374ALMs HDMI+.183 CPU+.836 ALL MET (recipe); seed42 37369ALMs HDMI+.082 CPU+.340 met.
+# mister192 same-session A/B: Graphics PR 0.924->0.951, Color8bit 12.27->11.77s, Mix 1.883->1.911; cleanhaltPASS.
+set_global_assignment -name SEED 41
 # 2026-09-24: NEVER grew the full BRF fit by398 ALMs; retain the better ALWAYS setting.
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #

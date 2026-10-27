@@ -205,3 +205,33 @@ unit `q800-step12-csb8`.
   `(CTW'({...}) << (11-CSH)) | CTW'(a[11:0] >> (CSH+1))`; at CSB 7 the
   regression reproduces the original cycle counts exactly (37926/36414/37926),
   at CSB 8 it passes (42486/41308/42468). Rebuild: unit `q800-step12-csb8b`.
+- 16 KB caches (CSB 8) build b: 37,353 ALMs (89 %), 332/553 M10K (+16),
+  CPU general[1] +1.127 / general[0] +1.681, HDMI -0.118 ns (video-output
+  register: deployable for a trial per CLAUDE.md, not for a release). rbf md5
+  d4447e034796 -> hw/MacQuadra800_step12_csb8_261026.rbf. Seeds 41/42 launched
+  for a clean HDMI fit; hardware A/B #4 (csb8 vs step12) requested.
+- A/B #4 (csb8 vs step12) was interrupted: the box was taken over by hand
+  (user) after csb8 was loaded; the delegated session took no measurements.
+  Observed: csb8 boots normally (desktop ~70-75 s), no HDMI oddity in a short
+  still-frame check; the operator's FULL PR on csb8 read Graphics 0.960,
+  CPU 1.803 (not the Graphics-only method, not comparable to the medians,
+  but 0.960 vs step12's 0.922 points the way the profile predicted).
+  Resume needs: box free + clean shutdown; rbfs already on the box.
+- csb8 full run by the user (screenshot `hw/results/ab4_user_full_pr_csb8_results.png`,
+  mister192, 2026-10-26 23:05): PR 1.591 (CPU 1.803, Graphics 0.960, Disk
+  2.260, Math 16.965); Mix avg 1.958 (KWhet 1545.0, Dhry 24700.8, Towers
+  0.350, QSort 0.421, Bubble 0.493, Queens 0.328, Puzzle 0.728, Perm 0.550,
+  IntMatrix 0.435, Sieve 0.772); Color mono 7.205 / 2-bit 8.288 / 4-bit 9.353
+  / 8-bit 11.746 / 16-bit 15.546 s; FPU avg 0.865 (KWhet 4393.7, Matrix 0.725,
+  FFT 0.369). vs the handoff's a8ba3fa: Graphics 0.901 -> 0.960, 8-bit 12.208
+  -> 11.746 s, Mix 1.930 -> 1.958, FPU 0.851 -> 0.865. Best graphics numbers
+  on the branch so far; same-session A/B #4 pending (box handed back).
+- 16 KB caches, seed 42: timing MET on every clock (HDMI +0.082, CPU
+  general[1] +0.340, general[0] +0.809), rbf md5 6d05155dc22b ->
+  hw/MacQuadra800_step12_csb8_s42_261026.rbf. This is the clean 16 KB
+  bitstream; seed 40 (HDMI -0.118) is the one under A/B #4 (same RTL).
+- 16 KB caches, seed 41: timing MET, the best of the three (HDMI +0.183, CPU
+  general[1] +0.836, general[0] +1.275), 37,374 ALMs, rbf md5 adbc696ab5ab ->
+  hw/MacQuadra800_step12_csb8_s41_261026.rbf.  Summary for the qsf comment
+  block: CSB 8 seed 40 HDMI -0.118 (CPU +1.127); seed 41 all met (HDMI +0.183,
+  CPU +0.836); seed 42 all met (HDMI +0.082, CPU +0.340).  Recipe seed -> 41.

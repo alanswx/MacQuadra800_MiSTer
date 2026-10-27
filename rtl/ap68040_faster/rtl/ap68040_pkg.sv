@@ -109,7 +109,7 @@ localparam logic [2:0] MFC_BKPT = 3'd6;  // breakpoint acknowledge read (TT=3, T
 // both caches: four ways of 2**CSB sets of 16-byte lines (CSB 6: 4 Kbytes,
 // the MC68040's; 7: 8 Kbytes), set PA[CSH:4], physically tagged PA[31:CSH+1]
 // (CSB <= 8: the set stays within the 4K page offset, LA = PA there)
-localparam int CSB = 7;
+localparam int CSB = 8;
 localparam int CSH = CSB + 3;
 localparam int CTW = 28 - CSB;
 
