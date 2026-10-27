@@ -665,6 +665,37 @@ always_comb begin
 	d1_way = mj[3] ? 2'd3 : mj[2] ? 2'd2 : mj[1] ? 2'd1 : 2'd0;
 	d1_mj  = mj;
 end
+// The engine's stolen lookups (E_S_XL2, E_SP_2) compare the tags the same
+// way: each way's tag against the untranslated address, or against the
+// page of each ATC way the main port hits (atc_hv, atc_wpa), with the
+// transparency registered as the steal starts (e_tp).  xlate's own compare
+// waited for the hit way's entry: the ATC read, the entry select and the
+// tag compare in one clock (a 60/66 MHz path into e_x.hit).
+logic e_tp;
+function automatic logic [3:0] eng_mj(input logic tp, input logic [31:0] la);
+	logic [3:0] m;
+	for (int j = 0; j < 4; j++) begin
+		logic ma;
+		ma = 1'b0;
+		for (int i = 0; i < 4; i++)
+			if (atc_hv[i] && tq_a[j] == ((CTW'({atc_wpa[i][19:1], tc_p ? la[12] : atc_wpa[i][0]}) << (11 - CSH)) |
+			                            CTW'(la[11:0] >> (CSH + 1))))
+				ma = 1'b1;
+		m[j] = lve_q[j] && (tp ? (tq_a[j] == la[31:CSH+1]) : ma);
+	end
+	eng_mj = m;
+endfunction
+// the hit from it, for a translation xlate made without tags
+function automatic xres_t eng_hit(input xres_t x, input logic [3:0] m);
+	xres_t r;
+	r = x;
+	if (x.ok && !x.flt) begin
+		r.hit = |m;
+		r.way = m[3] ? 2'd3 : m[2] ? 2'd2 : m[1] ? 2'd1 : 2'd0;
+	end
+	eng_hit = r;
+endfunction
+
 // synthesis translate_off
 // (the engine's state for the bench's profile: a parameterized module's
 // enum items are not reachable through the hierarchy in Verilator)
@@ -1340,6 +1371,7 @@ always_ff @(posedge clk) begin
 				st_la  <= {m2.r.a[31:4] + 28'd1, 4'd0};
 				st_fc2 <= m2.r.smode;
 				st_set <= m2.r.a[CSH:4] + 1'd1;
+				e_tp   <= transp_of({m2.r.a[31:4] + 28'd1, 4'd0}, m2.r.smode, m2.r.fc, m2.r.ack);
 				e_st   <= E_SP_W;
 			end
 			else
@@ -1379,7 +1411,20 @@ always_ff @(posedge clk) begin
 			xres_t x;
 			x  = xlate({m2.r.a[31:4] + 28'd1, 4'd0}, m2.r.smode, (m2.r.mem != M_LD),
 			           fc_tt(m2.r.fc) == TT_ALT, atc_hit, atc_e,
-			           tq_a[0], tq_a[1], tq_a[2], tq_a[3], lve_q);
+			           tq_a[0], tq_a[1], tq_a[2], tq_a[3], 4'd0);
+			x  = eng_hit(x, eng_mj(e_tp, {m2.r.a[31:4] + 28'd1, 4'd0}));
+			// synthesis translate_off
+			begin
+				xres_t xr;
+				xr = xlate({m2.r.a[31:4] + 28'd1, 4'd0}, m2.r.smode, (m2.r.mem != M_LD),
+				           fc_tt(m2.r.fc) == TT_ALT, atc_hit, atc_e,
+				           tq_a[0], tq_a[1], tq_a[2], tq_a[3], lve_q);
+				if (xr.hit != x.hit || (xr.hit && xr.way != x.way)) begin
+					$display("FAIL: dmu: E_SP_2's parallel tag compare %b/%0d, xlate's %b/%0d", x.hit, x.way, xr.hit, xr.way);
+					$finish;
+				end
+			end
+			// synthesis translate_on
 			// the second part's translation and lookup, registered (the
 			// decision and the data next cycle; the RAM keeps reading the
 			// stolen set, the line multiplexer its way)
@@ -1394,6 +1439,7 @@ always_ff @(posedge clk) begin
 			st_la  <= e_va;
 			st_fc2 <= m2.r.smode;
 			st_set <= e_va[CSH:4];
+			e_tp   <= transp_of(e_va, m2.r.smode, m2.r.fc, m2.r.ack);
 			e_st   <= E_S_XLW;
 		end
 		E_S_XLW: e_st <= E_S_XL2;      // the RAMs register the stolen address
@@ -1402,7 +1448,19 @@ always_ff @(posedge clk) begin
 			// (after a search: the ATC holds its result, a nonresident
 			// entry for a failed one)
 			x = xlate(e_va, m2.r.smode, (m2.r.mem != M_LD), fc_tt(m2.r.fc) == TT_ALT,
-			          atc_hit, atc_e, tq_a[0], tq_a[1], tq_a[2], tq_a[3], lve_q);
+			          atc_hit, atc_e, tq_a[0], tq_a[1], tq_a[2], tq_a[3], 4'd0);
+			x = eng_hit(x, eng_mj(e_tp, e_va));
+			// synthesis translate_off
+			begin
+				xres_t xr;
+				xr = xlate(e_va, m2.r.smode, (m2.r.mem != M_LD), fc_tt(m2.r.fc) == TT_ALT,
+				           atc_hit, atc_e, tq_a[0], tq_a[1], tq_a[2], tq_a[3], lve_q);
+				if (xr.hit != x.hit || (xr.hit && xr.way != x.way)) begin
+					$display("FAIL: dmu: E_S_XL2's parallel tag compare %b/%0d, xlate's %b/%0d", x.hit, x.way, xr.hit, xr.way);
+					$finish;
+				end
+			end
+			// synthesis translate_on
 			if (m2.r.ack != 2'd0) begin
 				x    = '0;
 				x.ok = 1'b1;
