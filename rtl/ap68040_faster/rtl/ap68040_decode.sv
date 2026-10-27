@@ -63,7 +63,7 @@ module ap68040_decode
 	output dinst_t      rq0,
 	output dinst_t      rq1,
 	input  logic        rq_pop,
-	input  logic        rq_pop_e,       // implies rq_pop, early (room)
+	input  logic        rq_pop_e,       // implies rq_pop, early (unused: room is registered)
 
 	// Bcc history training (from EX)
 	input  logic        bht_we,
@@ -786,13 +786,18 @@ always_comb begin
 	ras_o    = ras_top[31:1];
 end
 
-// (two records; a full FIFO has room in the clock the sequencer pops one,
-// or D1 would wait a clock behind every pop: 28% on Dhrystone)
-wire room  = (rq_n != 2'd2) || rq_pop_e;
+// (three records, of which the sequencer sees the first two: room is
+// a register, off the sequencer's pop -- the late path from EX's stall
+// through the pop, D1's fire and the queue head into the attribute ROM.
+// Two records with room in the clock of a pop ran the same: the third
+// slot covers the clock the registered room lags a pop.)
+logic [1:0] rq_c;              // records held, 0..3
+dinst_t     rq2;
+wire room  = (rq_c != 2'd3);
 wire stall = flush || hold_redir || d_redir_v || !room || bt_hold;
 wire fire  = (go || go_part) && !stall;
 wire push  = fire && go;
-wire pop   = rq_pop && (rq_n != 2'd0);
+wire pop   = rq_pop && (rq_c != 2'd0);
 
 // loop exit table updates
 wire lp_push = push && (ph == PH_IDLE) && lp_br && (nrec.exc == 8'd0);
@@ -871,8 +876,10 @@ assign consume_t = fire && c_cons && bt_end;
 always_ff @(posedge clk) begin
 	if (!nreset) begin
 		rq_n       <= 2'd0;
+		rq_c       <= 2'd0;
 		rq0        <= '0;
 		rq1        <= '0;
+		rq2        <= '0;
 		ph         <= PH_IDLE;
 		part       <= '0;
 		part_pd    <= '0;
@@ -937,20 +944,32 @@ always_ff @(posedge clk) begin
 			end
 		end
 
-		// two records
-		case ({push, pop})
-			2'b01: begin rq0 <= rq1; rq_n <= rq_n - 2'd1; end
-			2'b10: begin
-				if (rq_n == 2'd0) rq0 <= nrec_q;
-				else              rq1 <= nrec_q;
-				rq_n <= rq_n + 2'd1;
-			end
-			2'b11: begin
-				if (rq_n == 2'd1) rq0 <= nrec_q;
-				else begin rq0 <= rq1; rq1 <= nrec_q; end
-			end
-			default: ;
-		endcase
+		// three records (push needs room: no push at three)
+		begin
+			logic [1:0] c_n;
+			c_n = rq_c;
+			case ({push, pop})
+				2'b01: begin rq0 <= rq1; rq1 <= rq2; c_n = rq_c - 2'd1; end
+				2'b10: begin
+					case (rq_c)
+						2'd0:    rq0 <= nrec_q;
+						2'd1:    rq1 <= nrec_q;
+						default: rq2 <= nrec_q;
+					endcase
+					c_n = rq_c + 2'd1;
+				end
+				2'b11: begin
+					case (rq_c)
+						2'd1:    rq0 <= nrec_q;
+						2'd2:    begin rq0 <= rq1; rq1 <= nrec_q; end
+						default: begin rq0 <= rq1; rq1 <= rq2; rq2 <= nrec_q; end
+					endcase
+				end
+				default: ;
+			endcase
+			rq_c <= c_n;
+			rq_n <= (c_n == 2'd3) ? 2'd2 : c_n;   // what the sequencer sees
+		end
 
 		if (fire) begin
 			ph <= nph;
@@ -998,6 +1017,7 @@ always_ff @(posedge clk) begin
 		end
 		if (flush) begin
 			rq_n       <= 2'd0;
+			rq_c       <= 2'd0;
 			if (ras_rv) begin
 				ras_tp <= ras_rtp;
 				ras_n  <= ras_rn;
