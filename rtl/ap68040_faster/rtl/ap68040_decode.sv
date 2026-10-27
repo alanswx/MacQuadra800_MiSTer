@@ -287,6 +287,9 @@ dinst_t      nrec;
 wire  [31:0] nrec_npc = nrec.pc + {27'd0, nrec.ilen, 1'b0};   // the next instruction
 logic        go;            // a record is produced
 logic        go_part;       // a slow-path phase completes (no record yet)
+logic        go_any;        // go || go_part, formed before an exception turns a
+                            // part into a record (which leaves it unchanged):
+                            // fire's, off the record's exception decode
 logic  [3:0] use_n;
 logic        flt;
 
@@ -459,6 +462,7 @@ always_comb begin
 	nrec    = '0;
 	go      = 1'b0;
 	go_part = 1'b0;
+	go_any  = 1'b0;
 	use_n   = 4'd0;
 	flt     = 1'b0;
 	nredir  = 1'b0;
@@ -512,6 +516,7 @@ always_comb begin
 				nrec.rt     = UA_DEC_EXC;
 			end
 		end
+		go_any = go || go_part;
 	end
 	else if (q_odd && qcnt == 4'd0) begin
 		// the stream starts at an odd address: address error
@@ -520,6 +525,7 @@ always_comb begin
 		nrec.ilen = 4'd0;
 		nrec.exc = 8'd3;
 		nrec.rt  = UA_DEC_EXC;
+		go_any   = 1'b1;
 	end
 	else if (qcnt != 4'd0) begin
 		logic [2:0] pi, nimm;
@@ -623,6 +629,7 @@ always_comb begin
 				nrec.exc = 8'd4;
 		end
 		if (flt) nrec.exc = f_code;
+		go_any = go || go_part;
 		if (nrec.exc != 8'd0) begin
 			nrec.rt = UA_DEC_EXC;
 			if (go_part) begin
@@ -795,7 +802,14 @@ logic [1:0] rq_c;              // records held, 0..3
 dinst_t     rq2;
 wire room  = (rq_c != 2'd3);
 wire stall = flush || hold_redir || d_redir_v || !room || bt_hold;
-wire fire  = (go || go_part) && !stall;
+wire fire  = go_any && !stall;
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && go_any != (go || go_part)) begin
+		$display("FAIL: decode: go_any %b, go %b go_part %b", go_any, go, go_part);
+		$finish;
+	end
+// synthesis translate_on
 wire push  = fire && go;
 wire pop   = rq_pop && (rq_c != 2'd0);
 
