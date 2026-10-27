@@ -1300,9 +1300,14 @@ always_ff @(posedge clk) begin
 			end
 			else if (wb_slow)
 				e_st <= E_W_START;
-			else if (((dc2_slow && !dm_s1) || (e_job && m2.r.v && !e_dc2_done)) && !kill_now) begin
-				// Clear at scheduling; a snoop may freeze E_S_START through a kill.
-				e_kill <= 1'b0;
+			else if ((dc2_slow && !dm_s1) || (e_job && m2.r.v && !e_dc2_done)) begin
+				// Set at scheduling from this clock's kill, else clear; a snoop
+				// may freeze E_S_START through a kill.  (A job scheduled as its
+				// uop is discarded runs killed, as one a later kill reaches
+				// does -- E_S_ACT and the split and walk steps test e_kill --
+				// so the kill, WB's exception and interrupt decision, stays
+				// off the engine's next state: a 60/66 MHz path.)
+				e_kill <= kill_now;
 				e_st <= E_S_START;
 			end
 			else if (iw_req && !iw_done) begin
