@@ -702,7 +702,13 @@ logic        md_go;           // this EX uop has started the unit
 logic        md_fin;          // ... and the unit has finished (done is a pulse: EX may
                               // be stalled by WB in that cycle)
 logic        md_z;            // ... is a divide by zero (from its second cycle)
-wire         ex_is_md   = (ex_u.op == OP_MUL) || (ex_u.op == OP_DIV);
+// EX's opcode classes, registered with ex_u when it loads (ex_u is written
+// nowhere else), so the EX hold -- which every earlier stage's stall waits
+// on -- reads flops instead of 7-bit opcode compares.  At 60/66 MHz the
+// compare -> stall_ex -> stall_dc2 -> register-file write enable cone was
+// the worst CPU-clock path.
+logic        ex_md_q, ex_fp_q, ex_dbcc_q, ex_slow_q;
+wire         ex_is_md   = ex_md_q;
 wire         ex_div0    = (ex_u.op == OP_DIV) &&
                           ((ex_u.sz == SZ_W) ? (ex_av[15:0] == 16'd0) : (ex_av == 32'd0));
 assign ex_md_start = ex_v && ex_is_md && !md_go && !ex_div0 && !md_busy && !ex_fault;
@@ -725,7 +731,7 @@ ap68040_muldiv #(.DSTEPS(DIV_STEPS)) md (
 );
 
 // FPU: OP_FPU uops act once no older uop is in flight (WB empty)
-wire         ex_is_fp = (ex_u.op == OP_FPU);
+wire         ex_is_fp = ex_fp_q;
 wire dc2_disp = adv_dc2 && (dc2_u.op == OP_FPU) && (dc2_u.cond == 4'd1) &&
                 (dc2_u.pc == ex_u.pc) && (dc2_u.exc == 8'd0);
 
@@ -763,7 +769,7 @@ assign ex_hold = (ex_v && ex_is_md && !md_z && !ex_fault && !md_done && !md_fin)
 // the floor (NeXT: 9 clocks at 55 MHz for the ROM's 4 clocks at 25 MHz).
 logic [3:0] dbf_cnt;
 logic       dbf_nz;
-assign dbf_hold = ex_v && (ex_u.op == OP_DBCC) && dbf_nz;
+assign dbf_hold = ex_v && ex_dbcc_q && dbf_nz;
 always_ff @(posedge clk) begin
 	if (!nreset) begin
 		dbf_cnt <= 4'd0;
@@ -1045,7 +1051,7 @@ typedef struct packed {
 	logic [15:0] sr_new;
 } exo_t;
 
-wire  ex_slow = is_slow(ex_u.op);
+wire  ex_slow = ex_slow_q;
 // shifts and rotates: N and Z are the result's sign and zero test at the
 // size, taken in the second cycle from the registered result (the barrel
 // shift and a 32-bit zero test do not fit one cycle with the count logic)
@@ -1909,6 +1915,10 @@ dc1_a1  <= ag_s.agop ? ag1_val :
 		//------------------------------------------------------------------
 		if (adv_dc2) begin
 			ex_u     <= dc2_u;
+			ex_md_q  <= (dc2_u.op == OP_MUL) || (dc2_u.op == OP_DIV);
+			ex_fp_q  <= (dc2_u.op == OP_FPU);
+			ex_dbcc_q <= (dc2_u.op == OP_DBCC);
+			ex_slow_q <= is_slow(dc2_u.op);
 			ex_npc   <= dc2_u.pc + {27'd0, dc2_u.ilen, 1'b0};
 			ex_kc    <= {dc2_u.op == OP_CAS2R, dc2_u.op == OP_CHK2B,
 			             dc2_u.op == OP_DBCC, dc2_u.op == OP_MDRES, dc2_u.op == OP_DIV,
