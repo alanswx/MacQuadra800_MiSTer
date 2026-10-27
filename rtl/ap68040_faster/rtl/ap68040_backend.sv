@@ -1434,8 +1434,17 @@ wire ex_d_eff = ex_u.d_v && !ex_dkill;
 // operand forwarding -- the FPU's own taken, not EX's selected one)
 wire ex_odd_w = ex_br && (ex_bdb ? ex_u.target[0] :
                           (ex_u.op == OP_FPU) && fp_taken && ex_target[0]);
-assign exw_v   = adv_ex && ex_d_eff && !ex_fault && (ex_xvec == 8'd0) && !ex_odd_w &&
+// The front file is written without EX's exception decision (the fault,
+// the vector, an odd branch target: the FPU's and the ALU's late
+// conditions, on the write enable's path at 60/66 MHz).  A uop that takes
+// an exception reaches WB with wb_ok clear, and its x_go clears fv and
+// discards every younger uop: no uop that survives reads what it wrote.
+// The back file, written at WB, keeps the full test.
+assign exw_v   = adv_ex && ex_d_eff && (ex_u.exc == 8'd0);
+// synthesis translate_off
+wire   sim_exw_ok = adv_ex && ex_d_eff && !ex_fault && (ex_xvec == 8'd0) && !ex_odd_w &&
                  (ex_u.exc == 8'd0);
+// synthesis translate_on
 // the same for AG's base/index loads: without EX's exception decision (a
 // late signal) -- a uop that takes an exception flushes AG with the rest
 wire        exw_ag  = adv_ex && ex_d_eff;
@@ -1456,7 +1465,7 @@ assign exw1_reg = ex_s.d_reg;
 assign exw1_val = alu1_res;
 // synthesis translate_off
 always @(posedge clk)
-	if (nreset && exw_v && ex_ee && exw_val != ex_er) begin
+	if (nreset && sim_exw_ok && ex_ee && exw_val != ex_er) begin
 		$display("FAIL: early result %h, EX wrote %h (pc %h op %0d)", ex_er, exw_val, ex_u.pc, ex_u.op);
 		$finish;
 	end
@@ -1927,11 +1936,11 @@ dc1_a1  <= ag_s.agop ? ag1_val :
 			ex_shk   <= shk_of(dc2_u.op);
 			ex_ee    <= dc2_ee;
 			ex_er    <= dc2_er;
-			ex_a     <= (dc2_u.a_src == OS_REG) ? bcast(exw_v, dc2_u.a_reg, dc2_a) : dc2_a;
-			ex_b     <= (dc2_u.b_src == OS_REG) ? bcast(exw_v, dc2_u.b_reg, dc2_b) : dc2_b;
+			ex_a     <= (dc2_u.a_src == OS_REG) ? bcast(exw_fw, dc2_u.a_reg, dc2_a) : dc2_a;
+			ex_b     <= (dc2_u.b_src == OS_REG) ? bcast(exw_fw, dc2_u.b_reg, dc2_b) : dc2_b;
 			ex_s     <= dc2_s;
-			ex_a1    <= (dc2_s.a_v && !dc2_s.a_imm && !dc2_s.agop) ? bcast(exw_v, dc2_s.a_reg, dc2_a1) : dc2_a1;
-			ex_b1    <= dc2_s.b_v ? bcast(exw_v, dc2_s.b_reg, dc2_b1) : dc2_b1;
+			ex_a1    <= (dc2_s.a_v && !dc2_s.a_imm && !dc2_s.agop) ? bcast(exw_fw, dc2_s.a_reg, dc2_a1) : dc2_a1;
+			ex_b1    <= dc2_s.b_v ? bcast(exw_fw, dc2_s.b_reg, dc2_b1) : dc2_b1;
 			ex_ea    <= dc2_ea;
 			ex_ld    <= dm_ldata;
 			ex_upd   <= dc2_upd;
