@@ -235,6 +235,8 @@ typedef struct packed {
 	logic        fast;     // DC2 can answer from the RAM output
 	logic        sfast;    // a load across a line whose first part hit:
 	                       // DC2's copy holds it, one lookup for the rest
+	logic [15:0] bm;       // the bytes of its line it touches, bmask(r.a[3:0],
+	                       // nbytes(r.msz)): formed in DC1, off DC2's hazard
 } mrec_t;
 
 req_t  m1;
@@ -731,11 +733,12 @@ wire hz = st_line(m3, m2_line) || st_line(m4, m2_line);
 // the fast load (never split) waits only for a store whose bytes it reads:
 // a plain store within one line is compared by bytes, anything else (RMW,
 // split, MOVE16) by the line
-wire [15:0] m2_bm = bmask(m2.r.a[3:0], nbytes(m2.r.msz));
+// (the byte masks were formed in DC1 and travel with the records: the
+// shifters were on the path from DC2's hazard to the back end's stall)
 function automatic logic st_byte(input mrec_t m);
 	st_byte = st_line(m, m2_line) &&
 	          (m.r.mem == M_RMW || m.split || m.r.msz == SZ_Q ||
-	           (bmask(m.x.pa[3:0], nbytes(m.r.msz)) & m2_bm) != 16'd0);
+	           (m.bm & m2.bm) != 16'd0);
 endfunction
 wire hzf = st_byte(m3) || st_byte(m4);
 // any store older than the DC2 uop not yet performed: a table walk for the
@@ -1170,6 +1173,7 @@ always_ff @(posedge clk) begin
 			m2.x     <= x_dc1;
 			m2.split <= m1_split;
 			m2.x1    <= '0;
+			m2.bm    <= bmask(m1.a[3:0], nbytes(m1.msz));
 			m2.fast  <= m1_fast && !m1_stale && !(dw && dw_src != 2'd0 && dw_set == m1.a[CSH:4]) &&
 			            (e_st == E_IDLE);
 			// (a store reads nothing: the copy's state does not matter; its

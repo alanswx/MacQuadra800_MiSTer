@@ -493,6 +493,7 @@ wire [31:0] ag_maddr  = ag_mbase + ag_mix + ag_mdisp;
 
 // operand read with the EX broadcast of this cycle (see the snoop below)
 logic        exw_v;           // EX writes the front file this cycle
+logic        exw_fw;          // ... as the younger uops' operands see it (no exception decision)
 logic  [4:0] exw_reg;
 logic [31:0] exw_val;
 
@@ -513,7 +514,7 @@ function automatic logic [31:0] opnd(input logic [1:0] src, input logic [4:0] r,
                                      input logic [31:0] imm, input logic sxw);
 	logic [31:0] v;
 	case (src)
-		OS_REG:  v = bcast(exw_v, r, rv);
+		OS_REG:  v = bcast(exw_fw, r, rv);   // (AG's: flushed with an excepting EX)
 		OS_IMM:  v = imm;
 		default: v = 32'd0;
 	endcase
@@ -528,7 +529,7 @@ wire [31:0] ag_b = ag_u.b_upd ? ag_updv : opnd(ag_u.b_src, ag_u.b_reg, rrd[4], a
 logic [31:0] ag_a1q;
 wire [31:0] ag_a1 = ag_s.a_imm ? {{24{ag_s.imm[7]}}, ag_s.imm} :
                     ag_s.a_v ? ag_a1q : 32'd0;
-wire [31:0] ag_b1 = ag_s.b_v ? bcast(exw_v, ag_s.b_reg, rrd[2]) : 32'd0;
+wire [31:0] ag_b1 = ag_s.b_v ? bcast(exw_fw, ag_s.b_reg, rrd[2]) : 32'd0;
 // an address-register form: its value (written to the front file through
 // port 1 as the pair leaves AG; it waits for every older writer of its
 // source and of its destination)
@@ -1441,7 +1442,7 @@ wire        exw_ag  = adv_ex && ex_d_eff;
 // ... and for the operands of the uops in DC1 and DC2: a uop that takes an
 // exception flushes them too, and the flush clears the front file (fv), so
 // the forwarding needs only whether EX writes the register (the timing path)
-wire        exw_fw  = exw_ag;
+assign exw_fw = exw_ag;
 assign exw_reg = ex_u.d_reg;
 assign exw_val = (ex_u.op == OP_CAS) ? ((ex_bv & ex_szm) | (ex_latch & ~ex_szm)) : ex_res;
 
