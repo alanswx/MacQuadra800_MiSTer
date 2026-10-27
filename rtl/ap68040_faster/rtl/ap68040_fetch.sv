@@ -97,7 +97,7 @@ module ap68040_fetch
 	output logic  [7:0] win_s1,       // ... is a second-slot operation word (s1_dec)
 	output logic [31:0] bt_tgt,       // the target of the first such word
 	output pd_t         pd0,          // predecode of win[0]
-	output pd_t         pd0_n,        // ... as it will be next cycle
+	output logic [ATTR_W-1:0] attr0,  // its decoder attributes (D1's pla_t, before the legal gate)
 	output logic  [3:0] qcnt,         // words available in win (0..8)
 	output logic [31:0] qpc,
 	input  logic  [2:0] consume,
@@ -192,8 +192,8 @@ assign qcnt  = (cnt > 5'd8) ? 4'd8 : cnt[3:0];
 assign qpc   = qpc_r;
 assign q_odd = odd;
 assign pd0   = qp0;
-// the head's predecode as it will be next cycle (qp0's load): D1's
-// attribute ROM reads it a cycle ahead
+// the head's predecode as it will be next cycle (qp0's load)
+pd_t       pd0_n;
 wire [3:0] qh_n = qwrap(5'(qh) + {2'b00, consume});        // the head next cycle
 pd_t       qpr_rd;
 assign qpr_rd = pd_t'(qh_n[0] ? qpr_o[qh_n[3:1]] : qpr_e[qh_n[3:1]]);
@@ -201,6 +201,7 @@ assign pd0_n = (cnt == {2'b00, consume}) ? f3_p[0] : qpr_rd;
 function automatic logic [3:0] qwrap(input logic [4:0] x);   // x mod QN, x < 2*QN
 	qwrap = (x >= 5'(QN)) ? 4'(x - 5'(QN)) : x[3:0];
 endfunction
+
 
 always_comb begin
 	for (int i = 0; i < 8; i++) begin
@@ -258,6 +259,48 @@ generate
 		// synthesis translate_on
 	end
 endgenerate
+
+// The head's decoder attributes.  D1's attribute ROM was read with
+// pd0_n's entry, which put D1's consume, the head add and the ring read
+// onto the M10K's address (a worst CPU-clock path at 60 and 66 MHz).  It
+// is read here instead as F3 appends its two words (a two-port ROM); F4
+// writes their attributes to a ring beside the predecode ring, and the
+// head's are loaded into a register as qp0 is, from the ring or from F4
+// for a word appended the clock before.  A word F3 appends that D1 takes
+// as the head at once (cnt == consume: an empty queue) is the ROM's lane
+// 0 output the next clock, as before.
+`include "gen/ap68040_dec_pla.svh"
+// synthesis translate_off
+initial if ($bits(pla_t) != ATTR_W) $fatal(1, "fetch: ATTR_W is %0d, pla_t %0d bits", ATTR_W, $bits(pla_t));
+// synthesis translate_on
+(* romstyle = "M10K" *) (* rom_style = "block" *) logic [ATTR_W-1:0] attr_rom [0:511];
+initial begin
+`include "gen/ap68040_attr_rom.svh"
+end
+logic [ATTR_W-1:0] a4_q [2];       // F4: the attributes of F3's words
+logic        [1:0] a4_v;           // ... appended
+logic        [3:0] a4_s [2];       // ... at these ring slots
+(* ramstyle = "MLAB, no_rw_check" *) logic [ATTR_W-1:0] qar_e [8];
+(* ramstyle = "MLAB, no_rw_check" *) logic [ATTR_W-1:0] qar_o [8];
+logic [ATTR_W-1:0] qa0;
+logic              qa0_byp;        // the head came from F3 (attr0 is lane 0's)
+wire  [ATTR_W-1:0] qar_rd = qh_n[0] ? qar_o[qh_n[3:1]] : qar_e[qh_n[3:1]];
+always_ff @(posedge clk) begin
+	a4_q[0] <= attr_rom[f3_p[0].ent];
+	a4_q[1] <= attr_rom[f3_p[1].ent];
+	// F4's ring writes: consecutive slots, one per bank
+	begin
+		logic we_e, we_o;
+		we_e = (a4_v[0] && !a4_s[0][0]) || (a4_v[1] && !a4_s[1][0]);
+		we_o = (a4_v[0] &&  a4_s[0][0]) || (a4_v[1] &&  a4_s[1][0]);
+		if (we_e) qar_e[a4_s[0][0] ? a4_s[1][3:1] : a4_s[0][3:1]] <= a4_s[0][0] ? a4_q[1] : a4_q[0];
+		if (we_o) qar_o[a4_s[0][0] ? a4_s[0][3:1] : a4_s[1][3:1]] <= a4_s[0][0] ? a4_q[0] : a4_q[1];
+	end
+	qa0 <= (a4_v[0] && a4_s[0] == qh_n) ? a4_q[0] :
+	       (a4_v[1] && a4_s[1] == qh_n) ? a4_q[1] : qar_rd;
+	qa0_byp <= nreset && (cnt == {2'b00, consume});
+end
+assign attr0 = qa0_byp ? a4_q[0] : qa0;
 
 //--------------------------------------------------------------------------
 // I-ATC
@@ -657,6 +700,7 @@ always_ff @(posedge clk) begin
 		for (int i = 0; i < QN; i++) qw[i] <= '0;
 		qh  <= '0;
 		qp0 <= '0;
+		a4_v <= '0;
 	end
 	else begin
 		logic [4:0] keep;
@@ -714,6 +758,9 @@ always_ff @(posedge clk) begin
 			if (we_o) qpr_o[w0[0] ? w0[3:1] : w1[3:1]] <= w0[0] ? f3_p[0] : f3_p[1];
 			qh  <= qh_n;
 			qp0 <= pd0_n;
+			a4_v    <= {f3_n == 2'd2, f3_n != 2'd0};
+			a4_s[0] <= w0;
+			a4_s[1] <= w1;
 		end
 		// D1 consumed the end of a BTB-taken branch: the stream continues
 		// at its target (the words after it in the queue came from there)

@@ -45,7 +45,7 @@ module ap68040_decode
 	input  logic  [7:0] win_s1,       // the word is a second-slot operation word
 	input  logic [31:0] bt_tgt,       // its target (the first flagged word's)
 	input  pd_t         pd0,
-	input  pd_t         pd0_n,         // pd0 next cycle (the attribute ROM's address)
+	input  logic [ATTR_W-1:0] attr0,  // pd0's decoder attributes (the fetch unit's attribute ROM)
 	input  logic  [3:0] qcnt,
 	input  logic [31:0] qpc,
 	input  logic        q_odd,
@@ -245,16 +245,11 @@ endfunction
 //--------------------------------------------------------------------------
 // the instruction at the head: attributes of its decoder entry
 //--------------------------------------------------------------------------
-// the head's attributes: a ROM (block RAM) read with the head's entry a
-// cycle ahead, so it lines up with pd0 -- not a 276-entry table in logic
+// the head's attributes: the fetch unit reads the attribute ROM (block
+// RAM) as words enter the queue and keeps the head's beside pd0 -- not a
+// 276-entry table in logic, and not read here from pd0's next entry
 pla_t a0;
-(* romstyle = "M10K" *) (* rom_style = "block" *) logic [$bits(pla_t)-1:0] attr_rom [0:511];
-initial begin
-`include "gen/ap68040_attr_rom.svh"
-end
-logic [$bits(pla_t)-1:0] attr_q;
-always_ff @(posedge clk) attr_q <= attr_rom[pd0_n.ent];
-always_comb a0 = pd0.legal ? pla_t'(attr_q) : '0;
+always_comb a0 = pd0.legal ? pla_t'(attr0) : '0;
 // synthesis translate_off
 always_ff @(posedge clk)
 	if (nreset && a0 != ent_attr(pd0.ent, pd0.legal)) begin

@@ -10,6 +10,10 @@ package ap68040_pkg;
 // Register numbers (5 bits).  A7 never appears here: the decoder maps it
 // to USP, ISP or MSP from the S and M bits current at decode time.
 //--------------------------------------------------------------------------
+// the width of D1's decoder attributes (pla_t in gen/ap68040_dec_pla.svh),
+// which the fetch unit reads for the queue head (checked where pla_t is seen)
+localparam int ATTR_W = 90;
+
 localparam logic [4:0] R_D0  = 5'd0;
 localparam logic [4:0] R_A0  = 5'd8;
 localparam logic [4:0] R_USP = 5'd15;
