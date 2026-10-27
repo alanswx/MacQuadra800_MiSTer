@@ -738,14 +738,19 @@ end
 // fall-through when D1 predicts none of its own redirects, or a branch
 // target the fetch BTB took (the words after the branch's end came from
 // there) and D1 agrees.  The word is consumed by the first test alone (a
-// D1 redirect empties the queue anyway), off the record's.
+// D1 redirect empties the queue anyway), off the record's -- and off its
+// exception too: a record with one is taken at WB, which flushes the front
+// end and refetches, so a companion word consumed behind it (not issued:
+// c_ok has the test) costs nothing.  (The exception decode was the deepest
+// part of D1's consume, the fetch queue's loop at 60/66 MHz.)
 wire [2:0] c_at = pd0.tot[2:0];
 wire c_cons = DUAL && (ph == PH_IDLE) && pd0.legal && fast &&
-              (pd0.tot <= 4'd6) && (pd0.tot < qcnt) && (nrec.exc == 8'd0) &&
+              (pd0.tot <= 4'd6) && (pd0.tot < qcnt) &&
               win_s1[c_at] && !win_flt[c_at] && !win_bt[c_at] && (!bt_any || bt_end);
 s1_t c_s1;
 always_comb c_s1 = s1_dec(win[c_at]);
-wire c_ok = c_cons && (bt_end ? (nrec.pred && teq) : !nrec.pred) && (S1_LDTK || !bt_end || !c_s1.ld);
+wire c_ok = c_cons && (nrec.exc == 8'd0) && (bt_end ? (nrec.pred && teq) : !nrec.pred) &&
+            (S1_LDTK || !bt_end || !c_s1.ld);
 // the record as it enters the FIFO: refetched at WB if a flag was inside
 // the instruction (now, or in an earlier part)
 dinst_t nrec_q;
