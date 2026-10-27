@@ -37,8 +37,9 @@ part (full-width menu bar, icons placed at the right edge of 832- and
 1152-pixel screens, clean right edges) but repeat a third of the way down:
 the simulator's VRAM was still the old 308 KB block-RAM mapper with its
 204 KB fold, which the hardware left behind with the DDR3 framebuffer.
-`verilator/sim.v` now models the flat 1 MB; the reruns' frames will be
-added here.
+`verilator/sim.v` now models the flat 1 MB, and the reruns
+(`sim_16in_832x624.png`, `sim_21in_1152x870.png`) show complete, clean
+832x624 and 1152x870 desktops in the core's own unscaled frame.
 
 ## Hardware (mister192, disk QuadSquad8_dual.hda, 32 MB)
 
