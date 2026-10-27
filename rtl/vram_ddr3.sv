@@ -397,6 +397,25 @@ reg       cpu_rd_pend = 1'b0;
 wire dma_writing = (state == S_DMA_DATA) && vram_ddr_rvalid;
 wire [9:0] dma_wr_addr = {buf_prefetch_sys, dma_word64_idx};
 
+// Line prefetch pacing.  A line request is taken when no DMA burst is in
+// flight; one that arrives under a burst is held and taken once that burst
+// has landed, and the rest of the old line is dropped (it is late anyway).
+// Resetting the bookkeeping under a live burst, as the old code did, sent
+// the burst's remaining beats to index 0.. of the new buffer and shifted
+// the new line right by that many words: the sheared "Starting Up" lines
+// seen on the box on 2026-10-27.  A prefetch that has waited 128 clocks
+// for the DDR3 goes ahead of the CPU's traffic (dma_late): the CPU can
+// stall a little, a scanline cannot.
+reg         line_req_held = 1'b0;
+reg  [16:0] held_addr = 17'd0;
+reg   [7:0] dma_wait = 8'd0;
+wire        dma_inflight = (state == S_DMA_BURST) || (state == S_DMA_DATA);
+wire        dma_take     = (line_req_sys || line_req_held) && !dma_inflight;
+wire        dma_late     = dma_wait[7];
+function [7:0] dma_bursts_for(input [13:0] stride);
+	dma_bursts_for = {2'd0, stride[13:8]} + (stride[7:0] != 8'd0 ? 8'd1 : 8'd0);
+endfunction
+
 // Single multiplexed Write Port on clk_sys for M10K BRAM inference
 wire        line_wr_dma = dma_writing;
 wire        line_wr_cpu = cpu_vram_write && (snoop_disp_hit || snoop_pref_hit);
@@ -450,6 +469,8 @@ always @(posedge clk_sys) begin
 		rd_burst_beat   <= 2'd0;
 		drain_beats_rem <= 4'd0;
 		fill_wr_mask    <= 32'd0;
+		line_req_held   <= 1'b0;
+		dma_wait        <= 8'd0;
 	end
 	else begin
 		// Normal write handshake with quadra800 bus
@@ -472,14 +493,24 @@ always @(posedge clk_sys) begin
 			if (cur_rd_tag == rd_cache_tag_3) rd_cache_val_3[{cur_rd_beat, 3'b000} +: 8] <= rd_cache_val_3[{cur_rd_beat, 3'b000} +: 8] & ~cpu_w64_be;
 		end
 
-		// DMA trigger: start prefetch on line_req_sys (32-beat bursts)
-		if (line_req_sys) begin
-			dma_cur_addr      <= vid_line_addr[19:3];
-			dma_total_bursts  <= {2'd0, vid_stride_sys[13:8]} + (vid_stride_sys[7:0] != 8'd0 ? 8'd1 : 8'd0);
+		// DMA trigger: a line request starts the prefetch (32-beat bursts),
+		// or is held under a live burst (see line_req_held above)
+		if (line_req_sys && dma_inflight) begin
+			line_req_held <= 1'b1;
+			held_addr     <= vid_line_addr[19:3];
+		end
+		if (dma_take) begin
+			line_req_held     <= 1'b0;
+			dma_cur_addr      <= line_req_held ? held_addr : vid_line_addr[19:3];
+			dma_total_bursts  <= dma_bursts_for(vid_stride_sys);
 			dma_burst_idx     <= 8'd0;
 			dma_word64_idx    <= 9'd0;
 			dma_state         <= DMA_BURST_REQ;
 		end
+		if ((dma_state == DMA_BURST_REQ) && !dma_inflight && !dma_take) begin
+			if (!dma_wait[7]) dma_wait <= dma_wait + 1'b1;
+		end
+		else dma_wait <= 8'd0;
 
 		// CPU Read detection & Instant Cache Hit
 		if (mem_req && mem_is_vram && !mem_write && !vram_ack) begin
@@ -496,8 +527,16 @@ always @(posedge clk_sys) begin
 		// DDR3 bus state machine
 		case (state)
 		S_IDLE: begin
+			// 0. A line prefetch that has waited 128 clocks goes first
+			if (dma_late && (dma_state == DMA_BURST_REQ)) begin
+				vram_ddr_req      <= 1'b1;
+				vram_ddr_we       <= 1'b0;
+				vram_ddr_addr     <= DDR_VRAM_BASE + {12'd0, dma_cur_addr};
+				vram_ddr_burstcnt <= 8'd32;
+				state             <= S_DMA_BURST;
+			end
 			// 1. CPU Read (burst of 4 beats = 32 bytes into 4-way line cache)
-			if (cpu_rd_pend && !fifo_conflict) begin
+			else if (cpu_rd_pend && !fifo_conflict) begin
 				vram_ddr_req      <= 1'b1;
 				vram_ddr_we       <= 1'b0;
 				vram_ddr_addr     <= DDR_VRAM_BASE + {12'd0, cur_rd_tag, 2'b00};
@@ -602,12 +641,12 @@ always @(posedge clk_sys) begin
 				dma_beats_left <= dma_beats_left - 1'b1;
 				if (dma_beats_left == 6'd1) begin
 					dma_burst_idx <= dma_burst_idx + 1'b1;
-					if (dma_burst_idx + 1'b1 >= dma_total_bursts) begin
+					// done, or the next line is already due: the held request
+					// is taken next clock and the rest of this line dropped
+					if (line_req_held || line_req_sys || (dma_burst_idx + 1'b1 >= dma_total_bursts))
 						dma_state <= DMA_IDLE;
-					end
-					else begin
+					else
 						dma_state <= DMA_BURST_REQ;
-					end
 					state <= S_IDLE;
 				end
 			end

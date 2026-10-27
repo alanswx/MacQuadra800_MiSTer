@@ -676,6 +676,53 @@ initial begin
 	mem_is_vram <= 0;
 	$display("  -> the word written inside the fill window reads back as written");
 
+	// 17. A line request that arrives while a burst of the previous line is
+	// still landing (the DDR3 was slow) must not restart the bookkeeping
+	// under that burst: the new line has to land at word 0 of its buffer,
+	// not shifted right by the burst's leftover beats.
+	$display("Test 17: a line request under a live DMA burst waits for the burst");
+	repeat (40) @(posedge clk_sys);
+	for (i = 0; i < 128; i = i + 1) begin
+		ddr_mem[16'h4000 + i] = {32'hC000_0000 + i*2 + 1, 32'hC000_0000 + i*2};   // line A
+		ddr_mem[16'h4080 + i] = {32'hD000_0000 + i*2 + 1, 32'hD000_0000 + i*2};   // line B
+	end
+	@(posedge clk_vid);
+	vid_line_addr <= 21'h020000;                                    // line A (word64 0x4000)
+	vid_line_req  <= 1;
+	@(posedge clk_vid);
+	vid_line_req  <= 0;
+	repeat (16) @(posedge clk_sys);                                 // A's first burst is landing
+	if (dut.state != 3'd4) $fatal(1, "Test 17: expected a DMA burst in flight (state=%0d)", dut.state);
+	@(posedge clk_vid);
+	vid_line_swap <= 1; vid_col_word <= 10'd0;                      // the scanout moves on ...
+	@(posedge clk_vid);
+	vid_line_swap <= 0;
+	@(posedge clk_vid);
+	vid_line_addr <= 21'h020400;                                    // ... and asks for line B (word64 0x4080)
+	vid_line_req  <= 1;
+	@(posedge clk_vid);
+	vid_line_req  <= 0;
+	repeat (400) @(posedge clk_sys);                                // both settle
+	if (dut.dma_state != 1'b0) $fatal(1, "Test 17: DMA still busy");
+	@(posedge clk_vid);
+	vid_line_swap <= 1; vid_col_word <= 10'd0;                      // show the buffer B landed in
+	@(posedge clk_vid);
+	vid_line_swap <= 0;
+	@(posedge clk_vid);
+	#0.01;
+	if (vid_rdata !== 32'hD000_0000) $fatal(1, "Test 17: line B word 0 = %08x (shifted or stale)", vid_rdata);
+	@(posedge clk_vid);
+	vid_col_word <= 10'd1;
+	@(posedge clk_vid);
+	#0.01;
+	if (vid_rdata !== 32'hD000_0001) $fatal(1, "Test 17: line B word 1 = %08x", vid_rdata);
+	@(posedge clk_vid);
+	vid_col_word <= 10'd127;
+	@(posedge clk_vid);
+	#0.01;
+	if (vid_rdata !== 32'hD000_007F) $fatal(1, "Test 17: line B word 127 = %08x", vid_rdata);
+	$display("  -> line B landed at word 0 of its buffer after the live burst finished");
+
 	$display("ALL TESTS PASSED! vram_ddr3 verified successfully!");
 	$finish;
 end
