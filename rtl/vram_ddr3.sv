@@ -361,11 +361,21 @@ always @(*) begin
 			line_conflict = 1'b1;
 end
 wire fifo_conflict = line_conflict;
-// bytes of a fill beat that may be marked valid: all of them, unless written
-// this very clock (the CPU's stall on the read rules that out; belt and braces)
+// bytes of a fill beat that may be marked valid: all of them, except those
+// written since the fill was issued.  The beat that satisfies the CPU's read
+// releases it, and the DDR3 bridge may split a burst (the HDMI scaler shares
+// the DDR3), so the later beats can land tens of clocks after the CPU has
+// gone on to store into the same line; their data predates those stores.
+// fill_wr_mask collects the bytes written while the fill is in flight,
+// wr_now_be covers a write landing on the very clock of its beat.
+reg  [31:0] fill_wr_mask = 32'd0;
+wire        fill_active  = (state == S_CPU_READ) || (state == S_CPU_DATA);
+wire [14:0] fill_tag     = (rd_victim == 2'd0) ? rd_cache_tag_0 :
+                           (rd_victim == 2'd1) ? rd_cache_tag_1 :
+                           (rd_victim == 2'd2) ? rd_cache_tag_2 : rd_cache_tag_3;
 wire [7:0] wr_now_be  = cpu_vram_write ? cpu_w64_be : 8'h00;
-wire [7:0] fill_val_0 = ~((cur_rd_beat == 2'd0) ? wr_now_be : 8'h00);
-wire [7:0] fill_val_b = ~((cur_rd_beat == rd_burst_beat) ? wr_now_be : 8'h00);
+wire [7:0] fill_val_0 = ~((cur_rd_beat == 2'd0) ? wr_now_be : 8'h00) & ~fill_wr_mask[7:0];
+wire [7:0] fill_val_b = ~((cur_rd_beat == rd_burst_beat) ? wr_now_be : 8'h00) & ~fill_wr_mask[{rd_burst_beat, 3'b000} +: 8];
 
 wire [63:0] hit_data = hit_way_0 ? rd_cache_line_0[cur_rd_beat] :
                        hit_way_1 ? rd_cache_line_1[cur_rd_beat] :
@@ -439,6 +449,7 @@ always @(posedge clk_sys) begin
 		rd_victim       <= 2'd0;
 		rd_burst_beat   <= 2'd0;
 		drain_beats_rem <= 4'd0;
+		fill_wr_mask    <= 32'd0;
 	end
 	else begin
 		// Normal write handshake with quadra800 bus
@@ -450,8 +461,11 @@ always @(posedge clk_sys) begin
 			vram_wr_ph <= 1'b0;
 		end
 
-		// A CPU write invalidates just the bytes it wrote in a held line
+		// A CPU write invalidates just the bytes it wrote in a held line, and
+		// keeps them out of the fill in flight (see fill_wr_mask)
 		if (cpu_vram_write) begin
+			if (fill_active && (cur_rd_tag == fill_tag))
+				fill_wr_mask[{cur_rd_beat, 3'b000} +: 8] <= fill_wr_mask[{cur_rd_beat, 3'b000} +: 8] | cpu_w64_be;
 			if (cur_rd_tag == rd_cache_tag_0) rd_cache_val_0[{cur_rd_beat, 3'b000} +: 8] <= rd_cache_val_0[{cur_rd_beat, 3'b000} +: 8] & ~cpu_w64_be;
 			if (cur_rd_tag == rd_cache_tag_1) rd_cache_val_1[{cur_rd_beat, 3'b000} +: 8] <= rd_cache_val_1[{cur_rd_beat, 3'b000} +: 8] & ~cpu_w64_be;
 			if (cur_rd_tag == rd_cache_tag_2) rd_cache_val_2[{cur_rd_beat, 3'b000} +: 8] <= rd_cache_val_2[{cur_rd_beat, 3'b000} +: 8] & ~cpu_w64_be;
@@ -494,6 +508,7 @@ always @(posedge clk_sys) begin
 				2'd2: begin rd_cache_tag_2 <= cur_rd_tag; rd_cache_val_2 <= 32'd0; end
 				2'd3: begin rd_cache_tag_3 <= cur_rd_tag; rd_cache_val_3 <= 32'd0; end
 				endcase
+				fill_wr_mask      <= 32'd0;
 				rd_burst_beat     <= 2'd0;
 				state             <= S_CPU_READ;
 			end

@@ -100,6 +100,8 @@ reg [2:0] read_latency = 0;
 reg [7:0] wr_burst_rem = 0;
 reg [28:0] wr_addr = 0;
 reg       rd_cmd_ack = 0;
+reg [2:0] read_gap = 0;                 // Test 16: cycles between beat 0 and beat 1 of a read burst
+reg [7:0] vram_ddr_burstcnt_q = 0;      // the accepted read's burst length
 // DDR3 traffic counters: CPU line fills (4-beat reads) and write bursts
 integer cpu_rd_bursts = 0, wr_bursts = 0, rd_bursts_before = 0, wr_bursts_before = 0;
 
@@ -117,6 +119,9 @@ always @(posedge clk_sys) begin
 		vram_ddr_rvalid <= 1;
 		resp_addr <= resp_addr + 1'b1;
 		burst_rem <= burst_rem - 1'b1;
+		// the HPS bridge may split a burst: after the first beat, hold the
+		// rest back for read_gap cycles (Test 16)
+		if (read_gap != 0 && burst_rem == vram_ddr_burstcnt_q) read_latency <= read_gap;
 	end
 
 	if (vram_ddr_req && vram_ddr_we && !vram_ddr_busy) begin
@@ -146,6 +151,7 @@ always @(posedge clk_sys) begin
 		if (vram_ddr_burstcnt == 8'd4) cpu_rd_bursts <= cpu_rd_bursts + 1;
 		resp_addr <= vram_ddr_addr;
 		burst_rem <= vram_ddr_burstcnt;
+		vram_ddr_burstcnt_q <= vram_ddr_burstcnt;
 		read_latency <= 3'd4;
 		rd_cmd_ack <= 1;
 	end
@@ -632,6 +638,43 @@ initial begin
 	mem_req <= 0; @(posedge clk_sys);
 	mem_is_vram <= 0;
 	$display("  -> queued bytes stayed invalid; the written word and its neighbours read back correctly");
+
+	// 16. A write that lands while a fill is in flight, to a beat the fill
+	// has not delivered yet, must not be covered by that beat: the DDR3 data
+	// predates the write.  The HPS bridge can split a burst (the scaler
+	// shares the DDR3), so beats 1..3 arrive a gap after beat 0 and the CPU,
+	// released by beat 0, stores into beat 2 inside the gap.
+	$display("Test 16: a write inside a split fill burst stays invalid in the filled line");
+	repeat (40) @(posedge clk_sys);
+	for (i = 0; i < 4; i = i + 1)
+		ddr_mem[16'h7000 + i] = {32'h9000_0000 + i*2 + 1, 32'h9000_0000 + i*2};
+	read_gap = 3'd6;
+	mem_is_vram <= 1;
+	@(posedge clk_sys);
+	mem_req <= 1; mem_write <= 0; mem_addr <= 30'h3E40_E000;      // beat 0 lo: cold miss, fill issued
+	wait (vram_ack);
+	if (vram_rdata !== 32'h9000_0000) $fatal(1, "Test 16: beat 0 read got %08x", vram_rdata);
+	@(posedge clk_sys); mem_req <= 0;
+	// beats 1..3 are still held back: store into beat 2 lo now
+	mem_vram_wp <= 1; mem_addr <= 30'h3E40_E004; mem_be <= 4'b1111; mem_wdata <= 32'h8888_0000;
+	@(posedge clk_sys);
+	mem_vram_wp <= 0;
+	if (dut.state == 3'd0) $fatal(1, "Test 16: the fill had already finished; the gap did not open the window");
+	repeat (20) @(posedge clk_sys);                                 // fill completes, FIFO drains
+	read_gap = 3'd0;
+	@(posedge clk_sys);
+	mem_req <= 1; mem_addr <= 30'h3E40_E004;                        // beat 2 lo: must be the written value
+	wait (vram_ack);
+	if (vram_rdata !== 32'h8888_0000) $fatal(1, "Test 16: read of the word written during the fill returned %08x (stale)", vram_rdata);
+	@(posedge clk_sys); mem_req <= 0;
+	@(posedge clk_sys);
+	mem_req <= 1; mem_addr <= 30'h3E40_E005;                        // beat 2 hi: untouched, hits
+	@(posedge clk_sys);
+	if (!vram_ack) $fatal(1, "Test 16: beat 2 hi should hit the filled line");
+	if (vram_rdata !== 32'h9000_0005) $fatal(1, "Test 16: beat 2 hi got %08x", vram_rdata);
+	mem_req <= 0; @(posedge clk_sys);
+	mem_is_vram <= 0;
+	$display("  -> the word written inside the fill window reads back as written");
 
 	$display("ALL TESTS PASSED! vram_ddr3 verified successfully!");
 	$finish;
