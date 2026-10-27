@@ -16,6 +16,8 @@ Tokens:
     down / up press / release the left button
     click     down, 0.15 s, up
     dclick    two clicks 0.12 s apart
+    creep:DY,PERIOD,STOPFILE   move DY counts every PERIOD s until
+              STOPFILE exists (stop a held menu drag on the right row)
     0.5       any bare float: sleep that long
 """
 import fcntl, struct, sys, time
@@ -94,6 +96,17 @@ def main():
                 button(f, 1); held = True
             elif t == 'up':
                 button(f, 0); held = False
+            elif t.startswith('creep:'):
+                # creep:DY,PERIOD,STOPFILE -- move DY counts every PERIOD s
+                # until STOPFILE exists (a watcher on another host decides
+                # when the pointer is on the right menu row), at most 200 steps
+                dy, period, stopf = t[6:].split(',', 2)
+                import os
+                for _ in range(200):
+                    if os.path.exists(stopf):
+                        break
+                    move(f, 0, int(dy), step, pace)
+                    time.sleep(float(period))
             elif t == 'click':
                 button(f, 1); time.sleep(0.15); button(f, 0)
             elif t == 'dclick':
