@@ -102,3 +102,20 @@ Measured live in Speedometer 4.02 on Mac OS 8.1 against real Quadra 800 hardware
 3. **Phase 3: Frequency Scaling to 60 MHz (`fast60`):**
    - Proven clock scheme from `pipelined-040-fast60` (60 MHz CPU, 30 MHz bus, 90 MHz SDRAM).
    - Projected PR: CPU ~3.3, Graphics ~1.5 (beats real HW), Math ~25 (beats real HW), Overall ~2.4.
+
+---
+
+## 5. Evening update, 2026-10-26: graphics profile and two fixes (separate session)
+
+Full record in [`docs/perf/graphics_profile_20261026/README.md`](perf/graphics_profile_20261026/README.md).
+In short: a Speedometer run profiled on the full-machine sim put QuickDraw's
+ROM working set at 49 KB (a 128 KB ROM cache misses under 1 %, so 256 KB is
+not worth the M10K); unaligned spanning VRAM stores do not occur; the time
+goes to instruction supply (~31 % of cycles), RAM data misses (13 %) and the
+core's own pipeline (~20 %).  Two fixes landed: the VRAM read line cache now
+hits on read-modify-write (`vram_ddr3.sv`, 4e1e21f) and the DMU releases its
+engine at bus grant for posted VRAM stores (`ap68040_dmu/biu.sv`, b27f8fa).
+Hardware, same session as the a8ba3fa build: Graphics PR 0.891 -> 0.922,
+Color 8-bit 12.78 -> 12.29 s, stable, visually clean.  Note the a8ba3fa
+build measured 0.883..0.891 today, not the 0.901 above.  Next lever under
+test: 16 KB caches (CSB 8).
