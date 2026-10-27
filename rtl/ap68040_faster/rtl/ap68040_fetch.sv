@@ -535,7 +535,9 @@ always_comb begin
 	// the outcome: it stays off the front of the compare (the ATC's
 	// address matters only with a hit, x_cach is clear without one)
 	use_t  = !(tt0 || tt1) && f1_tce;
-	tg     = {f1_e.pa[19:1], tc_p ? f1_pc[12] : f1_e.pa[0], f1_pc[11:CSH+1]};
+	// (LA[11:CSH+1] is zero bits wide at CSB 8: a shift keeps the select legal)
+	tg     = (CTW'({f1_e.pa[19:1], tc_p ? f1_pc[12] : f1_e.pa[0]}) << (11 - CSH)) |
+	         CTW'(f1_pc[11:0] >> (CSH + 1));
 	x_hit  = 1'b0;
 	x_way  = 2'd0;
 	for (int i = 3; i >= 0; i--) begin

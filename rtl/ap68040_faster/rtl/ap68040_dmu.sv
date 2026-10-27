@@ -640,7 +640,11 @@ always_comb begin
 		logic ma;
 		ma = 1'b0;
 		for (int i = 0; i < 4; i++)
-			if (atc_hvd[i] && tq[j] == {atc_wpad[i][19:1], tc_p ? m1.a[12] : atc_wpad[i][0], m1.a[11:CSH+1]})
+			// (the page-offset bits above the set index, LA[11:CSH+1], are
+			// zero bits wide at CSB 8: written as a shift so the select
+			// never reverses -- Quartus rejects [11:12], Verilator did not)
+			if (atc_hvd[i] && tq[j] == ((CTW'({atc_wpad[i][19:1], tc_p ? m1.a[12] : atc_wpad[i][0]}) << (11 - CSH)) |
+			                            CTW'(m1.a[11:0] >> (CSH + 1))))
 				ma = 1'b1;
 		mj[j] = lvd_q[j] && (transp ? (tq[j] == m1.a[31:CSH+1]) : ma);
 	end
@@ -650,7 +654,8 @@ always_comb begin
 		// selects, so the TTR compare and the translation's address select
 		// stay off the tag compare
 		logic [CTW-1:0] tpa;
-		tpa = {atc_e.pa[19:1], tc_p ? m1.a[12] : atc_e.pa[0], m1.a[11:CSH+1]};
+		tpa = (CTW'({atc_e.pa[19:1], tc_p ? m1.a[12] : atc_e.pa[0]}) << (11 - CSH)) |
+		      CTW'(m1.a[11:0] >> (CSH + 1));
 		for (int j = 0; j < 4; j++)
 			mj[j] = lvd_q[j] && (transp ? (tq[j] == m1.a[31:CSH+1]) : (atc_hit && tq[j] == tpa));
 	end
