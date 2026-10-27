@@ -363,6 +363,7 @@ logic        sn_pvm, sn_bom;       // ... and (whatever sn_src says) the push bu
 logic  [1:0] sn_way;
 logic        bo_cancel;            // the queued push was invalidated by a snoop
 logic        bo_ingnt;             // the engine's transfer is the BIU's (granted)
+logic        post_pend;            // a posted VRAM store released at grant is still on the bus
 logic  [3:0] bo_got;               // a line read: the long words that arrived
 
 // The lookup set: AG's address (late: register read, address adders)
@@ -1113,7 +1114,7 @@ always_ff @(posedge clk) begin
 		e_job <= 1'b0;
 		m1_stale <= 1'b0;
 		sn_ph <= SN_IDLE; sn_src <= '0; sn_way <= '0; bo_cancel <= 1'b0;
-		bo_ingnt <= 1'b0; sn_pvm <= 1'b0; sn_bom <= 1'b0;
+		bo_ingnt <= 1'b0; sn_pvm <= 1'b0; sn_bom <= 1'b0; post_pend <= 1'b0;
 		sn_look <= 1'b0; sn_hit <= 1'b0; sn_dirty <= 1'b0;
 		clr_i   <= '0;
 		clr_rst <= 1'b0;
@@ -2045,11 +2046,25 @@ always_ff @(posedge clk) begin
 			else if (b_gnt) begin
 				e_breq <= 1'b0;
 				bo_pn  <= bo_np;
-				bo_ingnt <= 1'b1;
+				if (e_ret == E_VRAM_DONE) begin
+					// A posted VRAM store (wb_vram_post): WB retired it when
+					// the job started and the BIU latched its data at grant,
+					// so the engine is free now instead of after TA.  The BIU
+					// runs transfers in order, so a later device access, push
+					// or walk still cannot pass it on the bus.  Its done/err
+					// arrives while nothing is granted (post_pend) and is
+					// ignored below.  Measured 2026-10-26: the engine spent
+					// 6 clocks a store (1 E_BUS, 4 E_BUS_W, 1 E_VRAM_DONE)
+					// with the platform acknowledging the next clock.
+					post_pend <= 1'b1;
+					e_st      <= E_IDLE;
+				end
+				else
+					bo_ingnt <= 1'b1;
 			end
 			// (granted, then retried with the bus given up: the BIU drops
 			// it on bi_drop and reports it done)
-			if (b_err || b_done) begin
+			if ((b_err || b_done) && bo_ingnt) begin
 				bo_ingnt  <= 1'b0;
 				bo_cancel <= 1'b0;
 			end
@@ -2064,7 +2079,7 @@ always_ff @(posedge clk) begin
 					bo_avec <= b_ravec;
 				end
 			end
-			if (b_err) begin
+			if (b_err && bo_ingnt) begin
 				// a push that ends in TEA: recorded for the access error the
 				// job it served takes (7.6.1); the line is gone.  A walk's
 				// (a descriptor line pushed before its update) fails the
@@ -2076,7 +2091,7 @@ always_ff @(posedge clk) begin
 				else bo_err <= 1'b1;
 				e_st   <= e_ret;
 			end
-			else if (b_done) begin
+			else if (b_done && bo_ingnt) begin
 				if (bo.line || bo.ack != 2'd0) e_st <= e_ret;
 				else begin
 					if (!bo.rd) bo_wd <= bo_wd << (8 * bo_pn);
@@ -2338,11 +2353,8 @@ always_ff @(posedge clk) begin
 			e_st  <= e_ret;
 		end
 		E_VRAM_DONE: begin
-			// WB already accepted the store. The engine was the only
-			// outstanding writer; it can now serve the next memory job.
-			// synthesis translate_off
-			if (bo_err) $fatal(1, "non-faulting VRAM post received a bus error");
-			// synthesis translate_on
+			// (only reached if a post was cancelled before grant; the normal
+			// path leaves E_BUS_W for E_IDLE at the grant)
 			e_st <= E_IDLE;
 		end
 		E_I_DONE: begin
@@ -2352,6 +2364,14 @@ always_ff @(posedge clk) begin
 
 		default: e_st <= E_IDLE;
 		endcase
+
+		// the released posted store's completion: nothing is granted then
+		if ((b_done || b_err) && !bo_ingnt && post_pend) begin
+			post_pend <= 1'b0;
+			// synthesis translate_off
+			if (b_err) $fatal(1, "non-faulting VRAM post received a bus error");
+			// synthesis translate_on
+		end
 
 		if ((e_st == E_SP_W || e_st == E_SP_2) && dw && dw_set == st_set) sp_dw <= 1'b1;
 

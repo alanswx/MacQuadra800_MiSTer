@@ -34,8 +34,9 @@
 //                                                                          //
 // Requester interface (per client c):                                      //
 //   req[c]      level; breq[c] must be stable while req[c] is high and    //
-//               gnt[c] has not pulsed; wdata[c] from the request until    //
-//               done[c] or err[c] (the BIU drives the bus from it)         //
+//               gnt[c] has not pulsed; a line's wdata[c] from the request  //
+//               until done[c] or err[c] (the BIU drives the bus from it);  //
+//               a single transfer's wdata[c] is latched at gnt[c]          //
 //   gnt[c]      pulse: the transaction is latched, req may drop or change  //
 //   rvalid      pulse per read beat for the client in rclient; rdata,      //
 //               rbeat (A3:A2 of the long word), avec (AVEC with TA)        //
@@ -131,7 +132,9 @@ typedef enum logic [2:0] {
 state_t      st;
 busreq_t     cur;
 logic [CW-1:0] cur_c;
-wire  [127:0] cur_wd = wdata[cur_c];   // stable until done/err (contract)
+wire  [127:0] cur_wd = wdata[cur_c];   // a line's data: stable until done/err (contract)
+logic  [31:0] cur_wd_l;                // a single transfer's data, latched at grant: the
+                                       // client may release it then (a posted VRAM store)
 logic  [1:0] beat;        // beats completed so far in a line
 logic        inhibited;   // line continued as long-word transfers
 logic        owner;       // we hold BB
@@ -234,6 +237,7 @@ always_ff @(posedge clk) begin
 		rsto_cnt  <= '0;
 		rsto_pend <= 1'b0;
 		unlock_pend <= 1'b0;
+		cur_wd_l  <= '0;
 	end
 	else begin
 		if (rsto_req) rsto_pend <= 1'b1;
@@ -353,7 +357,7 @@ always_ff @(posedge clk) begin
 					end
 					else begin
 						a_o   <= cur.addr;
-						d_o   <= (cur.siz == SIZ_LINE) ? line_word(cur_wd, cur.addr[3:2]) : cur_wd[31:0];
+						d_o   <= (cur.siz == SIZ_LINE) ? line_word(cur_wd, cur.addr[3:2]) : cur_wd_l;
 						ts_n  <= 1'b0;
 						st    <= S_C1;
 					end
@@ -398,6 +402,7 @@ always_ff @(posedge clk) begin
 				logic [127:0] w;
 				r = (st == S_RETRY) ? cur : breq[pick_c];
 				w = (st == S_RETRY) ? cur_wd : wdata[pick_c];
+				if (st != S_RETRY) cur_wd_l <= w[31:0];
 				owner     <= 1'b1;
 				bb_n_o    <= 1'b0;
 				bb_oe     <= 1'b1;
@@ -416,7 +421,8 @@ always_ff @(posedge clk) begin
 				ciout_n   <= !r.ci || (r.tt == TT_ACK);
 				lock_n    <= !(r.lock || lk_now);
 				locke_n   <= !(r.lock && r.locke);
-				d_o       <= (r.siz == SIZ_LINE) ? line_word(w, r.addr[3:2]) : w[31:0];
+				d_o       <= (r.siz == SIZ_LINE) ? line_word(w, r.addr[3:2]) :
+				             (st == S_RETRY) ? cur_wd_l : w[31:0];
 				d_oe      <= !r.rd;
 				ts_n      <= 1'b0;
 				tip_n     <= 1'b0;
