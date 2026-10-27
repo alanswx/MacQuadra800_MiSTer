@@ -562,6 +562,9 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # mister192 same-session A/B: Graphics PR 0.924->0.951, Color8bit 12.27->11.77s, Mix 1.883->1.911; cleanhaltPASS.
 # 2026-10-27 + 16in/21in monitors (static video tap 70.49 MHz) + vram_ddr3 fixes 3f50922/5bc9551:
 # seed41 37490ALMs/332M10K HDMI+.170 CPU+.788/+1.231 clk_vid+3.406 ALL MET; mister192 4-monitor boots clean.
+# 2026-10-27 + 0766b3f (EX stall flags registered): seed41 37659ALMs/332M10K HDMI+.094 CPU+.749/+1.049
+# clk_vid+3.292 ALL MET; 8.1 / A/UX 32MB / CD audio gate PASS. Released as releases/MacQuadra800_20261027.rbf
+# (md5 d6abd49e). docs/perf/release33_20261027/.  SEED 41 kept.
 set_global_assignment -name SEED 41
 # 2026-09-24: NEVER grew the full BRF fit by398 ALMs; retain the better ALWAYS setting.
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
