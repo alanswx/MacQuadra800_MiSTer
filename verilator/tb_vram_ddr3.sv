@@ -100,6 +100,8 @@ reg [2:0] read_latency = 0;
 reg [7:0] wr_burst_rem = 0;
 reg [28:0] wr_addr = 0;
 reg       rd_cmd_ack = 0;
+// DDR3 traffic counters: CPU line fills (4-beat reads) and write bursts
+integer cpu_rd_bursts = 0, wr_bursts = 0, rd_bursts_before = 0, wr_bursts_before = 0;
 
 assign vram_ddr_ack = (vram_ddr_req && vram_ddr_we && !vram_ddr_busy) || rd_cmd_ack;
 
@@ -119,6 +121,7 @@ always @(posedge clk_sys) begin
 
 	if (vram_ddr_req && vram_ddr_we && !vram_ddr_busy) begin
 		// Active write beat captured
+		if (wr_burst_rem == 0) wr_bursts <= wr_bursts + 1;
 		$display("  [TB_DDR_WR] addr=%04x be=%02x din=%08x_%08x", (wr_burst_rem > 0 ? wr_addr[15:0] : vram_ddr_addr[15:0]), vram_ddr_be, vram_ddr_din[63:32], vram_ddr_din[31:0]);
 		if (vram_ddr_be[0]) ddr_mem[(wr_burst_rem > 0 ? wr_addr[15:0] : vram_ddr_addr[15:0])][7:0]   <= vram_ddr_din[7:0];
 		if (vram_ddr_be[1]) ddr_mem[(wr_burst_rem > 0 ? wr_addr[15:0] : vram_ddr_addr[15:0])][15:8]  <= vram_ddr_din[15:8];
@@ -140,6 +143,7 @@ always @(posedge clk_sys) begin
 	end
 	else if (vram_ddr_req && !vram_ddr_we && !rd_cmd_ack) begin
 		// Read command accepted
+		if (vram_ddr_burstcnt == 8'd4) cpu_rd_bursts <= cpu_rd_bursts + 1;
 		resp_addr <= vram_ddr_addr;
 		burst_rem <= vram_ddr_burstcnt;
 		read_latency <= 3'd4;
@@ -563,6 +567,71 @@ initial begin
 	$display("  -> Instant 1-cycle hit on Line 1: 0x%08x", vram_rdata);
 	mem_req <= 0; @(posedge clk_sys);
 	mem_is_vram <= 0;
+
+	// 14. QuickDraw's read-modify-write along one 32-byte line: after the first
+	// fill every read must hit, even though each write leaves its word in the
+	// FIFO (used to miss on every second read and drain + re-fetch the line)
+	$display("Test 14: sequential 32-bit read-modify-write hits the line cache");
+	repeat (40) @(posedge clk_sys);
+	for (i = 0; i < 4; i = i + 1)
+		ddr_mem[16'h6000 + i] = {32'h4000_0000 + i*2 + 1, 32'h4000_0000 + i*2};
+	rd_bursts_before = cpu_rd_bursts; wr_bursts_before = wr_bursts;
+	mem_is_vram <= 1;
+	for (i = 0; i < 8; i = i + 1) begin
+		@(posedge clk_sys);
+		mem_req <= 1; mem_write <= 0; mem_addr <= 30'h3E40_C000 + i[29:0]; mem_be <= 4'b1111;
+		wait (vram_ack);
+		if (vram_rdata !== 32'h4000_0000 + i) $fatal(1, "Test 14: read %0d got %08x", i, vram_rdata);
+		@(posedge clk_sys);
+		mem_req <= 0;
+		@(posedge clk_sys);
+		mem_vram_wp <= 1; mem_addr <= 30'h3E40_C000 + i[29:0]; mem_be <= 4'b1111; mem_wdata <= 32'h5000_0000 + i;
+		@(posedge clk_sys);
+		mem_vram_wp <= 0;
+	end
+	$display("  -> 8 RMW longs took %0d DDR3 line fill(s) (expected 1) and %0d write burst(s)",
+	         cpu_rd_bursts - rd_bursts_before, wr_bursts - wr_bursts_before);
+	if (cpu_rd_bursts - rd_bursts_before !== 1) $fatal(1, "Test 14: the RMW stream re-fetched the line");
+	repeat (60) @(posedge clk_sys);
+	for (i = 0; i < 4; i = i + 1)
+		if (ddr_mem[16'h6000 + i] !== {32'h5000_0000 + i*2 + 1, 32'h5000_0000 + i*2})
+			$fatal(1, "Test 14: DDR3 word %0d = %08x_%08x after drain", i, ddr_mem[16'h6000 + i][63:32], ddr_mem[16'h6000 + i][31:0]);
+	for (i = 0; i < 8; i = i + 1) begin
+		@(posedge clk_sys);
+		mem_req <= 1; mem_write <= 0; mem_addr <= 30'h3E40_C000 + i[29:0];
+		wait (vram_ack);
+		if (vram_rdata !== 32'h5000_0000 + i) $fatal(1, "Test 14: re-read %0d got %08x (stale)", i, vram_rdata);
+		@(posedge clk_sys); mem_req <= 0;
+	end
+	$display("  -> DDR3 holds the written values and a re-read returns them");
+
+	// 15. A fill must never mark a byte valid while the FIFO still holds a
+	// write for it: write W.lo, fill the line through a neighbour, read W.lo
+	$display("Test 15: a fill leaves bytes with a queued write invalid");
+	repeat (40) @(posedge clk_sys);
+	for (i = 0; i < 4; i = i + 1)
+		ddr_mem[16'h6800 + i] = {32'h6000_0000 + i*2 + 1, 32'h6000_0000 + i*2};
+	@(posedge clk_sys);
+	mem_vram_wp <= 1; mem_addr <= 30'h3E40_D000; mem_be <= 4'b1111; mem_wdata <= 32'h7777_0000;
+	@(posedge clk_sys);
+	mem_vram_wp <= 0;
+	mem_req <= 1; mem_write <= 0; mem_addr <= 30'h3E40_D002;      // (W+1).lo: cold miss, fills the line
+	wait (vram_ack);
+	if (vram_rdata !== 32'h6000_0002) $fatal(1, "Test 15: neighbour read got %08x", vram_rdata);
+	@(posedge clk_sys); mem_req <= 0;
+	@(posedge clk_sys);
+	mem_req <= 1; mem_addr <= 30'h3E40_D000;                        // W.lo: must be the written value
+	wait (vram_ack);
+	if (vram_rdata !== 32'h7777_0000) $fatal(1, "Test 15: read of the queued word returned %08x (stale)", vram_rdata);
+	@(posedge clk_sys); mem_req <= 0;
+	@(posedge clk_sys);
+	mem_req <= 1; mem_addr <= 30'h3E40_D001;                        // W.hi: untouched, hits
+	@(posedge clk_sys);
+	if (!vram_ack) $fatal(1, "Test 15: W.hi should hit the filled line");
+	if (vram_rdata !== 32'h6000_0001) $fatal(1, "Test 15: W.hi got %08x", vram_rdata);
+	mem_req <= 0; @(posedge clk_sys);
+	mem_is_vram <= 0;
+	$display("  -> queued bytes stayed invalid; the written word and its neighbours read back correctly");
 
 	$display("ALL TESTS PASSED! vram_ddr3 verified successfully!");
 	$finish;

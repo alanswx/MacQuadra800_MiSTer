@@ -241,28 +241,8 @@ wire [3:0] burst_beats = contig_7 ? 4'd8 :
 
 reg [3:0] drain_beats_rem = 4'd0;
 
-// Conflict detection between CPU read address and pending writes in FIFO
-reg fifo_conflict;
-integer f_i;
-always @(*) begin
-	fifo_conflict = 1'b0;
-	for (f_i = 0; f_i < FIFO_DEPTH; f_i = f_i + 1) begin
-		if (fifo_count > 0) begin
-			if (fifo_wptr > fifo_rptr) begin
-				if ((f_i >= fifo_rptr) && (f_i < fifo_wptr) && (fifo_addr[f_i] == cpu_w64_addr))
-					fifo_conflict = 1'b1;
-			end
-			else if (fifo_wptr < fifo_rptr) begin
-				if (((f_i >= fifo_rptr) || (f_i < fifo_wptr)) && (fifo_addr[f_i] == cpu_w64_addr))
-					fifo_conflict = 1'b1;
-			end
-			else begin // fifo_wptr == fifo_rptr && fifo_count > 0 (FIFO is full)
-				if (fifo_addr[f_i] == cpu_w64_addr)
-					fifo_conflict = 1'b1;
-			end
-		end
-	end
-end
+// (the read-after-write conflict check lives with the read line cache below:
+//  line_pending / fifo_conflict)
 
 // Write FIFO push, coalesce, and pop logic
 always @(posedge clk_sys) begin
@@ -336,20 +316,56 @@ reg [63:0] rd_cache_line_0 [0:3];
 reg [63:0] rd_cache_line_1 [0:3];
 reg [63:0] rd_cache_line_2 [0:3];
 reg [63:0] rd_cache_line_3 [0:3];
-reg  [3:0] rd_cache_val_0 = 4'b0, rd_cache_val_1 = 4'b0;
-reg  [3:0] rd_cache_val_2 = 4'b0, rd_cache_val_3 = 4'b0;
+// Valid bits are per BYTE (4 beats x 8 = 32 per way).  A CPU write clears
+// only the bytes it wrote, so the other 32-bit half of the beat and the rest
+// of the line stay servable.  QuickDraw's read-modify-write walks a row as
+// read lo / write lo / read hi / write hi ...: with per-beat valid bits and a
+// FIFO-conflict gate on hits, every second read of that stream missed, drained
+// the write FIFO and re-fetched the whole line (profile of 2026-10-26).
+reg [31:0] rd_cache_val_0 = 32'd0, rd_cache_val_1 = 32'd0;
+reg [31:0] rd_cache_val_2 = 32'd0, rd_cache_val_3 = 32'd0;
 reg  [1:0] rd_victim = 2'd0;
 reg  [1:0] rd_burst_beat;
 
 wire [14:0] cur_rd_tag  = cpu_w64_addr[16:2];
 wire  [1:0] cur_rd_beat = cpu_w64_addr[1:0];
+// the 32-bit half the CPU is reading: bytes {beat, addr[2]}*4 .. +3 of the line
+wire  [4:0] cur_rd_half = {cur_rd_beat, mem_addr[2], 2'b00};
 
-wire hit_way_0 = rd_cache_val_0[cur_rd_beat] && (rd_cache_tag_0 == cur_rd_tag);
-wire hit_way_1 = rd_cache_val_1[cur_rd_beat] && (rd_cache_tag_1 == cur_rd_tag);
-wire hit_way_2 = rd_cache_val_2[cur_rd_beat] && (rd_cache_tag_2 == cur_rd_tag);
-wire hit_way_3 = rd_cache_val_3[cur_rd_beat] && (rd_cache_tag_3 == cur_rd_tag);
+wire hit_way_0 = (&rd_cache_val_0[cur_rd_half +: 4]) && (rd_cache_tag_0 == cur_rd_tag);
+wire hit_way_1 = (&rd_cache_val_1[cur_rd_half +: 4]) && (rd_cache_tag_1 == cur_rd_tag);
+wire hit_way_2 = (&rd_cache_val_2[cur_rd_half +: 4]) && (rd_cache_tag_2 == cur_rd_tag);
+wire hit_way_3 = (&rd_cache_val_3[cur_rd_half +: 4]) && (rd_cache_tag_3 == cur_rd_tag);
 
-wire rd_cache_hit = (hit_way_0 || hit_way_1 || hit_way_2 || hit_way_3) && !fifo_conflict;
+// A hit needs no FIFO-conflict check: a byte with a write still queued is
+// never valid -- the write clears it, and a fill is only issued once the
+// FIFO holds nothing for the line (line_conflict below).
+wire rd_cache_hit = hit_way_0 || hit_way_1 || hit_way_2 || hit_way_3;
+
+// A fill is issued only when the FIFO holds no write for the 32-byte line
+// being read: 16 tag compares, the same scan the old per-word check did.
+// Every byte a fill brings in is then current and may be marked valid, so
+// the cache never holds stale data.  (A per-byte pending map was tried
+// first: its 16-way indexed OR cost about 1,200 ALUTs.)
+function slot_used(input [3:0] s);
+	slot_used = (fifo_count != 5'd0) &&
+	            ((fifo_wptr > fifo_rptr) ? ((s >= fifo_rptr) && (s < fifo_wptr)) :
+	             (fifo_wptr < fifo_rptr) ? ((s >= fifo_rptr) || (s < fifo_wptr)) : 1'b1);
+endfunction
+reg line_conflict;
+integer f_i;
+always @(*) begin
+	line_conflict = 1'b0;
+	for (f_i = 0; f_i < FIFO_DEPTH; f_i = f_i + 1)
+		if (slot_used(f_i[3:0]) && (fifo_addr[f_i][16:2] == cur_rd_tag))
+			line_conflict = 1'b1;
+end
+wire fifo_conflict = line_conflict;
+// bytes of a fill beat that may be marked valid: all of them, unless written
+// this very clock (the CPU's stall on the read rules that out; belt and braces)
+wire [7:0] wr_now_be  = cpu_vram_write ? cpu_w64_be : 8'h00;
+wire [7:0] fill_val_0 = ~((cur_rd_beat == 2'd0) ? wr_now_be : 8'h00);
+wire [7:0] fill_val_b = ~((cur_rd_beat == rd_burst_beat) ? wr_now_be : 8'h00);
 
 wire [63:0] hit_data = hit_way_0 ? rd_cache_line_0[cur_rd_beat] :
                        hit_way_1 ? rd_cache_line_1[cur_rd_beat] :
@@ -416,10 +432,10 @@ always @(posedge clk_sys) begin
 		vram_ddr_req    <= 1'b0;
 		vram_ddr_we     <= 1'b0;
 		dma_word64_idx  <= 9'd0;
-		rd_cache_val_0  <= 4'b0000;
-		rd_cache_val_1  <= 4'b0000;
-		rd_cache_val_2  <= 4'b0000;
-		rd_cache_val_3  <= 4'b0000;
+		rd_cache_val_0  <= 32'd0;
+		rd_cache_val_1  <= 32'd0;
+		rd_cache_val_2  <= 32'd0;
+		rd_cache_val_3  <= 32'd0;
 		rd_victim       <= 2'd0;
 		rd_burst_beat   <= 2'd0;
 		drain_beats_rem <= 4'd0;
@@ -434,12 +450,12 @@ always @(posedge clk_sys) begin
 			vram_wr_ph <= 1'b0;
 		end
 
-		// Invalidate matching read cache words on CPU write
+		// A CPU write invalidates just the bytes it wrote in a held line
 		if (cpu_vram_write) begin
-			if (cur_rd_tag == rd_cache_tag_0) rd_cache_val_0[cur_rd_beat] <= 1'b0;
-			if (cur_rd_tag == rd_cache_tag_1) rd_cache_val_1[cur_rd_beat] <= 1'b0;
-			if (cur_rd_tag == rd_cache_tag_2) rd_cache_val_2[cur_rd_beat] <= 1'b0;
-			if (cur_rd_tag == rd_cache_tag_3) rd_cache_val_3[cur_rd_beat] <= 1'b0;
+			if (cur_rd_tag == rd_cache_tag_0) rd_cache_val_0[{cur_rd_beat, 3'b000} +: 8] <= rd_cache_val_0[{cur_rd_beat, 3'b000} +: 8] & ~cpu_w64_be;
+			if (cur_rd_tag == rd_cache_tag_1) rd_cache_val_1[{cur_rd_beat, 3'b000} +: 8] <= rd_cache_val_1[{cur_rd_beat, 3'b000} +: 8] & ~cpu_w64_be;
+			if (cur_rd_tag == rd_cache_tag_2) rd_cache_val_2[{cur_rd_beat, 3'b000} +: 8] <= rd_cache_val_2[{cur_rd_beat, 3'b000} +: 8] & ~cpu_w64_be;
+			if (cur_rd_tag == rd_cache_tag_3) rd_cache_val_3[{cur_rd_beat, 3'b000} +: 8] <= rd_cache_val_3[{cur_rd_beat, 3'b000} +: 8] & ~cpu_w64_be;
 		end
 
 		// DMA trigger: start prefetch on line_req_sys (32-beat bursts)
@@ -473,10 +489,10 @@ always @(posedge clk_sys) begin
 				vram_ddr_addr     <= DDR_VRAM_BASE + {12'd0, cur_rd_tag, 2'b00};
 				vram_ddr_burstcnt <= 8'd4;
 				case (rd_victim)
-				2'd0: begin rd_cache_tag_0 <= cur_rd_tag; rd_cache_val_0 <= 4'b0; end
-				2'd1: begin rd_cache_tag_1 <= cur_rd_tag; rd_cache_val_1 <= 4'b0; end
-				2'd2: begin rd_cache_tag_2 <= cur_rd_tag; rd_cache_val_2 <= 4'b0; end
-				2'd3: begin rd_cache_tag_3 <= cur_rd_tag; rd_cache_val_3 <= 4'b0; end
+				2'd0: begin rd_cache_tag_0 <= cur_rd_tag; rd_cache_val_0 <= 32'd0; end
+				2'd1: begin rd_cache_tag_1 <= cur_rd_tag; rd_cache_val_1 <= 32'd0; end
+				2'd2: begin rd_cache_tag_2 <= cur_rd_tag; rd_cache_val_2 <= 32'd0; end
+				2'd3: begin rd_cache_tag_3 <= cur_rd_tag; rd_cache_val_3 <= 32'd0; end
 				endcase
 				rd_burst_beat     <= 2'd0;
 				state             <= S_CPU_READ;
@@ -515,10 +531,10 @@ always @(posedge clk_sys) begin
 				vram_ddr_req <= 1'b0;
 				if (vram_ddr_rvalid) begin
 					case (rd_victim)
-					2'd0: begin rd_cache_line_0[2'd0] <= vram_ddr_dout; rd_cache_val_0[2'd0] <= 1'b1; end
-					2'd1: begin rd_cache_line_1[2'd0] <= vram_ddr_dout; rd_cache_val_1[2'd0] <= 1'b1; end
-					2'd2: begin rd_cache_line_2[2'd0] <= vram_ddr_dout; rd_cache_val_2[2'd0] <= 1'b1; end
-					2'd3: begin rd_cache_line_3[2'd0] <= vram_ddr_dout; rd_cache_val_3[2'd0] <= 1'b1; end
+					2'd0: begin rd_cache_line_0[2'd0] <= vram_ddr_dout; rd_cache_val_0[7:0] <= fill_val_0; end
+					2'd1: begin rd_cache_line_1[2'd0] <= vram_ddr_dout; rd_cache_val_1[7:0] <= fill_val_0; end
+					2'd2: begin rd_cache_line_2[2'd0] <= vram_ddr_dout; rd_cache_val_2[7:0] <= fill_val_0; end
+					2'd3: begin rd_cache_line_3[2'd0] <= vram_ddr_dout; rd_cache_val_3[7:0] <= fill_val_0; end
 					endcase
 					rd_burst_beat <= 2'd1;
 					if (cpu_rd_pend && (cur_rd_beat == 2'd0)) begin
@@ -537,10 +553,10 @@ always @(posedge clk_sys) begin
 		S_CPU_DATA: begin
 			if (vram_ddr_rvalid) begin
 				case (rd_victim)
-				2'd0: begin rd_cache_line_0[rd_burst_beat] <= vram_ddr_dout; rd_cache_val_0[rd_burst_beat] <= 1'b1; end
-				2'd1: begin rd_cache_line_1[rd_burst_beat] <= vram_ddr_dout; rd_cache_val_1[rd_burst_beat] <= 1'b1; end
-				2'd2: begin rd_cache_line_2[rd_burst_beat] <= vram_ddr_dout; rd_cache_val_2[rd_burst_beat] <= 1'b1; end
-				2'd3: begin rd_cache_line_3[rd_burst_beat] <= vram_ddr_dout; rd_cache_val_3[rd_burst_beat] <= 1'b1; end
+				2'd0: begin rd_cache_line_0[rd_burst_beat] <= vram_ddr_dout; rd_cache_val_0[{rd_burst_beat, 3'b000} +: 8] <= fill_val_b; end
+				2'd1: begin rd_cache_line_1[rd_burst_beat] <= vram_ddr_dout; rd_cache_val_1[{rd_burst_beat, 3'b000} +: 8] <= fill_val_b; end
+				2'd2: begin rd_cache_line_2[rd_burst_beat] <= vram_ddr_dout; rd_cache_val_2[{rd_burst_beat, 3'b000} +: 8] <= fill_val_b; end
+				2'd3: begin rd_cache_line_3[rd_burst_beat] <= vram_ddr_dout; rd_cache_val_3[{rd_burst_beat, 3'b000} +: 8] <= fill_val_b; end
 				endcase
 				rd_burst_beat <= rd_burst_beat + 1'b1;
 				if (cpu_rd_pend && (cur_rd_beat == rd_burst_beat)) begin
