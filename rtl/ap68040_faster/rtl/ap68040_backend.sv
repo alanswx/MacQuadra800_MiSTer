@@ -2654,6 +2654,22 @@ assign pst_st   = halted ? 4'h5 : stopped ? 4'hD : xstk ? 4'hF :
                   (wb_v && wb_u.op == OP_RTE) ? 4'hE :
                   tw_busy ? {sr_r[13], 3'b100} : {sr_r[13], 3'b000};
 
+// AG's incoming index: a bypassed value (agx_xb) or an early result
+// (agx_ex) rather than the register read -- the block below makes the same
+// choice (checked)
+logic agx_ex, agx_xb;
+always_comb begin
+	logic [3:0] wx;
+	agx_xb = 1'b0;
+	if (fwe_ag[0] && ag_u.upd_reg == ain_u.idx)  agx_xb = 1'b1;
+	if (fwe_ag[1] && ag_u.upd2_reg == ain_u.idx) agx_xb = 1'b0;
+	if (ag1w_ag && ag_s.d_reg == ain_u.idx)      agx_xb = 1'b1;
+	if (dc2_capd && dc2_u.d_reg == ain_u.idx)    agx_xb = 1'b1;
+	wx = yw(ain_u.idx);
+	agx_ex = !(ag_v && ag_u.d_v && ag_u.d_reg == ain_u.idx) &&
+	         !(ag_v && ag_s.v && ag_s.d_v && ag_s.d_reg == ain_u.idx) && wx[2];
+end
+
 // AG's base and index registers: loaded with the incoming uop (with the
 // front-file writes of that cycle bypassed in), then following EX's
 // writes while AG holds (an interlocked base or index is written there)
@@ -2669,7 +2685,7 @@ always_ff @(posedge clk) begin
 		logic        cb, cx, eb, ex, x2, xb;
 		logic  [3:0] wb, wx;
 		b = rrd[0];
-		x = rrd[1];
+		x = 32'd0;                     // (the register read itself: below the block)
 		cb = 1'b0;
 		cx = 1'b0;
 		eb = 1'b0;
@@ -2719,9 +2735,15 @@ always_ff @(posedge clk) begin
 		// (the register read scaled on its own, the bypasses' value on its
 		// own, then the select: the read went through the bypass selects
 		// before the scale, a 60/66 MHz path)
-		agx_q <= !ex ? (xb ? ixf(x, ain_u) : ixf(rrd[1], ain_u)) :
+		agx_q <= !ex ? ixf(x, ain_u) :
 		         (wx[1:0] == 2'd1) ? ixf(dc1_er, ain_u) :
 		         (wx[1:0] == 2'd2) ? ixf(dc2_er, ain_u) : ixf(ex_er, ain_u);
+		// synthesis translate_off
+		if (nreset && (ex != agx_ex || xb != agx_xb)) begin
+			$display("FAIL: AG's index choice %b%b, the block's %b%b", agx_ex, agx_xb, ex, xb);
+			$finish;
+		end
+		// synthesis translate_on
 		cap_b <= cb;
 		cap_x <= cx;
 		erb   <= eb;
@@ -2768,6 +2790,12 @@ always_ff @(posedge clk) begin
 			ag2_x <= 1'b0;
 		end
 	end
+	// the incoming index from the register read, scaled, at agx_q's last
+	// multiplexer: when AG takes and neither a bypass nor an early result
+	// supplies it (agx_ex/agx_xb, the block's own choice above, formed
+	// apart) -- through the bypass, early-result and hold selects the read
+	// was a 60/66 MHz path
+	if (!stall_ag && !agx_ex && !agx_xb) agx_q <= ixf(rrd[1], ain_u);
 	// the second slot's operand A: read as the pair enters AG, with that
 	// cycle's AG writes and EX writes laid over it; then EX's writes.
 	// (Loaded whenever AG does not stall: AG is empty after a cycle it took
