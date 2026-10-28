@@ -728,6 +728,7 @@ wire [64:0] shk_i  = shk + ((fst == F_PACKS) ? ((r_fmt == 3'd1) ? 65'h100_0000_0
 // a 64x64 product does not close in one 60 MHz cycle without register
 // retiming
 reg   [63:0] mul_x, mul_y;
+reg          mul_p2a, mul_p2b;  // an operand an exact power of two (F_BIN)
 reg   [63:0] mul_hh, mul_hl, mul_lh, mul_ll;
 always @(posedge clk) if (ce) begin
 	mul_hh <= mul_x[63:32] * mul_y[63:32];
@@ -2619,21 +2620,17 @@ always @(posedge clk) begin
 							a_s <= a_s ^ b_s;
 							e_w <= $signed({a_e[16], a_e}) +
 							       $signed({b_e[16], b_e}) - 18'sd16383;
-							if (a_p2 || b_p2) begin
-								// Multiplication by an exact power of two only changes
-								// sign/exponent and needs no iterative multiply.
-								a_m <= a_p2 ? bm_eff : am_eff;
-								grs <= 0;
-								begin fst <= F_ROUND; wb_r <= (F_ROUND == F_WB); acc_r <= 1'b1; end
-							end
-							else begin
-								acc_hi <= 0;
-								acc_lo <= 0;
-								loop_n <= 0;
-								mul_x  <= am_eff;
-								mul_y  <= bm_eff;
-								begin fst <= F_MULT; wb_r <= (F_MULT == F_WB); acc_r <= 1'b1; end
-							end
+							// (an exact power of two is taken in F_MULT's first
+							// cycle, from the flags registered here: the test
+							// selecting a_m here was a 60/66 MHz path)
+							acc_hi <= 0;
+							acc_lo <= 0;
+							loop_n <= 0;
+							mul_x  <= am_eff;
+							mul_y  <= bm_eff;
+							mul_p2a <= a_p2;
+							mul_p2b <= b_p2;
+							begin fst <= F_MULT; wb_r <= (F_MULT == F_WB); acc_r <= 1'b1; end
 						end
 					end
 					default: begin : bin_div
@@ -2766,7 +2763,14 @@ always @(posedge clk) begin
 			end
 
 			F_MULT: begin : f_mult
-				if (loop_n == 7'd2) begin : mul_fin
+				if (loop_n == 7'd0 && (mul_p2a || mul_p2b)) begin
+					// Multiplication by an exact power of two only changes
+					// sign/exponent and needs no iterative multiply.
+					a_m <= mul_p2a ? mul_y : mul_x;
+					grs <= 0;
+					begin fst <= F_ROUND; wb_r <= (F_ROUND == F_WB); acc_r <= 1'b1; end
+				end
+				else if (loop_n == 7'd2) begin : mul_fin
 					// mul_pd is the registered full 128-bit product, exactly
 					// the value the former 32-cycle radix-4 loop accumulated.
 					a_m <= rn_m;
