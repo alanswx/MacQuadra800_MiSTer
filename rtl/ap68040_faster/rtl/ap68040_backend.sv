@@ -218,8 +218,9 @@ logic [31:0] wb_exc_addr;
 // an odd branch target's address error takes its address from wb_otgt,
 // registered on every EX advance, chosen at WB by wb_exa_odd: the target
 // adder and the odd/taken decision stay off wb_exc_addr's priority select
-logic [31:0] wb_otgt;
+logic [31:0] wb_otgt;          // (the whole target: a JSR's frame PC; the address takes it even)
 logic        wb_exa_odd;
+logic        wb_pc_tgt;        // the frame PC is wb_otgt (an odd JSR target)
 logic [15:0] wb_exc_ssw;      // SSW of an access error
 logic        wb_st;           // store at WB
 logic [31:0] wb_st_data;
@@ -1425,15 +1426,18 @@ wire [31:0] ex_otgt = (!ex_bdb && ex_ubr) ? ex_target : ex_u.target;
 wire        ex_odd  = ex_br && (ex_bdb ? ex_u.target[0] :
                                 ex_ubr ? ex_target[0] :
                                 ((ex_u.op == OP_FPU) && fp_taken && ex_u.target[0]));
+// (a JSR's frame PC is its target: wb_otgt, chosen at WB by wb_pc_tgt,
+// so the target adder stays off wb_exc_pc's select)
 logic [31:0] ex_odd_pc;
+wire         ex_odd_jsr = (ex_u.br == BR_B && ex_u.op == OP_MOV) ||
+                          (ex_u.br == BR_IMM && ex_u.op == OP_MOV && ex_u.imm_b[15:6] == 10'b0100_1110_10);
 always_comb begin
 	ex_odd_pc = ex_u.pc;
 	if (ex_u.br == BR_EA)
 		ex_odd_pc = ex_u.pc + (((ex_u.imm_b[5:3] == 3'd6) ||
 		                        (ex_u.imm_b[5:0] == 6'o73)) ? 32'd6 : 32'd2);
-	else if ((ex_u.br == BR_B && ex_u.op == OP_MOV) ||
-	         (ex_u.br == BR_IMM && ex_u.op == OP_MOV && ex_u.imm_b[15:6] == 10'b0100_1110_10))
-		ex_odd_pc = ex_otgt;                 // JSR (JSR_K: the opword in B)
+	else if (ex_odd_jsr)
+		ex_odd_pc = ex_u.pc;                 // JSR (JSR_K: the opword in B): wb_otgt
 	else if (ex_u.br == BR_A && ex_u.op == OP_MOV && ex_u.cond == 4'hF)
 		ex_odd_pc = ex_ea - vbr_r;
 end
@@ -1696,14 +1700,14 @@ always_comb begin
 	x_vec  = wb_exc;
 	if (adv_wb && wb_is_exc) begin
 		x_vec  = wb_exc;
-		x_addr = wb_exa_odd ? wb_otgt : wb_exc_addr;
+		x_addr = wb_exa_odd ? {wb_otgt[31:1], 1'b0} : wb_exc_addr;
 		x_ssw  = wb_exc_ssw;
 		if (x_cm) x_ssw = x_ssw | 16'h1000;
 		// TRAP #n, TRAPcc, CHK and divide-by-zero stack the next
 		// instruction; faults and illegal opcodes the instruction
 		x_pc   = ((wb_exc >= 8'd32 && wb_exc < 8'd48) ||
 		          wb_exc == 8'd5 || wb_exc == 8'd6 || wb_exc == 8'd7) ? wb_npc : wb_u.pc;
-		if (wb_exc_pcv) x_pc = wb_exc_pc;
+		if (wb_exc_pcv) x_pc = wb_pc_tgt ? wb_otgt : wb_exc_pc;
 	end
 	else if (take_irq) begin
 		x_vec  = 8'd24 + {5'd0, irq_lvl};   // replaced by the IACK result
@@ -2100,13 +2104,15 @@ dc1_a1  <= ag_s.agop ? ag1_val :
 			end
 			wb_exc_pcv <= ex_u.exc == 8'd0 && !ex_fault && ex_xvec == 8'd0 && ex_odd;
 			wb_exa_odd <= ex_u.exc == 8'd0 && !ex_fault && ex_xvec == 8'd0 && ex_odd;
-			wb_otgt    <= {ex_otgt[31:1], 1'b0};
+			wb_otgt    <= ex_otgt;
+			wb_pc_tgt  <= ex_odd_jsr && (ex_u.br != BR_EA);
 			wb_exc_pc  <= ex_odd_pc;
 			wb_exc_fmtv <= 1'b0;
 			wb_xcommit  <= 1'b0;
 			if (ex_u.exc == 8'd0 && !ex_fault && ex_is_fp && ex_xvec != 8'd0) begin
 				wb_exc_pcv  <= 1'b1;
 				wb_exc_pc   <= fp_xnext ? ex_npc : ex_u.pc;
+				wb_pc_tgt   <= 1'b0;
 				wb_exc_fmtv <= 1'b1;
 				wb_exc_fmt  <= fp_xfmt;
 				wb_xcommit  <= fp_xcommit;
