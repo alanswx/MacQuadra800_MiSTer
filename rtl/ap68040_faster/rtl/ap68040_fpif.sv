@@ -685,16 +685,19 @@ end
 // the result, by the sub-operation only: EX takes it when the uop
 // completes, so it need not wait for the hold's conditions (ex_v, safe,
 // the pipeline): those stay off the result's path to the register file
+// (the command word as ext_q: for every sub-operation here other than CHK
+// ext is ext_q, so the CHK compare and ext's select stay off this path --
+// the FPU's result into the forwarding at 60/66 MHz)
 always_comb begin
 	res = 32'd0;
 	case (sub)
-		FC_DISP: if (ocl == 3'b011) begin
-			if (ea_dn) case (fmt)
+		FC_DISP: if (ext_q[15:13] == 3'b011) begin
+			if (ea_dn) case (ext_q[12:10])
 				3'd4:    res = {bv[31:16], store_dout[95:80]};
 				3'd6:    res = {bv[31:8], store_dout[95:88]};
 				default: res = store_dout[95:64];
 			endcase
-			else case (fmt)
+			else case (ext_q[12:10])
 				3'd4:    res = {16'd0, store_dout[95:80]};
 				3'd6:    res = {24'd0, store_dout[95:88]};
 				default: res = store_dout[95:64];
@@ -705,7 +708,7 @@ always_comb begin
 		FC_LIST: res = ext_q[11] ? lst_dyn(opw_q, av[7:0]) : lst_q;
 		FC_MVR:  res = mv_rev ? f_fmrd[31:0] : f_fmrd[95:64];
 		FC_DBCC: res = {bv[31:16], bv[15:0] - 16'd1};
-		FC_COND: res = {bv[31:8], {8{fp_cond(is_bcc ? opw[5:0] : ext[5:0], f_cc)}}};   // FScc
+		FC_COND: res = {bv[31:8], {8{fp_cond(is_bcc ? opw[5:0] : ext_q[5:0], f_cc)}}};   // FScc
 		FC_SV0:  res = ea_pd ? -{25'd0, kbytes(sv_now)} : {25'd0, kbytes(sv_now)};
 		FC_SVW:  res = (sv_kind == 2'd3) ? busy_word(imm[6:2]) :
 		               (sv_kind == 2'd2) ? unimp_word(imm[6:2]) :
