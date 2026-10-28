@@ -705,8 +705,17 @@ wire [6:0] norm_cnt = p4_v ? norm_lz : nlz_q;
 wire [66:0] norm_shifted =
     {norm_m, (nsel[1] ? grs : (!nsel[0] && p4_v) ? p4_g : 3'd0)} << norm_cnt;
 // one right shifter with sticky for F_SHR and the pipeline's P2 alignment
-// (P2 holds an operation only while the state machine is idle)
-wire        shr_fsm = (fst == F_SHR);
+// (P2 holds an operation only while the state machine is idle, so P2's
+// valid selects: the state's decode, with its fan-out, was a 60/66 MHz
+// path into sh_v)
+wire        shr_fsm = !p2_v;
+// synthesis translate_off
+always @(posedge clk)
+	if (nreset && p2_v && fst == F_SHR) begin
+		$display("FAIL: FPU: the pipeline's P2 holds an operation in F_SHR");
+		$finish;
+	end
+// synthesis translate_on
 wire [66:0] shr_out = shr_sticky(shr_fsm ? sh_v : {p2_sm, 3'd0}, shr_fsm ? sh_cnt : p2_sh);
 // one incrementer for the roundings of the shifted value (sh_v[66:3]):
 // the integer store's at bit 0, a denormal single's or double's store
