@@ -215,6 +215,11 @@ logic        wb_exc_fmtv;     // the frame format is wb_exc_fmt (FPU exceptions)
 logic  [3:0] wb_exc_fmt;
 logic        wb_xcommit;      // the uop's address updates stand (FPU unimp/unsupp)
 logic [31:0] wb_exc_addr;
+// an odd branch target's address error takes its address from wb_otgt,
+// registered on every EX advance, chosen at WB by wb_exa_odd: the target
+// adder and the odd/taken decision stay off wb_exc_addr's priority select
+logic [31:0] wb_otgt;
+logic        wb_exa_odd;
 logic [15:0] wb_exc_ssw;      // SSW of an access error
 logic        wb_st;           // store at WB
 logic [31:0] wb_st_data;
@@ -1691,7 +1696,7 @@ always_comb begin
 	x_vec  = wb_exc;
 	if (adv_wb && wb_is_exc) begin
 		x_vec  = wb_exc;
-		x_addr = wb_exc_addr;
+		x_addr = wb_exa_odd ? wb_otgt : wb_exc_addr;
 		x_ssw  = wb_exc_ssw;
 		if (x_cm) x_ssw = x_ssw | 16'h1000;
 		// TRAP #n, TRAPcc, CHK and divide-by-zero stack the next
@@ -2079,7 +2084,7 @@ dc1_a1  <= ag_s.agop ? ag1_val :
 			end
 			else if (ex_xvec == 8'd0 && ex_odd) begin
 				wb_exc      <= 8'd3;
-				wb_exc_addr <= {ex_otgt[31:1], 1'b0};
+				wb_exc_addr <= ex_u.pc;        // (wb_otgt is used: wb_exa_odd)
 				wb_exc_ssw  <= 16'd0;
 			end
 			else if (ex_is_fp && ex_xvec != 8'd0) begin
@@ -2094,6 +2099,8 @@ dc1_a1  <= ag_s.agop ? ag1_val :
 				wb_exc_ssw  <= 16'd0;
 			end
 			wb_exc_pcv <= ex_u.exc == 8'd0 && !ex_fault && ex_xvec == 8'd0 && ex_odd;
+			wb_exa_odd <= ex_u.exc == 8'd0 && !ex_fault && ex_xvec == 8'd0 && ex_odd;
+			wb_otgt    <= {ex_otgt[31:1], 1'b0};
 			wb_exc_pc  <= ex_odd_pc;
 			wb_exc_fmtv <= 1'b0;
 			wb_xcommit  <= 1'b0;
