@@ -2303,6 +2303,10 @@ always_ff @(posedge clk) begin
 			// (back from the push: e_ret is this state, the caller in e_wret)
 			caller = (e_ret == E_TW_UPD) ? e_wret : e_ret;
 			h = tw_hhq; w = tw_hwq;           // (registered the cycle before, lv_ra: tw_da)
+			// (the valid/dirty port's set whatever the line's dirty bit:
+			// only the write enables below depend on it, a 60/66 MHz path
+			// otherwise -- the dirty read, then the port's read address)
+			vp_set = tw_da[CSH:4];
 			if (!tw_hvq) ;                    // (a snoop had the set: the compare registers now)
 			else begin
 			e_wret <= caller;
