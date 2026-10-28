@@ -730,6 +730,7 @@ wire [64:0] shk_i  = shk + ((fst == F_PACKS) ? ((r_fmt == 3'd1) ? 65'h100_0000_0
 reg   [63:0] mul_x, mul_y;
 reg          mul_p2a, mul_p2b;  // an operand an exact power of two (F_BIN)
 reg          div_p2, div_eq;    // a divisor a power of two, equal significands (F_BIN)
+reg          add_mgt;           // FADD/FSUB: equal exponents, the source's significand larger
 reg   [63:0] mul_hh, mul_hl, mul_lh, mul_ll;
 always @(posedge clk) if (ce) begin
 	mul_hh <= mul_x[63:32] * mul_y[63:32];
@@ -2556,8 +2557,14 @@ always @(posedge clk) begin
 						else begin : bin_addnum
 							reg        aswap;
 							reg [16:0] d;
-							aswap = ($signed(a_e) > $signed(b_e)) ||
-							        (a_e == b_e && a_m > b_m);
+							// (swapped by the exponents alone: with equal
+							// exponents the larger significand is found by
+							// a 64-bit compare, which selected the swap of
+							// both operands -- a 60/66 MHz path.  F_ADDX's
+							// subtraction takes its order from the compare,
+							// registered: the sum is the same either way)
+							aswap = ($signed(a_e) > $signed(b_e));
+							add_mgt <= (a_e == b_e) && (a_m > b_m);
 							eff_sub <= (s_a != b_s);
 							if (aswap) begin
 								b_s <= s_a; b_e <= a_e; b_m <= a_m;
@@ -2724,14 +2731,17 @@ always @(posedge clk) begin
 					begin fst <= F_ROUND; wb_r <= (F_ROUND == F_WB); acc_r <= 1'b1; end
 				end
 				else begin
-					diff = {b_m, 3'd0} - sh_v;
+					// (the larger magnitude first: with equal exponents
+					// and the larger significand the source's, F_BIN did
+					// not swap them, and the source's sign is the result's)
+					diff = add_mgt ? (sh_v - {b_m, 3'd0}) : ({b_m, 3'd0} - sh_v);
 					if (diff == 67'd0) begin
 						a_t <= T_ZERO;
 						a_s <= (rnd_mode == 2'b10);
 						begin fst <= F_WB; wb_r <= (F_WB == F_WB); acc_r <= 1'b0; end
 					end
 					else begin
-						a_s <= b_s;
+						a_s <= add_mgt ? a_s : b_s;
 						a_t <= T_NUM;
 						acc_hi <= {1'b0, diff[66:3]};
 						grs <= diff[2:0];
