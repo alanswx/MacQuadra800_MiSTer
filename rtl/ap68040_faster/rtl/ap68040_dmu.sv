@@ -626,7 +626,10 @@ logic [3:0] d1_mj;            // the matching way, one-hot (for the line select)
 // DC1 and the engine's stolen lookups (E_S_XL2, E_SP_2) compare the tags
 // in parallel with the translation: each way's tag against the untranslated address, or against the
 // page of each ATC way the main port hits (atc_hv, atc_wpa), with the
-// transparency registered as the steal starts (e_tp).  xlate's own compare
+// transparency registered as the steal starts (e_tp).  Both take the
+// tags as the RAM read them (tq_r), without the same-edge write laid over:
+// only the engine's fill writes tags, never in the clock before a lookup
+// (the simulation checks below compare with xlate on tq_a, which has it).  xlate's own compare
 // waited for the hit way's entry: the ATC read, the entry select and the
 // tag compare in one clock (a 60/66 MHz path into e_x.hit).
 logic e_tp;
@@ -1410,7 +1413,7 @@ always_ff @(posedge clk) begin
 			x  = xlate({m2.r.a[31:4] + 28'd1, 4'd0}, m2.r.smode, (m2.r.mem != M_LD),
 			           fc_tt(m2.r.fc) == TT_ALT, atc_hit, atc_e,
 			           tq_a[0], tq_a[1], tq_a[2], tq_a[3], 4'd0);
-			x  = eng_hit(x, eng_mj(e_tp, {m2.r.a[31:4] + 28'd1, 4'd0}, lve_q, tq_a));
+			x  = eng_hit(x, eng_mj(e_tp, {m2.r.a[31:4] + 28'd1, 4'd0}, lve_q, tq_r));
 			// synthesis translate_off
 			begin
 				xres_t xr;
@@ -1447,7 +1450,7 @@ always_ff @(posedge clk) begin
 			// entry for a failed one)
 			x = xlate(e_va, m2.r.smode, (m2.r.mem != M_LD), fc_tt(m2.r.fc) == TT_ALT,
 			          atc_hit, atc_e, tq_a[0], tq_a[1], tq_a[2], tq_a[3], 4'd0);
-			x = eng_hit(x, eng_mj(e_tp, e_va, lve_q, tq_a));
+			x = eng_hit(x, eng_mj(e_tp, e_va, lve_q, tq_r));
 			// synthesis translate_off
 			begin
 				xres_t xr;
