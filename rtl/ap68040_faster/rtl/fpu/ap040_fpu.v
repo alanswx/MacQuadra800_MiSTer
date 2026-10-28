@@ -426,6 +426,30 @@ reg         cap_unimp, cap_t, cap_e1, cap_pk;
 reg   [6:0] nlz_q;
 reg   [4:0] nz_ret;
 reg signed [17:0] e_w;        // working exponent (wrap safe)
+// FCMP's exponent and mantissa compares (in F_WB) from registers loaded
+// the clock before: the operands do not change entering F_WB -- except a
+// signalling NaN F_EXEC quiets, and with a NaN the compares are unused --
+// and the 64-bit compare in that state was a 60/66 MHz path (checked
+// below for every FCMP without a NaN)
+reg cmp_eeq_q, cmp_egt_q, cmp_meq_q, cmp_mgt_q;
+// synthesis translate_off
+reg [4:0] sim_fst_q; always @(posedge clk) sim_fst_q <= fst;
+// synthesis translate_on
+always @(posedge clk) begin
+	cmp_eeq_q <= (b_e == a_e);
+	cmp_egt_q <= ($signed(b_e) > $signed(a_e));
+	cmp_meq_q <= (b_m == a_m);
+	cmp_mgt_q <= (b_m > a_m);
+end
+// synthesis translate_off
+always @(posedge clk)
+	if (nreset && fst == F_WB && r_op == 7'h38 && a_t != T_NAN && b_t != T_NAN &&
+	    (cmp_eeq_q != (b_e == a_e) || cmp_egt_q != ($signed(b_e) > $signed(a_e)) ||
+	     cmp_meq_q != (b_m == a_m) || cmp_mgt_q != (b_m > a_m))) begin
+		$display("FAIL: FPU: FCMP's registered compares differ from its operands in F_WB (from state %0d)", sim_fst_q);
+		$finish;
+	end
+// synthesis translate_on
 
 // These states already run in separate cycles. Select their input before
 // normalization so source, restored destination and add/subtract result
@@ -3052,7 +3076,7 @@ always @(posedge clk) begin
 						eq = (dz && a_t == T_ZERO) ||
 						     (du[1:0] == a_t && ds == a_s && du[1:0] != T_ZERO &&
 						      (du[1:0] == T_INF ||
-						       (du[82:66] == a_e && du[65:2] == a_m)));
+						       (cmp_eeq_q && cmp_meq_q)));
 						if (eq) begin
 							z = 1;
 							// equal ZEROS and equal INFINITIES report the
@@ -3068,8 +3092,7 @@ always @(posedge clk) begin
 							else begin
 								if (du[1:0] == T_INF)     dbig = 1;
 								else if (a_t == T_INF)    dbig = 0;
-								else dbig = ($signed(du[82:66]) > $signed(a_e)) ||
-								            (du[82:66] == a_e && du[65:2] > a_m);
+								else dbig = cmp_egt_q || (cmp_eeq_q && cmp_mgt_q);
 								gt = ds ? !dbig : dbig;
 							end
 							n = !gt;
