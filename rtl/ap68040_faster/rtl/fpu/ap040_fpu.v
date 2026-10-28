@@ -378,6 +378,7 @@ reg        r_unimp;         // memory-source software op using normal converter
 reg        r_resume;        // normalized BUSY operands bypass datatype retraps
 reg  [2:0] r_stag;          // source tag retained while that conversion runs
 reg  [6:0] r_op;
+reg        r_sub;           // r_op is FSUB, FSSUB or FDSUB (loaded with it)
 reg [95:0] r_din;
 // the memory operand's significand in the working format, by r_fmt: one
 // bus (and one negator, of the integer left-aligned: the same bits as a
@@ -759,6 +760,11 @@ wire [66:0] shr_out = shr_sticky(shr_fsm ? sh_v : {p2_sm, 3'd0}, shr_fsm ? sh_cn
 always @(posedge clk)
 	if (nreset && shr_out !== shr_sticky_ref(shr_fsm ? sh_v : {p2_sm, 3'd0}, shr_fsm ? sh_cnt : p2_sh)) begin
 		$display("FAIL: FPU: the right shifter's sticky form differs from the staged one");
+		$finish;
+	end
+always @(posedge clk)
+	if (nreset && r_sub != (r_op == 7'h28 || r_op == 7'h68 || r_op == 7'h6C)) begin
+		$display("FAIL: FPU: the subtraction flag %b for r_op %h", r_sub, r_op);
 		$finish;
 	end
 // synthesis translate_on
@@ -1601,7 +1607,7 @@ always @(posedge clk) begin
 		sh_dst <= 0; sh_dtag <= 0;
 		wb_s <= 0; wb_e <= 0; wb_m <= 0; wb_grs <= 0;
 		dout <= 0;
-		r_fmt <= 0; r_dst <= 0; r_op <= 0; r_din <= 0;
+		r_fmt <= 0; r_dst <= 0; r_op <= 0; r_sub <= 0; r_din <= 0;
 		r_ae7 <= 0;
 		r_unimp <= 0; r_stag <= 0; r_resume <= 0;
 		a_s <= 0; a_e <= 0; a_m <= 0; a_t <= 0;
@@ -1828,6 +1834,7 @@ always @(posedge clk) begin
 				r_unimp <= 0;
 				r_ae7 <= fpsr[7];
 				r_op <= fr_cmd_op;
+				r_sub <= (fr_cmd_op == 7'h28 || fr_cmd_op == 7'h68 || fr_cmd_op == 7'h6C);
 				r_fmt <= 3'd2; // already converted to extended, even opclass 0
 				r_dst <= fstate_cmd1[9:7];
 				sh_cmd <= fstate_cmd1;
@@ -1873,6 +1880,7 @@ always @(posedge clk) begin
 				r_ae7 <= fpsr[7];
 				r_dst <= dst_r;
 				r_op <= opmode;
+				r_sub <= (opmode == 7'h28 || opmode == 7'h68 || opmode == 7'h6C);
 				// Preserve opclass and source register/format before execution.
 				sh_cmd <= {op_class, src_fmt, dst_r, opmode};
 				r_din <= din;
@@ -1933,7 +1941,7 @@ always @(posedge clk) begin
 						// P222: raw extended store dispatch-clock pass-through
 						dout <= {fr_src_s, fr_src_e, 16'd0, fr_src_m};
 						done <= 1; fpu_used <= 1;
-						r_op <= 7'h7F;
+						r_op <= 7'h7F; r_sub <= 0;
 					end
 					else if (src_fmt == 3'd1 && st_norm && (st_sE >= -18'sd126) &&
 					         !sd_ov && !(sd_inx && fpcr[9])) begin
@@ -1941,7 +1949,7 @@ always @(posedge clk) begin
 						dout <= sd_out;
 						if (sd_inx) begin fpsr[9] <= 1; fpsr[3] <= 1; end
 						done <= 1; fpu_used <= 1;
-						r_op <= 7'h7F;
+						r_op <= 7'h7F; r_sub <= 0;
 					end
 					else if (src_fmt == 3'd5 && st_norm && (st_sE >= -18'sd1022) &&
 					         !sd_ov && !(sd_inx && fpcr[9])) begin
@@ -1949,13 +1957,13 @@ always @(posedge clk) begin
 						dout <= sd_out;
 						if (sd_inx) begin fpsr[9] <= 1; fpsr[3] <= 1; end
 						done <= 1; fpu_used <= 1;
-						r_op <= 7'h7F;
+						r_op <= 7'h7F; r_sub <= 0;
 					end
 					else begin
 						{a_s, a_e, a_m, a_t} <=
 							unpack_x(fr_src_s, fr_src_e, fr_src_m);
 						begin fst <= F_SRC; wb_r <= (F_SRC == F_WB); acc_r <= 1'b0; end   // F_SRC routes stores via r_op = STORE
-						r_op <= 7'h7F;  // internal: store
+						r_op <= 7'h7F; r_sub <= 0;  // internal: store
 					end
 				end
 				else if (op_class == 3'b010 && src_fmt == 3'd7) begin : save_fmovecr
@@ -2516,9 +2524,10 @@ always @(posedge clk) begin
 					sh_stag <= r_stag;
 				end
 				// FSUB family: fold the source sign
-				s_a = (op_kind == 4'd1 &&
-				       (r_op == 7'h28 || r_op == 7'h68 || r_op == 7'h6C))
-				      ? ~a_s : a_s;
+				// (used in the add case alone, so without op_kind's test;
+				// the subtraction from a flag loaded with r_op: op_kind's
+				// decode selected a_m's infinity case at 60/66 MHz)
+				s_a = r_sub ? ~a_s : a_s;
 				if (!r_resume && op_kind != 4'd4 &&
 				    unsupported_x(b_e[14:0], b_m)) begin
 					// The destination datatype fault is taken with a clean
