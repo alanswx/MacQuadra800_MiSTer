@@ -621,13 +621,17 @@ always_comb begin
 		logic  [3:0] bi, rn;
 		logic  [4:0] r;
 		logic  [2:0] sb;
-		logic        pd, pi, lastx, base_in, fb_in, fx_in;
+		logic        pd, pi, lastx, base_in, fb_in, fx_in, mvr;
 		logic  [4:0] an, xreg;
 		logic [31:0] off;
 		logic [15:0] low;
 		logic  [3:0] k_an, k_x;
 		logic        is_an, is_x;
 		m  = mv_act ? mv_mask : src.ext1;
+		// the direction from the operation word, not the ROM word's d:
+		// the two loop uops are MOVEM's, and their d is the opw's dr bit
+		// (the ROM's compare began the selects of the replacement uops)
+		mvr = src.opw[10];
 		pd = (src.ea0.m == EM_APD);
 		pi = (src.ea0.m == EM_AIP);
 		bi = 4'd0;
@@ -655,19 +659,19 @@ always_comb begin
 		// transfer (through T7/T6 and fix-up uops): a fault on a later
 		// transfer restarts the instruction with the original EA.  (An)+
 		// discards a loaded An: the final An is the incremented address.
-		fb_in   = (uw.d == S_MVR) && !pd && !pi &&
+		fb_in   = mvr && !pd && !pi &&
 		          (src.ea0.m == EM_AI || src.ea0.m == EM_AD16 ||
 		           (src.ea0.m == EM_AX && !src.ea0.bs)) &&
 		          src.mvb;
 		xreg    = src.ea0.xa ? areg(src.ea0.xr, sp_reg) : dreg(src.ea0.xr);
-		fx_in   = (uw.d == S_MVR) && (src.ea0.m == EM_AX || src.ea0.m == EM_PCX) &&
+		fx_in   = mvr && (src.ea0.m == EM_AX || src.ea0.m == EM_PCX) &&
 		          !src.ea0.is && src.mvx &&
 		          !(fb_in && xreg == an);
 		base_in = fb_in || fx_in ||
-		          ((uw.d == S_MVR) && pi && src.mvb);
+		          (mvr && pi && src.mvb);
 		off = mv_act ? mv_off : (pd ? -{29'd0, sb} : 32'd0);
 		nu.last = lastx && !fb_in && !fx_in;
-		if (uw.d == S_MVR) begin
+		if (mvr) begin
 			nu.d_v = 1'b1; nu.d_reg = r;
 			if (fb_in && is_an)           nu.d_reg = R_T0 + 5'd7;
 			else if (fx_in && !pd && is_x) nu.d_reg = R_T0 + 5'd6;
@@ -985,6 +989,11 @@ always_ff @(posedge clk)
 	                               rq0.mvx != rq0.ext1[{rq0.ea0.xa, rq0.ea0.xr}])) begin
 		$display("FAIL: useq: the record's MOVEM list flags %b%b, its words' %b%b", rq0.mvb, rq0.mvx,
 		         rq0.ext1[{1'b1, rq0.ea0.r}], rq0.ext1[{rq0.ea0.xa, rq0.ea0.xr}]);
+		$finish;
+	end
+always_ff @(posedge clk)
+	if (nreset && uw_v && uw.loop && ((uw.d == S_MVR) != src.opw[10])) begin
+		$display("FAIL: useq: a loop uop's d %0d against the opw's direction %b", uw.d, src.opw[10]);
 		$finish;
 	end
 // synthesis translate_on
