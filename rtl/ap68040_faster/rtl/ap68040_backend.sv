@@ -1725,8 +1725,30 @@ wire dbl_fault   = xr_dbl && !halted &&
                    (adv_wb && wb_is_exc && !wb_refetch &&
                     ((xstk && (wb_exc == 8'd2 || wb_exc == 8'd3)) ||
                      (x_first && wb_exc == 8'd2 && (wb_exc_ssw[2:0] == 3'd2 || wb_exc_ssw[2:0] == 3'd6))));
-wire x_go        = ((adv_wb && wb_is_exc && !wb_refetch) || take_trace || take_irq) &&
-                   !dbl_fault && !halted;
+// x_go and kill_now with adv_wb last: the store's answer reaches adv_wb
+// through WB's hold, and from there ran through the boundary, the trace
+// and interrupt takes and x_go into kill_now and the stall chain's
+// registers at 60/66 MHz.  The two cofactors (adv_wb 1 and 0) come from
+// WB's record and registered state; the forms above are checked below.
+wire wb_bound_a  = !wb_is_exc && wb_u.last;
+wire trace_a     = wb_bound_a && (wb_is_stop ? stop_traced : (tr_now || trace_defer));
+wire irq_a       = irq_pend && !cm_block && (wb_bound_a || (stopped && !wb_v));
+wire irq_n       = irq_pend && !cm_block && stopped && !wb_v;
+wire refetch_a   = wb_v && (wb_exc == EXC_IFS || wb_exc == EXC_IFSA);
+wire dbl_a       = xr_dbl && !halted && wb_is_exc && !refetch_a &&
+                   ((xstk && (wb_exc == 8'd2 || wb_exc == 8'd3)) ||
+                    (x_first && wb_exc == 8'd2 && (wb_exc_ssw[2:0] == 3'd2 || wb_exc_ssw[2:0] == 3'd6)));
+wire x_go_a      = ((wb_is_exc && !refetch_a) || (trace_a && !irq_a) || irq_a) && !dbl_a && !halted;
+wire x_go_n      = irq_n && !halted;
+wire x_go        = adv_wb ? x_go_a : x_go_n;
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && x_go != (((adv_wb && wb_is_exc && !wb_refetch) || take_trace || take_irq) &&
+	                       !dbl_fault && !halted)) begin
+		$display("FAIL: backend: x_go %b by its cofactors, %b by the boundary", x_go, !x_go);
+		$finish;
+	end
+// synthesis translate_on
 // a locked sequence (TAS, CAS, CAS2, a table update) ends with its LOCKE
 // write; before that only an exception ends it
 assign lk_abandon = x_go || dbl_fault;
@@ -1820,7 +1842,7 @@ assign mt_wr     = (wb_u.cond == 4'd5) && !wb_u.imm_b[5];   // PTESTW $F548, PTE
 logic        rst_seq;         // reset exception pending (first cycles)
 
 // same-cycle kill of every younger uop: WB takes an exception or redirects
-assign kill_now = (adv_wb && (wb_is_exc || wb_redir)) || x_go;
+assign kill_now = adv_wb ? (wb_is_exc || wb_redir || x_go_a) : x_go_n;
 
 // exception entry values
 logic  [7:0] x_vec;
