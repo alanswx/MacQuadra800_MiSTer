@@ -1450,8 +1450,14 @@ wire   sim_exw_ok = adv_ex && ex_d_eff && !ex_fault && (ex_xvec == 8'd0) && !ex_
 wire        exw_ag  = adv_ex && ex_d_eff;
 // ... and for the operands of the uops in DC1 and DC2: a uop that takes an
 // exception flushes them too, and the flush clears the front file (fv), so
-// the forwarding needs only whether EX writes the register (the timing path)
-assign exw_fw = exw_ag;
+// the forwarding needs only whether EX writes the register (the timing path).
+// Nor does it wait for EX to advance (the stall chain, which ends in the
+// FPU's and the DMU's late holds), except for the uops whose write can be
+// suppressed (ex_kc): a value a held EX broadcasts may not be its result
+// yet, but every younger operand that took it -- AG's, DC1's and DC2's,
+// held or advancing -- takes EX's broadcast again in the clock EX
+// advances, which a uop that always writes always makes.
+assign exw_fw = ex_v && ex_u.d_v && ((ex_kc == 6'd0) || (adv_ex && !ex_dkill));
 assign exw_reg = ex_u.d_reg;
 assign exw_val = (ex_u.op == OP_CAS) ? ((ex_bv & ex_szm) | (ex_latch & ~ex_szm)) : ex_res;
 
