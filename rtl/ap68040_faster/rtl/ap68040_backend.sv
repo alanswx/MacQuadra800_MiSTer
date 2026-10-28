@@ -738,6 +738,7 @@ logic        md_z;            // ... is a divide by zero (from its second cycle)
 // the worst CPU-clock path.
 logic        ex_md_q, ex_fp_q, ex_dbcc_q, ex_slow_q;
 logic        ex_alu_q;        // EX's result is the ALU's (see exw_val)
+logic        ex_slr_q;        // a slow op's result is the shifter's (see xs)
 wire         ex_is_md   = ex_md_q;
 wire         ex_div0    = (ex_u.op == OP_DIV) &&
                           ((ex_u.sz == SZ_W) ? (ex_av[15:0] == 16'd0) : (ex_av == 32'd0));
@@ -1210,7 +1211,7 @@ end
 
 // slow operations (first EX cycle)
 always_comb begin
-	xs.res    = sl_res;
+	xs.res    = ex_bv;          // (the shifter's result: last, below)
 	xs.flags  = ex_shift ? {sl_flags[4], 2'b00, sl_flags[1:0]} : sl_flags;
 	xs.dkill  = 1'b0;
 	xs.taken  = 1'b0;
@@ -1318,6 +1319,11 @@ always_comb begin
 		end
 		default: ;
 	endcase
+	// The shift, rotate, BCD and SR-logic ops' result enters last, by a
+	// flag registered with the uop (ex_slr_q): it was the case's default,
+	// behind the other ops' selects, on the path from EX's operand
+	// through the shifter into xs_q at 60/66 MHz.
+	if (ex_slr_q) xs.res = sl_res;
 end
 
 // EX outputs: the registered slow result in a slow op's second cycle
@@ -2008,6 +2014,9 @@ dc1_a1  <= ag_s.agop ? ag1_val :
 			ex_fp_q  <= (dc2_u.op == OP_FPU);
 			ex_dbcc_q <= (dc2_u.op == OP_DBCC);
 			ex_slow_q <= is_slow(dc2_u.op);
+			ex_slr_q  <= is_slow(dc2_u.op) && (dc2_u.op != OP_CHK2B) && (dc2_u.op != OP_SPR) &&
+			             (dc2_u.op != OP_MISC) && (dc2_u.op != OP_IACKV) && (dc2_u.op != OP_RTEF) &&
+			             (dc2_u.op != OP_BF);
 			// (no `inside': Quartus 17 rejects it)
 			ex_alu_q  <= !is_slow(dc2_u.op) &&
 			             (dc2_u.op != OP_FPU) && (dc2_u.op != OP_MUL) && (dc2_u.op != OP_DIV) &&
