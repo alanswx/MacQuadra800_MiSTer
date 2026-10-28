@@ -750,10 +750,29 @@ end
 // end and refetches, so a companion word consumed behind it (not issued:
 // c_ok has the test) costs nothing.  (The exception decode was the deepest
 // part of D1's consume, the fetch queue's loop at 60/66 MHz.)
+// Where c_cons can hold, the decode is a fast one with all its words
+// queued, so use_n is pd0.tot: the BTB flags it covers are formed from
+// that register (bt_lmt, bt_lbt), not from use_n (the fast/full decode
+// before it was on the consume path).
 wire [2:0] c_at = pd0.tot[2:0];
+logic [7:0] bt_lmt, bt_lbt;
+always_comb begin
+	bt_lmt = (8'd1 << pd0.tot[2:0]) - 8'd1;
+	bt_lbt = 8'd1 << (pd0.tot[2:0] - 3'd1);
+end
+wire bt_anyt = |(win_bt & bt_lmt);
+wire bt_endt = (win_bt & bt_lmt) == bt_lbt;
 wire c_cons = DUAL && (ph == PH_IDLE) && pd0.legal && fast &&
-              (pd0.tot <= 4'd6) && (pd0.tot < qcnt) &&
-              win_s1[c_at] && !win_flt[c_at] && !win_bt[c_at] && (!bt_any || bt_end);
+              (pd0.tot <= 4'd6) && (pd0.tot < qcnt) && (pd0.tot != 4'd0) &&
+              win_s1[c_at] && !win_flt[c_at] && !win_bt[c_at] && (!bt_anyt || bt_endt);
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && c_cons && (use_n != pd0.tot || bt_any != bt_anyt || bt_end != bt_endt)) begin
+		$display("FAIL: decode: c_cons with use_n %0d (tot %0d), bt_any %b/%b, bt_end %b/%b",
+		         use_n, pd0.tot, bt_any, bt_anyt, bt_end, bt_endt);
+		$finish;
+	end
+// synthesis translate_on
 s1_t c_s1;
 always_comb c_s1 = s1_dec(win[c_at]);
 wire c_ok = c_cons && (nrec.exc == 8'd0) && (bt_end ? (nrec.pred && teq) : !nrec.pred) &&
@@ -885,7 +904,7 @@ end
 
 // (c_cons: use_n is pd0.tot <= 6, so the sum fits)
 assign consume   = fire ? (use_n[2:0] + {2'd0, c_cons}) : 3'd0;
-assign consume_t = fire && c_cons && bt_end;
+assign consume_t = fire && c_cons && bt_endt;
 
 always_ff @(posedge clk) begin
 	if (!nreset) begin
