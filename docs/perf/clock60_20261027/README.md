@@ -99,6 +99,14 @@ CPU-clock setup slack, worst / TNS (ns), by batch:
 | 60r | 2d413bf | -1.424 | -1.189 | -1.714 | **-0.902** | -1.159 | -2.030 | -1.283 |
 | 60s | 8fbc515 | -2.052 | -2.954 | -1.853 | -2.537 | | | **-1.469** (53: -1.818) |
 | 60t | 5988c36 (skid) | -2.126 | | | -1.973 | | | **-1.402** |
+| 60u | a614639 | -0.836 / -37 | -0.989 | -1.445 | -1.952 | | | **-0.730 / -18.4** (53: -1.331) |
+| 60v | 78f5a58 | **-0.907 / -20.8** | -1.274 | -1.457 | -1.519 | | | -1.045 / -12.8 (53: -1.077) |
+| 60w | ffe40c3 | -1.159 | -0.919 | -1.504 | **-0.844 / -16.4** | | | -1.593 |
+| 60x | 21dfcdd | -0.742 / -6.7 | -0.769 | -1.163 | -1.069 | | | **-0.636 / -8.5** (53: -0.712, 54: -1.736, 55: -1.380) |
+
+(slack / TNS in ns on the 60 MHz CPU clock.)  60x is the best batch so
+far: five of eight seeds within -0.8 ns, and its best seed (52) has the
+HDMI domain met (+0.211; 60u s52 +0.274, 60w s49 +0.406).
 
 (05c737f seed 46: -1.564.)  The best seed of each batch sits near -0.6 to
 -0.9 ns while the worst families change from seed to seed: no one family
@@ -132,6 +140,17 @@ the exception entry's registers) -- so the next commits went after those:
 | 680cc7c | FRESTORE's format check registered with its size | same |
 | 8ea715b | DC2's fast-load store hazard registered from the record pairs | same |
 | deeae7d | the right shifter's sticky formed beside the shift | same |
+| 5ae0ed4 | the normalizer's output at a_m after the FSM's case | same |
+| ffe40c3 | DC1's operands loaded as held-or-new by DC1's stall | same |
+| 1f5c4c4 | the decoder's displacement-size tests as parallel compares | same |
+| 3b753d3, 023a188 | AG's base and index loaded every clock AG does not stall; the index's register read at agx_q's last multiplexer | same |
+| 92479ce | FPIAR's value loaded every clock, written only with f_iawe | same |
+| 21dfcdd | MOVEM's list-against-the-EA tests as record flags from D1 | same |
+| e4c07e1 | F_UNFL's sticky and zero tests registered | an underflow +1 clock |
+| 77a6df6 | MOVEM's direction from the operation word, not the ROM's d | same |
+| 4416d8d | an EA's AG base and index from the record, selected by the memory EA last | same |
+| 3df4e9f | FSUB's sign fold from a flag loaded with r_op | same |
+| 327e4b8 | the fetch ring head's next value as a three-bit add | same |
 
 From 5988c36 on the self-tests also run in the 60 MHz build's own CPU
 configuration -- the Quadra's parameters plus the skid
