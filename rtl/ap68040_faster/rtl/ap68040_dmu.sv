@@ -1000,7 +1000,17 @@ wire wb_vram_post = PA_VRAM_POST && PA_IO_SERIAL && wb_st && (m4.r.mem == M_ST) 
                     (m4.r.msz != SZ_Q) &&
                     ({1'b0,m4.r.a[1:0]} + nbytes(m4.r.msz) <= 3'd4) &&
                     (m4.x.pa[31:21] == 11'b1111_1001_000) &&
-                    (e_st == E_IDLE) && !e_wst_done && !wfs_p1 && !mt_v;
+                    (e_st == E_IDLE) && !e_wst_done && !wfs_p1;
+// (no maintenance term: a WB maintenance operation is no store -- mt_v,
+// from WB's decode, ran through this into the store's answer, WB's hold
+// and the stall chain at 60/66 MHz; checked below)
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && wb_st && mt_v) begin
+		$display("FAIL: dmu: a WB store and a maintenance operation at once");
+		$finish;
+	end
+// synthesis translate_on
 wire   [2:0] wfs_n0  = 3'(5'd16 - {1'b0, m4.r.a[3:0]});
 wire  [31:0] wfs_acc = lalign(st_data, m4.r.msz);
 
