@@ -2396,26 +2396,51 @@ dc1_a1  <= ag_s.agop ? ag1_val :
 		// back file plus this uop's committed writes; T5..T13 carry the
 		// routine's operands.
 		//------------------------------------------------------------------
+		// (the routine's operands and its entry kind follow the entry
+		// values every clock outside the operand-write sequence, which reads
+		// them, and so hold from the clock x_go starts it: x_go, the end of
+		// WB's commit and the interrupt decision, was a 60/66 MHz path into
+		// their enables.  x_go never comes inside the sequence -- checked)
+		// The routine's operands, written into the back file by the xw
+		// sequence: T8 vector address, T9 PC, T10 SR, T11 address, T12
+		// format/vector word, T13 SSW; format $7: T5 the EA field (the
+		// MOVEM EA with CM, else FA), T6/T7 WB3A/WB3D of a write fault (WB3S
+		// stays clear: the instruction restarts)
+		if (xw_ph == 3'd0) begin
+			xi_f7    <= (x_fmt == 4'h7);
+			// (read with exc_go, the sequence's end; the reset sequence
+			// sets its own)
+			if (!rst_seq) begin
+				exc_kind <= x_kind;
+				exc_ssp  <= x_ssp;
+			end
+			xi_sr    <= x_osr;
+			xi_vecw  <= {x_fmt, 2'b00, x_vec, 2'b00};
+			xi_pc    <= x_pc;
+			xi_addr  <= x_addr;
+			xi_ssw   <= x_ssw;
+			xi_vaddr <= vbr_r + {22'd0, x_vec, 2'b00};
+			xi_ea    <= x_cm ? x_cm_ea : x_addr;
+			xi_w3a   <= x_wfault ? x_addr : 32'd0;
+			xi_w3d   <= x_wfault ? wb_st_data : 32'd0;
+		end
+		// synthesis translate_off
+		if (x_go && xw_ph != 3'd0) begin
+			$display("FAIL: an exception entry inside the routine's operand writes");
+			$finish;
+		end
+		// synthesis translate_on
 		if (x_go) begin
-			logic [15:0] vw;
 			rt_armed <= 1'b0;
 			cm_pend  <= 1'b0;
 			smc_pend <= 1'b0;
-			vw = {x_fmt, 2'b00, x_vec, 2'b00};
 			flush    <= 1'b1;
 			fe_flush <= 1'b1;
 			redir_v  <= 1'b0;
 			ras_rv   <= 1'b0;
 			xw_ph    <= 3'd1;          // T8-T13 (and T5-T7) first, then exc_go
-			xi_f7    <= (x_fmt == 4'h7);
-			exc_kind <= x_kind;
+			// (read by the routine's accesses, after the sequence)
 			exc_l7   <= take_irq && !(adv_wb && wb_is_exc) && (irq_lvl == 3'd7);
-			exc_ssp  <= x_ssp;
-			xi_sr    <= x_osr;
-			xi_vecw  <= vw;
-			xi_pc    <= x_pc;
-			xi_addr  <= x_addr;
-			xi_ssw   <= x_ssw;
 			sr_r     <= {x_nsr[15:5], 5'd0};
 			ccr_b    <= x_osr[4:0];
 			ccr_f    <= x_osr[4:0];
@@ -2430,15 +2455,6 @@ dc1_a1  <= ag_s.agop ? ag1_val :
 					trace_addr  <= wb_u.pc;
 				end
 			end
-			// the routine's operands, written into the back file by the
-			// xw sequence: T8 vector address, T9 PC, T10 SR, T11 address,
-			// T12 format/vector word, T13 SSW; format $7: T5 the EA field
-			// (the MOVEM EA with CM, else FA), T6/T7 WB3A/WB3D of a write
-			// fault (WB3S stays clear: the instruction restarts)
-			xi_vaddr <= vbr_r + {22'd0, x_vec, 2'b00};
-			xi_ea    <= x_cm ? x_cm_ea : x_addr;
-			xi_w3a   <= x_wfault ? x_addr : 32'd0;
-			xi_w3d   <= x_wfault ? wb_st_data : 32'd0;
 		end
 
 		// exception entry, continued: three cycles of back-file writes
