@@ -172,6 +172,11 @@ wire        fr_dst_s = fr_valid[dst_r] ? fr_dst_raw[79]    : 1'b0;
 wire [14:0] fr_dst_e = fr_valid[dst_r] ? fr_dst_raw[78:64] : 15'h7FFF;
 wire [63:0] fr_dst_m = fr_valid[dst_r] ? fr_dst_raw[63:0]  : 64'hFFFF_FFFF_FFFF_FFFF;
 wire        fr_src_unsup = fr_valid[src_r] && fr_unsup[src_r];
+// ... and a NaN (written with the register, as fr_unsup: the register
+// dispatch's choice of state took it from the read's 63-bit fraction
+// compare, a 60/66 MHz path); an invalid register reads as the default NaN
+reg   [7:0] fr_nanf;
+wire        fr_src_nan = !fr_valid[src_r] || fr_nanf[src_r];
 
 reg [31:0] fpcr;                  // [15:8] enables, [7:6] prec, [5:4] rnd
 reg [31:0] fpsr;                  // [27:24] cc, [23:16] quot, [15:8] exc, [7:3] aexc
@@ -239,6 +244,12 @@ endfunction
 // exponent field (floatx80_is_denormal requires the integer bit clear;
 // hardware cputest FDIV/FDADD with $0000-8xxx operands executes).
 // Unnormal ZEROS (nonzero exponent, mantissa zero) behave as zeros.
+function nan_x;
+	input [14:0] e;
+	input [63:0] m;
+	nan_x = (e == 15'h7FFF) && (m[62:0] != 63'd0);
+endfunction
+
 function unsupported_x;
 	input [14:0] e;
 	input [63:0] m;
@@ -1298,6 +1309,9 @@ wire fr_bank_uns  = p6_v     ? unsupported_x(p6_z ? 15'd0 : p6_e[14:0], p6_z ? 6
 wire fr_bank_nice = p6_v     ? nice_x(p6_z ? 15'd0 : p6_e[14:0], p6_z ? 64'd0 : p6_m) :
                     fr_wb_we ? nice_x(fr_wb_e, fr_wb_m) :
                                nice_x(fm_wdata[94:80], fm_wdata[63:0]);
+wire fr_bank_nan  = p6_v     ? nan_x(p6_z ? 15'd0 : p6_e[14:0], p6_z ? 64'd0 : p6_m) :
+                    fr_wb_we ? nan_x(fr_wb_e, fr_wb_m) :
+                               nan_x(fm_wdata[94:80], fm_wdata[63:0]);
 
 // okv one cycle on: the writers' next state, P5's niceness as it is
 // decided, P6's as it moves on, and the register file's flags after this
@@ -1342,6 +1356,12 @@ always @(posedge clk)
 	if (ce && !fr_bank_we && fr_src_unsup != unsupported_x(fr_src_e, fr_src_m)) begin
 		$display("FAIL: fr_unsup[%0d] = %b, the register classifies as %b",
 		         src_r, fr_src_unsup, unsupported_x(fr_src_e, fr_src_m));
+		$finish;
+	end
+always @(posedge clk)
+	if (ce && !fr_bank_we && fr_src_nan != nan_x(fr_src_e, fr_src_m)) begin
+		$display("FAIL: fr_nanf[%0d] = %b (valid %b), the register classifies as %b",
+		         src_r, fr_nanf[src_r], fr_valid[src_r], nan_x(fr_src_e, fr_src_m));
 		$finish;
 	end
 // synthesis translate_on
@@ -1562,12 +1582,14 @@ always @(posedge clk) begin
 		fr_valid <= 0;
 		fr_unsup <= 0;
 		fr_nice  <= 0;
+		fr_nanf  <= 0;
 		req_pend <= 0;
 	end
 	else if (ce) begin
 		if (fr_bank_we) begin
 			fr_unsup[fr_bank_wa] <= fr_bank_uns;
 			fr_nice[fr_bank_wa]  <= fr_bank_nice;
+			fr_nanf[fr_bank_wa]  <= fr_bank_nan;
 		end
 		// a request the pipeline or the state machine cannot take yet
 		// (the pipeline draining, or a source still being computed)
@@ -1695,6 +1717,7 @@ always @(posedge clk) begin
 			fr_valid <= 0;
 			fr_unsup <= 0;
 			fr_nice  <= 0;
+			fr_nanf  <= 0;
 		end
 		if (fsave_ack) begin
 			fstate_unimp <= 0;
@@ -1942,14 +1965,14 @@ always @(posedge clk) begin
 					// a binary operation on a non-NaN source needs nothing
 					// from F_EXEC but its bookkeeping (no SNaN to quiet, no
 					// sign to change): straight to F_BIN
-					if (bin_op(opmode) && ua[1:0] != T_NAN) begin
+					if (bin_op(opmode) && !fr_src_nan) begin
 						op_kind <= bin_kind(opmode);
 						grs <= 3'd0;
 						e_w <= $signed({ua[82], ua[82:66]});
 						begin fst <= F_BIN; wb_r <= (F_BIN == F_WB); acc_r <= 1'b0; end
 					end
 					else if ((opmode == 7'h00 || opmode == 7'h40 || opmode == 7'h44) &&
-					         ua[1:0] != T_NAN) begin
+					         !fr_src_nan) begin
 						// a move: F_EXEC's work for it, here (GRS, the
 						// working exponent; F_ROUND records the exception
 						// shadow as it starts: mv_st), then F_ROUND
