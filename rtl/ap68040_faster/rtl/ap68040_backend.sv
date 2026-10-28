@@ -221,6 +221,8 @@ logic [31:0] wb_exc_addr;
 logic [31:0] wb_otgt;          // (the whole target: a JSR's frame PC; the address takes it even)
 logic        wb_exa_odd;
 logic        wb_pc_tgt;        // the frame PC is wb_otgt (an odd JSR target)
+logic [31:0] wb_fpc;           // an FPU exception's frame PC
+logic        wb_pc_fp;         // ... which the frame takes
 logic [15:0] wb_exc_ssw;      // SSW of an access error
 logic        wb_st;           // store at WB
 logic [31:0] wb_st_data;
@@ -1750,7 +1752,7 @@ always_comb begin
 		// instruction; faults and illegal opcodes the instruction
 		x_pc   = ((wb_exc >= 8'd32 && wb_exc < 8'd48) ||
 		          wb_exc == 8'd5 || wb_exc == 8'd6 || wb_exc == 8'd7) ? wb_npc : wb_u.pc;
-		if (wb_exc_pcv) x_pc = wb_pc_tgt ? wb_otgt : wb_exc_pc;
+		if (wb_exc_pcv) x_pc = wb_pc_fp ? wb_fpc : wb_pc_tgt ? wb_otgt : wb_exc_pc;
 	end
 	else if (take_irq) begin
 		x_vec  = 8'd24 + {5'd0, irq_lvl};   // replaced by the IACK result
@@ -2162,12 +2164,16 @@ dc1_a1  <= ag_s.agop ? ag1_val :
 			wb_exc_pc  <= ex_odd_pc;
 			wb_exc_fmtv <= 1'b0;
 			wb_xcommit  <= 1'b0;
+			// (an FPU exception's frame PC and format registered whatever the
+			// vector, chosen at WB by wb_pc_fp: the vector stays off the
+			// 32-bit selects)
+			wb_fpc     <= fp_xnext ? ex_npc : ex_u.pc;
+			wb_exc_fmt <= fp_xfmt;
+			wb_pc_fp   <= 1'b0;
 			if (ex_u.exc == 8'd0 && !ex_fault && ex_is_fp && ex_xvec != 8'd0) begin
 				wb_exc_pcv  <= 1'b1;
-				wb_exc_pc   <= fp_xnext ? ex_npc : ex_u.pc;
-				wb_pc_tgt   <= 1'b0;
+				wb_pc_fp    <= 1'b1;
 				wb_exc_fmtv <= 1'b1;
-				wb_exc_fmt  <= fp_xfmt;
 				wb_xcommit  <= fp_xcommit;
 			end
 			wb_oddrte  <= ex_u.exc == 8'd0 && !ex_fault && ex_xvec == 8'd0 && ex_odd &&

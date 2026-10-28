@@ -2649,7 +2649,7 @@ wire  [7:0] lse_q = lse[lv_ra];
 assign lve_q = lse_q[3:0];
 always_comb
 	lv_ra = (sn_ph == SN_B)                            ? sn_pa[CSH:4] :
-	        (e_st == E_SP_2)                           ? CSB'(m2.r.a[CSH:4] + 1'd1) :
+	        (e_st == E_SP_2)                           ? st_set :   // (m2.r.a's set + 1, registered)
 	        (e_st == E_S_XL2 || e_st == E_S_ACT ||
 	         e_st == E_W_PART)                         ? e_va[CSH:4] :
 	        (e_st == E_M_SCANW || e_st == E_M_SCAN2)   ? sc_set : f_set;
@@ -2658,6 +2658,13 @@ always_comb
 initial for (int i = 0; i < (1 << CSB); i++) begin
 	lsd[i] = 8'd0; lse[i] = 8'd0; lsw[i] = 8'd0;
 end
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && e_st == E_SP_2 && st_set != CSB'(m2.r.a[CSH:4] + 1'd1)) begin
+		$display("FAIL: dmu: E_SP_2's stolen set %h, the next line's %h", st_set, CSB'(m2.r.a[CSH:4] + 1'd1));
+		$finish;
+	end
+// synthesis translate_on
 // synthesis translate_off
 // the copies against the flip-flop model (after reset's sweep)
 always_ff @(posedge clk)
