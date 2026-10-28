@@ -460,7 +460,18 @@ always_ff @(posedge clk)
 		$finish;
 	end
 // synthesis translate_on
-assign rra[2] = (DUAL && ag_s.v) ? ag_s.b_reg : ag_u.upd2_reg;
+// (port 2's address registered as the pair enters AG: the select by the
+// second slot's valid was the first hop of the path through the register
+// read, upd2's adder and its front-file write)
+logic [4:0] rra2_q;
+assign rra[2] = rra2_q;
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && ag_v && rra2_q != ((DUAL && ag_s.v) ? ag_s.b_reg : ag_u.upd2_reg)) begin
+		$display("FAIL: AG's port 2 address %0d, the pair's %0d", rra2_q, (DUAL && ag_s.v) ? ag_s.b_reg : ag_u.upd2_reg);
+		$finish;
+	end
+// synthesis translate_on
 assign rra[3] = ag_u.a_reg;
 assign rra[4] = ag_u.b_reg;
 assign rra[5] = ain_s.a_reg;      // (read as the pair enters AG: ag_a1q)
@@ -1780,6 +1791,7 @@ always_ff @(posedge clk) begin
 	if (!nreset) begin
 		ag_v  <= 1'b0; dc1_v <= 1'b0; dc2_v <= 1'b0; ex_v <= 1'b0; wb_v <= 1'b0;
 		ag_s  <= '0; dc1_s <= '0; dc2_s <= '0; ex_s <= '0; wb_s <= '0; sk_s <= '0;
+		rra2_q <= '0;
 		sk_v  <= 1'b0;
 		sk_vr <= 1'b0;
 		eredir_pend <= 1'b0;
@@ -2362,6 +2374,7 @@ dc1_a1  <= ag_s.agop ? ag1_val :
 			if (ag_take && ain_v) begin
 				ag_u      <= ain_u;
 				ag_s      <= DUAL ? ain_s : '0;
+				rra2_q    <= (DUAL && ain_s.v) ? ain_s.b_reg : ain_u.upd2_reg;
 				ag_ld     = 1'b1;
 				ag_u.disp <= ain_u.dmv ? ain_u.disp + {{24{ain_u.dma[7]}}, ain_u.dma} : ain_u.disp;
 			end
