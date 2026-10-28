@@ -2632,8 +2632,12 @@ always_ff @(posedge clk) begin
 		end
 	end
 	// the second slot's operand A: read as the pair enters AG, with that
-	// cycle's AG writes and EX writes laid over it; then EX's writes
-	if (!flush && !stall_ag && ain_v && !stopped) begin
+	// cycle's AG writes and EX writes laid over it; then EX's writes.
+	// (Loaded whenever AG does not stall: AG is empty after a cycle it took
+	// nothing in, so the value is unused then.  The stall, the end of the
+	// stall chain, selects last: a 60/66 MHz path through the load's
+	// conditions and the 32-bit select)
+	begin
 		logic [31:0] v;
 		logic  [4:0] r;
 		r = ain_s.a_reg;
@@ -2641,10 +2645,8 @@ always_ff @(posedge clk) begin
 		if (fwe_ag[0] && ag_u.upd_reg == r)  v = ag_updv;
 		if (fwe_ag[1] && ag_u.upd2_reg == r) v = ag_u2v;
 		if (ag1w_ag && ag_s.d_reg == r)      v = ag1_val;
-		ag_a1q <= bcast(exw_fw, r, v);
+		ag_a1q <= stall_ag ? bcast(exw_fw, ag_s.a_reg, ag_a1q) : bcast(exw_fw, r, v);
 	end
-	else if (ag_v)
-		ag_a1q <= bcast(exw_fw, ag_s.a_reg, ag_a1q);
 	exq_val  <= exw_val;
 	exq1_val <= exw1_val;
 	if (flush || !nreset) begin
