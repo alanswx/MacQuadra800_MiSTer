@@ -283,6 +283,12 @@ ap040_fpu #(.PIPE(FPU_PIPE)) fpu (
 //--------------------------------------------------------------------------
 logic [15:0] opw_q, ext_q;     // the instruction's words (latched by CHK)
 logic        fsr_q;            // ... it is FSAVE or FRESTORE (for END's hold)
+// A dynamic list's adjustment (the count of a data register's low byte,
+// times 12, negated for -(An)), registered: in one clock it ran from
+// EX's operand through the result into the forwarding at 60/66 MHz.
+// FMOVEM with a dynamic list takes a clock more (lst_w).
+logic [31:0] lst_dq;
+logic        lst_w;
 logic [31:0] lst_q;            // ... FMOVEM's LIST result for a static list: its
                                // bytes, negated for -(An)
 logic        bg;               // a released operation is running
@@ -644,7 +650,12 @@ always_comb begin
 				dkill = !cr_slots[imm[1:0]];
 				if (!crr_wait) hold = 1'b1;
 			end
-			FC_LIST: res_g = (ea_pd) ? -{25'd0, l_bytes} : {25'd0, l_bytes};
+			FC_LIST: begin
+				res_g = (ea_pd) ? -{25'd0, l_bytes} : {25'd0, l_bytes};
+				// a dynamic list's adjustment is registered (lst_dq): the
+				// first clock waits for it
+				if (ext_q[11] && !lst_w) hold = 1'b1;
+			end
 			FC_MVR: begin
 				res_g = mv_rev ? f_fmrd[31:0] : f_fmrd[95:64];
 				if (cur_on && !mvr_wait) hold = 1'b1;
@@ -714,7 +725,7 @@ always_comb begin
 		end
 		FC_GET:  res = (imm[1:0] == 2'd1) ? get_q[63:32] : get_q[31:0];
 		FC_CRR:  res = f_crrd;
-		FC_LIST: res = ext_q[11] ? lst_dyn(opw_q, av[7:0]) : lst_q;
+		FC_LIST: res = ext_q[11] ? lst_dq : lst_q;
 		FC_MVR:  res = mv_rev ? f_fmrd[31:0] : f_fmrd[95:64];
 		FC_DBCC: res = {bv[31:16], bv[15:0] - 16'd1};
 		FC_COND: res = {bv[31:8], {8{fp_cond(is_bcc ? opw[5:0] : ext_q[5:0], f_cc)}}};   // FScc
@@ -726,9 +737,14 @@ always_comb begin
 		default: ;
 	endcase
 end
+always_ff @(posedge clk) begin
+	lst_dq <= lst_dyn(opw_q, av[7:0]);
+	// (the second clock of a dynamic list: EX's operand is held)
+	lst_w  <= nreset && ex_v && sub == FC_LIST && ext_q[11] && !adv;
+end
 // synthesis translate_off
 always_ff @(posedge clk)
-	if (nreset && ex_v && res_g != res && res_g != 32'd0) begin
+	if (nreset && ex_v && res_g != res && res_g != 32'd0 && !(sub == FC_LIST && ext_q[11] && !lst_w)) begin
 		$display("FAIL: fpif result %h, the gated one %h (sub %0d)", res, res_g, sub);
 		$finish;
 	end
