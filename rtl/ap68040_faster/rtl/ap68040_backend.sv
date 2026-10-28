@@ -2508,10 +2508,14 @@ dc1_a1  <= ag_s.agop ? ag1_val :
 		else begin
 			// D2 (or the skid) -> AG
 			if (!stall_ag) ag_v <= ain_v && !stopped && !halted;
+			// (port 2's address loaded whenever AG does not stall: AG is
+			// empty after a clock it took nothing in.  It sits in the
+			// register file's read address registers, and the take's other
+			// conditions were a 60/66 MHz path into them)
+			if (!stall_ag) rra2_q <= (DUAL && ain_s.v) ? ain_s.b_reg : ain_u.upd2_reg;
 			if (ag_take && ain_v) begin
 				ag_u      <= ain_u;
 				ag_s      <= DUAL ? ain_s : '0;
-				rra2_q    <= (DUAL && ain_s.v) ? ain_s.b_reg : ain_u.upd2_reg;
 				ag_ld     = 1'b1;
 				ag_u.disp <= ain_u.dmv ? ain_u.disp + {{24{ain_u.dma[7]}}, ain_u.dma} : ain_u.disp;
 			end
