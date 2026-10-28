@@ -289,6 +289,8 @@ logic        fsr_q;            // ... it is FSAVE or FRESTORE (for END's hold)
 // FMOVEM with a dynamic list takes a clock more (lst_w).
 logic [31:0] lst_dq;
 logic        lst_w;
+logic  [6:0] rs_dq;            // FRESTORE: the frame size, registered from its header
+logic        rs_w;             // ... the second clock of FC_RS0 (rs_dq good)
 logic [31:0] lst_q;            // ... FMOVEM's LIST result for a static list: its
                                // bytes, negated for -(An)
 logic        bg;               // a released operation is running
@@ -702,7 +704,9 @@ always_comb begin
 			              (sv_kind == 2'd2) ? unimp_word(imm[6:2]) :
 			              (sv_kind == 2'd1) ? IDLE_HDR : 32'd0;
 			FC_RS0: begin
-				if (bg) hold = 1'b1;
+				// (the frame's size is registered from its header, rs_dq:
+				// the first clock waits for it)
+				if (bg || !rs_w) hold = 1'b1;
 				res_g = {25'd0, kbytes(rs_kind_of(av))};
 				// an unknown frame is a format error at the FRESTORE
 				if (!rs_ok) xvec = VEC_FMTERR;
@@ -743,7 +747,7 @@ always_comb begin
 		FC_SVW:  res = (sv_kind == 2'd3) ? busy_word(imm[6:2]) :
 		               (sv_kind == 2'd2) ? unimp_word(imm[6:2]) :
 		               (sv_kind == 2'd1) ? IDLE_HDR : 32'd0;
-		FC_RS0:  res = {25'd0, kbytes(rs_kind_of(av))};
+		FC_RS0:  res = {25'd0, rs_dq};
 		default: ;
 	endcase
 end
@@ -751,10 +755,16 @@ always_ff @(posedge clk) begin
 	lst_dq <= lst_dyn(opw_q, av[7:0]);
 	// (the second clock of a dynamic list: EX's operand is held)
 	lst_w  <= nreset && ex_v && sub == FC_LIST && ext_q[11] && !adv;
+	// FRESTORE's frame size from the header (EX's operand A, a register
+	// while EX holds): its decode was on the result's path into the
+	// forwarding at 60/66 MHz
+	rs_dq  <= kbytes(rs_kind_of(av));
+	rs_w   <= nreset && ex_v && sub == FC_RS0 && !adv;
 end
 // synthesis translate_off
 always_ff @(posedge clk)
-	if (nreset && ex_v && res_g != res && res_g != 32'd0 && !(sub == FC_LIST && ext_q[11] && !lst_w)) begin
+	if (nreset && ex_v && res_g != res && res_g != 32'd0 && !(sub == FC_LIST && ext_q[11] && !lst_w) &&
+	    !(sub == FC_RS0 && !rs_w)) begin
 		$display("FAIL: fpif result %h, the gated one %h (sub %0d)", res, res_g, sub);
 		$finish;
 	end
