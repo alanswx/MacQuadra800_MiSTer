@@ -809,7 +809,11 @@ always_comb begin
 			n_opm   = opm;
 			n_fmt   = fmt;
 		end
-		else if (ocl == 3'b011 && !chk_pend && !chk_x && !bg && dc2_disp) begin
+		// (a store's: set while CHK is in EX, whether or not DISP follows
+		// it into EX this cycle -- the values DISP sets are the same, and
+		// only a request reads them; dc2_disp, through DC2's advance, was
+		// a 60/66 MHz path into the FPU's registered eligibility)
+		else if (ocl == 3'b011 && !chk_pend && !chk_x && !bg) begin
 			n_srcr  = ext[9:7];
 			n_dstr  = ext[9:7];
 			n_class = 3'b011;
