@@ -43,3 +43,63 @@ the clock the FPU's WB state begins (a simulation probe saw it in every
 FPU test).
 
 At 66/33/99 the same RTL fits at -2.96 / -3.76 ns (seed 41): not near.
+
+## After 4600eb2 (2026-10-27/28)
+
+The same method, one family at a time: read the worst path's cells
+(`report_timing -detail full_path`), find the late select or decision in
+it, and move it off the path -- register it, select by an earlier signal
+whose don't-care cases are provably unused, or let the consumer choose.
+Every change below passes the 235 CPU self-test runs (cycle counts
+compared with the run before), the dual random test (`run_dualrand.sh 1
+120`: ALL SAME, 25,463,374 dual / 27,199,242 single cycles), and the
+adapter benches (42,468 / 32,200); where a sim check is named it compares
+the new form with the old one every cycle it is used.  On 2026-10-28 the
+self-tests were also run in the Quadra's own configuration
+(`DEFS="+define+AP_FPU_PIPE=0 +define+AP_LOOP_PRED=0 +define+AP_EARLY_RES=0
++define+AP_S1C=3'b011"`): all pass.
+
+| commit | change | cycles |
+|---|---|---|
+| 7272f34 | EX's broadcast to younger operands without EX's advance (uops that always write) | same |
+| 0267673 | an index that is AG's own second update loaded a clock later | t_ag2x |
+| 654684d, 4d17b36 | odd branch / JSR fault address and frame PC registered, chosen at WB | same |
+| 5b26005, 90188da | DC1's and the engine's tag compares in parallel with the ATC ways | same |
+| 7535daa | the companion's BTB-flag test from pd0.tot | same |
+| 8564ef0 | AG's register port 2 address registered | same |
+| 4dfc462, c3ddd0a | EX's written value takes the ALU result at its last multiplexer | same |
+| c58d3db | WB's fault address formed apart from EX's exception vector | same |
+| 54f5425 | FCMP's compares registered the clock before F_WB (t_fcmp added) | same |
+| aedb567, 02ab4b4, 718ffda | the split lookup's valid read; an FPU frame PC at WB; a known JSR target by the fast decode; DBcc's write | same |
+| 05c737f, 3b36c20 | fpif's result and FMOVEM's slot bit from latched words | same |
+| 3b64b62 | AG's incoming index scaled from the register read on its own | same |
+| dd96e1d | a dynamic FMOVEM list's adjustment registered | t_fpu +1 |
+| 2d413bf | a slow op's shifter result at xs's last multiplexer | same |
+| 8c15840 | FMUL by a power of two taken in F_MULT's first cycle | t_fpu +2, t_fpexc +3 |
+| efef115 | the FP condition's predicate latched with the command words | same |
+| d64792f | the table walk's valid/dirty update addresses its set whatever the dirty bit | same |
+| d1af381 | fpif's hold decodes from the latched words, not through CHK's select | same |
+| 1aa367a | the second slot's operand A loaded every clock AG does not stall | same |
+| 2e1eaaf | the second slot's broadcast without EX's advance | same |
+| df6e7ec | the lookup RAMs' and the ATC's set chosen by DC1's hold, not AG's advance | same |
+| 2f0bd7d | FRESTORE's frame size registered | FRESTORE +1 clock |
+| d1fe42c | a store's FPU register selects set while CHK is in EX | same |
+| ec78081 | a refetched record's routine substituted by the sequencer | same |
+| cb9d5cf | AG's base/index read addresses registered a cycle ahead | same |
+| 8fbc515 | front-file port 1 selected without EX's advance | same |
+| 5988c36 | the CPU's skid register at 60 MHz (the Quadra built SKID(0)) | -0.06 %; 2x bench 31,993 |
+
+CPU-clock setup slack, worst / TNS (ns), by batch:
+
+| batch | commit | 42 | 45 | 47 | 49 | 50 | 51 | 52 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| 60k2 | 8564ef0 | -1.057 | **-0.828** | | | | | |
+| 60p | 05c737f | -1.561 | -1.043 | -0.876 | **-0.571 / -5.9** | -1.052 | | |
+| 60q | 3b64b62 | -1.446 | -1.233 | -1.387 | -1.667 | -1.292 | -1.314 | **-0.852** |
+| 60r | 2d413bf | -1.424 | -1.189 | -1.714 | **-0.902** | -1.159 | -2.030 | -1.283 |
+
+(05c737f seed 46: -1.564.)  The best seed of each batch sits near -0.6 to
+-0.9 ns while the worst families change from seed to seed: no one family
+dominates, which is why the work goes family by family.  Removing the
+Ethernet block (ETHERNET_OFF) gained nothing (-1.23 / -1.34), so area is
+not the lever; the user's rule since 2026-10-27 is to keep every feature.
