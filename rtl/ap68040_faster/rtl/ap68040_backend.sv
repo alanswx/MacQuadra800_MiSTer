@@ -528,13 +528,14 @@ logic [31:0] exw_val;
 // the second slot's EX write and its broadcast (it has no exception: the
 // uop beside it taking one flushes every uop that captured it)
 logic        exw1_v;
+logic        exw1_fw;         // ... as the younger uops' operands see it (see exw_fw)
 logic  [4:0] exw1_reg;
 logic [31:0] exw1_val;
 // a register operand's value with this cycle's EX writes: e0 the first
 // slot's (of the given form), and the second slot's (never both: the two
 // write different registers)
 function automatic logic [31:0] bcast(input logic e0, input logic [4:0] r, input logic [31:0] v);
-	bcast = (e0 && exw_reg == r) ? exw_val : (exw1_v && exw1_reg == r) ? exw1_val : v;
+	bcast = (e0 && exw_reg == r) ? exw_val : (exw1_fw && exw1_reg == r) ? exw1_val : v;
 endfunction
 
 function automatic logic [31:0] opnd(input logic [1:0] src, input logic [4:0] r,
@@ -1545,6 +1546,11 @@ logic  [4:0] alu1_flags;
 ap68040_alu1 alu1 (.op(ex_s.op), .sz(ex_s.sz), .a(ex_s.ld ? ex_ld : ex_a1), .b(ex_b1),
                    .res(alu1_res), .flags_out(alu1_flags));
 assign exw1_v   = DUAL && adv_ex && ex_s.v && ex_s.d_v && !ex1_flt;
+// (without the advance, as exw_fw: the second slot's write is never
+// suppressed, so every operand that took a held EX's broadcast takes it
+// again in the clock EX advances -- the stall chain into the operand
+// selects was a 60/66 MHz path)
+assign exw1_fw  = DUAL && ex_v && ex_s.v && ex_s.d_v && !ex1_flt;
 assign exw1_reg = ex_s.d_reg;
 assign exw1_val = alu1_res;
 // synthesis translate_off
@@ -1970,8 +1976,8 @@ dc1_a1  <= ag_s.agop ? ag1_val :
 		else begin
 			if (exw_fw && dc1_u.a_src == OS_REG && dc1_u.a_reg == exw_reg) dc1_a <= exw_val;
 			if (exw_fw && dc1_u.b_src == OS_REG && dc1_u.b_reg == exw_reg) dc1_b <= exw_val;
-			if (exw1_v && dc1_u.a_src == OS_REG && dc1_u.a_reg == exw1_reg) dc1_a <= exw1_val;
-			if (exw1_v && dc1_u.b_src == OS_REG && dc1_u.b_reg == exw1_reg) dc1_b <= exw1_val;
+			if (exw1_fw && dc1_u.a_src == OS_REG && dc1_u.a_reg == exw1_reg) dc1_a <= exw1_val;
+			if (exw1_fw && dc1_u.b_src == OS_REG && dc1_u.b_reg == exw1_reg) dc1_b <= exw1_val;
 			if (dc1_s.a_v && !dc1_s.a_imm && !dc1_s.agop) dc1_a1 <= bcast(exw_fw, dc1_s.a_reg, dc1_a1);
 			if (dc1_s.b_v) dc1_b1 <= bcast(exw_fw, dc1_s.b_reg, dc1_b1);
 		end
