@@ -47,6 +47,8 @@ module ap68040_useq
 	output uop_t        uq0,
 	output s1_t         uq0s,       // ... and the second slot beside it
 	input  logic        uq_pop,     // the back end takes uq0 this cycle
+	output logic  [4:0] uq0_nb,     // uq0's base and index registers as they will be next
+	output logic  [4:0] uq0_nx,     // cycle (the back end registers its read addresses)
 	output logic [19:0] dbg_pu      // observation only: dual-issue events (see the end)
 );
 
@@ -976,6 +978,20 @@ always_comb begin
 end
 
 assign rq_pop = done && !exc_mode;
+// the head's next base and index, as the FIFO below writes it
+always_comb begin
+	if (!nreset) begin
+		uq0_nb = '0;
+		uq0_nx = '0;
+	end
+	else if (uq_pop && uq_n != 2'd0) begin
+		uq0_nb = (wv && uq_n == 2'd1) ? wu.base : uq1.base;
+		uq0_nx = (wv && uq_n == 2'd1) ? wu.idx  : uq1.idx;
+	end
+	else begin
+		uq0_nb = (wv && uq_n == 2'd0) ? wu.base : uq0.base;
+		uq0_nx = (wv && uq_n == 2'd0) ? wu.idx  : uq0.idx;
+	end
 end
 // The pop from the word's own bits and the record's EA modes, not the uop
 // built from them (D1's room, a timing path): a plain last word -- no
@@ -1067,6 +1083,7 @@ always_ff @(posedge clk) begin
 
 		// uop FIFO: both outcomes formed without the pop (the back end's
 		// stall, a late signal), which selects between them last
+		// (uq0_nb/uq0_nx below follow this head's update)
 		if (uq_pop && uq_n != 2'd0) begin
 			uq0  <= (wv && uq_n == 2'd1) ? wu : uq1;
 			uq1  <= (wv && uq_n == 2'd2) ? wu : uq1;

@@ -38,6 +38,8 @@ module ap68040_backend
 	// uops from the sequencer
 	input  logic        in_v,
 	input  uop_t        in_u,
+	input  logic  [4:0] in_nb,          // in_u's base and index next cycle
+	input  logic  [4:0] in_nx,
 	input  s1_t         in_s,           // ... and the second slot beside it
 	output logic        in_rdy,
 
@@ -450,8 +452,30 @@ ap68040_rf #(.NR(NRP), .NW(DUAL ? 3 : 2)) rfb (.clk(clk), .we(bwe), .wa(bwa), .w
 // AG's base and index are read as the uop enters AG (ports 0/1 address
 // the incoming uop) and kept in registers, so AG's address adders, and the
 // data cache's set index after them, start from flip-flops
-assign rra[0] = sk_vr ? sk_u.base : in_u.base;   // (= ain_u's)
-assign rra[1] = sk_vr ? sk_u.idx  : in_u.idx;
+// (registered a cycle ahead: the skid's next copy if it will hold a uop,
+// else the sequencer's next head; the select between the skid and the
+// head, with its fan-out to every register's read, began the register
+// read into agx_q/agb_q, a 60/66 MHz path.  The skid's next uop, when it
+// holds one, is the one entering AG now.)
+logic [4:0] rra0_q, rra1_q;
+wire sk_vn = !(flush || kill_now) && (sk_v ? !ag_take : (SKID && in_v && in_rdy && !ag_take));
+always_ff @(posedge clk) begin
+	rra0_q <= sk_vn ? (sk_vr ? sk_u.base : in_u.base) : in_nb;
+	rra1_q <= sk_vn ? (sk_vr ? sk_u.idx  : in_u.idx)  : in_nx;
+end
+assign rra[0] = rra0_q;   // (= ain_u's)
+assign rra[1] = rra1_q;
+// synthesis translate_off
+logic sim_rra_ok;
+always_ff @(posedge clk) begin
+	sim_rra_ok <= nreset;
+	if (nreset && sim_rra_ok && (rra0_q != ain_u.base || rra1_q != ain_u.idx)) begin
+		$display("FAIL: AG's registered read addresses %0d/%0d, the incoming uop's %0d/%0d",
+		         rra0_q, rra1_q, ain_u.base, ain_u.idx);
+		$finish;
+	end
+end
+// synthesis translate_on
 // synthesis translate_off
 always_ff @(posedge clk)
 	if (nreset && wb_commit && wb_dwe && wb_u.upd2_v) begin

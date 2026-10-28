@@ -278,6 +278,7 @@ logic [15:0] dm_fssw, dm_st_fssw;
 
 logic  [1:0] uq_n;
 uop_t        uq0;
+logic  [4:0] uq0_nb, uq0_nx;
 s1_t         uq0s;
 logic        uo_rdy;
 
@@ -285,6 +286,7 @@ ap68040_backend #(.FPU_REVISION(FPU_REVISION), .FPU_PIPE(FPU_PIPE), .EARLY_RES(E
                   .SKID(SKID), .DIV_STEPS(DIV_STEPS), .DUAL(DUAL)) be (
 	.clk(clk), .nreset(nreset),
 	.in_v(uq_n != 2'd0), .in_u(uq0), .in_s(uq0s), .in_rdy(uo_rdy),
+	.in_nb(uq0_nb), .in_nx(uq0_nx),
 	.redir_v(redir_v), .redir_pc(redir_pc), .flush(flush), .fe_flush(fe_flush),
 	.ras_rv(ras_rv), .ras_rtp(ras_rtp), .ras_rn(ras_rn),
 	.exc_go(exc_go), .exc_pend(exc_pend), .exc_kind(exc_kind), .exc_ssp(exc_ssp),
@@ -441,7 +443,8 @@ ap68040_useq #(.DUAL(DUAL)) useq (
 	.rq_n(rq_n), .rq0(rq0), .rq1(rq1), .rq_pop(rq_pop), .rq_pop_e(rq_pop_e),
 	.smode(sr[13]), .master(sr[12]), .trace(sr[15] || sr[14]),
 	.exc_go(exc_go), .exc_pend(exc_pend), .exc_kind(exc_kind), .exc_ssp(exc_ssp),
-	.uq_n(uq_n), .uq0(uq0), .uq0s(uq0s), .uq_pop(uo_rdy && uq_n != 2'd0), .dbg_pu(dbg_pu)
+	.uq_n(uq_n), .uq0(uq0), .uq0s(uq0s), .uq_pop(uo_rdy && uq_n != 2'd0),
+	.uq0_nb(uq0_nb), .uq0_nx(uq0_nx), .dbg_pu(dbg_pu)
 );
 
 assign dbg_vbr  = vbr;
