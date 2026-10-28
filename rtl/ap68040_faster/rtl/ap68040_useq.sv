@@ -47,6 +47,7 @@ module ap68040_useq
 	output uop_t        uq0,
 	output s1_t         uq0s,       // ... and the second slot beside it
 	input  logic        uq_pop,     // the back end takes uq0 this cycle
+	input  logic        uq_pop_a,   // ... as the back end's read addresses assume it
 	output logic  [4:0] uq0_nb,     // uq0's base and index registers as they will be next
 	output logic  [4:0] uq0_nx,     // cycle (the back end registers its read addresses)
 	output logic [19:0] dbg_pu      // observation only: dual-issue events (see the end)
@@ -978,13 +979,14 @@ always_comb begin
 end
 
 assign rq_pop = done && !exc_mode;
-// the head's next base and index, as the FIFO below writes it
+// the head's next base and index, as the FIFO below writes it (with the
+// back end's assumed pop: see its rra0_q)
 always_comb begin
 	if (!nreset) begin
 		uq0_nb = '0;
 		uq0_nx = '0;
 	end
-	else if (uq_pop && uq_n != 2'd0) begin
+	else if (uq_pop_a && uq_n != 2'd0) begin
 		uq0_nb = (wv && uq_n == 2'd1) ? wu.base : uq1.base;
 		uq0_nx = (wv && uq_n == 2'd1) ? wu.idx  : uq1.idx;
 	end

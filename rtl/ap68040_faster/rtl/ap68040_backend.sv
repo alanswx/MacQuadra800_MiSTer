@@ -42,6 +42,7 @@ module ap68040_backend
 	input  logic  [4:0] in_nx,
 	input  s1_t         in_s,           // ... and the second slot beside it
 	output logic        in_rdy,
+	output logic        in_rdy_a,       // ... as AG's read addresses assume it (see rra0_q)
 
 	// redirect of the front end (registered)
 	output logic        redir_v,
@@ -344,6 +345,15 @@ assign ain_u   = sk_v ? sk_u : in_u;
 assign ain_s   = sk_v ? sk_s : in_s;
 // (without the skid the sequencer's pop waits for AG: the stall chain)
 assign in_rdy  = (SKID ? !sk_v : !stall_ag) && !flush && !stopped && !eredir_pend && !exc_pend;
+// (with the skid, AG's registered read addresses assume the pop from the
+// skid alone: in a clock the flush, STOP, a pending early redirect or a
+// pending exception entry holds the pop, the sequencer's FIFO is empty or
+// AG takes nothing before the FIFO is cleared, so the assumed address is
+// never used -- the pop's other conditions, from WB's and the exception
+// entry's state, ran through the sequencer's head into the register
+// file's address at 60/66 MHz; the sim check below holds the addresses to
+// every uop AG takes)
+assign in_rdy_a = SKID ? !sk_v : in_rdy;
 // (the back-file writes of the routine's operands take several cycles
 // after the flush: the sequencer must not issue from the old stream, which
 // the fetch queue still holds, before exc_go)
@@ -463,7 +473,7 @@ logic [4:0] rra0_q, rra1_q;
 // kill: after either, the flush holds AG for a clock, so an address formed
 // in the kill's clock is never used -- kill_now, from WB, was a 60/66 MHz
 // path into these addresses)
-wire sk_vn = sk_v ? !ag_take : (SKID && in_v && in_rdy && !ag_take);
+wire sk_vn = sk_v ? !ag_take : (SKID && in_v && in_rdy_a && !ag_take);
 always_ff @(posedge clk) begin
 	rra0_q <= sk_vn ? (sk_vr ? sk_u.base : in_u.base) : in_nb;
 	rra1_q <= sk_vn ? (sk_vr ? sk_u.idx  : in_u.idx)  : in_nx;
@@ -474,7 +484,8 @@ assign rra[1] = rra1_q;
 logic sim_rra_ok;
 always_ff @(posedge clk) begin
 	sim_rra_ok <= nreset;
-	if (nreset && sim_rra_ok && !flush && (rra0_q != ain_u.base || rra1_q != ain_u.idx)) begin
+	if (nreset && sim_rra_ok && !flush && !stall_ag && ain_v && !stopped &&
+	    ((ain_u.base_v && rra0_q != ain_u.base) || (ain_u.idx_v && rra1_q != ain_u.idx))) begin
 		$display("FAIL: AG's registered read addresses %0d/%0d, the incoming uop's %0d/%0d",
 		         rra0_q, rra1_q, ain_u.base, ain_u.idx);
 		$finish;
