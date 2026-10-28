@@ -1997,9 +1997,12 @@ dc1_a1  <= ag_s.agop ? ag1_val :
 			ex_fp_q  <= (dc2_u.op == OP_FPU);
 			ex_dbcc_q <= (dc2_u.op == OP_DBCC);
 			ex_slow_q <= is_slow(dc2_u.op);
+			// (no `inside': Quartus 17 rejects it)
 			ex_alu_q  <= !is_slow(dc2_u.op) &&
-			             !(dc2_u.op inside {OP_FPU, OP_MUL, OP_DIV, OP_MDRES, OP_MDHI, OP_CCRLOG,
-			                                OP_SPW, OP_LATCH, OP_CAS2R, OP_BFSET, OP_CAS});
+			             (dc2_u.op != OP_FPU) && (dc2_u.op != OP_MUL) && (dc2_u.op != OP_DIV) &&
+			             (dc2_u.op != OP_MDRES) && (dc2_u.op != OP_MDHI) && (dc2_u.op != OP_CCRLOG) &&
+			             (dc2_u.op != OP_SPW) && (dc2_u.op != OP_LATCH) && (dc2_u.op != OP_CAS2R) &&
+			             (dc2_u.op != OP_BFSET) && (dc2_u.op != OP_CAS);
 			ex_npc   <= dc2_u.pc + {27'd0, dc2_u.ilen, 1'b0};
 			ex_kc    <= {dc2_u.op == OP_CAS2R, dc2_u.op == OP_CHK2B,
 			             dc2_u.op == OP_DBCC, dc2_u.op == OP_MDRES, dc2_u.op == OP_DIV,
