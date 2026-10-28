@@ -97,9 +97,44 @@ CPU-clock setup slack, worst / TNS (ns), by batch:
 | 60p | 05c737f | -1.561 | -1.043 | -0.876 | **-0.571 / -5.9** | -1.052 | | |
 | 60q | 3b64b62 | -1.446 | -1.233 | -1.387 | -1.667 | -1.292 | -1.314 | **-0.852** |
 | 60r | 2d413bf | -1.424 | -1.189 | -1.714 | **-0.902** | -1.159 | -2.030 | -1.283 |
+| 60s | 8fbc515 | -2.052 | -2.954 | -1.853 | -2.537 | | | **-1.469** (53: -1.818) |
+| 60t | 5988c36 (skid) | -2.126 | | | -1.973 | | | **-1.402** |
 
 (05c737f seed 46: -1.564.)  The best seed of each batch sits near -0.6 to
 -0.9 ns while the worst families change from seed to seed: no one family
 dominates, which is why the work goes family by family.  Removing the
 Ethernet block (ETHERNET_OFF) gained nothing (-1.23 / -1.34), so area is
 not the lever; the user's rule since 2026-10-27 is to keep every feature.
+
+The 60s/60t batches came out worse than 60r (TNS -200 to -590 against
+-22 to -400).  Their worst families were paths that were there before
+and that these fits placed badly -- FSUB's zero test after the
+subtraction (fpu.b_m -> the state and acc_hi, -2.5 to -2.95, the worst
+of two seeds), FADD's significand-compare swap, and WB's store answer
+into the stall chain (wb_u.op / dmu.m4 -> dc1_a1, fv, rff.lvt, md.*,
+the exception entry's registers) -- so the next commits went after those:
+
+| commit | change | cycles |
+|---|---|---|
+| 80d5f7b | EX's operand-is-load-data flags registered with the uop | same |
+| a92e75f | the posted VRAM store's answer without the maintenance-op term | same |
+| f31ee4d | WB's store-answer record conditions registered as WB's record loads | same |
+| 0fdb063 | a suppressible EX write broadcast once EX's own work is done | same |
+| 436b4d3 | FSUB's exact cancellation by the operands' equality | same |
+| 8c85eae | AG's port-2 address loaded on every clock AG does not stall | same |
+| 7d08b7b | the multiply/divide unit's kill off its data registers | same |
+| c138308 | the front-valid bits clear the clock after the kill | same |
+| a614639 | the exception routine's operands follow the entry values outside their sequence | same |
+| 6d0ec93 | FADD/FSUB swap by the exponents alone (t_farith) | same |
+| 33b6ede | FDIV by a power of two / equal significands in F_DIVL's first cycle | +1 clock for those |
+| 3b51af0, fedd2be | the FPU's shared shifter selected by P2's valid; a register's NaN flag kept with it | same |
+| 6a3ff58 | a PC-relative branch's displacement chosen by the routine alone | same |
+| 680cc7c | FRESTORE's format check registered with its size | same |
+| 8ea715b | DC2's fast-load store hazard registered from the record pairs | same |
+| deeae7d | the right shifter's sticky formed beside the shift | same |
+
+From 5988c36 on the self-tests also run in the 60 MHz build's own CPU
+configuration -- the Quadra's parameters plus the skid
+(`DEFS="+define+AP_FPU_PIPE=0 +define+AP_LOOP_PRED=0 +define+AP_EARLY_RES=0
++define+AP_S1C=3'b011 +define+AP_SKID=1"`) -- beside the default one;
+both pass at every commit above.
