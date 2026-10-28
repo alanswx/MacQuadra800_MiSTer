@@ -422,6 +422,18 @@ reg [127:0] mul_pd;           // registered DSP full product (F_MULT)
 reg   [3:0] op_kind;          // 0 none, 1 add, 2 mul, 3 div, 4 sqrt
 reg   [4:0] sh_ret;           // staged shifter return state
 reg   [1:0] r_pr;             // rounding precision latched for F_UNFL
+// F_UNFL's tests of sh_v by precision (extended, single, double), registered
+// every clock: the sticky below the round bit, the inexact bits, and the
+// kept significand zero; F_UNFL waits its first clock for them (unf_w)
+reg         unf_w;
+reg   [2:0] unf_s, unf_i, unf_z;
+always @(posedge clk) begin
+	unf_s <= {sh_v[12:0] != 0, sh_v[41:0] != 0, sh_v[1:0] != 0};
+	unf_i <= {sh_v[13:0] != 0, sh_v[42:0] != 0, sh_v[2:0] != 0};
+	unf_z <= {(sh_v[66:3] & 64'hFFFF_FFFF_FFFF_F800) == 64'd0,
+	          (sh_v[66:3] & 64'hFFFF_FF00_0000_0000) == 64'd0,
+	          sh_v[66:3] == 64'd0};
+end
 reg         mv_st;            // a move's F_ROUND starts: record its exception shadow
 // a datatype or unimplemented-instruction frame is captured in F_CAP, the
 // cycle after the decision, from the shadow registers (sh_src, sh_stag,
@@ -1593,7 +1605,7 @@ always @(posedge clk) begin
 		r_ae7 <= 0;
 		r_unimp <= 0; r_stag <= 0; r_resume <= 0;
 		a_s <= 0; a_e <= 0; a_m <= 0; a_t <= 0;
-		sh_v <= 0; sh_cnt <= 0;
+		sh_v <= 0; sh_cnt <= 0; unf_w <= 0;
 		pk_neg <= 0; pk_isz <= 0;
 		b_s <= 0; b_e <= 0; b_m <= 0; b_t <= 0;
 		grs <= 0; eff_sub <= 0; acc_hi <= 0; acc_lo <= 0;
@@ -3265,23 +3277,30 @@ always @(posedge clk) begin
 				// significand to.
 				reg [64:0] mr, mk, mi;
 				reg [63:0] rmask;
-				reg        up, inx2;
+				reg        up, inx2, mkz;
+				// (the first clock waits: the sticky and zero tests below are
+				// registered from sh_v, which F_SHR wrote at the clock before
+				// -- formed here they were a 60/66 MHz path through the
+				// rounding decision into the class and exponent)
+				if (!unf_w) unf_w <= 1'b1;
+				else begin
+				unf_w <= 1'b0;
 				if (r_pr == 2'd0) begin
-					up = round_up(sh_v[3], sh_v[2],
-					              (sh_v[1:0] != 0), a_s);
-					inx2 = (sh_v[2:0] != 0);
+					up = round_up(sh_v[3], sh_v[2], unf_s[0], a_s);
+					inx2 = unf_i[0];
+					mkz  = unf_z[0];
 					rmask = 64'hFFFF_FFFF_FFFF_FFFF;
 				end
 				else if (r_pr == 2'd1) begin
-					up = round_up(sh_v[43], sh_v[42],
-					              (sh_v[41:0] != 0), a_s);
-					inx2 = (sh_v[42:0] != 0);
+					up = round_up(sh_v[43], sh_v[42], unf_s[1], a_s);
+					inx2 = unf_i[1];
+					mkz  = unf_z[1];
 					rmask = 64'hFFFF_FF00_0000_0000;
 				end
 				else begin
-					up = round_up(sh_v[14], sh_v[13],
-					              (sh_v[12:0] != 0), a_s);
-					inx2 = (sh_v[13:0] != 0);
+					up = round_up(sh_v[14], sh_v[13], unf_s[2], a_s);
+					inx2 = unf_i[2];
+					mkz  = unf_z[2];
 					rmask = 64'hFFFF_FFFF_FFFF_F800;
 				end
 				// the increment (the shared incrementer, shk_i) is formed
@@ -3315,9 +3334,10 @@ always @(posedge clk) begin
 					// (a zero takes a_m = 0 as well: the zero test only
 					// decides the class and exponent)
 					a_m <= mr[63:0];
-					if (!up && mk[63:0] == 64'd0) a_t <= T_ZERO;
+					if (!up && mkz) a_t <= T_ZERO;
 					else a_e <= ((up ? mi[63] : mk[63]) || e_w != 18'sd1) ? e_w[16:0] : 17'd0;
 					begin fst <= F_WB; wb_r <= (F_WB == F_WB); acc_r <= 1'b0; end
+				end
 				end
 			end
 
