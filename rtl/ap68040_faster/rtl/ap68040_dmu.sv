@@ -972,8 +972,25 @@ endfunction
 // WB fast store: a copyback store that hit, within one line
 //--------------------------------------------------------------------------
 wire wb_st   = m4.r.v && st_v && (m4.r.mem == M_ST || m4.r.mem == M_RMW);
-wire wb_fast = wb_st && !m4.split && m4.x.ok && !m4.x.flt && m4.x.hit &&
-               m4.x.cm == 2'b01 && dc_en && !m4.r.lock && (m4.r.msz != SZ_Q) &&
+// (the record's own conditions for the fast answers, registered as WB's
+// record loads -- only its hits change after: the compares, the physical
+// address range among them, ran through the answer into WB's hold and the
+// stall chain at 60/66 MHz; the old forms are checked below)
+function automatic logic fast_s(input mrec_t m);
+	fast_s = !m.split && m.x.ok && !m.x.flt && m.x.cm == 2'b01 && !m.r.lock && (m.r.msz != SZ_Q);
+endfunction
+function automatic logic fs_s(input mrec_t m);
+	fs_s = m.split && m.x.ok && !m.x.flt && m.x.cm == 2'b01 &&
+	       m.x1.ok && !m.x1.flt && m.x1.cm == 2'b01 && !m.r.lock && (m.r.msz != SZ_Q);
+endfunction
+function automatic logic vpost_s(input mrec_t m);
+	vpost_s = (m.r.mem == M_ST) && !m.split && m.x.ok && !m.x.flt && m.x.cm[1] && !m.r.lock &&
+	          (m.r.ack == 2'd0) && (m.r.msz != SZ_Q) &&
+	          ({1'b0, m.r.a[1:0]} + nbytes(m.r.msz) <= 3'd4) &&
+	          (m.x.pa[31:21] == 11'b1111_1001_000);
+endfunction
+logic m4_fast_s, m4_fs_s, m4_vpost_s;
+wire wb_fast = wb_st && m4_fast_s && m4.x.hit && dc_en &&
                (e_st == E_IDLE) && !e_wst_done;
 wire  [31:0] wbf_word = lanes32(lalign(st_data, m4.r.msz), m4.r.a[1:0]);
 wire  [15:0] wbf_be   = bmask(m4.r.a[3:0], nbytes(m4.r.msz));
@@ -986,21 +1003,23 @@ always_ff @(posedge clk) dwp <= nreset && wfm;
 // a copyback store across a line, both parts hits: the first part this
 // cycle, the second the next (wfs_p1), without the engine
 logic        wfs_p1;
-wire wb_fs = wb_st && m4.split && m4.x.ok && !m4.x.flt && m4.x.hit && m4.x.cm == 2'b01 &&
-             m4.x1.ok && !m4.x1.flt && m4.x1.hit && m4.x1.cm == 2'b01 && dc_en &&
-             !m4.r.lock && (m4.r.msz != SZ_Q) && (e_st == E_IDLE) && !e_wst_done && !wfs_p1;
+wire wb_fs = wb_st && m4_fs_s && m4.x.hit && m4.x1.hit && dc_en &&
+             (e_st == E_IDLE) && !e_wst_done && !wfs_p1;
 // A platform-owned, non-faulting frame buffer can retire its store while
 // the existing bus engine drains it. Reuse bo's address/data registers;
 // add no write FIFO. The engine stays busy until completion, so a later
 // device access or maintenance operation cannot pass it. A cache hit, fault,
 // locked RMW, split word, or MOVE16 keeps the normal precise path.
-wire wb_vram_post = PA_VRAM_POST && PA_IO_SERIAL && wb_st && (m4.r.mem == M_ST) &&
-                    !m4.split && m4.x.ok && !m4.x.flt && (!dc_en || !m4.x.hit) &&
-                    m4.x.cm[1] && !m4.r.lock && (m4.r.ack == 2'd0) &&
-                    (m4.r.msz != SZ_Q) &&
-                    ({1'b0,m4.r.a[1:0]} + nbytes(m4.r.msz) <= 3'd4) &&
-                    (m4.x.pa[31:21] == 11'b1111_1001_000) &&
+wire wb_vram_post = PA_VRAM_POST && PA_IO_SERIAL && wb_st && m4_vpost_s && (!dc_en || !m4.x.hit) &&
                     (e_st == E_IDLE) && !e_wst_done && !wfs_p1;
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && m4.r.v && (m4_fast_s != fast_s(m4) || m4_fs_s != fs_s(m4) || m4_vpost_s != vpost_s(m4))) begin
+		$display("FAIL: dmu: WB's registered record conditions %b%b%b, the record's %b%b%b",
+		         m4_fast_s, m4_fs_s, m4_vpost_s, fast_s(m4), fs_s(m4), vpost_s(m4));
+		$finish;
+	end
+// synthesis translate_on
 // (no maintenance term: a WB maintenance operation is no store -- mt_v,
 // from WB's decode, ran through this into the store's answer, WB's hold
 // and the stall chain at 60/66 MHz; checked below)
@@ -1138,6 +1157,7 @@ always_ff @(posedge clk) begin
 
 	if (!nreset) begin
 		m1 <= '0; m2 <= '0; m3 <= '0; m4 <= '0;
+		m4_fast_s <= 1'b0; m4_fs_s <= 1'b0; m4_vpost_s <= 1'b0;
 		// (reset leaves the cache alone -- tags, state and data, MC68040UM
 		// 4.3: "reset does not invalidate the cache lines"; the valid and
 		// dirty bits have their power-up values from their initial blocks,
@@ -1250,7 +1270,12 @@ always_ff @(posedge clk) begin
 		end
 		else if (adv_ex) m3.r.v <= 1'b0;
 
-		if (adv_ex) m4 <= m3;
+		if (adv_ex) begin
+			m4 <= m3;
+			m4_fast_s  <= fast_s(m3);
+			m4_fs_s    <= fs_s(m3);
+			m4_vpost_s <= vpost_s(m3);
+		end
 		else if (adv_wb) m4.r.v <= 1'b0;
 
 		if (adv_wb) e_wst_done <= 1'b0;
