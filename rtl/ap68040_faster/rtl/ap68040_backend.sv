@@ -2660,7 +2660,11 @@ assign pst_st   = halted ? 4'h5 : stopped ? 4'hD : xstk ? 4'hF :
 always_ff @(posedge clk) begin
 	// a captured EX writer stays captured while it is in EX
 	if (adv_ex) begin cap_b <= 1'b0; cap_x <= 1'b0; end
-	if (!flush && !stall_ag && ain_v && !stopped) begin
+	// (loaded on every clock AG does not stall: AG is empty after a clock it
+	// took nothing in -- a flush, STOP or no incoming uop -- so the values
+	// are unused then; the take's other conditions, ahead of the stall,
+	// put the stall chain's end deeper into these selects at 60/66 MHz)
+	if (!stall_ag) begin
 		logic [31:0] b, x;
 		logic        cb, cx, eb, ex, x2, xb;
 		logic  [3:0] wb, wx;
@@ -2723,7 +2727,7 @@ always_ff @(posedge clk) begin
 		erb   <= eb;
 		erx   <= ex;
 	end
-	else if (ag_v) begin
+	else begin
 		if (yw_b[2]) begin
 			if (ag_u.base_v) agb_q <= ywv(yw_b[1:0]);
 			erb <= 1'b1;
