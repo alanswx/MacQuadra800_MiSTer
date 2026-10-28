@@ -2419,8 +2419,8 @@ always @(posedge clk) begin
 				else begin
 					// a zero significand normalizes to zero: a_m takes the
 					// shifter's output either way, the zero test only
-					// decides the class and exponent (a timing path)
-					a_m <= norm_shifted[66:3];
+					// decides the class and exponent (a timing path); the
+					// output enters a_m after the case (below)
 					if (a_m == 64'd0) begin
 						a_t <= T_ZERO; a_e <= 0;
 					end
@@ -2820,7 +2820,7 @@ always @(posedge clk) begin
 					begin fst <= F_ROUND; wb_r <= (F_ROUND == F_WB); acc_r <= 1'b1; end
 				end
 				else begin
-					a_m <= norm_shifted[66:3];
+					// (a_m: the normalizer's output, after the case)
 					grs <= norm_shifted[2:0];
 					e_w <= e_w - {11'd0, nlz_q};
 					begin fst <= F_ROUND; wb_r <= (F_ROUND == F_WB); acc_r <= 1'b1; end
@@ -3373,6 +3373,13 @@ always @(posedge clk) begin
 
 			default: begin fst <= F_IDLE; wb_r <= (F_IDLE == F_WB); acc_r <= 1'b0; end
 		endcase
+		// the normalizer's output into a_m at its last multiplexer, by the
+		// state and registers alone (F_NORM, and F_NORM2 normalizing): as one
+		// of the case's many sources it came after the shifter through all
+		// of a_m's selects, a 60/66 MHz path
+		if ((fst == F_NORM && a_t == T_NUM) ||
+		    (fst == F_NORM2 && !(acc_hi[63:0] == 64'd0 && grs == 3'd0) && nlz_q != 7'd64))
+			a_m <= norm_shifted[66:3];
 	end
 end
 
