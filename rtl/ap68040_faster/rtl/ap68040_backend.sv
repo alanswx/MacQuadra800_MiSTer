@@ -735,6 +735,7 @@ logic        md_z;            // ... is a divide by zero (from its second cycle)
 // compare -> stall_ex -> stall_dc2 -> register-file write enable cone was
 // the worst CPU-clock path.
 logic        ex_md_q, ex_fp_q, ex_dbcc_q, ex_slow_q;
+logic        ex_alu_q;        // EX's result is the ALU's (see exw_val)
 wire         ex_is_md   = ex_md_q;
 wire         ex_div0    = (ex_u.op == OP_DIV) &&
                           ((ex_u.sz == SZ_W) ? (ex_av[15:0] == 16'd0) : (ex_av == 32'd0));
@@ -1488,7 +1489,38 @@ wire        exw_ag  = adv_ex && ex_d_eff;
 // advances, which a uop that always writes always makes.
 assign exw_fw = ex_v && ex_u.d_v && ((ex_kc == 6'd0) || (adv_ex && !ex_dkill));
 assign exw_reg = ex_u.d_reg;
-assign exw_val = (ex_u.op == OP_CAS) ? ((ex_bv & ex_szm) | (ex_latch & ~ex_szm)) : ex_res;
+// The value written and broadcast: the ALU's result enters at the last
+// multiplexer (ex_alu_q, registered with the uop), the other sources
+// before it -- the ALU's result was three selects deep (the fast ops'
+// overrides, the slow ops', CAS's) on the forwarding path into the younger
+// operands at 60/66 MHz.  A simulation check holds it to the old form.
+logic [31:0] exw_oth;
+always_comb begin
+	exw_oth = ex_bv;
+	if (ex_slow) exw_oth = xs_q.res;
+	else case (ex_u.op)
+		OP_FPU:           exw_oth = fp_res;
+		OP_MUL, OP_DIV:   exw_oth = md_res;
+		OP_MDRES:         exw_oth = ex_u.cond[0] ? md_lol : md_rem;
+		OP_MDHI:          exw_oth = ex_av;
+		OP_CCRLOG:        exw_oth = ex_bv;
+		OP_SPW:           exw_oth = ex_av;
+		OP_LATCH:         exw_oth = ex_av;
+		OP_CAS2R:         exw_oth = (ex_av & ex_szm) | (ex_bv & ~ex_szm);
+		OP_BFSET:         exw_oth = ex_u.cond[0] ? {24'd0, bf_lonew} : {{3{ex_av[31]}}, ex_av[31:3]};
+		OP_CAS:           exw_oth = (ex_bv & ex_szm) | (ex_latch & ~ex_szm);
+		default:          exw_oth = ex_bv;
+	endcase
+end
+assign exw_val = ex_alu_q ? alu_res : exw_oth;
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && ex_v && exw_val !== ((ex_u.op == OP_CAS) ? ((ex_bv & ex_szm) | (ex_latch & ~ex_szm)) : ex_res)) begin
+		$display("FAIL: EX's written value %h, the old form %h (op %0d, slow %b, pc %h)", exw_val,
+		         (ex_u.op == OP_CAS) ? ((ex_bv & ex_szm) | (ex_latch & ~ex_szm)) : ex_res, ex_u.op, ex_slow, ex_u.pc);
+		$finish;
+	end
+// synthesis translate_on
 
 // the second slot's ALU, its front-file write and broadcast
 logic [31:0] alu1_res;
@@ -1965,6 +1997,9 @@ dc1_a1  <= ag_s.agop ? ag1_val :
 			ex_fp_q  <= (dc2_u.op == OP_FPU);
 			ex_dbcc_q <= (dc2_u.op == OP_DBCC);
 			ex_slow_q <= is_slow(dc2_u.op);
+			ex_alu_q  <= !is_slow(dc2_u.op) &&
+			             !(dc2_u.op inside {OP_FPU, OP_MUL, OP_DIV, OP_MDRES, OP_MDHI, OP_CCRLOG,
+			                                OP_SPW, OP_LATCH, OP_CAS2R, OP_BFSET, OP_CAS});
 			ex_npc   <= dc2_u.pc + {27'd0, dc2_u.ilen, 1'b0};
 			ex_kc    <= {dc2_u.op == OP_CAS2R, dc2_u.op == OP_CHK2B,
 			             dc2_u.op == OP_DBCC, dc2_u.op == OP_MDRES, dc2_u.op == OP_DIV,
