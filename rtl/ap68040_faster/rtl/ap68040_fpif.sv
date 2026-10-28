@@ -425,7 +425,16 @@ endfunction
 wire [2:0] cur_slot = (sub == FC_MVR || sub == FC_MVW) ? dynk : slot;
 wire [2:0] cur_bit = slot_bit(cur_slot, mv_lsb);
 wire [2:0] cur_reg = (!mv_st || mv_m1) ? (3'd7 - cur_bit) : cur_bit;  // loads: bit 7 = FP0
-wire       cur_on  = list[cur_bit];
+// (from mv_slots, the list in slot order: one select, not the slot's
+// bit and the list's -- FMOVEM's hold, on the stall chain at 60/66 MHz)
+wire       cur_on  = mv_slots[cur_slot];
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && ex_v && (sub == FC_MVR || sub == FC_MVW) && mv_slots[cur_slot] != list[cur_bit]) begin
+		$display("FAIL: fpif: mv_slots[%0d] %b, list[%0d] %b", cur_slot, mv_slots[cur_slot], cur_bit, list[cur_bit]);
+		$finish;
+	end
+// synthesis translate_on
 assign cr_slots = {crl[0], crl[1], crl[2]};       // bit 0 = FPCR slot
 function automatic logic [1:0] crsel_of(input logic [1:0] k);   // the FPU's cr_sel
 	crsel_of = (k == 2'd0) ? 2'd2 : (k == 2'd1) ? 2'd1 : 2'd0;
