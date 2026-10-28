@@ -207,6 +207,8 @@ logic        dbg_dm;             // (simulation: the merge and the
 logic [31:0] dbg_dpre;           // displacement it was formed for;
 logic        dbg_mvd;            // a MOVEM offset for AG, and the offset)
 logic [31:0] dbg_mvo;
+logic        same_c;             // the EA's base is the deferred register (per EA, by me_ea1)
+logic        dbg_same, dbg_samev; // (simulation: the merge's base test, the old form)
 eab_t        dbg_bx, dbg_bxo;    // (simulation: the EA's base/index candidate, the case's)
 logic        dbg_bxv;
 always_comb begin
@@ -227,10 +229,13 @@ always_comb begin
 	logic [31:0] pcx;
 
 	nu        = '0;
+	same_c    = 1'b0;
 	dbg_mvo   = '0;
 	dbg_bx    = '0;
 	dbg_bxo   = '0;
 	dbg_bxv   = 1'b0;
+	dbg_same  = 1'b0;
+	dbg_samev = 1'b0;
 	n_ptr     = 1'b0;
 	n_ptr_ea1 = 1'b0;
 	n_jump    = 1'b0;
@@ -486,6 +491,10 @@ always_comb begin
 			dbg_bxv = 1'b1;
 			nu.base_v = c.bv; nu.base = c.b;
 			nu.idx_v  = c.xv; nu.idx  = c.x;
+			// (the upd2 merge's test of the base against the deferred
+			// register, per EA beside the candidates)
+			same_c = me_ea1 ? (c1.bv && c1.b == def_reg && (src.ea1.mi == 2'd0 || !ind1))
+			                : (c0.bv && c0.b == def_reg && (src.ea0.mi == 2'd0 || !ind0));
 		end
 
 		// deferral of the source update into a later uop
@@ -520,8 +529,10 @@ always_comb begin
 	dmerge   = 1'b0;
 	if (uw.upd2 && def_v) begin
 		logic same, m16;
-		same = nu.ag && nu.base_v && nu.base == def_reg &&
-		       (me.mi == 2'd0 || !(me_ea1 ? ind1 : ind0));
+		same = same_c;
+		dbg_same  = nu.ag && nu.base_v && nu.base == def_reg &&
+		            (me.mi == 2'd0 || !(me_ea1 ? ind1 : ind0));
+		dbg_samev = 1'b1;
 		// MOVE16 (Ax)+,(Ay)+ with Ax = Ay: both transfers use the original
 		// address and the register advances once (WinUAE, the cputest
 		// oracle); CMPM-style pairs see the first update
@@ -710,7 +721,7 @@ always_comb begin
 		xreg    = src.ea0.xa ? areg(src.ea0.xr, sp_reg) : dreg(src.ea0.xr);
 		fx_in   = mvr && (src.ea0.m == EM_AX || src.ea0.m == EM_PCX) &&
 		          !src.ea0.is && src.mvx &&
-		          !(fb_in && xreg == an);
+		          !(fb_in && src.ea0.xa && src.ea0.xr == src.ea0.r);   // (xreg == an, off areg)
 		base_in = fb_in || fx_in ||
 		          (mvr && pi && src.mvb);
 		off = mv_act ? mv_off : (pd ? -{29'd0, sb} : 32'd0);
@@ -1036,8 +1047,20 @@ always_ff @(posedge clk)
 		$finish;
 	end
 always_ff @(posedge clk)
+	if (nreset && uw_v && dbg_samev && dbg_same != same_c) begin
+		$display("FAIL: useq: the merge's base test %b, the old form %b", same_c, dbg_same);
+		$finish;
+	end
+always_ff @(posedge clk)
 	if (nreset && uw_v && dbg_bxv && dbg_bx != dbg_bxo) begin
 		$display("FAIL: useq: the EA's base/index %h, the case's %h", dbg_bx, dbg_bxo);
+		$finish;
+	end
+always_ff @(posedge clk)
+	if (nreset && uw_v && uw.loop &&
+	    ((src.ea0.xa ? areg(src.ea0.xr, sp_reg) : dreg(src.ea0.xr)) == areg(src.ea0.r, sp_reg)) !=
+	    (src.ea0.xa && src.ea0.xr == src.ea0.r)) begin
+		$display("FAIL: useq: MOVEM's index-is-base test");
 		$finish;
 	end
 always_ff @(posedge clk)
