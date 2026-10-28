@@ -194,7 +194,21 @@ assign q_odd = odd;
 assign pd0   = qp0;
 // the head's predecode as it will be next cycle (qp0's load)
 pd_t       pd0_n;
-wire [3:0] qh_n = qwrap(5'(qh) + {2'b00, consume});        // the head next cycle
+// the head next cycle: qh + consume mod QN.  (The head stays below QN = 8,
+// so the sum is three bits, carry dropped, a LUT per bit from the
+// consume: the five-bit add and qwrap's compare and subtract were on the
+// path from D1's consume into the ring's read address at 60/66 MHz)
+wire       qh_k0 = qh[0] & consume[0];
+wire       qh_k1 = (qh[1] & consume[1]) | (qh_k0 & (qh[1] ^ consume[1]));
+wire [3:0] qh_n  = {1'b0, qh[2] ^ consume[2] ^ qh_k1, qh[1] ^ consume[1] ^ qh_k0, qh[0] ^ consume[0]};
+// synthesis translate_off
+initial if (QN != 8) $fatal(1, "fetch: qh_n's three-bit head assumes QN = 8");
+always_ff @(posedge clk)
+	if (nreset && (qh[3] || qh_n != qwrap(5'(qh) + {2'b00, consume}))) begin
+		$display("FAIL: fetch: the head %0d + %0d as %0d", qh, consume, qh_n);
+		$finish;
+	end
+// synthesis translate_on
 pd_t       qpr_rd;
 assign qpr_rd = pd_t'(qh_n[0] ? qpr_o[qh_n[3:1]] : qpr_e[qh_n[3:1]]);
 assign pd0_n = (cnt == {2'b00, consume}) ? f3_p[0] : qpr_rd;
