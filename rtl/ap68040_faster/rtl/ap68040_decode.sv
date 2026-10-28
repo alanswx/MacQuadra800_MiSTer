@@ -513,7 +513,6 @@ always_comb begin
 			if (flt) begin
 				nrec.exc    = f_code;
 				nrec.target = f_addr;
-				nrec.rt     = UA_DEC_EXC;
 			end
 		end
 		go_any = go || go_part;
@@ -524,7 +523,6 @@ always_comb begin
 		nrec.pc  = qpc;
 		nrec.ilen = 4'd0;
 		nrec.exc = 8'd3;
-		nrec.rt  = UA_DEC_EXC;
 		go_any   = 1'b1;
 	end
 	else if (qcnt != 4'd0) begin
@@ -630,8 +628,10 @@ always_comb begin
 		end
 		if (flt) nrec.exc = f_code;
 		go_any = go || go_part;
+		// (a record with an exception starts UA_DEC_EXC: the sequencer
+		// substitutes it, by dexc, where it reads rt from the queue -- the
+		// exception decode ahead of rt's select was a 60/66 MHz path)
 		if (nrec.exc != 8'd0) begin
-			nrec.rt = UA_DEC_EXC;
 			if (go_part) begin
 				// an exception needs no further parsing
 				go_part = 1'b0;
@@ -799,9 +799,8 @@ always_comb begin
 	nrec_q.c_v   = c_ok;
 	nrec_q.c_opw = win[c_at];
 	nrec_q.c_tk  = bt_end;
-	nrec_q.snr   = 1'b0;
-	if (jsr_k && nrec.exc == 8'd0) nrec_q.rt = UA_JSR_K;
-	if (fpg && nrec.exc == 8'd0) nrec_q.rt = fpu_k(nrec.ext1, nrec.ea0.m, nrec.rt);
+	if (jsr_k) nrec_q.rt = UA_JSR_K;
+	if (fpg) nrec_q.rt = fpu_k(nrec.ext1, nrec.ea0.m, nrec.rt);
 	nrec_q.ras.v  = 1'b1;
 	nrec_q.ras.tp = ras_tp;
 	nrec_q.ras.n  = ras_n;
@@ -809,14 +808,14 @@ always_comb begin
 	                rcall ? 2'd1 :
 	                (rret && ras_n != 4'd0) ? 2'd2 : 2'd0;
 	if (go && (bt_restart || part_bt)) begin
-		// (the routine is UA_DEC_EXC: the sequencer substitutes it, by snr,
+		// (the routine is UA_DEC_EXC: the sequencer substitutes it, by dexc,
 		// from the queued record -- this select, after the BTB flags of the
 		// consumed words, ended the fetch queue's path into rt at 60/66 MHz)
 		nrec_q.exc  = EXC_SNR;
-		nrec_q.snr  = 1'b1;
 		nrec_q.pred = 1'b0;
 		nrec_q.ras.k = 2'd0;
 	end
+	nrec_q.dexc = (nrec_q.exc != 8'd0);
 end
 wire [31:0] lastpc = qpc + {27'd0, use_n - 4'd1, 1'b0};    // the decode's last word
 wire        btb_ok = (ntarget[0] == 1'b0) && (nrec.exc == 8'd0);

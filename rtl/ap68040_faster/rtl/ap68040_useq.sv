@@ -1034,11 +1034,11 @@ always_comb begin
 		else if (stay)      na = upc;
 		else if (fpmv_jump) na = fpmv_target;
 		else if (!uw.last)  na = upc + 10'd1;
-		else if (!exc_mode && rq_n[1]) na = rq1.snr ? UA_DEC_EXC : rq1.rt;   // next instruction
+		else if (!exc_mode && rq_n[1]) na = rq1.dexc ? UA_DEC_EXC : rq1.rt;   // next instruction
 		else nv = 1'b0;
 	end
 	else if (!uw_v && !exc_mode && !exc_pend && rq_n != 2'd0) begin
-		na = rq0.snr ? UA_DEC_EXC : rq0.rt;                  // first word
+		na = rq0.dexc ? UA_DEC_EXC : rq0.rt;                  // first word
 		nv = 1'b1;
 	end
 end

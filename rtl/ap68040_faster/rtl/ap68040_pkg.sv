@@ -388,7 +388,8 @@ typedef struct packed {
 	logic        c_v;     // a companion: the one-word instruction that follows,
 	logic [15:0] c_opw;   // ... its operation word (see s1_t),
 	logic        c_tk;    // ... at the target (a branch the fetch BTB took), else pc + 2 ilen
-	logic        snr;     // refetched at WB (EXC_SNR): the sequencer starts UA_DEC_EXC, not rt
+	logic        dexc;    // a decode-time exception (exc, EXC_SNR among them): the
+	                      // sequencer starts UA_DEC_EXC, not rt
 } dinst_t;
 
 // the companion's operation word as a second-slot instruction: the same
