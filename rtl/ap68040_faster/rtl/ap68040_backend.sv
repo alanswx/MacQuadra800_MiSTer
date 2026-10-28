@@ -244,6 +244,7 @@ logic [31:0] dc1_upd, dc1_upd2, dc2_upd, dc2_upd2, ex_upd, ex_upd2;
 // exception clears fv, so every register reads the back file again -- no
 // copy.  Five read ports at AG: base, index, upd2 register, A, B.
 logic [31:0] fv;
+logic        fv_clr;          // fv clears (the clock after a kill)
 // an FPU uop may act once it is the oldest in flight -- or when the one at
 // WB is an earlier uop of its own instruction that commits: no exception
 // (a load's fault is known by now), not the last uop (no instruction
@@ -1916,6 +1917,7 @@ always_ff @(posedge clk) begin
 		eredir_pend <= 1'b0;
 		wb_eredir   <= 1'b0;
 		fv <= 32'd0;
+		fv_clr <= 1'b0;
 		xw_ph <= 3'd0;
 		ccr_f   <= 5'd0;
 		ccr_b   <= 5'd0;
@@ -2460,7 +2462,23 @@ dc1_a1  <= ag_s.agop ? ag1_val :
 			m_ex = (fwe[2] ? (32'd1 << fwa[2]) : 32'd0) | (exw1_v ? (32'd1 << exw1_reg) : 32'd0);
 			fv <= fv | (adv_ag ? m_ag : 32'd0) | m_ex;
 		end
-		if ((wb_commit && wb_redir) || wb_refetch || x_go) fv <= 32'd0;
+		// (the clear a clock after the redirect, refetch or exception
+		// that kills every younger uop: nothing reads the front file in
+		// between -- AG is empty and the flush holds it -- and its
+		// conditions, from WB's commit and the exception decision, were a
+		// 60/66 MHz path into all 32 bits; checked below)
+		fv_clr <= (wb_commit && wb_redir) || wb_refetch || x_go;
+		if (fv_clr) fv <= 32'd0;
+		// synthesis translate_off
+		if (fv_clr && (ag_v || (!flush && !stall_ag && ain_v && !stopped))) begin
+			$display("FAIL: the front file is read in the clock its valid bits clear");
+			$finish;
+		end
+		if (((wb_commit && wb_redir) || wb_refetch || x_go) && !kill_now) begin
+			$display("FAIL: the front valid bits clear without a kill");
+			$finish;
+		end
+		// synthesis translate_on
 		// synthesis translate_off
 		if (fwe[0] != (adv_ag && fwe_ag[0]) || (!exw1_v && fwe[1] != (adv_ag && (fwe_ag[1] || ag1w_ag))) ||
     (exw1_v && adv_ag && (fwe_ag[1] || ag1w_ag)) || (fwe_ag[1] && ag1w_ag)) begin
