@@ -473,7 +473,21 @@ reg  [1:0] nsel;
 
 // v >> n with every bit shifted out ORed into bit 0 (n >= 67: all out):
 // seven stages, each ORing what it shifts out into the sticky bit
+// (the bits shifted out by n are the value's bits below n: the sticky is
+// their OR, formed beside the shift -- accumulated stage by stage it was a
+// serial chain through the shifter, a 60/66 MHz path; checked below)
 function [66:0] shr_sticky;
+	input [66:0] v;
+	input [6:0]  n;
+	reg   [66:0] m;
+	integer      i;
+	begin
+		for (i = 0; i < 67; i = i + 1) m[i] = (i < n);
+		shr_sticky = (v >> n) | {66'd0, |(v & m)};
+	end
+endfunction
+// synthesis translate_off
+function [66:0] shr_sticky_ref;
 	input [66:0] v;
 	input [6:0]  n;
 	reg   [66:0] x;
@@ -486,9 +500,10 @@ function [66:0] shr_sticky;
 				s = s | |(x & ((67'd1 << (1 << k)) - 67'd1));
 				x = x >> (1 << k);
 			end
-		shr_sticky = x | {66'd0, s};
+		shr_sticky_ref = x | {66'd0, s};
 	end
 endfunction
+// synthesis translate_on
 // synthesis translate_off
 always @(posedge clk)
 	if (nsel != {fst == F_NORM2 || (fst == F_NLZ && nz_ret == F_NORM2),
@@ -728,6 +743,13 @@ always @(posedge clk)
 	end
 // synthesis translate_on
 wire [66:0] shr_out = shr_sticky(shr_fsm ? sh_v : {p2_sm, 3'd0}, shr_fsm ? sh_cnt : p2_sh);
+// synthesis translate_off
+always @(posedge clk)
+	if (nreset && shr_out !== shr_sticky_ref(shr_fsm ? sh_v : {p2_sm, 3'd0}, shr_fsm ? sh_cnt : p2_sh)) begin
+		$display("FAIL: FPU: the right shifter's sticky form differs from the staged one");
+		$finish;
+	end
+// synthesis translate_on
 // one incrementer for the roundings of the shifted value (sh_v[66:3]):
 // the integer store's at bit 0, a denormal single's or double's store
 // (F_PACKS) and the underflow rounding (F_UNFL) at the precision's last
