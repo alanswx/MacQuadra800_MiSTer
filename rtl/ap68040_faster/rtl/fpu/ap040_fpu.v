@@ -2767,7 +2767,10 @@ always @(posedge clk) begin
 					// and the larger significand the source's, F_BIN did
 					// not swap them, and the source's sign is the result's)
 					diff = add_mgt ? (sh_v - {b_m, 3'd0}) : ({b_m, 3'd0} - sh_v);
-					if (diff == 67'd0) begin
+					// (an exact cancellation, by the operands' equality: the
+					// difference's zero test after the subtraction's carry
+					// chain, into the state select, was a 60/66 MHz path)
+					if (sh_v == {b_m, 3'd0}) begin
 						a_t <= T_ZERO;
 						a_s <= (rnd_mode == 2'b10);
 						begin fst <= F_WB; wb_r <= (F_WB == F_WB); acc_r <= 1'b0; end
