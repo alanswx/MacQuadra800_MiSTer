@@ -1538,8 +1538,33 @@ wire        exw_ag  = adv_ex && ex_d_eff;
 // suppressed (ex_kc): a value a held EX broadcasts may not be its result
 // yet, but every younger operand that took it -- AG's, DC1's and DC2's,
 // held or advancing -- takes EX's broadcast again in the clock EX
-// advances, which a uop that always writes always makes.
-assign exw_fw = ex_v && ex_u.d_v && (((ex_kc & 6'b110111) == 6'd0) || (adv_ex && !ex_dkill_f));
+// advances, which a uop that always writes always makes.  A uop whose
+// write can be suppressed broadcasts once EX's own work is done (!ex_hold)
+// and its write is not suppressed: from then until it advances its value
+// and its suppression are final (a waiting WB is the only thing between:
+// adv_ex, through WB's store hold, was a 60/66 MHz path).  Checked below.
+assign exw_fw = ex_v && ex_u.d_v && (((ex_kc & 6'b110111) == 6'd0) || (!ex_hold && !ex_dkill_f));
+// synthesis translate_off
+logic        sim_eb;            // such a uop broadcast before advancing
+logic [31:0] sim_eb_val;
+always_ff @(posedge clk) begin
+	if (nreset && sim_eb && ex_v && (adv_ex || ex_hold) &&
+	    (ex_dkill_f || exw_val != sim_eb_val || ex_hold)) begin
+		$display("FAIL: EX broadcast %h before advancing; at the advance %h, suppressed %b, hold %b (pc %h)",
+		         sim_eb_val, exw_val, ex_dkill_f, ex_hold, ex_u.pc);
+		$finish;
+	end
+	if (!nreset || flush || kill_now || adv_ex || !ex_v) sim_eb <= 1'b0;
+	else if (exw_fw && (ex_kc & 6'b110111) != 6'd0) begin
+		if (sim_eb && exw_val != sim_eb_val) begin
+			$display("FAIL: EX's held broadcast changed %h -> %h (pc %h)", sim_eb_val, exw_val, ex_u.pc);
+			$finish;
+		end
+		sim_eb <= 1'b1;
+		sim_eb_val <= exw_val;
+	end
+end
+// synthesis translate_on
 assign exw_reg = ex_u.d_reg;
 // The value written and broadcast: the ALU's result enters at the last
 // multiplexer (ex_alu_q, registered with the uop), the other sources
