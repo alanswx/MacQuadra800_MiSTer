@@ -392,7 +392,16 @@ logic        stale_b, stale_x;
 logic [31:0] exq_val;
 logic        stale_b1, stale_x1;      // ... by the second slot's write (exq1_val)
 logic [31:0] exq1_val;
+// An index that is AG's own second update of the uop leaving AG (upd2: the
+// register-file read of its register, the adder, then the scale, into
+// agx_q in one clock -- a 60/66 MHz path; rare: CMPM-style (Ay)+,(Ax)+ and
+// then that register as an index) is loaded the clock after, from the
+// update registered (ag2_v), while AG waits.  The base, which follows such
+// an update in every copy loop, keeps the direct bypass.
+logic        ag2_x;
+logic [31:0] ag2_v;
 wire ag_interlock = ag_v && (
+	(ag_u.idx_v && ag2_x) ||
 	(ag_u.base_v && (yw_b[2] ? !erb : (pend_dc(ag_u.base) || (ex_wr_b && !cap_b) || ex1_wr_b || stale_b))) ||
 	(ag_u.idx_v  && (yw_x[2] ? !erx : (pend_dc(ag_u.idx)  || (ex_wr_x && !cap_x) || ex1_wr_x || stale_x))) ||
 	// a register AG writes waits for every older writer (else the EX write
@@ -2429,7 +2438,7 @@ always_ff @(posedge clk) begin
 	if (adv_ex) begin cap_b <= 1'b0; cap_x <= 1'b0; end
 	if (!flush && !stall_ag && ain_v && !stopped) begin
 		logic [31:0] b, x;
-		logic        cb, cx, eb, ex;
+		logic        cb, cx, eb, ex, x2;
 		logic  [3:0] wb, wx;
 		b = rrd[0];
 		x = rrd[1];
@@ -2437,6 +2446,7 @@ always_ff @(posedge clk) begin
 		cx = 1'b0;
 		eb = 1'b0;
 		ex = 1'b0;
+		x2 = 1'b0;
 		// (AG's own updates: here AG advances, so fwe[0..1] is just whether
 		// it holds one -- adv_ag, the end of the stall chain, stays off the
 		// data select)
@@ -2445,13 +2455,13 @@ always_ff @(posedge clk) begin
 		if (fwe_ag[0] && ag_u.upd_reg == ain_u.base)  b = ag_updv;
 		if (fwe_ag[0] && ag_u.upd_reg == ain_u.idx)   x = ag_updv;
 		if (fwe_ag[1] && ag_u.upd2_reg == ain_u.base) b = ag_u2v;
-		if (fwe_ag[1] && ag_u.upd2_reg == ain_u.idx)  x = ag_u2v;
+		if (fwe_ag[1] && ag_u.upd2_reg == ain_u.idx)  x2 = 1'b1;
 		if (ag1w_ag && ag_s.d_reg == ain_u.base) b = ag1_val;
-		if (ag1w_ag && ag_s.d_reg == ain_u.idx)  x = ag1_val;
+		if (ag1w_ag && ag_s.d_reg == ain_u.idx)  begin x = ag1_val; x2 = 1'b0; end
 		// the load entering EX, unless a younger writer is in AG or DC1
 		// (it will be waited for in any case)
 		if (dc2_capd && dc2_u.d_reg == ain_u.base) begin b = dc2_capv; cb = adv_dc2; end
-		if (dc2_capd && dc2_u.d_reg == ain_u.idx)  begin x = dc2_capv; cx = adv_dc2; end
+		if (dc2_capd && dc2_u.d_reg == ain_u.idx)  begin x = dc2_capv; cx = adv_dc2; x2 = 1'b0; end
 		// the youngest writer's early result (not the uop leaving AG:
 		// its result is loaded next cycle)
 		wb = yw(ain_u.base);
@@ -2475,6 +2485,8 @@ always_ff @(posedge clk) begin
 		stale_b1 <= exw1_v && exw1_reg == ain_u.base;
 		stale_x1 <= exw1_v && exw1_reg == ain_u.idx;
 		// (the early results are scaled beside the writer search)
+		ag2_x <= x2 && !ex && ain_u.idx_v;
+		ag2_v <= ag_u2v;
 		agx_q <= !ex ? ixf(x, ain_u) :
 		         (wx[1:0] == 2'd1) ? ixf(dc1_er, ain_u) :
 		         (wx[1:0] == 2'd2) ? ixf(dc2_er, ain_u) : ixf(ex_er, ain_u);
@@ -2519,6 +2531,10 @@ always_ff @(posedge clk) begin
 				if (adv_dc2) cap_x <= 1'b1;
 			end
 		end
+		if (ag2_x) begin
+			agx_q <= ixf(ag2_v, ag_u);
+			ag2_x <= 1'b0;
+		end
 	end
 	// the second slot's operand A: read as the pair enters AG, with that
 	// cycle's AG writes and EX writes laid over it; then EX's writes
@@ -2539,6 +2555,7 @@ always_ff @(posedge clk) begin
 	if (flush || !nreset) begin
 		cap_b <= 1'b0; cap_x <= 1'b0; erb <= 1'b0; erx <= 1'b0;
 		stale_b <= 1'b0; stale_x <= 1'b0;
+		ag2_x <= 1'b0;
 	end
 end
 
