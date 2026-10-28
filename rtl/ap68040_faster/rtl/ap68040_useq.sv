@@ -104,6 +104,34 @@ function automatic logic [4:0] dreg(input logic [2:0] n);
 	dreg = {2'b00, n};
 endfunction
 
+// an EA's AG base and index registers (and whether each is used), from the
+// record alone: the sequencer computes EA0's and EA1's and selects by the
+// uop's memory EA last (the ROM's operand fields chose the EA before its
+// mode and register selects, a path into the back end's read addresses)
+typedef struct packed {
+	logic       bv;
+	logic [4:0] b;
+	logic       xv;
+	logic [4:0] x;
+} eab_t;
+
+function automatic eab_t ea_bx(input ea_t e, input logic ind, input logic e1,
+                               input logic [4:0] spr);
+	logic st;
+	ea_bx = '0;
+	st = (e.mi == 2'd0) || !ind;          // the address, or the pointer address
+	case (e.m)
+		EM_AI, EM_AIP, EM_APD, EM_AD16: begin ea_bx.bv = 1'b1; ea_bx.b = areg(e.r, spr); end
+		EM_AX, EM_PCX: begin
+			ea_bx.x  = e.xa ? areg(e.xr, spr) : dreg(e.xr);
+			ea_bx.xv = !e.is && (st ? (e.mi != 2'd2) : (e.mi == 2'd2));
+			if (!st) begin ea_bx.bv = 1'b1; ea_bx.b = e1 ? (R_T0 + 5'd12) : (R_T0 + 5'd13); end
+			else if (e.m == EM_AX) begin ea_bx.bv = !e.bs; ea_bx.b = areg(e.r, spr); end
+		end
+		default: ;
+	endcase
+endfunction
+
 function automatic logic is_mem(input logic [3:0] m);
 	is_mem = (m >= EM_AI) && (m != EM_IMM) && (m != EM_NONE);
 endfunction
@@ -179,6 +207,8 @@ logic        dbg_dm;             // (simulation: the merge and the
 logic [31:0] dbg_dpre;           // displacement it was formed for;
 logic        dbg_mvd;            // a MOVEM offset for AG, and the offset)
 logic [31:0] dbg_mvo;
+eab_t        dbg_bx, dbg_bxo;    // (simulation: the EA's base/index candidate, the case's)
+logic        dbg_bxv;
 always_comb begin
 	opsel_t oa, ob, od;
 	ea_t    me;              // the uop's memory EA
@@ -198,6 +228,9 @@ always_comb begin
 
 	nu        = '0;
 	dbg_mvo   = '0;
+	dbg_bx    = '0;
+	dbg_bxo   = '0;
+	dbg_bxv   = 1'b0;
 	n_ptr     = 1'b0;
 	n_ptr_ea1 = 1'b0;
 	n_jump    = 1'b0;
@@ -443,6 +476,17 @@ always_comb begin
 			end
 			default: ;
 		endcase
+		begin
+			eab_t c0, c1, c;
+			c0 = ea_bx(src.ea0, ind0, 1'b0, sp_reg);
+			c1 = ea_bx(src.ea1, ind1, 1'b1, sp_reg);
+			c  = me_ea1 ? c1 : c0;
+			dbg_bxo = {nu.base_v, nu.base, nu.idx_v, nu.idx};
+			dbg_bx  = c;
+			dbg_bxv = 1'b1;
+			nu.base_v = c.bv; nu.base = c.b;
+			nu.idx_v  = c.xv; nu.idx  = c.x;
+		end
 
 		// deferral of the source update into a later uop
 		if (uw.noupd && !me_ea1 && (me.m == EM_AIP || me.m == EM_APD)) begin
@@ -989,6 +1033,11 @@ always_ff @(posedge clk)
 	                               rq0.mvx != rq0.ext1[{rq0.ea0.xa, rq0.ea0.xr}])) begin
 		$display("FAIL: useq: the record's MOVEM list flags %b%b, its words' %b%b", rq0.mvb, rq0.mvx,
 		         rq0.ext1[{1'b1, rq0.ea0.r}], rq0.ext1[{rq0.ea0.xa, rq0.ea0.xr}]);
+		$finish;
+	end
+always_ff @(posedge clk)
+	if (nreset && uw_v && dbg_bxv && dbg_bx != dbg_bxo) begin
+		$display("FAIL: useq: the EA's base/index %h, the case's %h", dbg_bx, dbg_bxo);
 		$finish;
 	end
 always_ff @(posedge clk)
