@@ -89,6 +89,7 @@ module ap68040_dmu
 	input  logic        dm_older,       // uops older than DC2 still in EX or WB
 	input  logic        dm_s1,          // DC2's load is a second slot's: the fast path only
 	input  logic        adv_dc1,
+	input  logic        hold_dc1,       // DC1 holds its uop (then AG does not advance)
 	input  logic        adv_dc2,
 	input  logic        adv_ex,
 	input  logic        adv_wb,
@@ -372,7 +373,18 @@ logic  [3:0] bo_got;               // a line read: the long words that arrived
 // passes one LUT; the other choices are registers, merged beforehand.
 // Each way's RAMs get their own copy of that LUT (fanout 18, not 72).
 wire [CSB-1:0] la_alt = sn_rset ? sn_pa[CSH:4] : steal ? st_set : m1.a[CSH:4];
-wire        la_ag    = adv_ag && !sn_rset && !steal;
+// (AG's set unless DC1 holds: AG advances into DC1 only when DC1 does not
+// hold, and when it does not and AG does not advance either, DC1 is empty
+// next and the read unused -- adv_ag, the end of AG's interlock, was a
+// 60/66 MHz path into these RAMs' and the ATC's read addresses)
+wire        la_ag    = !hold_dc1 && !sn_rset && !steal;
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && adv_ag && hold_dc1) begin
+		$display("FAIL: dmu: AG advances into a DC1 that holds");
+		$finish;
+	end
+// synthesis translate_on
 
 // tags: port A for lookups (DC1 or stolen), port B for engine reads/writes
 logic [CTW-1:0] tq_a [4];
@@ -1108,10 +1120,10 @@ always_ff @(posedge clk) begin
 	tw_b      <= 1'b0;
 	dw        <= 1'b0;
 	steal_q   <= steal;
-	atc_la_q  <= steal  ? st_la[31:12] : adv_ag ? dm_va[31:12] : m1.a[31:12];
-	atc_fc2_q <= steal  ? st_fc2 : adv_ag ? dm_super : m1.smode;
+	atc_la_q  <= steal  ? st_la[31:12] : !hold_dc1 ? dm_va[31:12] : m1.a[31:12];
+	atc_fc2_q <= steal  ? st_fc2 : !hold_dc1 ? dm_super : m1.smode;
 	atc_set_q <= steal  ? (tc_p ? st_la[16:13] : st_la[15:12]) :
-	             adv_ag ? (tc_p ? dm_va[16:13] : dm_va[15:12]) :
+	             !hold_dc1 ? (tc_p ? dm_va[16:13] : dm_va[15:12]) :
 	                      (tc_p ? m1.a[16:13]  : m1.a[15:12]);
 
 	if (!nreset) begin

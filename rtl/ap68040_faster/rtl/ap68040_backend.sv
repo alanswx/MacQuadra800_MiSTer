@@ -110,6 +110,7 @@ module ap68040_backend
 	input  logic [15:0] mt_fssw,
 	input  logic [31:0] mt_faddr,
 	output logic        adv_dc1,        // DC1 -> DC2
+	output logic        hold_dc1,       // DC1 holds its uop (stall_dc1: AG cannot advance)
 	output logic        adv_dc2,        // DC2 -> EX
 	output logic        adv_ex,         // EX -> WB
 	output logic        adv_wb,         // WB completes
@@ -319,6 +320,7 @@ assign adv_wb  = wb_v  && !stall_wb;
 assign adv_ex  = ex_v  && !stall_ex;
 assign adv_dc2 = dc2_v && !stall_dc2;
 assign adv_dc1 = dc1_v && !stall_dc1;
+assign hold_dc1 = stall_dc1;
 assign adv_ag  = ag_v  && !stall_ag;
 
 // AG's input: a skid register in front of it, so the sequencer's pop does
