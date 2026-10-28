@@ -346,6 +346,11 @@ wire        ea_pcrel = (eam == 3'd7) && (ear == 3'd2 || ear == 3'd3);
 wire        ea_dalt  = (eam >= 3'd2) && !(eam == 3'd7 && ear >= 3'd2);
 // control registers of FMOVE(M): FPCR FPSR FPIAR; an empty list is FPIAR
 wire  [2:0] crl      = (ext[12:10] == 3'd0) ? 3'b001 : ext[12:10];
+// the latched words' own decode, for the sub-operations other than CHK
+// (opw/ext are opw_q/ext_q for them; through CHK's select the decode put
+// sub's compare before the hold and the stall chain, a 60/66 MHz path)
+wire        ea_dn_q  = (opw_q[5:3] == 3'd0);
+wire        ea_pd_q  = (opw_q[5:3] == 3'd4);
 
 //--------------------------------------------------------------------------
 // CHK: the encoding faults, in the 68040's order (old core S_FPU_DEC)
@@ -615,18 +620,18 @@ always_comb begin
 				else if (fuse) hold = 1'b1;    // dispatching this cycle
 			end
 			FC_DISP: begin
-				if (ocl == 3'b011) begin
+				if (ext_q[15:13] == 3'b011) begin
 					// a store: its outcome first; its exception comes from END
 					if (!(done_q || live_done)) hold = 1'b1;
-					if (ea_dn) begin
-						case (fmt)
+					if (ea_dn_q) begin
+						case (ext_q[12:10])
 							3'd4:    res_g = {bv[31:16], store_dout[95:80]};
 							3'd6:    res_g = {bv[31:8], store_dout[95:88]};
 							default: res_g = store_dout[95:64];
 						endcase
 						dkill = sx_kill;
 					end
-					else case (fmt)
+					else case (ext_q[12:10])
 						3'd4:    res_g = {16'd0, store_dout[95:80]};
 						3'd6:    res_g = {24'd0, store_dout[95:88]};
 						default: res_g = store_dout[95:64];
@@ -656,7 +661,7 @@ always_comb begin
 				if (!crr_wait) hold = 1'b1;
 			end
 			FC_LIST: begin
-				res_g = (ea_pd) ? -{25'd0, l_bytes} : {25'd0, l_bytes};
+				res_g = (ea_pd_q) ? -{25'd0, l_bytes} : {25'd0, l_bytes};
 				// a dynamic list's adjustment is registered (lst_dq): the
 				// first clock waits for it
 				if (ext_q[11] && !lst_w) hold = 1'b1;
@@ -691,7 +696,7 @@ always_comb begin
 					// pending exception's frame
 					xvec = pend_vec;
 				end
-				res_g = ea_pd ? -{25'd0, kbytes(sv_now)} : {25'd0, kbytes(sv_now)};
+				res_g = ea_pd_q ? -{25'd0, kbytes(sv_now)} : {25'd0, kbytes(sv_now)};
 			end
 			FC_SVW: res_g = (sv_kind == 2'd3) ? busy_word(imm[6:2]) :
 			              (sv_kind == 2'd2) ? unimp_word(imm[6:2]) :
@@ -717,7 +722,7 @@ always_comb begin
 	res = 32'd0;
 	case (sub)
 		FC_DISP: if (ext_q[15:13] == 3'b011) begin
-			if (ea_dn) case (ext_q[12:10])
+			if (ea_dn_q) case (ext_q[12:10])
 				3'd4:    res = {bv[31:16], store_dout[95:80]};
 				3'd6:    res = {bv[31:8], store_dout[95:88]};
 				default: res = store_dout[95:64];
@@ -734,7 +739,7 @@ always_comb begin
 		FC_MVR:  res = mv_rev ? f_fmrd[31:0] : f_fmrd[95:64];
 		FC_DBCC: res = {bv[31:16], bv[15:0] - 16'd1};
 		FC_COND: res = {bv[31:8], {8{fp_cond(cpred_q, f_cc)}}};   // FScc
-		FC_SV0:  res = ea_pd ? -{25'd0, kbytes(sv_now)} : {25'd0, kbytes(sv_now)};
+		FC_SV0:  res = ea_pd_q ? -{25'd0, kbytes(sv_now)} : {25'd0, kbytes(sv_now)};
 		FC_SVW:  res = (sv_kind == 2'd3) ? busy_word(imm[6:2]) :
 		               (sv_kind == 2'd2) ? unimp_word(imm[6:2]) :
 		               (sv_kind == 2'd1) ? IDLE_HDR : 32'd0;
