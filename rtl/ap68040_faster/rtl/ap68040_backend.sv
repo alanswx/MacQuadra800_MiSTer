@@ -730,10 +730,20 @@ end
 //--------------------------------------------------------------------------
 // EX
 //--------------------------------------------------------------------------
-// operand values entering EX: A or B may be the load data
-wire [31:0] ex_av0 = (ex_u.a_src == OS_MEM) ? ex_ld : ex_a;
+// operand values entering EX: A or B may be the load data (whether, as
+// flip-flops loaded with the uop: the source fields' compare, with its
+// fan-out, began every path from EX's operands -- 60/66 MHz)
+logic       ex_amem, ex_bmem;
+wire [31:0] ex_av0 = ex_amem ? ex_ld : ex_a;
 wire [31:0] ex_av  = ex_u.a_sxw ? {{16{ex_av0[15]}}, ex_av0[15:0]} : ex_av0;
-wire [31:0] ex_bv  = (ex_u.b_src == OS_MEM) ? ex_ld : ex_b;
+wire [31:0] ex_bv  = ex_bmem ? ex_ld : ex_b;
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && ex_v && (ex_amem != (ex_u.a_src == OS_MEM) || ex_bmem != (ex_u.b_src == OS_MEM))) begin
+		$display("FAIL: EX's operand sources %b%b, the uop's %0d %0d", ex_amem, ex_bmem, ex_u.a_src, ex_u.b_src);
+		$finish;
+	end
+// synthesis translate_on
 
 logic [31:0] alu_res;
 logic  [4:0] alu_flags;
@@ -2045,6 +2055,8 @@ dc1_a1  <= ag_s.agop ? ag1_val :
 		//------------------------------------------------------------------
 		if (adv_dc2) begin
 			ex_u     <= dc2_u;
+			ex_amem  <= (dc2_u.a_src == OS_MEM);
+			ex_bmem  <= (dc2_u.b_src == OS_MEM);
 			ex_md_q  <= (dc2_u.op == OP_MUL) || (dc2_u.op == OP_DIV);
 			ex_fp_q  <= (dc2_u.op == OP_FPU);
 			ex_dbcc_q <= (dc2_u.op == OP_DBCC);
