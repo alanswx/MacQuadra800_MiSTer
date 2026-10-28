@@ -459,7 +459,11 @@ ap68040_rf #(.NR(NRP), .NW(DUAL ? 3 : 2)) rfb (.clk(clk), .we(bwe), .wa(bwa), .w
 // read into agx_q/agb_q, a 60/66 MHz path.  The skid's next uop, when it
 // holds one, is the one entering AG now.)
 logic [4:0] rra0_q, rra1_q;
-wire sk_vn = !(flush || kill_now) && (sk_v ? !ag_take : (SKID && in_v && in_rdy && !ag_take));
+// (whether the skid holds a uop next clock, without the flush and the
+// kill: after either, the flush holds AG for a clock, so an address formed
+// in the kill's clock is never used -- kill_now, from WB, was a 60/66 MHz
+// path into these addresses)
+wire sk_vn = sk_v ? !ag_take : (SKID && in_v && in_rdy && !ag_take);
 always_ff @(posedge clk) begin
 	rra0_q <= sk_vn ? (sk_vr ? sk_u.base : in_u.base) : in_nb;
 	rra1_q <= sk_vn ? (sk_vr ? sk_u.idx  : in_u.idx)  : in_nx;
@@ -470,7 +474,7 @@ assign rra[1] = rra1_q;
 logic sim_rra_ok;
 always_ff @(posedge clk) begin
 	sim_rra_ok <= nreset;
-	if (nreset && sim_rra_ok && (rra0_q != ain_u.base || rra1_q != ain_u.idx)) begin
+	if (nreset && sim_rra_ok && !flush && (rra0_q != ain_u.base || rra1_q != ain_u.idx)) begin
 		$display("FAIL: AG's registered read addresses %0d/%0d, the incoming uop's %0d/%0d",
 		         rra0_q, rra1_q, ain_u.base, ain_u.idx);
 		$finish;
