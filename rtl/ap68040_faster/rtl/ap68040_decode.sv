@@ -361,6 +361,14 @@ function automatic logic [9:0] fpu_k(input logic [15:0] x, input logic [3:0] m,
 	end
 endfunction
 wire  [31:0] bt_d2 = bt_tgt - qpc - 32'd2;
+// the BTB's displacement against each form a branch can carry, compared in
+// parallel and chosen by the form (the compare after the displacement's
+// select ran from the queue's words into the companion's valid and the
+// BTB write at 60/66 MHz)
+wire teq_d8  = ({{24{win[0][7]}}, win[0][7:0]} == bt_d2);
+wire teq_d16 = (sx16(win[1]) == bt_d2);
+wire teq_d32 = ({win[1], win[2]} == bt_d2);
+wire teq_fdb = (sx16(win[2]) == bt_d2 - 32'd2);
 // synthesis translate_off
 always @(posedge clk)
 	if (nreset && push && ph == PH_IDLE && bt_end && nrec.pred && teq != (ntarget == bt_tgt))
@@ -664,7 +672,7 @@ always_comb begin
 		end
 		// target and prediction
 		if (a0.rt == UA_BCC || a0.rt == UA_BSR) begin
-			teq     = (disp == bt_d2);
+			teq     = (opw[7:0] == 8'h00) ? teq_d16 : (opw[7:0] == 8'hFF) ? teq_d32 : teq_d8;
 			nrec.bst = disp[31];
 			nrec.bhc = bht_q;
 			nredir  = (a0.rt == UA_BSR) || (opw[11:8] == 4'h0) || (disp[31] ^ bht_q[1]);
@@ -693,18 +701,18 @@ always_comb begin
 			nredir  = 1'b1;
 		end
 		else if (a0.rt == UA_DBCC) begin
-			teq     = (disp == bt_d2);
+			teq     = teq_d16;
 			nrec.bst = disp[31];
 			lp_br   = disp[31];
 			lp_ovr  = lp_br && lp_exit;
 			nredir  = disp[31] && !lp_exit;
 		end
 		else if (a0.rt == UA_FBCC) begin
-			teq     = (disp == bt_d2);
+			teq     = opw[6] ? teq_d32 : teq_d16;
 			nredir  = (opw[5:0] == 6'h0F) || disp[31];
 		end
 		else if (a0.rt == UA_FDBCC) begin
-			teq     = (disp == bt_d2 - 32'd2);
+			teq     = teq_fdb;
 			nredir  = disp[31];
 		end
 		// (one adder for every PC-relative branch target)
