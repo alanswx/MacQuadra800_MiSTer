@@ -729,6 +729,7 @@ wire [64:0] shk_i  = shk + ((fst == F_PACKS) ? ((r_fmt == 3'd1) ? 65'h100_0000_0
 // retiming
 reg   [63:0] mul_x, mul_y;
 reg          mul_p2a, mul_p2b;  // an operand an exact power of two (F_BIN)
+reg          div_p2, div_eq;    // a divisor a power of two, equal significands (F_BIN)
 reg   [63:0] mul_hh, mul_hl, mul_lh, mul_ll;
 always @(posedge clk) if (ce) begin
 	mul_hh <= mul_x[63:32] * mul_y[63:32];
@@ -2693,22 +2694,19 @@ always @(posedge clk) begin
 							a_s <= a_s ^ b_s;
 							e_w <= $signed({b_e[16], b_e}) -
 							       $signed({a_e[16], a_e}) + 18'sd16383;
-							if (am_eff == 64'h8000_0000_0000_0000 || bm_eff == am_eff) begin
-								// Division by a power of two, or equal normalized
-								// significands, is exact after exponent adjustment.
-								a_m <= (am_eff == 64'h8000_0000_0000_0000) ? bm_eff :
-								       64'h8000_0000_0000_0000;
-								grs <= 0;
-								begin fst <= F_ROUND; wb_r <= (F_ROUND == F_WB); acc_r <= 1'b1; end
-							end
-							else begin
-								// remainder = dividend (chopped for FSGLDIV,
-								// which the b_m write below cannot supply yet)
-								acc_hi <= {1'b0, bm_eff};
-								qv <= 0;
-								loop_n <= 0;
-								begin fst <= F_DIVL; wb_r <= (F_DIVL == F_WB); acc_r <= 1'b1; end
-							end
+							// (a divisor that is a power of two, or equal
+							// significands, is taken in F_DIVL's first cycle
+							// from the flags registered here: the 64-bit
+							// compares selecting a_m and grs here were a
+							// 60/66 MHz path)
+							div_p2 <= (am_eff == 64'h8000_0000_0000_0000);
+							div_eq <= (bm_eff == am_eff);
+							// remainder = dividend (chopped for FSGLDIV,
+							// which the b_m write below cannot supply yet)
+							acc_hi <= {1'b0, bm_eff};
+							qv <= 0;
+							loop_n <= 0;
+							begin fst <= F_DIVL; wb_r <= (F_DIVL == F_WB); acc_r <= 1'b1; end
 						end
 					end
 				endcase
@@ -2789,7 +2787,15 @@ always @(posedge clk) begin
 			end
 
 			F_DIVL: begin : f_divl
-				if (loop_n == 7'd34) begin
+				if (loop_n == 7'd0 && (div_p2 || div_eq)) begin
+					// Division by a power of two, or equal normalized
+					// significands, is exact after exponent adjustment
+					// (the dividend is acc_hi's, as F_BIN loaded it).
+					a_m <= div_p2 ? acc_hi[63:0] : 64'h8000_0000_0000_0000;
+					grs <= 0;
+					begin fst <= F_ROUND; wb_r <= (F_ROUND == F_WB); acc_r <= 1'b1; end
+				end
+				else if (loop_n == 7'd34) begin
 					a_m <= rn_m;
 					grs <= rn_g;
 					if (!rn_hi) e_w <= e_w - 18'sd1;
