@@ -322,6 +322,13 @@ endfunction
 (* ramstyle = "MLAB, no_rw_check" *) logic [7:0] lsd [1<<CSB];    // DC1's set
 (* ramstyle = "MLAB, no_rw_check" *) logic [7:0] lse [1<<CSB];    // lv_ra
 (* ramstyle = "MLAB, no_rw_check" *) logic [7:0] lsw [1<<CSB];    // the write's set
+// two more engine copies, each read at one state group's set, so those
+// states' decisions have no state-selected read address in front of them
+// (lv_ra's select ran through the read into the victim, push and walk
+// decisions at 60/66 MHz): f_set (the fill, the push, the walk) and
+// e_va's set (the slow path's lookup and allocation)
+(* ramstyle = "MLAB, no_rw_check" *) logic [7:0] lsf [1<<CSB];    // f_set
+(* ramstyle = "MLAB, no_rw_check" *) logic [7:0] lsv [1<<CSB];    // e_va[CSH:4]
 logic [CSB-1:0] lv_ra;                // the engine copy's read: see below
 wire   [3:0] lvd_q;                // DC1's set (m1)
 wire   [3:0] lve_q;                // the engine's (or the snoop's) set
@@ -341,6 +348,10 @@ initial for (int i = 0; i < (1 << CSB); i++) lv[i] = 4'd0;
 logic [CSB-1:0] ld_ra;
 wire   [7:0] lsm_q = lse[lv_ra];
 wire   [3:0] ld_q  = lsm_q[7:4];
+wire   [7:0] lsf_q = lsf[f_set];
+wire   [3:0] lvf_q = lsf_q[3:0], ldf_q = lsf_q[7:4];
+wire   [7:0] lsv_q = lsv[e_va[CSH:4]];
+wire   [3:0] lvv_q = lsv_q[3:0];
 // the maintenance scan's set, its valid and dirty bits: a copy the write
 // port keeps current (the scan's decision reads 4 bits, not 256)
 logic [CSB-1:0] sc_set;
@@ -1139,7 +1150,7 @@ logic  [1:0] tw_hwq;
 always_comb begin
 	tw_hw_h = 1'b0; tw_hw_w = 2'd0;
 	for (int i = 0; i < 4; i++)
-		if (lve_q[i] && tq_b[i] == tw_da[31:CSH+1]) begin tw_hw_h = 1'b1; tw_hw_w = 2'(i); end
+		if (lvf_q[i] && tq_b[i] == tw_da[31:CSH+1]) begin tw_hw_h = 1'b1; tw_hw_w = 2'(i); end
 end
 // the data RAM's way for the engine's line readers, one select (and one
 // line multiplexer) for them, every input a flip-flop: the snooper's way
@@ -1523,7 +1534,7 @@ always_ff @(posedge clk) begin
 			// entry for a failed one)
 			x = xlate(e_va, m2.r.smode, (m2.r.mem != M_LD), fc_tt(m2.r.fc) == TT_ALT,
 			          atc_hit, atc_e, tq_a[0], tq_a[1], tq_a[2], tq_a[3], 4'd0);
-			x = eng_hit(x, eng_mj(e_tp, e_va, lve_q, tq_r));
+			x = eng_hit(x, eng_mj(e_tp, e_va, lvv_q, tq_r));
 			// synthesis translate_off
 			begin
 				xres_t xr;
@@ -1640,7 +1651,7 @@ always_ff @(posedge clk) begin
 				if (alloc && e_x.cm == 2'b01 && !e_x.hit) begin
 					f_set  <= e_va[CSH:4];
 					f_tag  <= e_x.pa[31:CSH+1];
-					f_way  <= victim(lve_q, rrc);
+					f_way  <= victim(lvv_q, rrc);
 					e_sret <= E_S_XL;
 					e_st   <= E_FILL;
 				end
@@ -1664,7 +1675,7 @@ always_ff @(posedge clk) begin
 			else if (alloc && rd && !e_x.hit) begin
 				f_set  <= e_va[CSH:4];
 				f_tag  <= e_x.pa[31:CSH+1];
-				f_way  <= victim(lve_q, rrc);
+				f_way  <= victim(lvv_q, rrc);
 				e_sret <= E_S_XL;
 				e_st   <= E_FILL;
 			end
@@ -2045,7 +2056,7 @@ always_ff @(posedge clk) begin
 		end
 		E_FILLW: e_st <= E_FILL_W;
 		E_FILL_W: begin
-			if (lve_q[f_way] && ld_q[f_way]) begin     // (ld_ra, lv_ra: f_set)
+			if (lvf_q[f_way] && ldf_q[f_way]) begin     // (the f_set copy)
 				pv_v     <= 1'b1;
 				pv_line  <= dq_w;
 				pv_lpa   <= {tq_b[f_way], f_set};
@@ -2137,7 +2148,7 @@ always_ff @(posedge clk) begin
 		end
 		E_PUSHVW: e_st <= E_PUSHV_W;
 		E_PUSHV_W: begin
-			if (lve_q[f_way] && ld_q[f_way]) begin     // (ld_ra, lv_ra: f_set)
+			if (lvf_q[f_way] && ldf_q[f_way]) begin     // (the f_set copy)
 				pv_v     <= 1'b1;
 				pv_line  <= dq_w;
 				pv_lpa   <= {tq_b[f_way], f_set};
@@ -2383,7 +2394,7 @@ always_ff @(posedge clk) begin
 			if (!tw_hvq) ;                    // (a snoop had the set: the compare registers now)
 			else begin
 			e_wret <= caller;
-			if (h && ld_q[w]) begin
+			if (h && ldf_q[w]) begin
 				// a dirty copy: pushed (E_PUSHV invalidates it), then back here
 				f_set   <= tw_da[CSH:4];
 				f_way   <= w;
@@ -2666,6 +2677,8 @@ always_ff @(posedge clk) begin
 				wn[3:0] = vp_lwe ? ((wo[3:0] & ~vp_wm) | (vp_wm & {4{vp_lv}})) : wo[3:0];
 				lsd[vp_set] <= wn;
 				lse[vp_set] <= wn;
+				lsf[vp_set] <= wn;
+				lsv[vp_set] <= wn;
 				lsw[vp_set] <= wn;
 			end
 			for (int j = 0; j < 4; j++)
@@ -2732,8 +2745,20 @@ always_comb
 	        (e_st == E_M_SCANW || e_st == E_M_SCAN2)   ? sc_set : f_set;
 	// (a walk's set through f_set, which follows tw_da a cycle late while
 	// the walk runs: the walk's decode stays off this read address)
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && (lsf_q != lse[f_set] || lsv_q != lse[e_va[CSH:4]] ||
+	               (!sn_frz && (e_st == E_S_XL2 || e_st == E_S_ACT) && lv_ra != e_va[CSH:4]) ||
+	               (!sn_frz && (e_st == E_FILL_W || e_st == E_PUSHV_W || e_st == E_TW_UPD ||
+	                            (tw_busy && f_set == tw_da[CSH:4])) &&
+	                lv_ra != f_set))) begin
+		$display("FAIL: dmu: the line-state copies %h %h, the engine copy's %h %h (lv_ra %0d, state %0d)",
+		         lsf_q, lsv_q, lse[f_set], lse[e_va[CSH:4]], lv_ra, e_st);
+		$finish;
+	end
+// synthesis translate_on
 initial for (int i = 0; i < (1 << CSB); i++) begin
-	lsd[i] = 8'd0; lse[i] = 8'd0; lsw[i] = 8'd0;
+	lsd[i] = 8'd0; lse[i] = 8'd0; lsw[i] = 8'd0; lsf[i] = 8'd0; lsv[i] = 8'd0;
 end
 // synthesis translate_off
 always_ff @(posedge clk)
