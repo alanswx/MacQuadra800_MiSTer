@@ -87,10 +87,6 @@ always @(posedge clk) begin
 		res_lo  <= 0;
 		ovf     <= 0;
 	end
-	else if (kill) begin
-		running <= 1'b0;
-		done    <= 1'b0;
-	end
 	else begin
 		done <= 0;
 
@@ -142,6 +138,14 @@ always @(posedge clk) begin
 					ovf    <= 0;
 				end
 			end
+		end
+		// (a kill stops the operation; the data registers go on as they
+		// would -- a killed operation's are never read, a start reloads
+		// them -- so the kill, a late signal from WB, stays off their
+		// enables, a 60/66 MHz path)
+		if (kill) begin
+			running <= 1'b0;
+			done    <= 1'b0;
 		end
 	end
 end
