@@ -332,6 +332,11 @@ wire        is_bcc   = (opw[15:7] == 9'b1111_0010_1);
 wire        is_fsave = (opw[15:6] == 10'b1111_0011_00);
 wire        is_frest = (opw[15:6] == 10'b1111_0011_01);
 wire        is_ftrap = is_cc && (eam == 3'd7) && (ear >= 3'd2) && (ear <= 3'd4);
+// FBcc/FDBcc/FScc/FTRAPcc's predicate and form, latched with opw_q/ext_q
+// (decoded through CHK's word select, they reached EX's early redirect: a
+// 60/66 MHz path)
+logic  [5:0] cpred_q;
+logic        cbcc_q, cftrap_q;
 wire        ea_dn    = (eam == 3'd0);
 wire        ea_an    = (eam == 3'd1);
 wire        ea_pi    = (eam == 3'd3);
@@ -663,7 +668,7 @@ always_comb begin
 			FC_COND, FC_DBCC: begin
 				logic [5:0] pred;
 				logic c;
-				pred = is_bcc ? opw[5:0] : ext[5:0];
+				pred = cpred_q;
 				c = fp_cond(pred, f_cc);
 				if (pred[4] && f_cc[0] && f_bsun_en) begin
 					xvec = VEC_BSUN;
@@ -673,8 +678,8 @@ always_comb begin
 					dkill = c;
 					taken = !c && (bv[15:0] != 16'd0);
 				end
-				else if (is_bcc) taken = c;
-				else if (is_ftrap) begin
+				else if (cbcc_q) taken = c;
+				else if (cftrap_q) begin
 					if (c) begin xvec = VEC_TRAPCC; xfmt = 4'd2; xnext = 1'b1; end
 				end
 				else res_g = {bv[31:8], {8{c}}};      // FScc
@@ -728,7 +733,7 @@ always_comb begin
 		FC_LIST: res = ext_q[11] ? lst_dq : lst_q;
 		FC_MVR:  res = mv_rev ? f_fmrd[31:0] : f_fmrd[95:64];
 		FC_DBCC: res = {bv[31:16], bv[15:0] - 16'd1};
-		FC_COND: res = {bv[31:8], {8{fp_cond(is_bcc ? opw[5:0] : ext_q[5:0], f_cc)}}};   // FScc
+		FC_COND: res = {bv[31:8], {8{fp_cond(cpred_q, f_cc)}}};   // FScc
 		FC_SV0:  res = ea_pd ? -{25'd0, kbytes(sv_now)} : {25'd0, kbytes(sv_now)};
 		FC_SVW:  res = (sv_kind == 2'd3) ? busy_word(imm[6:2]) :
 		               (sv_kind == 2'd2) ? unimp_word(imm[6:2]) :
@@ -746,6 +751,15 @@ end
 always_ff @(posedge clk)
 	if (nreset && ex_v && res_g != res && res_g != 32'd0 && !(sub == FC_LIST && ext_q[11] && !lst_w)) begin
 		$display("FAIL: fpif result %h, the gated one %h (sub %0d)", res, res_g, sub);
+		$finish;
+	end
+// synthesis translate_on
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && ex_v && (sub == FC_COND || sub == FC_DBCC) &&
+	    (cpred_q != (is_bcc ? opw[5:0] : ext[5:0]) || cbcc_q != is_bcc || cftrap_q != is_ftrap)) begin
+		$display("FAIL: fpif latched predicate %h/%b%b, the words' %h/%b%b", cpred_q, cbcc_q, cftrap_q,
+		         is_bcc ? opw[5:0] : ext[5:0], is_bcc, is_ftrap);
 		$finish;
 	end
 // synthesis translate_on
@@ -801,6 +815,7 @@ end
 
 always_ff @(posedge clk) begin
 	if (!nreset) begin
+		cpred_q <= '0; cbcc_q <= 1'b0; cftrap_q <= 1'b0;
 		opw_q <= '0; ext_q <= '0; fsr_q <= 1'b0; lst_q <= '0;
 		bg <= 1'b0; pend <= 1'b0; pend_vec <= '0; fresh <= 1'b0;
 		go <= 1'b0; done_q <= 1'b0; fx_q <= 1'b0; eaa <= '0; eav <= 1'b0;
@@ -855,6 +870,9 @@ always_ff @(posedge clk) begin
 			FC_CHK: if (fuse && !go && !(bg && !f_end) && !chk_pend && !chk_x) begin
 				// FPm to FPn: CHK's latching and DISP's request at once
 				opw_q   <= opw;
+				cpred_q <= is_bcc ? opw[5:0] : ext[5:0];
+				cbcc_q  <= is_bcc;
+				cftrap_q <= is_ftrap;
 				fsr_q   <= is_fsave || is_frest;
 				lst_q   <= lst_of(opw, ext);
 				ext_q   <= ext;
@@ -878,6 +896,9 @@ always_ff @(posedge clk) begin
 			end
 			else if (adv) begin
 				opw_q <= opw;
+				cpred_q <= is_bcc ? opw[5:0] : ext[5:0];
+				cbcc_q  <= is_bcc;
+				cftrap_q <= is_ftrap;
 				fsr_q <= is_fsave || is_frest;
 				lst_q <= lst_of(opw, ext);
 				ext_q <= ext;
@@ -994,7 +1015,7 @@ always_ff @(posedge clk) begin
 			end
 			FC_COND, FC_DBCC: if (adv) begin
 				logic [5:0] pred;
-				pred = is_bcc ? opw[5:0] : ext[5:0];
+				pred = cpred_q;
 				// a signaling predicate on unordered sets BSUN
 				if (pred[4] && f_cc[0]) f_bsun <= 1'b1;
 			end
