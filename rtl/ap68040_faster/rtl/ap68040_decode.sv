@@ -654,7 +654,10 @@ always_comb begin
 			lp_ovr  = lp_br && lp_exit;
 			if (lp_ovr) nredir = 1'b0;
 		end
-		else if ((a0.rt == UA_JSR || a0.rt == UA_JMP) && go && !go_part &&
+		// (a fast decode, not go && !go_part: the same for every record
+		// pushed -- a fast decode is never a part, and one without its words
+		// pushes nothing -- with the queued-words compare off the target)
+		else if ((a0.rt == UA_JSR || a0.rt == UA_JMP) && fast &&
 		         (nrec.ea0.m == EM_ABSW || nrec.ea0.m == EM_ABSL || nrec.ea0.m == EM_PC16)) begin
 			ntarget = nrec.ea0.bd;
 			teq     = (nrec.ea0.m == EM_ABSL) ? ({win[1], win[2]} == bt_tgt) :
