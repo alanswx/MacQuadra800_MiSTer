@@ -118,10 +118,19 @@ wire cpu_clk = clk;
 localparam [3:0] CPU_DBCC_FLOOR = 4'd0;
 wire cpu_bclk_en = 1'b1;
 `endif
+// The skid register in front of AG at 60 MHz: the sequencer pops without
+// waiting for AG's take, which kept the end of the stall chain off the uop
+// FIFO's head (a 558-way select).  Cycle-neutral in the CPU self-tests
+// (-0.06 %); off at 33 MHz, where the timing does not need it.
+`ifdef CLK_60_30_90
+localparam bit CPU_SKID = 1'b1;
+`else
+localparam bit CPU_SKID = 1'b0;
+`endif
 
 ap68040 #(
 	.FPU_REVISION(8'h41),
-	.FPU_PIPE(0), .LOOP_PRED(0), .EARLY_RES(0), .DC1_ATC(0), .SKID(0), .DIV_STEPS(2),
+	.FPU_PIPE(0), .LOOP_PRED(0), .EARLY_RES(0), .DC1_ATC(0), .SKID(CPU_SKID), .DIV_STEPS(2),
 	.DUAL(1), .BTIC(1), .S1_CLASSES(3'b011),
 	// only RAM ($0-$3FFFFFFF) and the ROM window ($4xxxxxxx) are cacheable:
 	// everything else is a device, never read speculatively
