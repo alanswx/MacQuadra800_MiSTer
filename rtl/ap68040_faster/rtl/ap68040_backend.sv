@@ -2040,13 +2040,7 @@ always_ff @(posedge clk) begin
 					dc1_u.upd2_v <= 1'b0;
 				end
 			end
-			dc1_a   <= ag_a;
-			dc1_b   <= ag_b;
 			dc1_s   <= ag_s;
-			// (A was read as the pair entered AG: this cycle's EX writes laid over it)
-dc1_a1  <= ag_s.agop ? ag1_val :
-           (ag_s.a_v && !ag_s.a_imm) ? bcast(exw_fw, ag_s.a_reg, ag_a1) : ag_a1;
-			dc1_b1  <= ag_b1;
 			dc1_ee  <= ag_ee && !ag_snref && !ag_cancel;
 			dc1_er  <= ag_er;
 			dc1_ea  <= ag_u.ag ? ag_maddr : 32'd0;
@@ -2054,18 +2048,32 @@ dc1_a1  <= ag_s.agop ? ag1_val :
 			dc1_upd2 <= ag_u2v;
 		end
 		if (!stall_dc1) dc1_v <= adv_ag;
-		else begin
-			if (exw_fw && dc1_u.a_src == OS_REG && dc1_u.a_reg == exw_reg) dc1_a <= exw_val;
-			if (exw_fw && dc1_u.b_src == OS_REG && dc1_u.b_reg == exw_reg) dc1_b <= exw_val;
-			if (exw1_fw && dc1_u.a_src == OS_REG && dc1_u.a_reg == exw1_reg) dc1_a <= exw1_val;
-			if (exw1_fw && dc1_u.b_src == OS_REG && dc1_u.b_reg == exw1_reg) dc1_b <= exw1_val;
-			if (dc1_s.a_v && !dc1_s.a_imm && !dc1_s.agop) dc1_a1 <= bcast(exw_fw, dc1_s.a_reg, dc1_a1);
-			if (dc1_s.b_v) dc1_b1 <= bcast(exw_fw, dc1_s.b_reg, dc1_b1);
-		end
-		// snoop into the uop entering DC1
-		if (adv_ag && exw_fw) begin
-			if (ag_u.a_src == OS_REG && ag_u.a_reg == exw_reg) dc1_a <= exw_val;
-			if (ag_u.b_src == OS_REG && ag_u.b_reg == exw_reg) dc1_b <= exw_val;
+		// DC1's operands: AG's (with the snoop into the uop entering DC1)
+		// whenever DC1 does not hold -- DC1 is empty after a clock it took
+		// nothing in -- else its own with EX's writes laid over; DC1's
+		// hold selects last (adv_ag's enable and the hold's branch put the
+		// stall chain ahead of these selects, a 60/66 MHz path)
+		begin
+			logic [31:0] na, nb, na1, ha, hb, ha1, hb1;
+			na = ag_a;
+			nb = ag_b;
+			if (exw_fw && ag_u.a_src == OS_REG && ag_u.a_reg == exw_reg) na = exw_val;
+			if (exw_fw && ag_u.b_src == OS_REG && ag_u.b_reg == exw_reg) nb = exw_val;
+			// (A was read as the pair entered AG: this cycle's EX writes laid over it)
+			na1 = ag_s.agop ? ag1_val :
+			      (ag_s.a_v && !ag_s.a_imm) ? bcast(exw_fw, ag_s.a_reg, ag_a1) : ag_a1;
+			ha = dc1_a;
+			hb = dc1_b;
+			if (exw_fw && dc1_u.a_src == OS_REG && dc1_u.a_reg == exw_reg) ha = exw_val;
+			if (exw_fw && dc1_u.b_src == OS_REG && dc1_u.b_reg == exw_reg) hb = exw_val;
+			if (exw1_fw && dc1_u.a_src == OS_REG && dc1_u.a_reg == exw1_reg) ha = exw1_val;
+			if (exw1_fw && dc1_u.b_src == OS_REG && dc1_u.b_reg == exw1_reg) hb = exw1_val;
+			ha1 = (dc1_s.a_v && !dc1_s.a_imm && !dc1_s.agop) ? bcast(exw_fw, dc1_s.a_reg, dc1_a1) : dc1_a1;
+			hb1 = dc1_s.b_v ? bcast(exw_fw, dc1_s.b_reg, dc1_b1) : dc1_b1;
+			dc1_a  <= stall_dc1 ? ha  : na;
+			dc1_b  <= stall_dc1 ? hb  : nb;
+			dc1_a1 <= stall_dc1 ? ha1 : na1;
+			dc1_b1 <= stall_dc1 ? hb1 : ag_b1;
 		end
 
 		//------------------------------------------------------------------
