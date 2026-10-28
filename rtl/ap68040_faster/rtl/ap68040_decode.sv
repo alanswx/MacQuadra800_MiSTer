@@ -640,12 +640,30 @@ always_comb begin
 			end
 		end
 
-		// PC-relative branches: target and prediction
+		// PC-relative branches: the displacement by the routine alone (the
+		// routines are exclusive: behind the JSR/JMP test's decoded mode in
+		// the chain below, the target adder's input was a 60/66 MHz path)
 		if (a0.rt == UA_BCC || a0.rt == UA_BSR) begin
 			disp = (opw[7:0] == 8'h00) ? sx16(win[1]) :
 			       (opw[7:0] == 8'hFF) ? {win[1], win[2]} :
 			       {{24{opw[7]}}, opw[7:0]};
-			pcrel   = 1'b1;
+			pcrel = 1'b1;
+		end
+		else if (a0.rt == UA_DBCC) begin
+			disp  = sx16(win[1]);
+			pcrel = 1'b1;
+		end
+		else if (a0.rt == UA_FBCC) begin
+			disp  = opw[6] ? {win[1], win[2]} : sx16(win[1]);
+			pcrel = 1'b1;
+		end
+		else if (a0.rt == UA_FDBCC) begin
+			disp  = sx16(win[2]);
+			pcrel = 1'b1;
+			fdb   = 1'b1;
+		end
+		// target and prediction
+		if (a0.rt == UA_BCC || a0.rt == UA_BSR) begin
 			teq     = (disp == bt_d2);
 			nrec.bst = disp[31];
 			nrec.bhc = bht_q;
@@ -675,8 +693,6 @@ always_comb begin
 			nredir  = 1'b1;
 		end
 		else if (a0.rt == UA_DBCC) begin
-			disp    = sx16(win[1]);
-			pcrel   = 1'b1;
 			teq     = (disp == bt_d2);
 			nrec.bst = disp[31];
 			lp_br   = disp[31];
@@ -684,15 +700,10 @@ always_comb begin
 			nredir  = disp[31] && !lp_exit;
 		end
 		else if (a0.rt == UA_FBCC) begin
-			disp    = opw[6] ? {win[1], win[2]} : sx16(win[1]);
-			pcrel   = 1'b1;
 			teq     = (disp == bt_d2);
 			nredir  = (opw[5:0] == 6'h0F) || disp[31];
 		end
 		else if (a0.rt == UA_FDBCC) begin
-			disp    = sx16(win[2]);
-			pcrel   = 1'b1;
-			fdb     = 1'b1;
 			teq     = (disp == bt_d2 - 32'd2);
 			nredir  = disp[31];
 		end
