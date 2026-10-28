@@ -976,6 +976,7 @@ always_comb begin
 end
 
 assign rq_pop = done && !exc_mode;
+end
 // The pop from the word's own bits and the record's EA modes, not the uop
 // built from them (D1's room, a timing path): a plain last word -- no
 // jump, no MOVEM loop -- of an instruction with no memory-indirect EA (no
@@ -1015,11 +1016,11 @@ always_comb begin
 		else if (stay)      na = upc;
 		else if (fpmv_jump) na = fpmv_target;
 		else if (!uw.last)  na = upc + 10'd1;
-		else if (!exc_mode && rq_n[1]) na = rq1.rt;        // next instruction
+		else if (!exc_mode && rq_n[1]) na = rq1.snr ? UA_DEC_EXC : rq1.rt;   // next instruction
 		else nv = 1'b0;
 	end
 	else if (!uw_v && !exc_mode && !exc_pend && rq_n != 2'd0) begin
-		na = rq0.rt;                                         // first word
+		na = rq0.snr ? UA_DEC_EXC : rq0.rt;                  // first word
 		nv = 1'b1;
 	end
 end

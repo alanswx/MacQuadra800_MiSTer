@@ -788,6 +788,7 @@ always_comb begin
 	nrec_q.c_v   = c_ok;
 	nrec_q.c_opw = win[c_at];
 	nrec_q.c_tk  = bt_end;
+	nrec_q.snr   = 1'b0;
 	if (jsr_k && nrec.exc == 8'd0) nrec_q.rt = UA_JSR_K;
 	if (fpg && nrec.exc == 8'd0) nrec_q.rt = fpu_k(nrec.ext1, nrec.ea0.m, nrec.rt);
 	nrec_q.ras.v  = 1'b1;
@@ -797,8 +798,11 @@ always_comb begin
 	                rcall ? 2'd1 :
 	                (rret && ras_n != 4'd0) ? 2'd2 : 2'd0;
 	if (go && (bt_restart || part_bt)) begin
+		// (the routine is UA_DEC_EXC: the sequencer substitutes it, by snr,
+		// from the queued record -- this select, after the BTB flags of the
+		// consumed words, ended the fetch queue's path into rt at 60/66 MHz)
 		nrec_q.exc  = EXC_SNR;
-		nrec_q.rt   = UA_DEC_EXC;
+		nrec_q.snr  = 1'b1;
 		nrec_q.pred = 1'b0;
 		nrec_q.ras.k = 2'd0;
 	end
