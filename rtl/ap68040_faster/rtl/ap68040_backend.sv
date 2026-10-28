@@ -1461,6 +1461,13 @@ end
 // operand read, over Dc's bits above the size -- is Dc itself, so the
 // compare stays off the write enable)
 wire ex_d_eff = ex_u.d_v && !ex_dkill;
+// The front file's kill: DBcc writes it either way -- its counter
+// decremented, or, when the condition holds (the kill), unchanged (B, the
+// register as read) -- so EX's condition is in the value, not on the
+// write enable and the front file's write select (ex_u.cond -> rff lvt at
+// 60/66 MHz).  The back file, written at WB, keeps the kill.
+wire ex_dkill_f = (ex_kc[0] && fp_dkill) || (ex_kc[1] && md_dkill) ||
+                  (ex_kc[2] && md_ovfl) || ex_kc[4] || (ex_kc[5] && cas2_eq);
 // (the odd-target check as it concerns a register write: only DBcc and
 // FDBcc are branches that write one, so the ALU's taken stays off the
 // operand forwarding -- the FPU's own taken, not EX's selected one)
@@ -1472,7 +1479,7 @@ wire ex_odd_w = ex_br && (ex_bdb ? ex_u.target[0] :
 // an exception reaches WB with wb_ok clear, and its x_go clears fv and
 // discards every younger uop: no uop that survives reads what it wrote.
 // The back file, written at WB, keeps the full test.
-assign exw_v   = adv_ex && ex_d_eff && (ex_u.exc == 8'd0);
+assign exw_v   = adv_ex && ex_u.d_v && !ex_dkill_f && (ex_u.exc == 8'd0);
 // synthesis translate_off
 wire   sim_exw_ok = adv_ex && ex_d_eff && !ex_fault && (ex_xvec == 8'd0) && !ex_odd_w &&
                  (ex_u.exc == 8'd0);
@@ -1489,7 +1496,7 @@ wire        exw_ag  = adv_ex && ex_d_eff;
 // yet, but every younger operand that took it -- AG's, DC1's and DC2's,
 // held or advancing -- takes EX's broadcast again in the clock EX
 // advances, which a uop that always writes always makes.
-assign exw_fw = ex_v && ex_u.d_v && ((ex_kc == 6'd0) || (adv_ex && !ex_dkill));
+assign exw_fw = ex_v && ex_u.d_v && (((ex_kc & 6'b110111) == 6'd0) || (adv_ex && !ex_dkill_f));
 assign exw_reg = ex_u.d_reg;
 // The value written and broadcast: the ALU's result enters at the last
 // multiplexer (ex_alu_q, registered with the uop), the other sources
@@ -1511,13 +1518,15 @@ always_comb begin
 		OP_CAS2R:         exw_oth = (ex_av & ex_szm) | (ex_bv & ~ex_szm);
 		OP_BFSET:         exw_oth = ex_u.cond[0] ? {24'd0, bf_lonew} : {{3{ex_av[31]}}, ex_av[31:3]};
 		OP_CAS:           exw_oth = (ex_bv & ex_szm) | (ex_latch & ~ex_szm);
+		OP_DBCC:          exw_oth = alu_cc ? ex_bv : alu_res;   // (the kill: unchanged)
 		default:          exw_oth = ex_bv;
 	endcase
 end
 assign exw_val = ex_alu_q ? alu_res : exw_oth;
 // synthesis translate_off
 always_ff @(posedge clk)
-	if (nreset && ex_v && exw_val !== ((ex_u.op == OP_CAS) ? ((ex_bv & ex_szm) | (ex_latch & ~ex_szm)) : ex_res)) begin
+	if (nreset && ex_v && !(ex_u.op == OP_DBCC && alu_cc) &&
+	    exw_val !== ((ex_u.op == OP_CAS) ? ((ex_bv & ex_szm) | (ex_latch & ~ex_szm)) : ex_res)) begin
 		$display("FAIL: EX's written value %h, the old form %h (op %0d, slow %b, pc %h)", exw_val,
 		         (ex_u.op == OP_CAS) ? ((ex_bv & ex_szm) | (ex_latch & ~ex_szm)) : ex_res, ex_u.op, ex_slow, ex_u.pc);
 		$finish;
@@ -2004,7 +2013,7 @@ dc1_a1  <= ag_s.agop ? ag1_val :
 			             (dc2_u.op != OP_FPU) && (dc2_u.op != OP_MUL) && (dc2_u.op != OP_DIV) &&
 			             (dc2_u.op != OP_MDRES) && (dc2_u.op != OP_MDHI) && (dc2_u.op != OP_CCRLOG) &&
 			             (dc2_u.op != OP_SPW) && (dc2_u.op != OP_LATCH) && (dc2_u.op != OP_CAS2R) &&
-			             (dc2_u.op != OP_BFSET) && (dc2_u.op != OP_CAS);
+			             (dc2_u.op != OP_BFSET) && (dc2_u.op != OP_CAS) && (dc2_u.op != OP_DBCC);
 			ex_npc   <= dc2_u.pc + {27'd0, dc2_u.ilen, 1'b0};
 			ex_kc    <= {dc2_u.op == OP_CAS2R, dc2_u.op == OP_CHK2B,
 			             dc2_u.op == OP_DBCC, dc2_u.op == OP_MDRES, dc2_u.op == OP_DIV,
