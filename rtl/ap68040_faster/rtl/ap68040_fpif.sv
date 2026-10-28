@@ -860,6 +860,10 @@ always_ff @(posedge clk) begin
 	end
 	else begin
 		f_req <= 1'b0; f_crwe <= 1'b0; f_iawe <= 1'b0; f_bsun <= 1'b0; f_fmwe <= 1'b0;
+		// (the FPIAR value every clock: the FPU takes it only with f_iawe,
+		// set with it -- under the request's conditions, from the FPU's own
+		// status, the PC's enable was a 60/66 MHz path)
+		f_iapc <= pc;
 		f_rwe <= 1'b0;
 		f_rst <= 1'b0; f_fsave_ack <= 1'b0; f_rest_idle <= 1'b0; f_rest_unimp <= 1'b0;
 		f_pendcap <= 1'b0;
@@ -910,7 +914,6 @@ always_ff @(posedge clk) begin
 				go      <= 1'b1;
 				f_req   <= 1'b1;
 				f_iawe  <= 1'b1;
-				f_iapc  <= pc;
 				f_din   <= din_of(fmt, av, bv, latch);
 				f_dnice <= nice_mem(din_of(fmt, av, bv, latch), fmt);
 				fresh   <= 1'b1;
@@ -939,7 +942,6 @@ always_ff @(posedge clk) begin
 					go     <= 1'b1;
 					f_req  <= 1'b1;
 					f_iawe <= 1'b1;
-					f_iapc <= pc;
 				end
 				else begin
 					go     <= 1'b0;
@@ -949,7 +951,6 @@ always_ff @(posedge clk) begin
 				// encodings that fault after recording it
 				else if ((chk_cc || (chk_x && chk_ia))) begin
 					f_iawe <= 1'b1;
-					f_iapc <= pc;
 				end
 			end
 			FC_EAL: begin
@@ -962,7 +963,6 @@ always_ff @(posedge clk) begin
 					go      <= 1'b1;
 					f_req   <= 1'b1;
 					f_iawe  <= 1'b1;
-					f_iapc  <= pc;
 					f_din   <= din_of(fmt, av, bv, latch);
 					f_dnice <= nice_mem(din_of(fmt, av, bv, latch), fmt);
 				end
