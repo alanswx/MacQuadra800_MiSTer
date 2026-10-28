@@ -1692,8 +1692,11 @@ always_comb begin
 	fwe_ag[0] = ag_v && ag_u.upd_v && !ag_dyncan;
 	fwe_ag[1] = ag_v && ag_u.upd2_v && !ag_dyncan;
 	// (port 1 also takes the second slot's writes, EX's or AG's: AG holds
-	// its own meanwhile)
-	if (exw1_v) begin fwe[1] = 1'b1; fwa[1] = exw1_reg; fwd[1] = exw1_val; end
+	// its own meanwhile -- while EX holds a second-slot writer at all, so
+	// the port's address and data are selected without EX's advance, the
+	// stall chain into the front file's write decode at 60/66 MHz; the
+	// enable alone has it)
+	if (exw1_fw) begin fwe[1] = exw1_v; fwa[1] = exw1_reg; fwd[1] = exw1_val; end
 	else if (ag1w) begin fwe[1] = 1'b1; fwa[1] = ag_s.d_reg; fwd[1] = ag1_val; end
 	fwe[2] = exw_v;                 fwa[2] = exw_reg;       fwd[2] = exw_val;
 	wcom  = wb_commit;
