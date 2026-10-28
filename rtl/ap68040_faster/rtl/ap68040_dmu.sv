@@ -623,6 +623,38 @@ xres_t      x_dc1r;            // xlate's own result for DC1
 always_comb x_dc1r = xlate(m1.a, m1.smode, m1_wr, fc_tt(m1.fc) == TT_ALT, atc_hit, atc_e,
                           tq_a[0], tq_a[1], tq_a[2], tq_a[3], lvd_q);
 logic [3:0] d1_mj;            // the matching way, one-hot (for the line select)
+// DC1 and the engine's stolen lookups (E_S_XL2, E_SP_2) compare the tags
+// in parallel with the translation: each way's tag against the untranslated address, or against the
+// page of each ATC way the main port hits (atc_hv, atc_wpa), with the
+// transparency registered as the steal starts (e_tp).  xlate's own compare
+// waited for the hit way's entry: the ATC read, the entry select and the
+// tag compare in one clock (a 60/66 MHz path into e_x.hit).
+logic e_tp;
+function automatic logic [3:0] eng_mj(input logic tp, input logic [31:0] la, input logic [3:0] lv,
+                                      input logic [CTW-1:0] tq [4]);
+	logic [3:0] m;
+	for (int j = 0; j < 4; j++) begin
+		logic ma;
+		ma = 1'b0;
+		for (int i = 0; i < 4; i++)
+			if (atc_hv[i] && tq[j] == ((CTW'({atc_wpa[i][19:1], tc_p ? la[12] : atc_wpa[i][0]}) << (11 - CSH)) |
+			                            CTW'(la[11:0] >> (CSH + 1))))
+				ma = 1'b1;
+		m[j] = lv[j] && (tp ? (tq[j] == la[31:CSH+1]) : ma);
+	end
+	eng_mj = m;
+endfunction
+// the hit from it, for a translation xlate made without tags
+function automatic xres_t eng_hit(input xres_t x, input logic [3:0] m);
+	xres_t r;
+	r = x;
+	if (x.ok && !x.flt) begin
+		r.hit = |m;
+		r.way = m[3] ? 2'd3 : m[2] ? 2'd2 : m[1] ? 2'd1 : 2'd0;
+	end
+	eng_hit = r;
+endfunction
+
 // whether DC1's address is used untranslated (alternate space, a TTR,
 // translation off, CPU space): registered with the address, and again
 // every clock DC1 holds, so the compare select starts from a flip-flop
@@ -650,51 +682,17 @@ always_comb begin
 				ma = 1'b1;
 		mj[j] = lvd_q[j] && (transp ? (tq[j] == m1.a[31:CSH+1]) : ma);
 	end
-	if (!DC1_ATC) begin
-		// the main port's entry (its hit and page), compared with each way's
-		// tag beside the untranslated address: the registered transparency
-		// selects, so the TTR compare and the translation's address select
-		// stay off the tag compare
-		logic [CTW-1:0] tpa;
-		tpa = (CTW'({atc_e.pa[19:1], tc_p ? m1.a[12] : atc_e.pa[0]}) << (11 - CSH)) |
-		      CTW'(m1.a[11:0] >> (CSH + 1));
-		for (int j = 0; j < 4; j++)
-			mj[j] = lvd_q[j] && (transp ? (tq[j] == m1.a[31:CSH+1]) : (atc_hit && tq[j] == tpa));
-	end
+	if (!DC1_ATC)
+		// the main port's ways (their hits and pages), each compared with
+		// each way's tag beside the untranslated address: the registered
+		// transparency selects, and the ATC's hit vector, not its selected
+		// entry's page, picks (the entry select was on the path from the ATC
+		// read to DC2's fast flags at 60/66 MHz)
+		mj = eng_mj(transp, m1.a, lvd_q, tq);
 	d1_hit = |mj;
 	d1_way = mj[3] ? 2'd3 : mj[2] ? 2'd2 : mj[1] ? 2'd1 : 2'd0;
 	d1_mj  = mj;
 end
-// The engine's stolen lookups (E_S_XL2, E_SP_2) compare the tags the same
-// way: each way's tag against the untranslated address, or against the
-// page of each ATC way the main port hits (atc_hv, atc_wpa), with the
-// transparency registered as the steal starts (e_tp).  xlate's own compare
-// waited for the hit way's entry: the ATC read, the entry select and the
-// tag compare in one clock (a 60/66 MHz path into e_x.hit).
-logic e_tp;
-function automatic logic [3:0] eng_mj(input logic tp, input logic [31:0] la);
-	logic [3:0] m;
-	for (int j = 0; j < 4; j++) begin
-		logic ma;
-		ma = 1'b0;
-		for (int i = 0; i < 4; i++)
-			if (atc_hv[i] && tq_a[j] == ((CTW'({atc_wpa[i][19:1], tc_p ? la[12] : atc_wpa[i][0]}) << (11 - CSH)) |
-			                            CTW'(la[11:0] >> (CSH + 1))))
-				ma = 1'b1;
-		m[j] = lve_q[j] && (tp ? (tq_a[j] == la[31:CSH+1]) : ma);
-	end
-	eng_mj = m;
-endfunction
-// the hit from it, for a translation xlate made without tags
-function automatic xres_t eng_hit(input xres_t x, input logic [3:0] m);
-	xres_t r;
-	r = x;
-	if (x.ok && !x.flt) begin
-		r.hit = |m;
-		r.way = m[3] ? 2'd3 : m[2] ? 2'd2 : m[1] ? 2'd1 : 2'd0;
-	end
-	eng_hit = r;
-endfunction
 
 // synthesis translate_off
 // (the engine's state for the bench's profile: a parameterized module's
@@ -1412,7 +1410,7 @@ always_ff @(posedge clk) begin
 			x  = xlate({m2.r.a[31:4] + 28'd1, 4'd0}, m2.r.smode, (m2.r.mem != M_LD),
 			           fc_tt(m2.r.fc) == TT_ALT, atc_hit, atc_e,
 			           tq_a[0], tq_a[1], tq_a[2], tq_a[3], 4'd0);
-			x  = eng_hit(x, eng_mj(e_tp, {m2.r.a[31:4] + 28'd1, 4'd0}));
+			x  = eng_hit(x, eng_mj(e_tp, {m2.r.a[31:4] + 28'd1, 4'd0}, lve_q, tq_a));
 			// synthesis translate_off
 			begin
 				xres_t xr;
@@ -1449,7 +1447,7 @@ always_ff @(posedge clk) begin
 			// entry for a failed one)
 			x = xlate(e_va, m2.r.smode, (m2.r.mem != M_LD), fc_tt(m2.r.fc) == TT_ALT,
 			          atc_hit, atc_e, tq_a[0], tq_a[1], tq_a[2], tq_a[3], 4'd0);
-			x = eng_hit(x, eng_mj(e_tp, e_va));
+			x = eng_hit(x, eng_mj(e_tp, e_va, lve_q, tq_a));
 			// synthesis translate_off
 			begin
 				xres_t xr;
