@@ -388,6 +388,8 @@ typedef struct packed {
 	logic        c_v;     // a companion: the one-word instruction that follows,
 	logic [15:0] c_opw;   // ... its operation word (see s1_t),
 	logic        c_tk;    // ... at the target (a branch the fetch BTB took), else pc + 2 ilen
+	logic        mvb;     // MOVEM: the EA's base register is in the list, ext1[{1, ea0.r}]
+	logic        mvx;     // ... its index register, ext1[{ea0.xa, ea0.xr}]
 	logic        dexc;    // a decode-time exception (exc, EXC_SNR among them): the
 	                      // sequencer starts UA_DEC_EXC, not rt
 } dinst_t;

@@ -824,6 +824,11 @@ always_comb begin
 		nrec_q.ras.k = 2'd0;
 	end
 	nrec_q.dexc = (nrec_q.exc != 8'd0);
+	// (MOVEM's list against the EA's registers, for the sequencer: as a
+	// bit select of the queued record it began the selects of its
+	// replacement uops at 60/66 MHz)
+	nrec_q.mvb  = nrec_q.ext1[{1'b1, nrec_q.ea0.r}];
+	nrec_q.mvx  = nrec_q.ext1[{nrec_q.ea0.xa, nrec_q.ea0.xr}];
 end
 wire [31:0] lastpc = qpc + {27'd0, use_n - 4'd1, 1'b0};    // the decode's last word
 wire        btb_ok = (ntarget[0] == 1'b0) && (nrec.exc == 8'd0);

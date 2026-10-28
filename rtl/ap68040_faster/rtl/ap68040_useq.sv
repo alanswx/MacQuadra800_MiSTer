@@ -658,13 +658,13 @@ always_comb begin
 		fb_in   = (uw.d == S_MVR) && !pd && !pi &&
 		          (src.ea0.m == EM_AI || src.ea0.m == EM_AD16 ||
 		           (src.ea0.m == EM_AX && !src.ea0.bs)) &&
-		          src.ext1[{1'b1, src.ea0.r}];
+		          src.mvb;
 		xreg    = src.ea0.xa ? areg(src.ea0.xr, sp_reg) : dreg(src.ea0.xr);
 		fx_in   = (uw.d == S_MVR) && (src.ea0.m == EM_AX || src.ea0.m == EM_PCX) &&
-		          !src.ea0.is && src.ext1[{src.ea0.xa, src.ea0.xr}] &&
+		          !src.ea0.is && src.mvx &&
 		          !(fb_in && xreg == an);
 		base_in = fb_in || fx_in ||
-		          ((uw.d == S_MVR) && pi && src.ext1[{1'b1, src.ea0.r}]);
+		          ((uw.d == S_MVR) && pi && src.mvb);
 		off = mv_act ? mv_off : (pd ? -{29'd0, sb} : 32'd0);
 		nu.last = lastx && !fb_in && !fx_in;
 		if (uw.d == S_MVR) begin
@@ -979,6 +979,15 @@ always_comb begin
 end
 
 assign rq_pop = done && !exc_mode;
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && rq_n != 2'd0 && (rq0.mvb != rq0.ext1[{1'b1, rq0.ea0.r}] ||
+	                               rq0.mvx != rq0.ext1[{rq0.ea0.xa, rq0.ea0.xr}])) begin
+		$display("FAIL: useq: the record's MOVEM list flags %b%b, its words' %b%b", rq0.mvb, rq0.mvx,
+		         rq0.ext1[{1'b1, rq0.ea0.r}], rq0.ext1[{rq0.ea0.xa, rq0.ea0.xr}]);
+		$finish;
+	end
+// synthesis translate_on
 // the head's next base and index, as the FIFO below writes it (with the
 // back end's assumed pop: see its rra0_q)
 always_comb begin
