@@ -2520,7 +2520,7 @@ always_ff @(posedge clk) begin
 	if (adv_ex) begin cap_b <= 1'b0; cap_x <= 1'b0; end
 	if (!flush && !stall_ag && ain_v && !stopped) begin
 		logic [31:0] b, x;
-		logic        cb, cx, eb, ex, x2;
+		logic        cb, cx, eb, ex, x2, xb;
 		logic  [3:0] wb, wx;
 		b = rrd[0];
 		x = rrd[1];
@@ -2529,21 +2529,22 @@ always_ff @(posedge clk) begin
 		eb = 1'b0;
 		ex = 1'b0;
 		x2 = 1'b0;
+		xb = 1'b0;                     // x is a bypassed value, not the register read
 		// (AG's own updates: here AG advances, so fwe[0..1] is just whether
 		// it holds one -- adv_ag, the end of the stall chain, stays off the
 		// data select)
 		// (AG's own values, not the ports': port 1 may carry a second slot's
 		// EX write instead)
 		if (fwe_ag[0] && ag_u.upd_reg == ain_u.base)  b = ag_updv;
-		if (fwe_ag[0] && ag_u.upd_reg == ain_u.idx)   x = ag_updv;
+		if (fwe_ag[0] && ag_u.upd_reg == ain_u.idx)   begin x = ag_updv; xb = 1'b1; end
 		if (fwe_ag[1] && ag_u.upd2_reg == ain_u.base) b = ag_u2v;
-		if (fwe_ag[1] && ag_u.upd2_reg == ain_u.idx)  x2 = 1'b1;
+		if (fwe_ag[1] && ag_u.upd2_reg == ain_u.idx)  begin x2 = 1'b1; xb = 1'b0; end
 		if (ag1w_ag && ag_s.d_reg == ain_u.base) b = ag1_val;
-		if (ag1w_ag && ag_s.d_reg == ain_u.idx)  begin x = ag1_val; x2 = 1'b0; end
+		if (ag1w_ag && ag_s.d_reg == ain_u.idx)  begin x = ag1_val; x2 = 1'b0; xb = 1'b1; end
 		// the load entering EX, unless a younger writer is in AG or DC1
 		// (it will be waited for in any case)
 		if (dc2_capd && dc2_u.d_reg == ain_u.base) begin b = dc2_capv; cb = adv_dc2; end
-		if (dc2_capd && dc2_u.d_reg == ain_u.idx)  begin x = dc2_capv; cx = adv_dc2; x2 = 1'b0; end
+		if (dc2_capd && dc2_u.d_reg == ain_u.idx)  begin x = dc2_capv; cx = adv_dc2; x2 = 1'b0; xb = 1'b1; end
 		// the youngest writer's early result (not the uop leaving AG:
 		// its result is loaded next cycle)
 		wb = yw(ain_u.base);
@@ -2569,7 +2570,10 @@ always_ff @(posedge clk) begin
 		// (the early results are scaled beside the writer search)
 		ag2_x <= x2 && !ex && ain_u.idx_v;
 		ag2_v <= ag_u2v;
-		agx_q <= !ex ? ixf(x, ain_u) :
+		// (the register read scaled on its own, the bypasses' value on its
+		// own, then the select: the read went through the bypass selects
+		// before the scale, a 60/66 MHz path)
+		agx_q <= !ex ? (xb ? ixf(x, ain_u) : ixf(rrd[1], ain_u)) :
 		         (wx[1:0] == 2'd1) ? ixf(dc1_er, ain_u) :
 		         (wx[1:0] == 2'd2) ? ixf(dc2_er, ain_u) : ixf(ex_er, ain_u);
 		cap_b <= cb;
