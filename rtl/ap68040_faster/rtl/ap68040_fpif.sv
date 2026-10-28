@@ -291,6 +291,7 @@ logic [31:0] lst_dq;
 logic        lst_w;
 logic  [6:0] rs_dq;            // FRESTORE: the frame size, registered from its header
 logic        rs_w;             // ... the second clock of FC_RS0 (rs_dq good)
+logic        rs_okq;           // ... and its header a known frame
 logic [31:0] lst_q;            // ... FMOVEM's LIST result for a static list: its
                                // bytes, negated for -(An)
 logic        bg;               // a released operation is running
@@ -708,8 +709,9 @@ always_comb begin
 				// the first clock waits for it)
 				if (bg || !rs_w) hold = 1'b1;
 				res_g = {25'd0, kbytes(rs_kind_of(av))};
-				// an unknown frame is a format error at the FRESTORE
-				if (!rs_ok) xvec = VEC_FMTERR;
+				// an unknown frame is a format error at the FRESTORE (its
+				// test registered with the size: in the second clock)
+				if (rs_w && !rs_okq) xvec = VEC_FMTERR;
 			end
 			default: ;
 		endcase
@@ -759,9 +761,15 @@ always_ff @(posedge clk) begin
 	// while EX holds): its decode was on the result's path into the
 	// forwarding at 60/66 MHz
 	rs_dq  <= kbytes(rs_kind_of(av));
+	rs_okq <= rs_ok;
 	rs_w   <= nreset && ex_v && sub == FC_RS0 && !adv;
 end
 // synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && ex_v && sub == FC_RS0 && rs_w && rs_okq != rs_ok) begin
+		$display("FAIL: fpif: FRESTORE's registered frame check %b, the header's %b", rs_okq, rs_ok);
+		$finish;
+	end
 always_ff @(posedge clk)
 	if (nreset && ex_v && res_g != res && res_g != 32'd0 && !(sub == FC_LIST && ext_q[11] && !lst_w) &&
 	    !(sub == FC_RS0 && !rs_w)) begin
