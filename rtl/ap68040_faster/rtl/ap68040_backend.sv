@@ -2102,7 +2102,6 @@ dc1_a1  <= ag_s.agop ? ag1_val :
 				cas2_eq <= ex_u.cond[0] ? (cas2_eq && cmp_flags[2]) : cmp_flags[2];
 			if (ex_u.exc == EXC_SNR) begin
 				wb_exc      <= EXC_IFS;     // refetched by WB, never an error
-				wb_exc_addr <= ex_u.pc;
 				wb_exc_ssw  <= 16'd0;
 			end
 			else if (ex_u.exc != 8'd0) begin
@@ -2122,36 +2121,40 @@ dc1_a1  <= ag_s.agop ? ag1_val :
 				// SSW ATC for an MMU fault, read, long, TT normal, TM the
 				// program space of the instruction's privilege
 				if (ifs || ex_u.exc == EXC_IFB || ex_u.exc == EXC_IFA) begin
-					wb_exc_addr <= ex_u.target;
 					wb_exc_ssw  <= {5'd0, ifa, 1'b0, 1'b1, 3'b000, 2'b00,
 					                sr_r[13] ? 3'd6 : 3'd2};
 				end
 				else begin
-					wb_exc_addr <= ex_u.pc;
 					wb_exc_ssw  <= 16'd0;
 				end
 			end
 			else if (ex_fault) begin
 				wb_exc      <= ex_fvec;
-				wb_exc_addr <= ex_faddr;
 				wb_exc_ssw  <= ex_fssw;
 			end
 			else if (ex_xvec == 8'd0 && ex_odd) begin
 				wb_exc      <= 8'd3;
-				wb_exc_addr <= ex_u.pc;        // (wb_otgt is used: wb_exa_odd)
 				wb_exc_ssw  <= 16'd0;
 			end
 			else if (ex_is_fp && ex_xvec != 8'd0) begin
 				// FPU exceptions bring their frame format, PC and address
 				wb_exc      <= ex_xvec;
-				wb_exc_addr <= fp_xaddr;
 				wb_exc_ssw  <= 16'd0;
 			end
 			else begin
 				wb_exc      <= ex_xvec;
-				wb_exc_addr <= ex_u.pc;
 				wb_exc_ssw  <= 16'd0;
 			end
+			// The fault address, apart from the vector decision: an FPU uop's
+			// is its interface's (used only when it takes an exception: an odd
+			// target's comes from wb_otgt), any other's its PC -- the vector
+			// (the FPU's and the ALU's conditions, behind the operands and the
+			// load data) stays off this select.
+			wb_exc_addr <= (ex_u.exc != 8'd0) ?
+			                 ((ex_u.exc == EXC_IFS || ex_u.exc == EXC_IFSA ||
+			                   ex_u.exc == EXC_IFB || ex_u.exc == EXC_IFA) ? ex_u.target : ex_u.pc) :
+			               ex_fault  ? ex_faddr :
+			               ex_is_fp  ? fp_xaddr : ex_u.pc;
 			wb_exc_pcv <= ex_u.exc == 8'd0 && !ex_fault && ex_xvec == 8'd0 && ex_odd;
 			wb_exa_odd <= ex_u.exc == 8'd0 && !ex_fault && ex_xvec == 8'd0 && ex_odd;
 			wb_otgt    <= ex_otgt;
