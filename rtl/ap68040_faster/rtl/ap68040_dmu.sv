@@ -785,6 +785,32 @@ function automatic logic st_byte(input mrec_t m);
 	           (m.bm & m2.bm) != 16'd0);
 endfunction
 wire hzf = st_byte(m3) || st_byte(m4);
+// ... registered: DC2's fast load's hazard as it will be next clock, from
+// every pair of records that can be (an older store, DC2's load) then --
+// the load is DC1's record if DC1 advances, else DC2's own; the stores
+// are DC2's, EX's or WB's records, as the advances move them -- the
+// pairs' compares from the registers, the advances selecting last (the
+// compares on DC2's own records were the start of its hold, and of the
+// stall chain, at 60/66 MHz).  The line offset PA11-4 is untranslated:
+// DC1's record has it in its address.  Checked against hzf below.
+function automatic logic hz_pair(input mrec_t st, input logic [7:0] ll, input logic [15:0] lbm);
+	hz_pair = st.r.v && (st.r.mem == M_ST || st.r.mem == M_RMW) &&
+	          (st.x.pa[11:4] == ll || (st.split && st.x1.pa[11:4] == ll)) &&
+	          (st.r.mem == M_RMW || st.split || st.r.msz == SZ_Q || (st.bm & lbm) != 16'd0);
+endfunction
+logic hzf_q;
+wire [15:0] m1_bm = bmask(m1.a[3:0], nbytes(m1.msz));
+wire hz_m1 = (adv_dc2 ? hz_pair(m2, m1.a[11:4], m1_bm) : (!adv_ex && hz_pair(m3, m1.a[11:4], m1_bm))) ||
+             (adv_ex ? hz_pair(m3, m1.a[11:4], m1_bm) : (!adv_wb && hz_pair(m4, m1.a[11:4], m1_bm)));
+wire hz_m2 = hz_pair(m3, m2_line[7:0], m2.bm) || (!adv_ex && !adv_wb && hz_pair(m4, m2_line[7:0], m2.bm));
+always_ff @(posedge clk) hzf_q <= adv_dc1 ? hz_m1 : hz_m2;
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && m2.r.v && m2.fast && hzf_q != hzf) begin
+		$display("FAIL: dmu: DC2's registered store hazard %b, the records' %b", hzf_q, hzf);
+		$finish;
+	end
+// synthesis translate_on
 // any store older than the DC2 uop not yet performed: a table walk for the
 // DC2 uop must see it (the program may just have written a descriptor)
 wire st_older = (m3.r.v && (m3.r.mem == M_ST || m3.r.mem == M_RMW)) ||
@@ -793,7 +819,7 @@ wire st_older = (m3.r.v && (m3.r.mem == M_ST || m3.r.mem == M_RMW)) ||
 // read the RAM makes the captured line stale: the engine reads it again
 
 // (a store that left WB is still being written this cycle: dw)
-wire fast_now = m2.r.v && m2.fast && !hzf && !(dw && !dwp && dw_set == m2.r.a[CSH:4]);
+wire fast_now = m2.r.v && m2.fast && !hzf_q && !(dw && !dwp && dw_set == m2.r.a[CSH:4]);
 // (the operand from DC2's two long words: its bytes start at a[1:0] of the
 // first; a split load's bytes past the line are masked by its user)
 wire [31:0] fast_data = take({dq2, 64'd0}, {2'd0, m2.r.a[1:0]}, nbytes(m2.r.msz));
