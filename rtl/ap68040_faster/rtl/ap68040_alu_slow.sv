@@ -16,6 +16,7 @@ module ap68040_alu_slow
 	// registered (the funnel's amount and input selects start from these
 	// flip-flops, not from a decode of op): ASL LSL ASR LSR ROL ROR ROXL ROXR
 	input  logic  [7:0] shk,
+	input  logic [11:0] rvm,        // the funnel's input form, one-hot (rvm_of), registered
 	input  logic  [1:0] sz,
 	input  logic [31:0] a,
 	input  logic [31:0] b,
@@ -28,7 +29,8 @@ module ap68040_alu_slow
 	output logic [31:0] res,
 	output logic  [4:0] flags_out,
 	output logic        sim_c,      // (simulation: the carry as the funnel forms it)
-	output logic        sim_asr_eq  // (simulation: ASR's result equals the sign-filled funnel's)
+	output logic        sim_asr_eq, // (simulation: ASR's result equals the sign-filled funnel's)
+	output logic        sim_rv_eq   // (simulation: the funnel's input equals the kind's case form)
 );
 
 wire f_x = flags_in[4];
@@ -105,7 +107,7 @@ logic        sh_c, sh_x, sh_v;
 // right shift by the rotate count leaves the rotated value at the bottom.
 // A left rotate is a right rotate by the period less the count.
 logic  [5:0] sh_n, sh_nm, sh_nx;
-logic [65:0] rv, ro;
+logic [65:0] rv, ro, rv_ref;
 logic  [6:0] ra;
 logic [65:0] lo;
 always_comb begin
@@ -142,14 +144,14 @@ always_comb begin
 		// (no sign fill: the sign is ORed in after the shift at the size's
 		// top count bits -- b_msb, with its fan-out over the funnel's input,
 		// ran in front of the whole shift at 60 MHz)
-		rv = {33'd0, bm, 1'b0};
+		rv_ref = {33'd0, bm, 1'b0};
 		ra = {1'b0, sh_n};
 	end
 	else if (shk[4] || shk[5]) begin    // ROL, ROR
 		case (sz)
-			SZ_B:    rv = {50'd0, bm[7:0], bm[7:0]};
-			SZ_W:    rv = {34'd0, bm[15:0], bm[15:0]};
-			default: rv = {2'd0, bm, bm};
+			SZ_B:    rv_ref = {50'd0, bm[7:0], bm[7:0]};
+			SZ_W:    rv_ref = {34'd0, bm[15:0], bm[15:0]};
+			default: rv_ref = {2'd0, bm, bm};
 		endcase
 		// ROL by k: the doubled operand shifted right by size - 1 - k
 		// (the count's complement within the size: no subtraction) and
@@ -158,9 +160,9 @@ always_comb begin
 	end
 	else if (shk[6] || shk[7]) begin    // ROXL, ROXR
 		case (sz)
-			SZ_B:    rv = {48'd0, f_x, bm[7:0], f_x, bm[7:0]};
-			SZ_W:    rv = {32'd0, f_x, bm[15:0], f_x, bm[15:0]};
-			default: rv = {f_x, bm, f_x, bm};
+			SZ_B:    rv_ref = {48'd0, f_x, bm[7:0], f_x, bm[7:0]};
+			SZ_W:    rv_ref = {32'd0, f_x, bm[15:0], f_x, bm[15:0]};
+			default: rv_ref = {f_x, bm, f_x, bm};
 		endcase
 		ra = shk[7] ? {1'b0, sh_nx} : nxl_q;
 	end
@@ -169,13 +171,30 @@ always_comb begin
 		// zeros, shifted right by 31 - n (the count inverted, no
 		// subtraction), is the operand shifted left by n; n >= 32
 		// shifts everything out (C of a long shifted by 32: below)
-		rv = {3'd0, bm, 31'd0};
+		rv_ref = {3'd0, bm, 31'd0};
 		ra = sh_n[5] ? 7'd127 : {2'd0, ~sh_n[4:0]};
 	end
 	else begin                          // LSR
-		rv = {33'd0, bm, 1'b0};
+		rv_ref = {33'd0, bm, 1'b0};
 		ra = {1'b0, sh_n};
 	end
+	// (the input as an AND-OR of B's bits by the registered form, kind by
+	// size: the kind's decode and the size's mask, in front of the
+	// funnel's cases, ran ahead of the whole shift at 60 MHz; rv_ref, the
+	// cases' form, is the check)
+	rv = ({66{rvm[0]}}  & {57'd0, b[7:0], 1'b0}) |
+	     ({66{rvm[1]}}  & {49'd0, b[15:0], 1'b0}) |
+	     ({66{rvm[2]}}  & {33'd0, b, 1'b0}) |
+	     ({66{rvm[3]}}  & {50'd0, b[7:0], b[7:0]}) |
+	     ({66{rvm[4]}}  & {34'd0, b[15:0], b[15:0]}) |
+	     ({66{rvm[5]}}  & {2'd0, b, b}) |
+	     ({66{rvm[6]}}  & {48'd0, f_x, b[7:0], f_x, b[7:0]}) |
+	     ({66{rvm[7]}}  & {32'd0, f_x, b[15:0], f_x, b[15:0]}) |
+	     ({66{rvm[8]}}  & {f_x, b, f_x, b}) |
+	     ({66{rvm[9]}}  & {27'd0, b[7:0], 31'd0}) |
+	     ({66{rvm[10]}} & {19'd0, b[15:0], 31'd0}) |
+	     ({66{rvm[11]}} & {3'd0, b, 31'd0});
+	sim_rv_eq = (rv == rv_ref);
 	ro = rv >> ra;
 	lo = ro;                      // (ASL, LSL: the operand shifted left by n)
 	// ASL: V when the bits shifted out and the new sign bit are not all

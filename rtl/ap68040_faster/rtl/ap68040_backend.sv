@@ -1383,9 +1383,22 @@ function automatic logic [7:0] shk_of(input logic [6:0] o);
 	          o == OP_LSR, o == OP_ASR, o == OP_LSL, o == OP_ASL};
 endfunction
 logic [7:0] ex_shk;
+// the shifter funnel's input form, one-hot by kind and size: right shifts
+// (and no shift) B/W/L, rotates, rotates through X, left shifts
+function automatic logic [11:0] rvm_of(input logic [7:0] k, input logic [1:0] sz);
+	logic [2:0] z;
+	logic       ro, rx, sl;
+	z  = (sz == SZ_B) ? 3'b001 : (sz == SZ_W) ? 3'b010 : 3'b100;
+	ro = !k[2] && (k[4] || k[5]);
+	rx = !k[2] && !ro && (k[6] || k[7]);
+	sl = !k[2] && !ro && !rx && (k[0] || k[1]);
+	rvm_of = {sl ? z : 3'b000, rx ? z : 3'b000, ro ? z : 3'b000,
+	          (!ro && !rx && !sl) ? z : 3'b000};
+endfunction
+logic [11:0] ex_rvm;
 // synthesis translate_off
 always_ff @(posedge clk)
-	if (nreset && ex_v && ex_shk != shk_of(ex_u.op)) begin
+	if (nreset && ex_v && (ex_shk != shk_of(ex_u.op) || ex_rvm != rvm_of(ex_shk, ex_u.sz))) begin
 		$display("FAIL: the registered shift kind %b, the op's %b", ex_shk, shk_of(ex_u.op));
 		$finish;
 	end
@@ -1394,17 +1407,23 @@ exo_t xf, xs, xs_q;
 
 logic [31:0] sl_res;
 logic  [4:0] sl_flags;
-logic        sl_sim_c, sl_sim_asr;
+logic        sl_sim_c, sl_sim_asr, sl_sim_rv;
 ap68040_alu_slow alu_s (
-	.op(ex_u.op), .shk(ex_shk), .sz(ex_u.sz), .a(ex_as), .b(ex_bs), .cnt(ex_a[5:0]), .flags_in(ccr_f),
+	.op(ex_u.op), .shk(ex_shk), .rvm(ex_rvm), .sz(ex_u.sz), .a(ex_as), .b(ex_bs), .cnt(ex_a[5:0]), .flags_in(ccr_f),
 	.nx_q(rox_nx_q), .nx(rox_nx), .nxl_q(rox_nxl_q), .nxl(rox_nxl),
-	.res(sl_res), .flags_out(sl_flags), .sim_c(sl_sim_c), .sim_asr_eq(sl_sim_asr)
+	.res(sl_res), .flags_out(sl_flags), .sim_c(sl_sim_c), .sim_asr_eq(sl_sim_asr), .sim_rv_eq(sl_sim_rv)
 );
 // synthesis translate_off
 always_ff @(posedge clk)
 	if (nreset && ex_v && ex_shift && (!ex_pre || ex_pb) && sl_flags[0] !== sl_sim_c) begin
 		$display("FAIL: the shift's direct carry %b, the funnel's %b (op %0d, sz %0d, count %0d, b %h, pc %h)",
 		         sl_flags[0], sl_sim_c, ex_u.op, ex_u.sz, ex_a[5:0], ex_bv, ex_u.pc);
+		$finish;
+	end
+always_ff @(posedge clk)
+	if (nreset && ex_v && ex_shift && sl_sim_rv !== 1'b1) begin
+		$display("FAIL: the shift funnel's input by the registered form differs from the kind's (op %0d, sz %0d, pc %h)",
+		         ex_u.op, ex_u.sz, ex_u.pc);
 		$finish;
 	end
 always_ff @(posedge clk)
@@ -2522,6 +2541,7 @@ always_ff @(posedge clk) begin
 			             dc2_u.op == OP_DBCC, dc2_u.op == OP_MDRES, dc2_u.op == OP_DIV,
 			             dc2_u.op == OP_FPU};
 			ex_shk   <= shk_of(dc2_u.op);
+			ex_rvm   <= rvm_of(shk_of(dc2_u.op), dc2_u.sz);
 			ex_sts_q <= sts_of(dc2_u);
 			ex_oc_q  <= oc_of(dc2_u.op, is_slow(dc2_u.op));
 			ex_ee    <= dc2_ee;
