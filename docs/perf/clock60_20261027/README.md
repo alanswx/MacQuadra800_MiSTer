@@ -108,6 +108,8 @@ CPU-clock setup slack, worst / TNS (ns), by batch:
 | 61a | ebc9409 | -0.642 / -14.8 | -1.258 | -1.213 | -1.039 | | | -0.991 (53: -0.729 / -9.6, 54: -0.852, **55: -0.574 / -7.4**) |
 | 61b | 91aaa48 | -1.879 / -82.6 | -0.720 / -5.7 | -1.228 | -1.457 | | | -0.282 / -0.54 (53: -1.505, 54: -1.161, **55: -0.131 / -0.25**) |
 | 61c | 7ea5e47 | -1.182 / -7.9 | -1.713 | -1.320 | -0.849 | | | **-0.378 / -3.4** (53: -2.221, 54: -1.192 / -4.4, 55: -1.292) |
+| 61d | ba9575d | -1.464 / -21.6 | -0.773 / -6.3 | -1.275 | -1.340 | | | -0.996 (53: -1.390, 54: -1.142, **55: -0.627 / -17.6**) |
+| 61e | 362a75e - 6550325 | | | | | | | -0.831 / -7.7 (55: -0.895 / -6.6) |
 
 (slack / TNS in ns on the 60 MHz CPU clock.)  60y (HDMI met on six of
 eight seeds) came out behind 60x: its leading families were the line-state
@@ -117,6 +119,16 @@ into a_m (c548747) and EX's ALU result into AG's address (f539800).
 met (+0.119); the batch's others sit at -1.0 to -1.7, led by the stall
 cone from AG's interlock (cc6ebd5, d1ab8be, 81aac5f) and the line-state
 port's address (53f4f5e, not in 60z).
+61d (ba9575d) has HDMI met on six of eight seeds again (39,651-39,753
+ALMs, 95 %), its best -0.627 (seed 55); 61e is an A/B of HEAD without
+the dual read ports (6550325 reverted, seeds 52 and 55): -0.831 / -0.895
+against 61d's -0.996 / -0.627, and HDMI -0.17 / -0.26 against -0.08 /
++0.19 -- no evidence against the ports, which stay.  The leaders now
+differ on every seed and none recurs: EX's other written value
+(d70202f), D1's redirect target (794e0be), the snoop's freeze through
+WB's store answer into DC1's hold and the ATC's set, the FPU's FPSR
+through the interface's hold into AG's advance, and AG's index register
+read through the bank select.
 61c (7ea5e47: the 61a and 61b fixes, the dual read ports) came out
 behind 61b, and its HDMI domain missed on seven of eight seeds (-0.005
 to -0.43, against three in 61b): ALMs 40,091-40,116 of 41,910 (96 %).
@@ -236,6 +248,9 @@ the exception entry's registers) -- so the next commits went after those:
 | ee83050 | the engine's lookup hit and way with the ATC's hits last (t_dualmmu 6) | same |
 | ba9575d | an FPU uop with a register result broadcasts from flip-flops | +1 clock per such uop: t_fcmp +5.2 % (+2.2 % at 60 MHz), t_fpu +0.5 % |
 | bd624e9 | F_PACKI's rounding increment from an incrementer of its own | same |
+| 0c5ad66 | the walk's dirty-descriptor push without a second f_set load (t_twdirty) | same |
+| d70202f | EX's other written value by classes registered with the uop | same |
+| 794e0be | D1's redirect target and the BTB entry's kind and target loaded every clock | same |
 
 From 5988c36 on the self-tests also run in the 60 MHz build's own CPU
 configuration -- the Quadra's parameters plus the skid
