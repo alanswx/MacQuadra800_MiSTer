@@ -861,6 +861,11 @@ reg [63:0] sd_m;
 reg [10:0] sd_E;
 reg [51:0] sd_F;
 reg [95:0] sd_out;
+// (F_PACKS's stickies straight from the register, kept: synthesis built
+// them out of the sticky shifter's terms, two levels deeper, and with
+// the rounding's select over the fraction that ran into dout at 60 MHz)
+(* keep *) wire sd_stS = sh_v[41:0] != 0;
+(* keep *) wire sd_stD = sh_v[12:0] != 0;
 always @* begin
 	sd_isS = (eff_fmt == 3'd1);
 	sd_sE  = $signed({eff_e[16], eff_e}) - 18'sd16383;
@@ -884,8 +889,8 @@ always @* begin
 	sd_enc = sd_eun[16:0] - (sd_isS ? 17'd16256 : 17'd15360);
 	sd_tomax = (rnd_mode == 2'b01) || (rnd_mode == 2'b10 && !eff_s) || (rnd_mode == 2'b11 && eff_s);
 	// F_PACKS: the denormal's rounding at the format's last bit
-	sd_pr  = sd_isS ? round_up(sh_v[43], sh_v[42], sh_v[41:0] != 0, a_s) :
-	                  round_up(sh_v[14], sh_v[13], sh_v[12:0] != 0, a_s);
+	sd_pr  = sd_isS ? round_up(sh_v[43], sh_v[42], sd_stS, a_s) :
+	                  round_up(sh_v[14], sh_v[13], sd_stD, a_s);
 	if (fst == F_PACKS) begin
 		sd_E = {10'd0, sd_pr ? shk_i[63] : shk[63]};
 		sd_F = sd_pr ? shk_i[62:11] : shk[62:11];
