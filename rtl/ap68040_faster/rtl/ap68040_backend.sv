@@ -1567,23 +1567,25 @@ logic        rte_fmt1;          // RTE: the frame is a throwaway ($1)
 wire  [31:0] ex_szm = (ex_u.sz == SZ_B) ? 32'h0000_00FF :
                       (ex_u.sz == SZ_W) ? 32'h0000_FFFF : 32'hFFFF_FFFF;
 
-// store data, and stores the EX op cancels
+// store data, and stores the EX op cancels.  The store data's forms are
+// one-hot flags registered with the uop (CAS, CAS2W, an FPU store's first
+// and second words), its default the value EX writes (exw_val, with its
+// selects registered too): the op decode in front of the selects, and
+// ex_res's own, were the path into wb_st_data at 60 MHz.  A simulation
+// check holds it to the old form for every store.
 logic ex_stkill;
+logic [3:0] ex_sts_q;           // EX's store data is: CAS's, CAS2W's, fp_get1, fp_get2
+function automatic logic [3:0] sts_of(input uop_t u);
+	sts_of = {u.op == OP_MOV && u.mem == M_ST && u.cond == 4'd2,
+	          u.op == OP_MOV && u.mem == M_ST && u.cond == 4'd1,
+	          u.op == OP_CAS2W, u.op == OP_CAS};
+endfunction
 always_comb begin
 	ex_stkill = 1'b0;
-	case (ex_u.op)
-		OP_CAS:  ex_st = cas_eq ? ex_av : ex_bv;
-		OP_CAS2W: begin
-			ex_st     = (ex_u.cond[0] && !cas2_eq) ? ex_bv : ex_av;
-			ex_stkill = !ex_u.cond[0] && !cas2_eq;
-		end
-		OP_MOV: begin
-			if (ex_u.mem == M_ST && ex_u.cond == 4'd1) ex_st = fp_get1;
-			else if (ex_u.mem == M_ST && ex_u.cond == 4'd2) ex_st = fp_get2;
-			else ex_st = ex_res;
-		end
-		default: ex_st = ex_res;
-	endcase
+	ex_st = ex_sts_q[0] ? (cas_eq ? ex_av : ex_bv) :
+	        ex_sts_q[1] ? ((ex_u.cond[0] && !cas2_eq) ? ex_bv : ex_av) :
+	        ex_sts_q[2] ? fp_get1 : ex_sts_q[3] ? fp_get2 : exw_val;
+	if (ex_u.op == OP_CAS2W) ex_stkill = !ex_u.cond[0] && !cas2_eq;
 	// an FPU store whose result is not written (an enabled integer
 	// SNAN/OPERR, an unimplemented / unsupported store): its stores go
 	if (fp_stkill && ex_u.mem == M_ST && !ex_is_fp) ex_stkill = 1'b1;
@@ -1749,6 +1751,17 @@ always_ff @(posedge clk)
 	    exw_val !== ((ex_u.op == OP_CAS) ? ((ex_bv & ex_szm) | (ex_latch & ~ex_szm)) : ex_res)) begin
 		$display("FAIL: EX's written value %h, the old form %h (op %0d, slow %b, pc %h)", exw_val,
 		         (ex_u.op == OP_CAS) ? ((ex_bv & ex_szm) | (ex_latch & ~ex_szm)) : ex_res, ex_u.op, ex_slow, ex_u.pc);
+		$finish;
+	end
+always_ff @(posedge clk)
+	if (nreset && ex_v && (ex_sts_q !== sts_of(ex_u) ||
+	    ((ex_u.mem == M_ST || ex_u.mem == M_RMW) &&
+	     ex_st !== ((ex_u.op == OP_CAS) ? (cas_eq ? ex_av : ex_bv) :
+	                (ex_u.op == OP_CAS2W) ? ((ex_u.cond[0] && !cas2_eq) ? ex_bv : ex_av) :
+	                (ex_u.op == OP_MOV && ex_u.mem == M_ST && ex_u.cond == 4'd1) ? fp_get1 :
+	                (ex_u.op == OP_MOV && ex_u.mem == M_ST && ex_u.cond == 4'd2) ? fp_get2 : ex_res)))) begin
+		$display("FAIL: EX's store data %h (forms %b), the old form's differs (op %0d, pc %h)",
+		         ex_st, ex_sts_q, ex_u.op, ex_u.pc);
 		$finish;
 	end
 // synthesis translate_on
@@ -2290,6 +2303,7 @@ always_ff @(posedge clk) begin
 			             dc2_u.op == OP_DBCC, dc2_u.op == OP_MDRES, dc2_u.op == OP_DIV,
 			             dc2_u.op == OP_FPU};
 			ex_shk   <= shk_of(dc2_u.op);
+			ex_sts_q <= sts_of(dc2_u);
 			ex_ee    <= dc2_ee;
 			ex_er    <= dc2_er;
 			ex_a     <= (dc2_u.a_src == OS_REG) ? bcast(exw_fw, dc2_u.a_reg, dc2_a) : dc2_a;
