@@ -1107,6 +1107,18 @@ always_comb begin
 	end
 end
 
+// (a divide's suppression for the kill terms below, ex_kc[1]: md_dkill's
+// divide branch without the op decode -- ex_fuse_q is ex_u.sz == SZ_W --
+// which put ex_u.op on the way into EX's forwarding enable at 60 MHz)
+wire md_dkd = ex_fuse_q ? md_ovf16 : md_ovf;
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && ex_v && ex_kc[1] && md_dkd != md_dkill) begin
+		$display("FAIL: a divide's suppression %b, md_dkill %b", md_dkd, md_dkill);
+		$finish;
+	end
+// synthesis translate_on
+
 // latch for CAS / bit fields
 logic [31:0] ex_latch;
 
@@ -1617,7 +1629,7 @@ always_comb begin
 	// enter EX, so the kill is an AND-OR of its sources: no op decode on
 	// the way to the forwarding enable; the others never kill, slow ones
 	// included)
-	ex_dkill  = (ex_kc[0] && fp_dkill) || (ex_kc[1] && md_dkill) ||
+	ex_dkill  = (ex_kc[0] && fp_dkill) || (ex_kc[1] && md_dkd) ||
 	            (ex_kc[2] && md_ovfl) || (ex_kc[3] && alu_cc) ||
 	            ex_kc[4] || (ex_kc[5] && cas2_eq);
 	// synthesis translate_off
@@ -1750,7 +1762,7 @@ wire ex_d_eff = ex_u.d_v && !ex_dkill;
 // register as read) -- so EX's condition is in the value, not on the
 // write enable and the front file's write select (ex_u.cond -> rff lvt at
 // 60/66 MHz).  The back file, written at WB, keeps the kill.
-wire ex_dkill_f = (ex_kc[0] && fp_dkill) || (ex_kc[1] && md_dkill) ||
+wire ex_dkill_f = (ex_kc[0] && fp_dkill) || (ex_kc[1] && md_dkd) ||
                   (ex_kc[2] && md_ovfl) || ex_kc[4] || (ex_kc[5] && cas2_eq);
 // (the odd-target check as it concerns a register write: only DBcc and
 // FDBcc are branches that write one, so the ALU's taken stays off the
