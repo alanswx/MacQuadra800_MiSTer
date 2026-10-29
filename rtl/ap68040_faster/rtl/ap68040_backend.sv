@@ -474,10 +474,21 @@ logic [4:0] rra0_q, rra1_q;
 // in the kill's clock is never used -- kill_now, from WB, was a 60/66 MHz
 // path into these addresses)
 wire sk_vn = sk_v ? !ag_take : (SKID && in_v && in_rdy_a && !ag_take);
+// (AG's take selects last: the skid holds nothing after a take, and
+// without one it holds what it has or the head that would enter it --
+// the take, from the stall cone, ended two selects from the read address)
+wire sk_vh = sk_v || (SKID && in_v && in_rdy_a);
 always_ff @(posedge clk) begin
-	rra0_q <= sk_vn ? (sk_vr ? sk_u.base : in_u.base) : in_nb;
-	rra1_q <= sk_vn ? (sk_vr ? sk_u.idx  : in_u.idx)  : in_nx;
+	rra0_q <= ag_take ? in_nb : sk_vh ? (sk_vr ? sk_u.base : in_u.base) : in_nb;
+	rra1_q <= ag_take ? in_nx : sk_vh ? (sk_vr ? sk_u.idx  : in_u.idx)  : in_nx;
 end
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && sk_vn != (!ag_take && sk_vh)) begin
+		$display("FAIL: the skid's next valid %b, by the take %b", sk_vn, !ag_take && sk_vh);
+		$finish;
+	end
+// synthesis translate_on
 assign rra[0] = rra0_q;   // (= ain_u's)
 assign rra[1] = rra1_q;
 // synthesis translate_off
