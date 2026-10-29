@@ -1749,10 +1749,14 @@ always_ff @(posedge clk) begin
 				tw_pt <= 1'b0; tw_i <= 1'b0;
 				tw_upd <= atc_hit;          // a first write: the entry's M
 				tw_hw  <= atc_hv;           // (its way: the install rewrites it)
-				e_ret <= E_S_XL;            // look up again after the walk
 				e_st  <= E_TW_START;
 			end
 			else e_st <= E_S_ACT;
+			// look up again after a walk: written whether or not one starts
+			// (only the walk and a bus operation read e_ret, and every entry
+			// to them writes it; on the walk's condition it waited on the
+			// ATC's hit through the entry, a 60 MHz path)
+			e_ret <= E_S_XL;
 		end
 		E_S_ACT: if (e_kill) begin
 			// the uop was discarded (no bus operation is in flight here)
