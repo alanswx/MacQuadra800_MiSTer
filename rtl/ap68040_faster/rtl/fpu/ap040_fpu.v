@@ -180,6 +180,18 @@ wire        fr_src_nan = !fr_valid[src_r] || fr_nanf[src_r];
 
 reg [31:0] fpcr;                  // [15:8] enables, [7:6] prec, [5:4] rnd
 reg [31:0] fpsr;                  // [27:24] cc, [23:16] quot, [15:8] exc, [7:3] aexc
+reg [31:0] fpcr_n, fpsr_n;        // (their next values, in the state machine's block)
+// an enabled exception is set: |(fpsr[15:8] & fpcr[15:8]), registered from
+// the next values -- the AND-OR of the live registers ran through wb_ok,
+// the interface's hold and the integer stall chain at 60 MHz
+reg        fx_q;
+// synthesis translate_off
+always @(posedge clk)
+	if (nreset && fx_q != (|(fpsr[15:8] & fpcr[15:8]))) begin
+		$display("FAIL: fpu: the registered enabled exception %b, FPSR %h FPCR %h", fx_q, fpsr, fpcr);
+		$finish;
+	end
+// synthesis translate_on
 reg [31:0] fpiar;
 
 assign fpcc = fpsr[27:24];
@@ -341,7 +353,7 @@ reg  [4:0] fst;
 // fst == F_WB, kept the same way (wb_ok and the core's hold start from a
 // flip-flop, not from a decode of the state register)
 reg  wb_r;
-assign wb_ok = wb_r && !(|(fpsr[15:8] & fpcr[15:8]));
+assign wb_ok = wb_r && !fx_q;
 // synthesis translate_off
 always @(posedge clk)
 	if (nreset && wb_r !== (fst == F_WB)) begin
@@ -1372,7 +1384,7 @@ end
 // single physical write port.  The core cannot dispatch FMOVEM while the FPU
 // is in F_WB; keeping the explicit priority also matches the old procedural
 // assignment order if that invariant is ever violated.
-wire fr_wb_we = (fst == F_WB) && !(|(fpsr[15:8] & fpcr[15:8])) &&
+wire fr_wb_we = (fst == F_WB) && !fx_q &&
                 (r_op != 7'h38) && (r_op != 7'h3A);
 wire [14:0] fr_wb_e = (a_t == T_ZERO) ? 15'd0 :
                        (a_t == T_INF || a_t == T_NAN) ? 15'h7FFF : a_e[14:0];
@@ -1631,10 +1643,14 @@ task capture_datatype;
 endtask
 
 always @(posedge clk) begin
+	// (FPSR and FPCR written through their next values, so the enabled
+	// exception test can be registered with them: fx_q)
+	fpsr_n = fpsr;
+	fpcr_n = fpcr;
 	if (!nreset) begin
 		begin fst <= F_IDLE; wb_r <= (F_IDLE == F_WB); acc_r <= 1'b0; end
 		done <= 0; unimp <= 0; unsupp <= 0; exc_req <= 0; exc_vec <= 0;
-		fpcr <= 0; fpsr <= 0; fpiar <= 0;
+		fpcr_n = 0; fpsr_n = 0; fpiar <= 0;
 		fpu_used <= 0;
 		fstate_unimp <= 0;
 		fstate_resig <= 0;
@@ -1686,9 +1702,9 @@ always @(posedge clk) begin
 		// the pipeline's writeback (P6): FPSR as F_WB and F_ROUND leave it
 		if (p6_v) begin
 			fr_valid[p6_d] <= 1;
-			fpsr[15:8]  <= p6_inx ? 8'h02 : 8'h00;    // INEX2
-			if (p6_inx) fpsr[3] <= 1;                 // accrued INEX
-			fpsr[27:24] <= {p6_s, p6_z, 1'b0, 1'b0};
+			fpsr_n[15:8] = p6_inx ? 8'h02 : 8'h00;    // INEX2
+			if (p6_inx) fpsr_n[3] = 1;                 // accrued INEX
+			fpsr_n[27:24] = {p6_s, p6_z, 1'b0, 1'b0};
 		end
 		done <= 0;
 		unimp <= 0;
@@ -1699,17 +1715,17 @@ always @(posedge clk) begin
 		if (cr_we) begin
 			case (cr_sel)
 				2'd0: fpiar <= cr_wdata;
-				2'd1: fpsr <= cr_wdata & 32'h0FFF_FFF8;
+				2'd1: fpsr_n = cr_wdata & 32'h0FFF_FFF8;
 				// 68040 FPCR keeps bits 15:0 (WinUAE fpcr_mask = 0xffff for
 				// the 040; only 6888x/060 mask the low nibble)
-				default: fpcr <= cr_wdata & 32'h0000_FFFF;
+				default: fpcr_n = cr_wdata & 32'h0000_FFFF;
 			endcase
 			fpu_used <= 1;
 		end
 		if (ia_we) fpiar <= ia_wdata;
 		if (bsun_req) begin
-			fpsr[15] <= 1;
-			fpsr[7] <= 1;
+			fpsr_n[15] = 1;
+			fpsr_n[7] = 1;
 			fpu_used <= 1;
 		end
 		if (fm_we) begin
@@ -1788,7 +1804,7 @@ always @(posedge clk) begin
 			end
 		end
 		if (fp_reset) begin
-			fpcr <= 0; fpsr <= 0; fpiar <= 0;
+			fpcr_n = 0; fpsr_n = 0; fpiar <= 0;
 			mv_st <= 0;
 			fpu_used <= 0;
 			fstate_unimp <= 0;
@@ -1867,7 +1883,7 @@ always @(posedge clk) begin
 				// The frame, not the current register bank, supplies BOTH operands.
 				// FPIAR/FPCR are separately restored by software; do not replace
 				// FPIAR with the FRESTORE instruction address or frame FPIARCU.
-				fpsr[15:8] <= 0;
+				fpsr_n[15:8] = 0;
 				fstate_unimp <= 0;
 				fstate_resig <= 0;
 				fstate_e1 <= 0;
@@ -1917,7 +1933,7 @@ always @(posedge clk) begin
 				// exception byte untouched; nonexisting opmodes never reach
 				// the FPU at all (classified in the core).
 				if (!(op_class == 3'b010 && src_fmt == 3'd7))
-					fpsr[15:8] <= 8'd0;
+					fpsr_n[15:8] = 8'd0;
 				r_fmt <= src_fmt;
 				r_ae7 <= fpsr[7];
 				r_dst <= dst_r;
@@ -1990,7 +2006,7 @@ always @(posedge clk) begin
 					         !sd_ov && !(sd_inx && fpcr[9])) begin
 						// P255: normal single store dispatch-clock
 						dout <= sd_out;
-						if (sd_inx) begin fpsr[9] <= 1; fpsr[3] <= 1; end
+						if (sd_inx) begin fpsr_n[9] = 1; fpsr_n[3] = 1; end
 						done <= 1; fpu_used <= 1;
 						r_op <= 7'h7F; r_sub <= 0;
 					end
@@ -1998,7 +2014,7 @@ always @(posedge clk) begin
 					         !sd_ov && !(sd_inx && fpcr[9])) begin
 						// P255: normal double store dispatch-clock
 						dout <= sd_out;
-						if (sd_inx) begin fpsr[9] <= 1; fpsr[3] <= 1; end
+						if (sd_inx) begin fpsr_n[9] = 1; fpsr_n[3] = 1; end
 						done <= 1; fpu_used <= 1;
 						r_op <= 7'h7F; r_sub <= 0;
 					end
@@ -2143,8 +2159,8 @@ always @(posedge clk) begin
 								// signaling source raises SNAN
 								dout <= sd_out;
 								if (a_t == T_NAN && !a_m[62]) begin
-									fpsr[14] <= 1;
-									fpsr[7]  <= 1;
+									fpsr_n[14] = 1;
+									fpsr_n[7] = 1;
 								end
 								fpu_used <= 1; if (fpcr[15:8] == 8'd0) begin done <= 1; begin fst <= F_IDLE; wb_r <= (F_IDLE == F_WB); acc_r <= 1'b0; end end else begin fst <= F_STDONE; wb_r <= (F_STDONE == F_WB); acc_r <= 1'b0; end  // no enabled exception possible: done now
 							end
@@ -2163,11 +2179,11 @@ always @(posedge clk) begin
 									// (INEX2 only for bits actually lost, as
 									// softfloat's 68K roundAndPackFloat32 raises
 									// inexact; accrued INEX comes with OVFL)
-									fpsr[12] <= 1; fpsr[6] <= 1;
-									if (sd_inx) fpsr[9] <= 1;
-									fpsr[3] <= 1;
+									fpsr_n[12] = 1; fpsr_n[6] = 1;
+									if (sd_inx) fpsr_n[9] = 1;
+									fpsr_n[3] = 1;
 								end
-								else if (sd_inx) begin fpsr[9] <= 1; fpsr[3] <= 1; end
+								else if (sd_inx) begin fpsr_n[9] = 1; fpsr_n[3] = 1; end
 								fpu_used <= 1; if (fpcr[15:8] == 8'd0) begin done <= 1; begin fst <= F_IDLE; wb_r <= (F_IDLE == F_WB); acc_r <= 1'b0; end end else begin fst <= F_STDONE; wb_r <= (F_STDONE == F_WB); acc_r <= 1'b0; end  // no enabled exception possible: done now
 							end
 						end
@@ -2194,12 +2210,12 @@ always @(posedge clk) begin
 								         (r_fmt == 3'd4) ? {qm[63:48], 16'd0} :
 								                           {qm[63:56], 24'd0}, 64'd0};
 								if (!a_m[62]) begin
-									fpsr[14] <= 1;
-									fpsr[7]  <= 1;
+									fpsr_n[14] = 1;
+									fpsr_n[7] = 1;
 								end
 								else begin
-									fpsr[13] <= 1;
-									fpsr[7]  <= 1;
+									fpsr_n[13] = 1;
+									fpsr_n[7] = 1;
 								end
 								fpu_used <= 1; if (fpcr[15:8] == 8'd0) begin done <= 1; begin fst <= F_IDLE; wb_r <= (F_IDLE == F_WB); acc_r <= 1'b0; end end else begin fst <= F_STDONE; wb_r <= (F_STDONE == F_WB); acc_r <= 1'b0; end  // no enabled exception possible: done now
 							end
@@ -2527,12 +2543,12 @@ always @(posedge clk) begin
 				// enabled SNAN is observed in F_WB and inhibits writeback.
 				if (a_t == T_NAN && !a_m[62]) begin
 					a_m[62] <= 1;
-					fpsr[14] <= 1;
-					fpsr[7] <= 1;
+					fpsr_n[14] = 1;
+					fpsr_n[7] = 1;
 				end
 				if (r_op == 7'h38 && b_t == T_NAN && !b_m[62]) begin
-					fpsr[14] <= 1;
-					fpsr[7] <= 1;
+					fpsr_n[14] = 1;
+					fpsr_n[7] = 1;
 				end
 				case (r_op)
 					7'h18, 7'h58, 7'h5C:
@@ -2569,8 +2585,8 @@ always @(posedge clk) begin
 					a_s <= 0;
 					a_m <= 64'hFFFF_FFFF_FFFF_FFFF;
 					a_e <= 17'h07FFF;
-					fpsr[13] <= 1;
-					fpsr[7] <= 1;
+					fpsr_n[13] = 1;
+					fpsr_n[7] = 1;
 				end
 				else begin
 					// both-inf same sign returns the DEST operand raw
@@ -2601,16 +2617,16 @@ always @(posedge clk) begin
 					// status byte: undo the source-SNaN record F_EXEC made a
 					// cycle earlier (the exception byte was zeroed at
 					// dispatch; r_ae7 holds the prior accrued-IOP bit)
-					fpsr[14] <= 0;
-					fpsr[7]  <= r_ae7;
+					fpsr_n[14] = 0;
+					fpsr_n[7] = r_ae7;
 					cap_cmd <= sh_cmd;
 					cap_unimp <= 0; cap_t <= 0; cap_e1 <= 0; cap_pk <= 0;
 					begin fst <= F_CAP; wb_r <= (F_CAP == F_WB); acc_r <= 1'b0; end
 				end
 				else begin
 				if (op_kind != 4'd4 && b_t == T_NAN && !b_m[62]) begin
-					fpsr[14] <= 1;
-					fpsr[7] <= 1;
+					fpsr_n[14] = 1;
+					fpsr_n[7] = 1;
 					b_m[62] <= 1;
 				end
 				if (a_t == T_NAN || (op_kind != 4'd4 && b_t == T_NAN)) begin
@@ -2634,8 +2650,8 @@ always @(posedge clk) begin
 							a_s <= 0;
 							a_m <= 64'hFFFF_FFFF_FFFF_FFFF;
 							a_e <= 17'h07FFF;
-							fpsr[13] <= 1;
-							fpsr[7] <= 1;
+							fpsr_n[13] = 1;
+							fpsr_n[7] = 1;
 							begin fst <= F_WB; wb_r <= (F_WB == F_WB); acc_r <= 1'b0; end
 						end
 						else if (a_t == T_INF) begin fst <= F_WB; wb_r <= (F_WB == F_WB); acc_r <= 1'b0; end
@@ -2742,8 +2758,8 @@ always @(posedge clk) begin
 								a_s <= 0;
 								a_m <= 64'hFFFF_FFFF_FFFF_FFFF;
 								a_e <= 17'h07FFF;
-								fpsr[13] <= 1;
-								fpsr[7] <= 1;
+								fpsr_n[13] = 1;
+								fpsr_n[7] = 1;
 							end
 							else begin
 								// pass-through infinity keeps the raw
@@ -2796,8 +2812,8 @@ always @(posedge clk) begin
 							a_s <= 0;
 							a_m <= 64'hFFFF_FFFF_FFFF_FFFF;
 							a_e <= 17'h07FFF;
-							fpsr[13] <= 1;
-							fpsr[7] <= 1;
+							fpsr_n[13] = 1;
+							fpsr_n[7] = 1;
 							begin fst <= F_WB; wb_r <= (F_WB == F_WB); acc_r <= 1'b0; end
 						end
 						else if (a_t == T_ZERO && b_t == T_ZERO) begin
@@ -2805,8 +2821,8 @@ always @(posedge clk) begin
 							a_s <= 0;
 							a_m <= 64'hFFFF_FFFF_FFFF_FFFF;
 							a_e <= 17'h07FFF;
-							fpsr[13] <= 1;
-							fpsr[7] <= 1;
+							fpsr_n[13] = 1;
+							fpsr_n[7] = 1;
 							begin fst <= F_WB; wb_r <= (F_WB == F_WB); acc_r <= 1'b0; end
 						end
 						else if (b_t == T_INF) begin
@@ -2824,8 +2840,8 @@ always @(posedge clk) begin
 							a_t <= T_INF;
 							a_s <= a_s ^ b_s;
 							a_m <= 64'd0;
-							fpsr[10] <= 1;
-							fpsr[4] <= 1;
+							fpsr_n[10] = 1;
+							fpsr_n[4] = 1;
 							begin fst <= F_WB; wb_r <= (F_WB == F_WB); acc_r <= 1'b0; end
 						end
 						else if (b_t == T_ZERO || a_t == T_INF) begin
@@ -3072,13 +3088,13 @@ always @(posedge clk) begin
 					          ((mr[63:0] & rd_mask) | ({24'd0, up ? (a_m[39:0] + 40'd1) : a_m[39:0]} & ~rd_mask));
 					wb_grs <= grs;
 					if (ovf) begin
-						fpsr[12] <= 1;              // OVFL
-						fpsr[6]  <= 1;              // accrued OVFL
-						fpsr[3]  <= 1;              // accrued INEX (from OVFL)
+						fpsr_n[12] = 1;              // OVFL
+						fpsr_n[6] = 1;              // accrued OVFL
+						fpsr_n[3] = 1;              // accrued INEX (from OVFL)
 						// INEX2 itself only reports actually-discarded bits
 						// (roundAndPackFloatx80 raises inexact on overflow
 						// only when zSig0 & roundMask is nonzero)
-						if (inx) fpsr[9] <= 1;
+						if (inx) fpsr_n[9] = 1;
 						tomax = (rnd_mode == 2'b01) ||
 						        (rnd_mode == 2'b10 && !a_s) ||
 						        (rnd_mode == 2'b11 && a_s);
@@ -3113,15 +3129,15 @@ always @(posedge clk) begin
 						// then round) -- emin - er shifted a carried result
 						// a bit too little and doubled it
 						extra = emin - e_w;
-						fpsr[11] <= 1;              // UNFL status (tiny)
+						fpsr_n[11] = 1;              // UNFL status (tiny)
 						// accrued UNFL is only recorded when the result is
 						// ALSO inexact (updateaccrued: UNFL && INEX2); the
 						// deep-flush is always inexact, the F_UNFL path
 						// decides for itself
 						if (extra > 18'sd66) begin
-							fpsr[9] <= 1;           // INEX2
-							fpsr[3] <= 1;
-							fpsr[5] <= 1;           // accrued UNFL
+							fpsr_n[9] = 1;           // INEX2
+							fpsr_n[3] = 1;
+							fpsr_n[5] = 1;           // accrued UNFL
 							// The significand shifts out entirely, so the
 							// magnitude is below everything representable at
 							// emin.  Round-to-nearest and round-to-zero give
@@ -3189,8 +3205,8 @@ always @(posedge clk) begin
 						// 2026-08-09 rerun on the revert-built bitstream,
 						// which failed cputest exactly here.
 						if (inx) begin
-							fpsr[9] <= 1;
-							fpsr[3] <= 1;
+							fpsr_n[9] = 1;
+							fpsr_n[3] = 1;
 						end
 						a_m <= mr[63:0];
 						a_e <= er[16:0];
@@ -3257,11 +3273,11 @@ always @(posedge clk) begin
 							n = !gt;
 						end
 					end
-					fpsr[27:24] <= {n, z, 1'b0, nan};
+					fpsr_n[27:24] = {n, z, 1'b0, nan};
 				end
 				else if (r_op == 7'h3A) begin
 					// FTST
-					fpsr[27:24] <= {a_s,
+					fpsr_n[27:24] = {a_s,
 					                (a_t == T_ZERO),
 					                (a_t == T_INF),
 					                (a_t == T_NAN)};
@@ -3274,7 +3290,7 @@ always @(posedge clk) begin
 					// pass-through infinities keep the operand's raw image
 					// (inf_clear_intbit is a 68060 flag, not 68040).
 					if (!(|(fpsr[15:8] & fpcr[15:8]))) fr_valid[r_dst] <= 1;
-					fpsr[27:24] <= {a_s,
+					fpsr_n[27:24] = {a_s,
 					                (a_t == T_ZERO),
 					                (a_t == T_INF),
 					                (a_t == T_NAN)};
@@ -3302,8 +3318,8 @@ always @(posedge clk) begin
 				if (sh_cnt == 7'd127) begin
 					// infinity / far out of range: OPERR, saturating to the
 					// SIGN-DEPENDENT extreme (roundAndPackInt32/16/8)
-					fpsr[13] <= 1;                       // OPERR
-					fpsr[7]  <= 1;                       // accrued IOP
+					fpsr_n[13] = 1;                       // OPERR
+					fpsr_n[7] = 1;                       // accrued IOP
 					dout <= {(pk_isz == 2'd2) ? (pk_neg ? 32'h8000_0000 : 32'h7FFF_FFFF) :
 					         (pk_isz == 2'd1) ? (pk_neg ? {16'h8000, 16'd0} : {16'h7FFF, 16'd0}) :
 					                            (pk_neg ? {8'h80, 24'd0} : {8'h7F, 24'd0}), 64'd0};
@@ -3320,8 +3336,8 @@ always @(posedge clk) begin
 					hi8  = (mg[64:8]  != 0) || (mg[7]  && !(pk_neg && mg[6:0]  == 0));
 					ovf = (pk_isz == 2'd2) ? hi32 : (pk_isz == 2'd1) ? hi16 : hi8;
 					if (ovf) begin
-						fpsr[13] <= 1;                   // OPERR
-						fpsr[7]  <= 1;
+						fpsr_n[13] = 1;                   // OPERR
+						fpsr_n[7] = 1;
 						dout <= {(pk_isz == 2'd2) ? (pk_neg ? 32'h8000_0000 : 32'h7FFF_FFFF) :
 						         (pk_isz == 2'd1) ? (pk_neg ? {16'h8000, 16'd0} : {16'h7FFF, 16'd0}) :
 						                            (pk_neg ? {8'h80, 24'd0} : {8'h7F, 24'd0}), 64'd0};
@@ -3331,8 +3347,8 @@ always @(posedge clk) begin
 						         (pk_isz == 2'd1) ? {lo[15:0], 16'd0} :
 						                            {lo[7:0], 24'd0}, 64'd0};
 						if (sh_v[2:0] != 0) begin
-							fpsr[9] <= 1;                // INEX2
-							fpsr[3] <= 1;                // accrued INEX
+							fpsr_n[9] = 1;                // INEX2
+							fpsr_n[3] = 1;                // accrued INEX
 						end
 					end
 				end
@@ -3380,9 +3396,9 @@ always @(posedge clk) begin
 				mi = {shk_i[64], shk_i[63:0] & rmask};
 				mr = up ? mi : mk;
 				if (inx2) begin
-					fpsr[9] <= 1;                   // INEX2
-					fpsr[3] <= 1;
-					fpsr[5] <= 1;                   // accrued UNFL (UNFL&&INEX2)
+					fpsr_n[9] = 1;                   // INEX2
+					fpsr_n[3] = 1;
+					fpsr_n[5] = 1;                   // accrued UNFL (UNFL&&INEX2)
 				end
 				// At extended precision the result is subnormal for the
 				// destination format itself, so it takes the denormalized
@@ -3433,11 +3449,11 @@ always @(posedge clk) begin
 				// Accrued UNFL still follows the 040's updateaccrued rule
 				// (UNFL && INEX2), which is why it stays inside the
 				// inexact branch.
-				fpsr[11] <= 1;                        // UNFL status
+				fpsr_n[11] = 1;                        // UNFL status
 				if (inx) begin
-					fpsr[9] <= 1;                 // INEX2
-					fpsr[3] <= 1;                 // accrued INEX
-					fpsr[5] <= 1;                 // accrued UNFL
+					fpsr_n[9] = 1;                 // INEX2
+					fpsr_n[3] = 1;                 // accrued INEX
+					fpsr_n[5] = 1;                 // accrued UNFL
 				end
 				fpu_used <= 1;
 				if (fpcr[15:8] == 8'd0) begin done <= 1; begin fst <= F_IDLE; wb_r <= (F_IDLE == F_WB); acc_r <= 1'b0; end end else begin fst <= F_STDONE; wb_r <= (F_STDONE == F_WB); acc_r <= 1'b0; end  // no enabled exception possible: done now
@@ -3471,6 +3487,9 @@ always @(posedge clk) begin
 		    (fst == F_NORM2 && !n2z_q && nlz_q != 7'd64))
 			a_m <= norm_shifted[66:3];
 	end
+	fpsr <= fpsr_n;
+	fpcr <= fpcr_n;
+	fx_q <= |(fpsr_n[15:8] & fpcr_n[15:8]);
 end
 
 endmodule
