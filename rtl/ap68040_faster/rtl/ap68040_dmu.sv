@@ -1764,9 +1764,16 @@ always_ff @(posedge clk) begin
 			steal <= 1'b0;
 			e_job <= 1'b0;
 			e_st  <= E_IDLE;
+			f_set <= e_va[CSH:4];
 		end
 		else begin
 			logic cach, alloc, rd, move16;
+			// the fill's and push's set, loaded whatever the decision: only
+			// the fill, push and walk read f_set, and every way into them
+			// loads it (the older-store hazard on the part's line, ahead of
+			// the fill branch, was the enable's path into the f_set copy's
+			// read address at 60 MHz)
+			f_set <= e_va[CSH:4];
 			move16 = (m2.r.msz == SZ_Q);
 			cach   = dc_en && !e_x.cm[1] && !m2.r.lock && (m2.r.ack == 2'd0) && !move16 &&
 			         !m2.r.pastc;
@@ -1830,7 +1837,6 @@ always_ff @(posedge clk) begin
 			else if (m2.r.mem == M_ST) begin
 				// a store: a copyback miss allocates the line for WB
 				if (alloc && e_x.cm == 2'b01 && !e_x.hit) begin
-					f_set  <= e_va[CSH:4];
 					f_tag  <= e_x.pa[31:CSH+1];
 					f_way  <= victim(lvv_q, rrc);
 					e_sret <= E_S_XL;
@@ -1854,7 +1860,6 @@ always_ff @(posedge clk) begin
 				e_st  <= E_IDLE;
 			end
 			else if (alloc && rd && !e_x.hit) begin
-				f_set  <= e_va[CSH:4];
 				f_tag  <= e_x.pa[31:CSH+1];
 				f_way  <= victim(lvv_q, rrc);
 				e_sret <= E_S_XL;
@@ -1870,7 +1875,6 @@ always_ff @(posedge clk) begin
 				// vector fetch: a system may answer it from elsewhere, an
 				// NMI monitor's override; a dirty vector is pushed first)
 				if (e_x.hit && dc_en && (m2.r.lock || e_x.cm[1] || move16 || m2.r.pastc)) begin
-					f_set  <= e_va[CSH:4];
 					f_way  <= e_x.way;
 					pv_lock <= m2.r.lock;
 					pv_for  <= 2'd0;
