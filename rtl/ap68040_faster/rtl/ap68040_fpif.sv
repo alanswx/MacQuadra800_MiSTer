@@ -355,6 +355,27 @@ wire  [2:0] crl      = (ext[12:10] == 3'd0) ? 3'b001 : ext[12:10];
 // (opw/ext are opw_q/ext_q for them; through CHK's select the decode put
 // sub's compare before the hold and the stall chain, a 60/66 MHz path)
 wire        ea_dn_q  = (opw_q[5:3] == 3'd0);
+// FC_DISP's store result forms, one-hot, registered with opw_q and ext_q
+// (checked): {to Dn word, to Dn byte, to memory word, to memory byte,
+// long or single} -- the store and format compares of ext_q, in front of
+// the result's case, ran into EX's forwarding at 60 MHz
+function automatic logic [4:0] stf_of(input logic [15:0] o, input logic [15:0] e);
+	logic st, dn;
+	st = (e[15:13] == 3'b011);
+	dn = (o[5:3] == 3'd0);
+	stf_of = !st ? 5'd0 :
+	         {dn && e[12:10] == 3'd4, dn && e[12:10] == 3'd6,
+	          !dn && e[12:10] == 3'd4, !dn && e[12:10] == 3'd6,
+	          e[12:10] != 3'd4 && e[12:10] != 3'd6};
+endfunction
+logic [4:0] stf_q;
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && stf_q != stf_of(opw_q, ext_q)) begin
+		$display("FAIL: fpif: the registered store forms %b, the command's %b", stf_q, stf_of(opw_q, ext_q));
+		$finish;
+	end
+// synthesis translate_on
 // (CRR's control-register slots from the latched word: through CHK's word
 // select, sub -- EX's cond -- reached the write kill and EX's broadcast)
 wire  [2:0] crl_q    = (ext_q[12:10] == 3'd0) ? 3'b001 : ext_q[12:10];
@@ -778,18 +799,11 @@ always_ff @(posedge clk)
 always_comb begin
 	res = 32'd0;
 	case (sub)
-		FC_DISP: if (ext_q[15:13] == 3'b011) begin
-			if (ea_dn_q) case (ext_q[12:10])
-				3'd4:    res = {bv[31:16], store_dout[95:80]};
-				3'd6:    res = {bv[31:8], store_dout[95:88]};
-				default: res = store_dout[95:64];
-			endcase
-			else case (ext_q[12:10])
-				3'd4:    res = {16'd0, store_dout[95:80]};
-				3'd6:    res = {24'd0, store_dout[95:88]};
-				default: res = store_dout[95:64];
-			endcase
-		end
+		FC_DISP: res = ({32{stf_q[4]}} & {bv[31:16], store_dout[95:80]}) |
+		               ({32{stf_q[3]}} & {bv[31:8], store_dout[95:88]}) |
+		               ({32{stf_q[2]}} & {16'd0, store_dout[95:80]}) |
+		               ({32{stf_q[1]}} & {24'd0, store_dout[95:88]}) |
+		               ({32{stf_q[0]}} & store_dout[95:64]);
 		FC_GET:  res = (imm[1:0] == 2'd1) ? get_q[63:32] : get_q[31:0];
 		FC_CRR:  res = f_crrd;
 		FC_LIST: res = ext_q[11] ? lst_dq : lst_q;
@@ -900,7 +914,7 @@ end
 always_ff @(posedge clk) begin
 	if (!nreset) begin
 		cpred_q <= '0; cbcc_q <= 1'b0; cftrap_q <= 1'b0;
-		opw_q <= '0; ext_q <= '0; fsr_q <= 1'b0; lst_q <= '0;
+		opw_q <= '0; ext_q <= '0; fsr_q <= 1'b0; lst_q <= '0; stf_q <= '0;
 		bg <= 1'b0; pend <= 1'b0; pend_vec <= '0; fresh <= 1'b0;
 		go <= 1'b0; done_q <= 1'b0; fx_q <= 1'b0; eaa <= '0; eav <= 1'b0;
 		sx_v <= 1'b0; sx_vec <= '0; sx_fmt <= '0; sx_addr <= '0; sx_kill <= 1'b0;
@@ -964,6 +978,7 @@ always_ff @(posedge clk) begin
 				fsr_q   <= is_fsave || is_frest;
 				lst_q   <= lst_of(opw, ext);
 				ext_q   <= ext;
+				stf_q   <= stf_of(opw, ext);
 				eav     <= 1'b0;
 				sx_v    <= 1'b0;
 				sx_kill <= 1'b0;
@@ -989,6 +1004,7 @@ always_ff @(posedge clk) begin
 				fsr_q <= is_fsave || is_frest;
 				lst_q <= lst_of(opw, ext);
 				ext_q <= ext;
+				stf_q <= stf_of(opw, ext);
 				// (an immediate operand has no address: its frames, EA 0)
 				eav   <= eal && !ea_imm;
 				if (eal) eaa <= ea;
