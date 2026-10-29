@@ -1664,6 +1664,55 @@ audit_battery:
 	move.l	($3714).l,d0
 	chkl	d0,$80000000,148	; integer bit preserved
 
+;---------------------------- two infinities added: the signs decide
+; inf - inf (and inf + -inf) is an operand error with the default NaN;
+; same-sign infinities return the DESTINATION operand raw
+	move.l	#$7FFF0000,($3700).l	; +inf, 6888x form (integer bit set)
+	move.l	#$80000000,($3704).l
+	move.l	#$00000000,($3708).l
+	move.l	#$FFFF0000,($3720).l	; -inf, created form (mantissa zero)
+	move.l	#$00000000,($3724).l
+	move.l	#$00000000,($3728).l
+	fmovem.x	($3700).l,fp0
+	fmovem.x	($3700).l,fp1
+	fmove.l	#0,fpsr
+	fsub.x	fp0,fp1			; +inf - +inf
+	fmove.l	fpsr,d0
+	and.l	#$0F002000,d0
+	chkl	d0,$01002000,675	; NAN cc, OPERR
+	fmovem.x	fp1,($3710).l
+	move.l	($3710).l,d0
+	chkl	d0,$7FFF0000,676	; the positive default NaN
+	move.l	($3714).l,d0
+	chkl	d0,$FFFFFFFF,677
+	fmovem.x	($3720).l,fp2
+	fmovem.x	($3700).l,fp1
+	fmove.l	#0,fpsr
+	fadd.x	fp2,fp1			; +inf + -inf
+	fmove.l	fpsr,d0
+	and.l	#$0F002000,d0
+	chkl	d0,$01002000,678
+	fmovem.x	($3720).l,fp1
+	fmove.l	#0,fpsr
+	fsub.x	fp0,fp1			; -inf - +inf: -inf
+	fmove.l	fpsr,d0
+	and.l	#$0F002000,d0
+	chkl	d0,$0A000000,679	; N and I, no OPERR
+	fmovem.x	fp1,($3710).l
+	move.l	($3710).l,d0
+	chkl	d0,$FFFF0000,680
+	move.l	($3714).l,d0
+	chkl	d0,$00000000,681	; the destination's mantissa, not the source's
+	fmovem.x	($3700).l,fp1
+	fmove.l	#0,fpsr
+	fadd.x	fp0,fp1			; +inf + +inf
+	fmove.l	fpsr,d0
+	and.l	#$0F002000,d0
+	chkl	d0,$02000000,682	; I only
+	fmovem.x	fp1,($3710).l
+	move.l	($3714).l,d0
+	chkl	d0,$80000000,683
+
 ;------------------------------------------ FCMP condition code corners
 ; equal NONZERO finite values compare as +0 regardless of sign
 ; (floatx80_cmp packs (0,0,0)), so -5 vs -5 gives Z with N clear;

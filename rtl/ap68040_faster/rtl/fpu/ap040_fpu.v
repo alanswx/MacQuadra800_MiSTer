@@ -328,6 +328,7 @@ localparam F_RESTORE_B = 5'd19; // finish FPTE15 denormalization
 localparam F_RESTORE_N = 5'd20; // normalize the prepared destination
 localparam F_CAP   = 5'd21;  // a datatype or unimplemented-instruction frame captured
 localparam F_NLZ   = 5'd22;  // the normalizer's count registered, before its shift
+localparam F_IINF  = 5'd23;  // an add of two infinities: their signs registered
 
 reg  [4:0] fst;
 // unimp/unsupp decisions are made in the dispatch cycle (register
@@ -379,6 +380,7 @@ reg        r_resume;        // normalized BUSY operands bypass datatype retraps
 reg  [2:0] r_stag;          // source tag retained while that conversion runs
 reg  [6:0] r_op;
 reg        r_sub;           // r_op is FSUB, FSSUB or FDSUB (loaded with it)
+reg        ii_sd;           // F_BIN to F_IINF: the infinities' signs differ
 reg [95:0] r_din;
 // the memory operand's significand in the working format, by r_fmt: one
 // bus (and one negator, of the integer left-aligned: the same bits as a
@@ -1607,7 +1609,7 @@ always @(posedge clk) begin
 		sh_dst <= 0; sh_dtag <= 0;
 		wb_s <= 0; wb_e <= 0; wb_m <= 0; wb_grs <= 0;
 		dout <= 0;
-		r_fmt <= 0; r_dst <= 0; r_op <= 0; r_sub <= 0; r_din <= 0;
+		r_fmt <= 0; r_dst <= 0; r_op <= 0; r_sub <= 0; ii_sd <= 0; r_din <= 0;
 		r_ae7 <= 0;
 		r_unimp <= 0; r_stag <= 0; r_resume <= 0;
 		a_s <= 0; a_e <= 0; a_m <= 0; a_t <= 0;
@@ -2515,6 +2517,25 @@ always @(posedge clk) begin
 				end
 			end
 
+			F_IINF: begin
+				if (ii_sd) begin
+					a_t <= T_NAN;      // inf - inf: default NaN
+					a_s <= 0;
+					a_m <= 64'hFFFF_FFFF_FFFF_FFFF;
+					a_e <= 17'h07FFF;
+					fpsr[13] <= 1;
+					fpsr[7] <= 1;
+				end
+				else begin
+					// both-inf same sign returns the DEST operand raw
+					// (68040 has addsub_swap_inf clear)
+					a_s <= b_s;
+					a_m <= b_m;
+					a_t <= T_INF;
+				end
+				begin fst <= F_WB; wb_r <= (F_WB == F_WB); acc_r <= 1'b0; end
+			end
+
 			F_BIN: begin : f_bin
 				reg        s_a;
 				// NaNs went through F_EXEC, which saved the source before
@@ -2591,24 +2612,18 @@ always @(posedge clk) begin
 						end
 					end
 					4'd1: begin : bin_add
-						if (a_t == T_INF || b_t == T_INF) begin
-							if (a_t == T_INF && b_t == T_INF &&
-							    s_a != b_s) begin
-								a_t <= T_NAN;      // inf - inf: default NaN
-								a_s <= 0;
-								a_m <= 64'hFFFF_FFFF_FFFF_FFFF;
-								a_e <= 17'h07FFF;
-								fpsr[13] <= 1;
-								fpsr[7] <= 1;
-							end
-							else begin
-								// both-inf same sign returns the DEST operand
-								// raw (68040 has addsub_swap_inf clear); a
-								// lone infinity keeps its own mantissa bits
-								a_s <= (a_t == T_INF && b_t != T_INF) ? s_a : b_s;
-								a_m <= (b_t == T_INF) ? b_m : a_m;
-								a_t <= T_INF;
-							end
+						if (a_t == T_INF && b_t == T_INF) begin
+							// two infinities: the signs decide in F_IINF, a
+							// cycle on (the sign compare selected a_m's
+							// default NaN at 60/66 MHz)
+							ii_sd <= (s_a != b_s);
+							begin fst <= F_IINF; wb_r <= (F_IINF == F_WB); acc_r <= 1'b0; end
+						end
+						else if (a_t == T_INF || b_t == T_INF) begin
+							// a lone infinity keeps its own mantissa bits
+							a_s <= (a_t == T_INF) ? s_a : b_s;
+							a_m <= (b_t == T_INF) ? b_m : a_m;
+							a_t <= T_INF;
 							begin fst <= F_WB; wb_r <= (F_WB == F_WB); acc_r <= 1'b0; end
 						end
 						else if (a_t == T_ZERO && b_t == T_ZERO) begin
