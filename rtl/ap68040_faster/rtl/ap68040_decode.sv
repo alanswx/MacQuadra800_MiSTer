@@ -323,7 +323,15 @@ logic [31:0] ntarget;
 // which is formed from registers alongside the decode (the BTB check
 // ends in btb_we and d_redir_v)
 logic        teq;
-logic        jsr_k;       // a JSR to a known target (see nrec_q)
+logic        jsr_k_ref;   // a JSR to a known target (see nrec_q), as the fast path finds it
+// ... by the operation word and the EA kind alone: it matters only for a
+// record pushed without an exception, and from the idle phase only the
+// fast path pushes one (the slow path's first phase pushes only a fault;
+// a part's later push is not idle); checked.  (Through the fast test and
+// the queued-words compare it ended the fetch count's path into the
+// record queue's routine at 60 MHz)
+wire         jsr_k = (ph == PH_IDLE) && (a0.rt == UA_JSR) &&
+                     (pd0.i0 == EM_ABSW || pd0.i0 == EM_ABSL || pd0.i0 == EM_PC16);
 // a call (BSR, JSR) or a return (RTS), for the return stacks: from the
 // decoder's entry (the record's routine is past a first jump D1 resolved,
 // which is a longer path), kept from the first part of a multi-part decode
@@ -478,7 +486,7 @@ always_comb begin
 	teq     = 1'b0;
 	lp_br   = 1'b0;
 	lp_ovr  = 1'b0;
-	jsr_k   = 1'b0;
+	jsr_k_ref = 1'b0;
 	disp    = '0;
 	pcrel   = 1'b0;
 	fdb     = 1'b0;
@@ -693,7 +701,7 @@ always_comb begin
 			// the target is known: JSR is a single push (as BSR); the
 			// routine is changed as the record enters the FIFO, so the
 			// return stack logic sees UA_JSR
-			jsr_k = (a0.rt == UA_JSR);
+			jsr_k_ref = (a0.rt == UA_JSR);
 		end
 		else if (a0.rt == UA_RTS && ras_n != 4'd0) begin
 			ntarget = ras_top;
@@ -869,6 +877,13 @@ always_ff @(posedge clk)
 	end
 // synthesis translate_on
 wire push  = fire && go;
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && push && !nrec_q.dexc && jsr_k != jsr_k_ref) begin
+		$display("FAIL: decode: the known-target JSR %b, the fast path's %b (pc %h)", jsr_k, jsr_k_ref, qpc);
+		$finish;
+	end
+// synthesis translate_on
 wire pop   = rq_pop && (rq_c != 2'd0);
 // synthesis translate_off
 // (the redirect's target and the BTB fields as the cases wrote them)
