@@ -1834,9 +1834,12 @@ always_ff @(posedge clk) begin
 				dw_be   <= be;
 				dw_src  <= 2'd0;
 				dw_word <= lanes32(e_acc, e_va[1:0]);
+				// (the port's set whatever the bytes: only the write
+				// enables wait on the byte mask, from e_n's shift)
+				vp_set = e_va[CSH:4];
 				if (e_x.cm == 2'b01)
 					if (be != 16'd0) begin
-						vp_set = e_va[CSH:4]; vp_wm[e_x.way] = 1'b1; vp_dwe = 1'b1; vp_dv = 1'b1;
+						vp_wm[e_x.way] = 1'b1; vp_dwe = 1'b1; vp_dv = 1'b1;
 					end
 			end
 			if (upd && e_x.cm == 2'b01) begin
@@ -2001,8 +2004,12 @@ always_ff @(posedge clk) begin
 				e_st    <= E_PUSHV;
 			end
 			else begin
+				// (the port's set whatever the compare: only the write
+				// enables depend on it -- the tag compare otherwise picks
+				// the port's read address, a 60 MHz path)
+				vp_set = s;
 				if (m) begin
-					vp_set = s; vp_wm[w] = 1'b1;
+					vp_wm[w] = 1'b1;
 					vp_lwe = 1'b1; vp_lv = 1'b0; vp_dwe = 1'b1; vp_dv = 1'b0;
 				end
 				if ((mt_scope == 2'd1 && w == 2'd3) || &ms_i) e_st <= E_M_IC;
