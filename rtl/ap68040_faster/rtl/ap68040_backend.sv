@@ -2129,7 +2129,14 @@ wire  [4:0] wb_ccr_c = (DUAL && wb1_go) ? wb1_ccr : wb_ccr;   // CCR at the boun
 // trace uses the T bits the instruction started with (sr_r before its own
 // SR write): T1 every instruction, T0 taken transfers and the 68040 list
 wire tr_now      = sr_r[15] || (sr_r[14] && (wb_u.t0cof || wb_cof));
-wire wb_is_stop  = (wb_u.op == OP_MISC) && (wb_u.cond == 4'd2);
+// (STOP's decode registered with the uop at EX -> WB, checked below with
+// RESET's: through the fetch stop it began the BIU's request pick and
+// its data out at 60 MHz)
+function automatic logic stop_of(input uop_t u);
+	stop_of = (u.op == OP_MISC) && (u.cond == 4'd2);
+endfunction
+logic wb_stop_q;
+wire wb_is_stop  = wb_stop_q;
 // STOP is traced under T1, and under T0 only when it changes the upper SR
 // byte (WinUAE MakeFromSR_x); a traced STOP does not stop
 wire stop_traced = wb_is_stop && (sr_r[15] || (sr_r[14] && (wb_sr_new[15:8] != sr_r[15:8])));
@@ -2274,9 +2281,9 @@ wire wb_reset    = wb_rst_q;
 wire wb_mt       = wb_mt_q;
 // synthesis translate_off
 always_ff @(posedge clk)
-	if (nreset && wb_v && (wb_rst_q != rst_of(wb_u) || wb_mt_q != mt_of(wb_u))) begin
-		$display("FAIL: WB's registered RESET/maintenance flags %b/%b, the uop's %b/%b (pc %h)",
-		         wb_rst_q, wb_mt_q, rst_of(wb_u), mt_of(wb_u), wb_u.pc);
+	if (nreset && wb_v && (wb_rst_q != rst_of(wb_u) || wb_mt_q != mt_of(wb_u) || wb_stop_q != stop_of(wb_u))) begin
+		$display("FAIL: WB's registered RESET/maintenance/STOP flags %b/%b/%b, the uop's %b/%b/%b (pc %h)",
+		         wb_rst_q, wb_mt_q, wb_stop_q, rst_of(wb_u), mt_of(wb_u), stop_of(wb_u), wb_u.pc);
 		$finish;
 	end
 // synthesis translate_on
@@ -2711,6 +2718,7 @@ always_ff @(posedge clk) begin
 		if (adv_ex) begin
 			wb_u        <= ex_u;
 			wb_rst_q    <= rst_of(ex_u);
+			wb_stop_q   <= stop_of(ex_u);
 			wb_mt_q     <= mt_of(ex_u);
 			wb_npc      <= ex_npc;
 			wb_s        <= ex_s;
