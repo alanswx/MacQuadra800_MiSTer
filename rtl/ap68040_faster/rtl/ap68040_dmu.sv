@@ -1994,6 +1994,17 @@ always_ff @(posedge clk) begin
 			                 (mt_scope == 2'd1 && tq_b[w] == mt_addr[31:CSH+1]) ||
 			                 (mt_scope == 2'd2 && (tc_p ? tq_b[w][CTW-1:12-CSH] == mt_addr[31:13]
 			                                            : tq_b[w][CTW-1:11-CSH] == mt_addr[31:12])));
+			// (the port's set whatever the compare or the push: only the
+			// write enables depend on them -- the tag compare otherwise
+			// picks the port's read address, a 60 MHz path.  No other
+			// writer runs with the scan)
+			// synthesis translate_off
+			if (vp_wm != 4'd0) begin
+				$display("FAIL: dmu: a valid/dirty write beside the scan");
+				$finish;
+			end
+			// synthesis translate_on
+			vp_set = s;
 			if (m && mt_op == MT_CPUSH && sc_ld[w]) begin
 				// push (it is invalidated with the push)
 				f_set   <= s;
@@ -2004,10 +2015,6 @@ always_ff @(posedge clk) begin
 				e_st    <= E_PUSHV;
 			end
 			else begin
-				// (the port's set whatever the compare: only the write
-				// enables depend on it -- the tag compare otherwise picks
-				// the port's read address, a 60 MHz path)
-				vp_set = s;
 				if (m) begin
 					vp_wm[w] = 1'b1;
 					vp_lwe = 1'b1; vp_lv = 1'b0; vp_dwe = 1'b1; vp_dv = 1'b0;
