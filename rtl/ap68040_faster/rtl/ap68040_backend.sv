@@ -288,6 +288,7 @@ logic [15:0] xi_sr, xi_vecw, xi_ssw;
 logic [31:0] xi_vaddr, xi_ea, xi_w3a, xi_w3d;
 logic        xi_f7;           // the frame is format $7: T5-T7 too
 logic  [2:0] xw_ph;           // exception entry: back-file writes of T5-T13
+logic        xw_pend;         // ... xw_ph != 0, a flip-flop of its own (exc_pend)
 
 assign sr   = {sr_r[15:5], ccr_b};
 assign dtt0 = dtt0_r;
@@ -357,7 +358,17 @@ assign in_rdy_a = SKID ? !sk_v : in_rdy;
 // (the back-file writes of the routine's operands take several cycles
 // after the flush: the sequencer must not issue from the old stream, which
 // the fetch queue still holds, before exc_go)
-assign exc_pend = (xw_ph != 3'd0);
+// (from its own flip-flop: the zero test of xw_ph, with its fan-out, began
+// the sequencer's step, emit and uq0 load -- into the register file's read
+// address -- at 60 MHz)
+assign exc_pend = xw_pend;
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && xw_pend != (xw_ph != 3'd0)) begin
+		$display("FAIL: xw_pend %b, xw_ph %0d", xw_pend, xw_ph);
+		$finish;
+	end
+// synthesis translate_on
 wire         ag_take = !stall_ag && !stopped && !halted;   // AG loads ain_u
 
 //--------------------------------------------------------------------------
@@ -2114,6 +2125,7 @@ always_ff @(posedge clk) begin
 		fv <= 32'd0;
 		fv_clr <= 1'b0;
 		xw_ph <= 3'd0;
+		xw_pend <= 1'b0;
 		ccr_f   <= 5'd0;
 		ccr_b   <= 5'd0;
 		sr_r    <= 16'h2700;
@@ -2665,6 +2677,7 @@ always_ff @(posedge clk) begin
 			redir_v  <= 1'b0;
 			ras_rv   <= 1'b0;
 			xw_ph    <= 3'd1;          // T8-T13 (and T5-T7) first, then exc_go
+			xw_pend  <= 1'b1;
 			// (read by the routine's accesses, after the sequence)
 			exc_l7   <= take_irq && !(adv_wb && wb_is_exc) && (irq_lvl == 3'd7);
 			sr_r     <= {x_nsr[15:5], 5'd0};
@@ -2689,6 +2702,7 @@ always_ff @(posedge clk) begin
 			xw_ph <= xw_ph + 3'd1;
 			if ((xw_ph == 3'd3 && !xi_f7) || xw_ph == 3'd5) begin
 				xw_ph  <= 3'd0;
+				xw_pend <= 1'b0;
 				exc_go <= 1'b1;
 			end
 		end
