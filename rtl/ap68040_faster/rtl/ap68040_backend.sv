@@ -759,6 +759,11 @@ wire [31:0] ag_b = ag_u.b_upd ? ag_updv : opnd(ag_u.b_src, ag_u.b_reg, rrd[4], a
 // the second slot's operands: A read as the pair enters AG (ag_a1q,
 // following EX's writes while it waits), B in AG as the first slot's
 logic [31:0] ag_a1q;
+// (the held and the taken values formed apart, kept: synthesis shared the
+// register compare of EX's broadcast between them, the stall choosing the
+// register in front of the compare and the 32-bit select, a 60 MHz path;
+// the stall selects last, below)
+(* keep *) wire [31:0] ag_a1h, ag_a1t;
 wire [31:0] ag_a1 = ag_s.a_imm ? {{24{ag_s.imm[7]}}, ag_s.imm} :
                     ag_s.a_v ? ag_a1q : 32'd0;
 wire [31:0] ag_b1 = ag_s.b_v ? bcast(exw_fw, ag_s.b_reg, rrd[2]) : 32'd0;
@@ -769,6 +774,18 @@ wire [31:0] ag1_val = (ag_s.sxw ? {{16{ag_a1q[15]}}, ag_a1q[15:0]} : ag_a1q) +
                       {{24{ag_s.imm[7]}}, ag_s.imm};
 wire        ag1w_ag = DUAL && ag_v && ag_s.v && ag_s.agop;     // without the advance
 wire        ag1w    = ag1w_ag && adv_ag;
+// ag_a1q's two values (declared with it): held, EX's writes laid over it;
+// taken, the pair's read with this cycle's AG and EX writes laid over it
+function automatic logic [31:0] a1t_of(input logic [4:0] r, input logic [31:0] rd);
+	logic [31:0] v;
+	v = rd;
+	if (fwe_ag[0] && ag_u.upd_reg == r)  v = ag_updv;
+	if (fwe_ag[1] && ag_u.upd2_reg == r) v = ag_u2v;
+	if (ag1w_ag && ag_s.d_reg == r)      v = ag1_val;
+	a1t_of = bcast(exw_fw, r, v);
+endfunction
+assign ag_a1h = bcast(exw_fw, ag_s.a_reg, ag_a1q);
+assign ag_a1t = a1t_of(ain_s.a_reg, rrd[5]);
 
 // AG's early result: MOVE, ADD, SUB, AND, OR, EOR and LSL/ASL by an
 // immediate count, from register or immediate operands whose values are
@@ -3271,16 +3288,7 @@ always_ff @(posedge clk) begin
 	// nothing in, so the value is unused then.  The stall, the end of the
 	// stall chain, selects last: a 60/66 MHz path through the load's
 	// conditions and the 32-bit select)
-	begin
-		logic [31:0] v;
-		logic  [4:0] r;
-		r = ain_s.a_reg;
-		v = rrd[5];
-		if (fwe_ag[0] && ag_u.upd_reg == r)  v = ag_updv;
-		if (fwe_ag[1] && ag_u.upd2_reg == r) v = ag_u2v;
-		if (ag1w_ag && ag_s.d_reg == r)      v = ag1_val;
-		ag_a1q <= stall_ag ? bcast(exw_fw, ag_s.a_reg, ag_a1q) : bcast(exw_fw, r, v);
-	end
+	ag_a1q <= stall_ag ? ag_a1h : ag_a1t;
 	exq_val  <= exw_val;
 	exq1_val <= exw1_val;
 	if (flush || !nreset) begin
