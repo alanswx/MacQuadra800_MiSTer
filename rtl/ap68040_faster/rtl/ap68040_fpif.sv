@@ -353,6 +353,10 @@ wire  [2:0] crl      = (ext[12:10] == 3'd0) ? 3'b001 : ext[12:10];
 // (opw/ext are opw_q/ext_q for them; through CHK's select the decode put
 // sub's compare before the hold and the stall chain, a 60/66 MHz path)
 wire        ea_dn_q  = (opw_q[5:3] == 3'd0);
+// (CRR's control-register slots from the latched word: through CHK's word
+// select, sub -- EX's cond -- reached the write kill and EX's broadcast)
+wire  [2:0] crl_q    = (ext_q[12:10] == 3'd0) ? 3'b001 : ext_q[12:10];
+wire  [2:0] cr_sl_q  = {crl_q[0], crl_q[1], crl_q[2]};
 wire        ea_pd_q  = (opw_q[5:3] == 3'd4);
 
 //--------------------------------------------------------------------------
@@ -455,6 +459,13 @@ always_ff @(posedge clk)
 	end
 // synthesis translate_on
 assign cr_slots = {crl[0], crl[1], crl[2]};       // bit 0 = FPCR slot
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && ex_v && sub == FC_CRR && cr_sl_q != cr_slots) begin
+		$display("FAIL: fpif: CRR's slots %b, the decoded word's %b", cr_sl_q, cr_slots);
+		$finish;
+	end
+// synthesis translate_on
 function automatic logic [1:0] crsel_of(input logic [1:0] k);   // the FPU's cr_sel
 	crsel_of = (k == 2'd0) ? 2'd2 : (k == 2'd1) ? 2'd1 : 2'd0;
 endfunction
@@ -660,7 +671,7 @@ always_comb begin
 			end
 			FC_CRR: begin
 				res_g = f_crrd;
-				dkill = !cr_slots[imm[1:0]];
+				dkill = !cr_sl_q[imm[1:0]];
 				if (!crr_wait) hold = 1'b1;
 			end
 			FC_LIST: begin
