@@ -106,6 +106,7 @@ CPU-clock setup slack, worst / TNS (ns), by batch:
 | 60y | 77a6df6 | -0.991 / -24.3 | -1.918 | -1.435 | -1.284 | | | -0.989 / -24.9 (53: -1.835, **54: -0.910 / -12.8**, 55: -1.942) |
 | 60z | 78d4fa1 | -1.245 / -58.1 | -1.488 | -1.179 | **-0.425 / -10.9** | | | -1.531 (53: -1.174, 54: -1.683, 55: -0.992) |
 | 61a | ebc9409 | -0.642 / -14.8 | -1.258 | -1.213 | -1.039 | | | -0.991 (53: -0.729 / -9.6, 54: -0.852, **55: -0.574 / -7.4**) |
+| 61b | 91aaa48 | -1.879 / -82.6 | -0.720 / -5.7 | -1.228 | -1.457 | | | -0.282 / -0.54 (53: -1.505, 54: -1.161, **55: -0.131 / -0.25**) |
 
 (slack / TNS in ns on the 60 MHz CPU clock.)  60y (HDMI met on six of
 eight seeds) came out behind 60x: its leading families were the line-state
@@ -115,6 +116,15 @@ into a_m (c548747) and EX's ALU result into AG's address (f539800).
 met (+0.119); the batch's others sit at -1.0 to -1.7, led by the stall
 cone from AG's interlock (cc6ebd5, d1ab8be, 81aac5f) and the line-state
 port's address (53f4f5e, not in 60z).
+61b (built at 91aaa48, before the 61a fixes) holds the two closest
+fits so far, both with HDMI met: seed 55 at -0.131 ns, TNS -0.25
+(+0.074), and seed 52 at -0.282, TNS -0.54 (+0.220).  Seed 55 failed
+only on the companion's emit into AG's read address (cq_u.op ->
+rra0_q, through a register the fitter retimed back across the pairing
+test), which 6550325 shortens by the take's select; seed 52 on the ATC
+hit into DC2's copy of the line (360d5c5).  The others lost to
+the stall chain from WB's store answer and DC2's write wait into the
+register file -- the reason for 6550325 and 7ea5e47.
 61a is the tightest batch yet: four of eight seeds within -0.86 ns
 (60z had one), the best seed 55 at -0.574 with HDMI met (+0.134; seed 42
 +0.269).  Its leading families: the scan's port set still chosen by the
@@ -200,6 +210,17 @@ the exception entry's registers) -- so the next commits went after those:
 | 36b02f8 | AG's load capture at the base/index registers' last select (t_await 10-24) | same |
 | 51f542a | DC1's hit with the ATC's hit vector at the last gate | same |
 | 5fb0a60 | F_NORM2's zero test registered in F_NLZ (t_fpu 688-693) | same |
+| 50e32fb | D1's record slots loaded by the pop and the count; push only counts | same |
+| 3efc3d0 | the target words' hit and the target's increment per BTB slot | same |
+| efe4846 | fpif's exception by each sub-operation's conditions, without the hold | same |
+| 90cf62b | FMOVEM's register-read hold from the list at the dynamic slot | same |
+| 5aa68f8 | E_S_XL2 registers the part's translation whatever the walk decision | same |
+| ace5b33 | F0's next address with F1 there chosen by the I-cache tag compare last | same |
+| 03b7e21 | the exception entry's pending flag a flip-flop of its own | same |
+| d5a3a46 | the stack register SR selects as a flip-flop written with SR | same |
+| 6550325 | with the skid, AG's base and index read at the next head's and the held uop's registers (two read ports more per file) | same |
+| 7ea5e47 | DC2's wait for a RAM write to its set registered a clock ahead | same |
+| 360d5c5 | DC2's copy of the line by a way encoded with the ATC's hits last (t_mmu 215-222, t_dualmmu 5) | same |
 
 From 5988c36 on the self-tests also run in the 60 MHz build's own CPU
 configuration -- the Quadra's parameters plus the skid
