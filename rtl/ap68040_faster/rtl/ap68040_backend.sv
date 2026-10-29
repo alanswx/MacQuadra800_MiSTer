@@ -1825,6 +1825,12 @@ always_ff @(posedge clk)
 	end
 // synthesis translate_on
 // synthesis translate_off
+logic [31:0] sim_rpc;           // the redirect address as the redirects wrote it
+always_ff @(posedge clk)
+	if (nreset && redir_v && redir_pc !== sim_rpc) begin
+		$display("FAIL: the redirect address %h, the redirect's own %h", redir_pc, sim_rpc);
+		$finish;
+	end
 logic        sim_eb;            // such a uop broadcast before advancing
 logic [31:0] sim_eb_val;
 always_ff @(posedge clk) begin
@@ -2340,6 +2346,11 @@ always_ff @(posedge clk) begin
 		ras_rn <= '0;
 	end
 	else begin
+		// (the redirect address is read only with redir_v's pulse: EX's
+		// next address every clock, WB's redirects below taking
+		// precedence -- as the early redirect's enable, the branch's
+		// taken decision behind the operand was a 60 MHz path)
+		redir_pc <= ex_next;
 		//------------------------------------------------------------------
 		// reset exception: the routine loads ISP and PC from 0 and 4
 		//------------------------------------------------------------------
@@ -2573,7 +2584,9 @@ always_ff @(posedge clk) begin
 			if (ex_early) begin
 				fe_flush    <= 1'b1;
 				redir_v     <= 1'b1;
-				redir_pc    <= ex_next;
+				// synthesis translate_off
+				sim_rpc     <= ex_next;
+				// synthesis translate_on
 				ras_rv      <= ex_u.ras.v;
 				eredir_pend <= 1'b1;
 			end
@@ -2752,6 +2765,9 @@ always_ff @(posedge clk) begin
 					fe_flush <= 1'b1;
 					redir_v  <= 1'b1;
 					redir_pc <= wb_redir_pc;
+					// synthesis translate_off
+					sim_rpc  <= wb_redir_pc;
+					// synthesis translate_on
 					ras_rv   <= wb_u.ras.v;
 					{ras_rtp, ras_rn} <= ras_after(wb_u.ras);
 				end
@@ -2775,6 +2791,9 @@ always_ff @(posedge clk) begin
 			fe_flush <= 1'b1;
 			redir_v  <= 1'b1;
 			redir_pc <= wb_u.pc;
+			// synthesis translate_off
+			sim_rpc  <= wb_u.pc;
+			// synthesis translate_on
 			ras_rv   <= wb_u.ras.v;
 			{ras_rtp, ras_rn} <= {wb_u.ras.tp, wb_u.ras.n};
 			ccr_f    <= ccr_b;
