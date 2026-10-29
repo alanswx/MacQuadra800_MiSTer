@@ -611,9 +611,28 @@ wire f1_go      = f1_v && !redir_any;
 wire f1_deliver = f1_go && x_hit;
 // the hit entry has words, for this mode
 wire [63:0] tw_q   = btb_qslot ? tw_q1 : tw_q0;
-wire        tw_hit = BTIC && !tw_cf && (btb_qslot ? twq1 : twq0) &&
-                     tw_q[63] == f1_s && tw_q[62:32] == f1_btgt;
+// (each slot's words against its own entry's target, beside the BTB's
+// compare, then the slot by the hit: the 31-bit compare after the slot
+// select, and the target's increment after it, were the BTB read's 60 MHz
+// path into fpc -- the target-word valid's read address)
+wire        tw_h0  = twq0 && tw_q0[63] == f1_s && tw_q0[62:32] == btb_q0[30:0];
+wire        tw_h1  = twq1 && tw_q1[63] == f1_s && tw_q1[62:32] == btb_q1[30:0];
+wire        tw_hit = BTIC && !tw_cf && (btb_qslot ? tw_h1 : tw_h0);
+wire [29:0] tw_ti  = btb_qslot ? (btb_q1[30:1] + 30'd1) : (btb_q0[30:1] + 30'd1);
 wire [31:0] tw_lw  = tw_q[31:0];
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && btb_hit && tw_hit !== (BTIC && !tw_cf && (btb_qslot ? twq1 : twq0) &&
+	                                     tw_q[63] == f1_s && tw_q[62:32] == f1_btgt)) begin
+		$display("FAIL: fetch: the target words' hit by slot %b, the selected entry's differs", tw_hit);
+		$finish;
+	end
+always_ff @(posedge clk)
+	if (nreset && btb_hit && tw_ti !== f1_btgt[30:1] + 30'd1) begin
+		$display("FAIL: fetch: the target's increment by slot %h, the selected target's differs", tw_ti);
+		$finish;
+	end
+// synthesis translate_on
 // the first fetch at a target the BTB sent F0 to: its words for the entry
 wire tw_fill = BTIC && pf_v && f1_deliver && f1_pc[31:1] == pf_t && !btb_hit && !tw_clr && !tw_sw &&
                !cof_w(x_chunk[15:0]) && !(!f1_pc[1] && cof_w(x_chunk[31:16]));
@@ -878,7 +897,8 @@ qpc_r <= cfl ? {tq[0], 1'b0} + {30'd0, consume_t, 1'b0} : qpc_r + {28'd0, consum
 				f2_t <= t;
 				f1_v <= 1'b0;
 				f1_btok <= 1'b0;
-				fpc  <= tu ? {t[30:1] + 30'd1, 2'b00} : {t, 1'b0};
+				// (tu: never a return, so t is the entry's target)
+				fpc  <= tu ? {tw_ti, 2'b00} : {t, 1'b0};
 				fnew <= 1'b0;
 				tj_v  <= tu && !(one && t[0]);
 				tj_n2 <= !t[0] && !one;
