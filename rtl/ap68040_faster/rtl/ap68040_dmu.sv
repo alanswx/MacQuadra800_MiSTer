@@ -333,6 +333,7 @@ endfunction
 logic [CSB-1:0] lv_ra;                // the engine copy's read: see below
 wire   [3:0] lvd_q;                // DC1's set (m1)
 wire   [3:0] lve_q;                // the engine's (or the snoop's) set
+logic  [3:0] sp_lv_q;              // ... registered for E_SP_2 (below)
 logic [CSB-1:0] clr_i;                // the clear sweep's set
 logic        clr_rst;              // ... after reset (else CINVA: then E_M_IC)
 // synthesis translate_off
@@ -1656,9 +1657,9 @@ always_ff @(posedge clk) begin
 			x  = xlate({m2.r.a[31:4] + 28'd1, 4'd0}, m2.r.smode, (m2.r.mem != M_LD),
 			           fc_tt(m2.r.fc) == TT_ALT, atc_hit, atc_e,
 			           tq_a[0], tq_a[1], tq_a[2], tq_a[3], 4'd0);
-			x  = eng_hit2(x, eng_hw(e_tp, {m2.r.a[31:4] + 28'd1, 4'd0}, lve_q, tq_r));
+			x  = eng_hit2(x, eng_hw(e_tp, {m2.r.a[31:4] + 28'd1, 4'd0}, sp_lv_q, tq_r));
 			// synthesis translate_off
-			if (eng_hit2(x, eng_hw(e_tp, {m2.r.a[31:4] + 28'd1, 4'd0}, lve_q, tq_r)) !==
+			if (eng_hit2(x, eng_hw(e_tp, {m2.r.a[31:4] + 28'd1, 4'd0}, sp_lv_q, tq_r)) !==
 			    eng_hit(x, eng_mj(e_tp, {m2.r.a[31:4] + 28'd1, 4'd0}, lve_q, tq_r))) begin
 				$display("FAIL: dmu: E_SP_2's hit and way by the ATC's hits last differ from the matches'");
 				$finish;
@@ -2980,9 +2981,21 @@ assign fssw    = e_fssw;
 assign lvd_q = lsd_q[3:0];
 wire  [7:0] lse_q = lse[lv_ra];
 assign lve_q = lse_q[3:0];
+// E_SP_2's valid bits at the split's second set, registered from the read
+// the clock before (E_SP_W's, or while a snoop holds the engine in E_SP_2,
+// SN_R's after the snoop's write): the read address, chosen by the engine
+// state, ran through the read and the hit into f_way and e_x at 60 MHz
+always_ff @(posedge clk) sp_lv_q <= lve_q;
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && e_st == E_SP_2 && !sn_frz && sp_lv_q != lve_q) begin
+		$display("FAIL: dmu: E_SP_2's registered valid bits %b, the set's %b", sp_lv_q, lve_q);
+		$finish;
+	end
+// synthesis translate_on
 always_comb
 	lv_ra = (sn_ph == SN_B)                            ? sn_pa[CSH:4] :
-	        (e_st == E_SP_2)                           ? st_set :   // (m2.r.a's set + 1, registered)
+	        (e_st == E_SP_W || e_st == E_SP_2)         ? st_set :   // (m2.r.a's set + 1, registered)
 	        (e_st == E_S_XL2 || e_st == E_S_ACT ||
 	         e_st == E_W_PART)                         ? e_va[CSH:4] :
 	        (e_st == E_M_SCANW || e_st == E_M_SCAN2)   ? sc_set : f_set;
