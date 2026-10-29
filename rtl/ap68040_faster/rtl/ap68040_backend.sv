@@ -1850,25 +1850,62 @@ assign exw_reg = ex_u.d_reg;
 // before it -- the ALU's result was three selects deep (the fast ops'
 // overrides, the slow ops', CAS's) on the forwarding path into the younger
 // operands at 60/66 MHz.  A simulation check holds it to the old form.
-logic [31:0] exw_oth;
+logic [31:0] exw_oth, exw_oth_ref;
+// (the other sources by classes registered with the uop, AND-OR, ex_oc_q:
+// slow, MUL/DIV, MDRES, A (MDHI, SPW, LATCH), B (CCRLOG and the rest),
+// CAS2R, BFSET, CAS, DBcc -- the op decode in front of the case reached
+// the broadcast into DC1's operands at 60 MHz; the case is kept as the
+// reference, checked)
+function automatic logic [8:0] oc_of(input logic [6:0] o, input logic slow);
+	oc_of = '0;
+	if (slow) oc_of[0] = 1'b1;
+	else case (o)
+		OP_MUL, OP_DIV:            oc_of[1] = 1'b1;
+		OP_MDRES:                  oc_of[2] = 1'b1;
+		OP_MDHI, OP_SPW, OP_LATCH: oc_of[3] = 1'b1;
+		OP_CAS2R:                  oc_of[5] = 1'b1;
+		OP_BFSET:                  oc_of[6] = 1'b1;
+		OP_CAS:                    oc_of[7] = 1'b1;
+		OP_DBCC:                   oc_of[8] = 1'b1;
+		default:                   oc_of[4] = 1'b1;
+	endcase
+endfunction
+logic [8:0] ex_oc_q;
+always_comb
+	exw_oth = ({32{ex_oc_q[0]}} & xs_q.res) |
+	          ({32{ex_oc_q[1]}} & md_res) |
+	          ({32{ex_oc_q[2]}} & (ex_u.cond[0] ? md_lol : md_rem)) |
+	          ({32{ex_oc_q[3]}} & ex_av) |
+	          ({32{ex_oc_q[4]}} & ex_bv) |
+	          ({32{ex_oc_q[5]}} & ((ex_av & ex_szm) | (ex_bv & ~ex_szm))) |
+	          ({32{ex_oc_q[6]}} & (ex_u.cond[0] ? {24'd0, bf_lonew} : {{3{ex_av[31]}}, ex_av[31:3]})) |
+	          ({32{ex_oc_q[7]}} & ((ex_bv & ex_szm) | (ex_latch & ~ex_szm))) |
+	          ({32{ex_oc_q[8]}} & (alu_cc ? ex_bv : alu_res));
 always_comb begin
-	exw_oth = ex_bv;
-	if (ex_slow) exw_oth = xs_q.res;
+	exw_oth_ref = ex_bv;
+	if (ex_slow) exw_oth_ref = xs_q.res;
 	else case (ex_u.op)
-		OP_FPU:           exw_oth = fp_res;
-		OP_MUL, OP_DIV:   exw_oth = md_res;
-		OP_MDRES:         exw_oth = ex_u.cond[0] ? md_lol : md_rem;
-		OP_MDHI:          exw_oth = ex_av;
-		OP_CCRLOG:        exw_oth = ex_bv;
-		OP_SPW:           exw_oth = ex_av;
-		OP_LATCH:         exw_oth = ex_av;
-		OP_CAS2R:         exw_oth = (ex_av & ex_szm) | (ex_bv & ~ex_szm);
-		OP_BFSET:         exw_oth = ex_u.cond[0] ? {24'd0, bf_lonew} : {{3{ex_av[31]}}, ex_av[31:3]};
-		OP_CAS:           exw_oth = (ex_bv & ex_szm) | (ex_latch & ~ex_szm);
-		OP_DBCC:          exw_oth = alu_cc ? ex_bv : alu_res;   // (the kill: unchanged)
-		default:          exw_oth = ex_bv;
+		OP_FPU:           exw_oth_ref = fp_res;
+		OP_MUL, OP_DIV:   exw_oth_ref = md_res;
+		OP_MDRES:         exw_oth_ref = ex_u.cond[0] ? md_lol : md_rem;
+		OP_MDHI:          exw_oth_ref = ex_av;
+		OP_CCRLOG:        exw_oth_ref = ex_bv;
+		OP_SPW:           exw_oth_ref = ex_av;
+		OP_LATCH:         exw_oth_ref = ex_av;
+		OP_CAS2R:         exw_oth_ref = (ex_av & ex_szm) | (ex_bv & ~ex_szm);
+		OP_BFSET:         exw_oth_ref = ex_u.cond[0] ? {24'd0, bf_lonew} : {{3{ex_av[31]}}, ex_av[31:3]};
+		OP_CAS:           exw_oth_ref = (ex_bv & ex_szm) | (ex_latch & ~ex_szm);
+		OP_DBCC:          exw_oth_ref = alu_cc ? ex_bv : alu_res;   // (the kill: unchanged)
+		default:          exw_oth_ref = ex_bv;
 	endcase
 end
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && ex_v && !ex_fp_q && (ex_oc_q !== oc_of(ex_u.op, ex_slow) || exw_oth !== exw_oth_ref)) begin
+		$display("FAIL: EX's other value %h by class %b, the case's %h (op %0d)", exw_oth, ex_oc_q, exw_oth_ref, ex_u.op);
+		$finish;
+	end
+// synthesis translate_on
 // (the FPU's result next to last, by ex_fp_q: through the case it began
 // the forward into AG from FPSR's read at 60 MHz; an FPU op is never slow)
 assign exw_val = ex_alu_q ? alu_res : ex_fp_q ? fp_res : exw_oth;
@@ -2433,6 +2470,7 @@ always_ff @(posedge clk) begin
 			             dc2_u.op == OP_FPU};
 			ex_shk   <= shk_of(dc2_u.op);
 			ex_sts_q <= sts_of(dc2_u);
+			ex_oc_q  <= oc_of(dc2_u.op, is_slow(dc2_u.op));
 			ex_ee    <= dc2_ee;
 			ex_er    <= dc2_er;
 			ex_a     <= (dc2_u.a_src == OS_REG) ? bcast(exw_fw, dc2_u.a_reg, dc2_a) : dc2_a;
