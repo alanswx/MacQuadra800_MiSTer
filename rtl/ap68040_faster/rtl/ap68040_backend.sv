@@ -491,6 +491,12 @@ wire        dc2_capd = dc2_u.d_v && dc2_u.op == OP_MOV && dc2_u.cond == 4'd0 &&
 // (from the DMU's aligned word, not its general byte gather: a short path;
 // a misaligned load reaches AG a cycle later, through EX's write)
 wire [31:0] dc2_capv = dc2_u.a_sxw ? {{16{dm_ldata_al[15]}}, dm_ldata_al[15:0]} : dm_ldata_al;
+// (as AG's index, in one select: a word index and MOVEA.W's extension both
+// take the low word's sign -- through dc2_capv and then ixf's word form the
+// load's data reached agx_q a select later, a 60 MHz path)
+wire [31:0] dc2_capx = (ag_u.idx_l && !dc2_u.a_sxw) ? dm_ldata_al
+                                                    : {{16{dm_ldata_al[15]}}, dm_ldata_al[15:0]};
+wire [31:0] dc2_capxs = ag_u.idx_v ? (dc2_capx << ag_u.scale) : 32'd0;
 
 assign ag_hold = ag_interlock;
 
@@ -581,6 +587,13 @@ wire  [31:0] ag_ix   = agx_q;
 function automatic logic [31:0] ixf(input logic [31:0] v, input uop_t u);
 	ixf = u.idx_v ? ((u.idx_l ? v : {{16{v[15]}}, v[15:0]}) << u.scale) : 32'd0;
 endfunction
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && dc2_capd && dc2_capxs !== ixf(dc2_capv, ag_u)) begin
+		$display("FAIL: the captured load as AG's index %h, by the two selects %h", dc2_capxs, ixf(dc2_capv, ag_u));
+		$finish;
+	end
+// synthesis translate_on
 wire [31:0] ag_ea   = ag_base + ag_ix + ag_u.disp;
 wire [31:0] ag_pinc = ag_base + {{24{ag_u.upd_amt[7]}}, ag_u.upd_amt};
 wire [31:0] ag_updv = ag_u.pinc ? ag_pinc : ag_ea;
@@ -2911,7 +2924,7 @@ always_ff @(posedge clk) begin
 			            !(dc2_capd && dc2_u.d_reg == ag_u.idx);
 			stale_x1 <= exw1_v && exw1_reg == ag_u.idx;
 			if (dc2_capd && dc2_u.d_reg == ag_u.idx) begin
-				agx_q <= ixf(dc2_capv, ag_u);
+				agx_q <= dc2_capxs;
 				if (adv_dc2) cap_x <= 1'b1;
 			end
 		end

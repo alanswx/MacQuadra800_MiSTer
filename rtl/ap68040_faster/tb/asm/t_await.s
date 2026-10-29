@@ -11,12 +11,16 @@
 ;   5    MOVEA.L D0,A1, then MOVEQ and ADDQ.L #4,A1 (a pair's second slot)
 ;   6    MOVEA.L D0,A1, then LEA (4,A1),A1 and MOVE.L D1,(A1)+
 ;   7    a loop: A1 from D4, a store through (A1)+, D4 from A1
+;   8    MOVEA.W (A4),A0 of a negative word handed to AG as a long index
+;   9    the same of a positive word, as a word index
 
 FAILREG	equ	$F100
 DONEREG	equ	$F102
 BUF	equ	$8000
 PTR	equ	$8800
 SRC	equ	$8900
+WSRC	equ	$8A00
+TBL	equ	$8C00
 
 failt	macro
 	move.w	#\1,d7
@@ -130,6 +134,24 @@ start:
 	cmp.l	#16,d6
 	bne.s	.sum
 	chkl	d5,120,16
+
+	; 8, 9: TBL+i*4 holds i for i = 0..31; A2 = TBL+$40 (i = 16)
+	lea	(TBL).l,a5
+	moveq	#0,d1
+.fill:	move.l	d1,(a5)+
+	addq.l	#1,d1
+	cmp.l	#32,d1
+	bne.s	.fill
+	lea	(WSRC).l,a4
+	lea	(TBL+$40).l,a2
+	move.w	#$FFFC,(WSRC).l
+	movea.w	(a4),a0
+	move.l	(0,a2,a0.l*4),d0	; A0 = -4: TBL+$30, i = 12
+	chkl	d0,12,17
+	move.w	#$0003,(WSRC).l
+	movea.w	(a4),a0
+	move.l	(0,a2,a0.w*4),d0	; A0 = 3: i = 19
+	chkl	d0,19,18
 
 	move.w	#$600D,(DONEREG).l
 	bra.s	*
