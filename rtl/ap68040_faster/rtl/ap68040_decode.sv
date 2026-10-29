@@ -829,6 +829,15 @@ always_comb begin
 	// replacement uops at 60/66 MHz)
 	nrec_q.mvb  = nrec_q.ext1[{1'b1, nrec_q.ea0.r}];
 	nrec_q.mvx  = nrec_q.ext1[{nrec_q.ea0.xa, nrec_q.ea0.xr}];
+	// (and the sequencer's tests of them against the EA and the direction,
+	// for the same reason: through the record's EA mode they began the
+	// MOVEM uop's displacement at 60 MHz)
+	nrec_q.mvfb = nrec_q.opw[10] && (nrec_q.ea0.m == EM_AI || nrec_q.ea0.m == EM_AD16 ||
+	                                 (nrec_q.ea0.m == EM_AX && !nrec_q.ea0.bs)) && nrec_q.mvb;
+	nrec_q.mvfx = nrec_q.opw[10] && (nrec_q.ea0.m == EM_AX || nrec_q.ea0.m == EM_PCX) &&
+	              !nrec_q.ea0.is && nrec_q.mvx &&
+	              !(nrec_q.mvfb && nrec_q.ea0.xa && nrec_q.ea0.xr == nrec_q.ea0.r);
+	nrec_q.mvbi = nrec_q.mvfb || nrec_q.mvfx || (nrec_q.opw[10] && nrec_q.ea0.m == EM_AIP && nrec_q.mvb);
 end
 wire [31:0] lastpc = qpc + {27'd0, use_n - 4'd1, 1'b0};    // the decode's last word
 wire        btb_ok = (ntarget[0] == 1'b0) && (nrec.exc == 8'd0);

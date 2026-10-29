@@ -715,16 +715,11 @@ always_comb begin
 		// transfer (through T7/T6 and fix-up uops): a fault on a later
 		// transfer restarts the instruction with the original EA.  (An)+
 		// discards a loaded An: the final An is the incremented address.
-		fb_in   = mvr && !pd && !pi &&
-		          (src.ea0.m == EM_AI || src.ea0.m == EM_AD16 ||
-		           (src.ea0.m == EM_AX && !src.ea0.bs)) &&
-		          src.mvb;
+		// (record flags from D1: mvfb, mvfx, mvbi; checked below)
+		fb_in   = src.mvfb;
 		xreg    = src.ea0.xa ? areg(src.ea0.xr, sp_reg) : dreg(src.ea0.xr);
-		fx_in   = mvr && (src.ea0.m == EM_AX || src.ea0.m == EM_PCX) &&
-		          !src.ea0.is && src.mvx &&
-		          !(fb_in && src.ea0.xa && src.ea0.xr == src.ea0.r);   // (xreg == an, off areg)
-		base_in = fb_in || fx_in ||
-		          (mvr && pi && src.mvb);
+		fx_in   = src.mvfx;
+		base_in = src.mvbi;
 		off = mv_act ? mv_off : (pd ? -{29'd0, sb} : 32'd0);
 		nu.last = lastx && !fb_in && !fx_in;
 		if (mvr) begin
@@ -1060,6 +1055,21 @@ always_ff @(posedge clk)
 		$display("FAIL: useq: the record's MOVEM list flags %b%b, its words' %b%b", rq0.mvb, rq0.mvx,
 		         rq0.ext1[{1'b1, rq0.ea0.r}], rq0.ext1[{rq0.ea0.xa, rq0.ea0.xr}]);
 		$finish;
+	end
+always_ff @(posedge clk)
+	if (nreset && rq_n != 2'd0) begin : mvf_chk
+		logic fb, fx, bi;
+		fb = rq0.opw[10] && rq0.ea0.m != EM_APD && rq0.ea0.m != EM_AIP &&
+		     (rq0.ea0.m == EM_AI || rq0.ea0.m == EM_AD16 || (rq0.ea0.m == EM_AX && !rq0.ea0.bs)) &&
+		     rq0.mvb;
+		fx = rq0.opw[10] && (rq0.ea0.m == EM_AX || rq0.ea0.m == EM_PCX) && !rq0.ea0.is && rq0.mvx &&
+		     !(fb && rq0.ea0.xa && rq0.ea0.xr == rq0.ea0.r);
+		bi = fb || fx || (rq0.opw[10] && rq0.ea0.m == EM_AIP && rq0.mvb);
+		if ({rq0.mvfb, rq0.mvfx, rq0.mvbi} != {fb, fx, bi}) begin
+			$display("FAIL: useq: the record's MOVEM EA flags %b%b%b, the words' %b%b%b",
+			         rq0.mvfb, rq0.mvfx, rq0.mvbi, fb, fx, bi);
+			$finish;
+		end
 	end
 always_ff @(posedge clk)
 	if (nreset && uw_v && dbg_samev && dbg_same != same_c) begin

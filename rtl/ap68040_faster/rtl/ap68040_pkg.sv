@@ -426,6 +426,9 @@ typedef struct packed {
 	logic        c_tk;    // ... at the target (a branch the fetch BTB took), else pc + 2 ilen
 	logic        mvb;     // MOVEM: the EA's base register is in the list, ext1[{1, ea0.r}]
 	logic        mvx;     // ... its index register, ext1[{ea0.xa, ea0.xr}]
+	logic        mvfb;    // ... a load list holding the base (the sequencer's fb_in),
+	logic        mvfx;    // ... the index (fx_in),
+	logic        mvbi;    // ... either, or the (An)+ base (base_in)
 	logic        dexc;    // a decode-time exception (exc, EXC_SNR among them): the
 	                      // sequencer starts UA_DEC_EXC, not rt
 } dinst_t;
