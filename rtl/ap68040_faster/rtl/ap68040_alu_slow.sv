@@ -27,7 +27,8 @@ module ap68040_alu_slow
 	input  logic  [4:0] flags_in,   // X N Z V C
 	output logic [31:0] res,
 	output logic  [4:0] flags_out,
-	output logic        sim_c       // (simulation: the carry as the funnel forms it)
+	output logic        sim_c,      // (simulation: the carry as the funnel forms it)
+	output logic        sim_asr_eq  // (simulation: ASR's result equals the sign-filled funnel's)
 );
 
 wire f_x = flags_in[4];
@@ -138,12 +139,10 @@ always_comb begin
 	// period P from bit 0 ({P, P}): shifted right by k (< the period), its
 	// low bits are P rotated right by k
 	if (shk[2]) begin               // ASR
-		rv = {{34{b_msb}}, bm, 1'b0};
-		case (sz)
-			SZ_B:    rv[65:9]  = {57{b_msb}};
-			SZ_W:    rv[65:17] = {49{b_msb}};
-			default: ;
-		endcase
+		// (no sign fill: the sign is ORed in after the shift at the size's
+		// top count bits -- b_msb, with its fan-out over the funnel's input,
+		// ran in front of the whole shift at 60 MHz)
+		rv = {33'd0, bm, 1'b0};
 		ra = {1'b0, sh_n};
 	end
 	else if (shk[4] || shk[5]) begin    // ROL, ROR
@@ -177,7 +176,7 @@ always_comb begin
 		rv = {33'd0, bm, 1'b0};
 		ra = {1'b0, sh_n};
 	end
-	ro = shk[2] ? 66'($signed(rv) >>> ra) : (rv >> ra);
+	ro = rv >> ra;
 	lo = ro;                      // (ASL, LSL: the operand shifted left by n)
 	// ASL: V when the bits shifted out and the new sign bit are not all
 	// equal, i.e. the top count+1 bits of the operand (at the size) differ
@@ -195,7 +194,9 @@ always_comb begin
 			if (shk[0])
 				sh_v = (sh_n >= nbits) ? (bm != 0) : vl;
 		end
-		else if (shk[3] || shk[2] || shk[4]) sh_r = ro[32:1] & szmask;   // LSR, ASR, ROL
+		else if (shk[2])                     // ASR: the sign at the size's top count bits
+			sh_r = (ro[32:1] | ({32{b_msb}} & ~(szmask >> sh_n))) & szmask;
+		else if (shk[3] || shk[4]) sh_r = ro[32:1] & szmask;   // LSR, ROL
 		else sh_r = ro[31:0] & szmask;      // ROR, ROXL, ROXR
 	end
 	// The carry (the last bit moved out) and X come from the operand bit
@@ -235,13 +236,26 @@ always_comb begin
 	if (sh_n != 6'd0) begin
 		case (op)
 			OP_ASL, OP_LSL: sim_c = (sh_n <= nbits) && (sh_n[5] ? bm[0] : lo[nbits]);
-			OP_LSR, OP_ASR: sim_c = ro[0];
+			OP_LSR:         sim_c = ro[0];
+			OP_ASR:         sim_c = (sh_n > nbits) ? b_msb : ro[0];
 			OP_ROL:         sim_c = ro[1];
 			OP_ROR:         sim_c = ro[nbits - 6'd1];
 			default:        sim_c = ro[nbits];   // ROXL, ROXR
 		endcase
 	end
 	else if (op == OP_ROXL || op == OP_ROXR) sim_c = f_x;
+end
+// (simulation) ASR through the sign-filled funnel, the form it replaces
+always_comb begin
+	logic [65:0] rs, os;
+	rs = {{34{b_msb}}, bm, 1'b0};
+	case (sz)
+		SZ_B:    rs[65:9]  = {57{b_msb}};
+		SZ_W:    rs[65:17] = {49{b_msb}};
+		default: ;
+	endcase
+	os = 66'($signed(rs) >>> {1'b0, sh_n});
+	sim_asr_eq = !shk[2] || sh_n == 6'd0 || sh_r == (os[32:1] & szmask);
 end
 
 always_comb begin
