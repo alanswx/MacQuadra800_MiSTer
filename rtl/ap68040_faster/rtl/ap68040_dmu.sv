@@ -1382,8 +1382,8 @@ always_ff @(posedge clk) begin
 		// WB fast store runs only with the engine idle, the snoop port
 		// only with it frozen), applied at the end of this block
 		logic [CSB-1:0] vp_set;
-		logic [CSB-1:0] vp_set_o;   // ... without WB's fast stores at m4.x (the lsw read below)
-		logic           vp_m4;      // ... vp_set is WB's m4.x set
+		logic [CSB-1:0] vp_set_o;   // ... the lsw read's, for the writers vp_rs leaves on it
+		logic     [1:0] vp_rs;      // the RMW's copy: 0 lsw at vp_set_o, 1 lsw4 (WB's m4.x set), 2 lsf (f_set), 3 lsv (e_va's)
 		// the invalidations alone (vp_lwe with !vp_lv), for the stage
 		// records' hit compares: WB's fast stores write only the dirty
 		// bits, so their decision stays off those compares
@@ -1395,7 +1395,7 @@ always_ff @(posedge clk) begin
 		// (the next dw's set against DC2's next set -- m1's if DC1
 		// advances, m2's own if not -- for dwc_q, below)
 		logic       dwc1, dwc2;
-		vp_set = '0; vp_set_o = '0; vp_m4 = 1'b0; vp_wm = '0; vp_lwe = 1'b0; vp_lv = 1'b0;
+		vp_set = '0; vp_set_o = '0; vp_rs = 2'd0; vp_wm = '0; vp_lwe = 1'b0; vp_lv = 1'b0;
 		vi_set = '0; vi_wm = '0;
 		vp_dwe = 1'b0; vp_dv = 1'b0;
 		dwc1 = 1'b0; dwc2 = 1'b0;
@@ -1479,7 +1479,7 @@ always_ff @(posedge clk) begin
 			dw_be   <= wbf_be;
 			dw_src  <= 2'd0;
 			dw_word <= wbf_word;
-			vp_set = m4.x.pa[CSH:4]; vp_m4 = 1'b1; vp_wm[m4.x.way] = 1'b1; vp_dwe = 1'b1; vp_dv = 1'b1;
+			vp_set = m4.x.pa[CSH:4]; vp_rs = 2'd1; vp_wm[m4.x.way] = 1'b1; vp_dwe = 1'b1; vp_dv = 1'b1;
 			// answered this cycle: kept only if WB does not move
 			st_rdy_r   <= !adv_wb;
 			st_fault_r <= 1'b0;
@@ -1493,7 +1493,7 @@ always_ff @(posedge clk) begin
 			dw_be   <= bmask(m4.r.a[3:0], wfs_n0);
 			dw_src  <= 2'd0;
 			dw_word <= lanes32(wfs_acc, m4.r.a[1:0]);
-			vp_set = m4.x.pa[CSH:4]; vp_m4 = 1'b1; vp_wm[m4.x.way] = 1'b1; vp_dwe = 1'b1; vp_dv = 1'b1;
+			vp_set = m4.x.pa[CSH:4]; vp_rs = 2'd1; vp_wm[m4.x.way] = 1'b1; vp_dwe = 1'b1; vp_dv = 1'b1;
 			wfs_p1  <= 1'b1;
 		end
 		if (wfs_p1 && !sn_frz) begin
@@ -1506,7 +1506,7 @@ always_ff @(posedge clk) begin
 				dw_be   <= bmask(4'd0, nbytes(m4.r.msz) - wfs_n0);
 				dw_src  <= 2'd0;
 				dw_word <= lanes32(wfs_acc << (8 * wfs_n0), 2'd0);
-				vp_set = m4.x1.pa[CSH:4]; vp_set_o = m4.x1.pa[CSH:4]; vp_m4 = 1'b0; vp_wm[m4.x1.way] = 1'b1; vp_dwe = 1'b1; vp_dv = 1'b1;
+				vp_set = m4.x1.pa[CSH:4]; vp_set_o = m4.x1.pa[CSH:4]; vp_rs = 2'd0; vp_wm[m4.x1.way] = 1'b1; vp_dwe = 1'b1; vp_dv = 1'b1;
 				st_rdy_r   <= !adv_wb;
 				st_fault_r <= 1'b0;
 				e_wst_done <= !adv_wb;
@@ -1820,7 +1820,7 @@ always_ff @(posedge clk) begin
 				// write replaces all of it, 4.3.2) -- unless the data cache
 				// is disabled, which leaves its contents alone
 				if (e_x.hit && dc_en) begin
-					vp_set = e_va[CSH:4]; vp_set_o = e_va[CSH:4]; vp_m4 = 1'b0; vp_wm[e_x.way] = 1'b1;
+					vp_set = e_va[CSH:4]; vp_rs = 2'd3; vp_wm[e_x.way] = 1'b1;
 					vp_lwe = 1'b1; vp_lv = 1'b0; vp_dwe = 1'b1; vp_dv = 1'b0;
 					vi_set = e_va[CSH:4]; vi_wm[e_x.way] = 1'b1;
 					e_x.hit <= 1'b0;
@@ -2018,7 +2018,7 @@ always_ff @(posedge clk) begin
 				dw_word <= lanes32(e_acc, e_va[1:0]);
 				// (the port's set whatever the bytes: only the write
 				// enables wait on the byte mask, from e_n's shift)
-				vp_set = e_va[CSH:4]; vp_set_o = e_va[CSH:4]; vp_m4 = 1'b0;
+				vp_set = e_va[CSH:4]; vp_rs = 2'd3;
 				if (e_x.cm == 2'b01)
 					if (be != 16'd0) begin
 						vp_wm[e_x.way] = 1'b1; vp_dwe = 1'b1; vp_dv = 1'b1;
@@ -2118,7 +2118,7 @@ always_ff @(posedge clk) begin
 		end
 		E_M_CLR: begin
 			// every line invalid, a set a cycle (CINVA; and after reset)
-			vp_set = clr_i; vp_set_o = clr_i; vp_m4 = 1'b0; vp_wm = 4'hF;
+			vp_set = clr_i; vp_set_o = clr_i; vp_rs = 2'd0; vp_wm = 4'hF;
 			vp_lwe = 1'b1; vp_lv = 1'b0;
 			vi_set = clr_i; vi_wm = 4'hF;
 			clr_i <= clr_i + 1'd1;
@@ -2187,7 +2187,7 @@ always_ff @(posedge clk) begin
 				$finish;
 			end
 			// synthesis translate_on
-			vp_set = s; vp_set_o = s; vp_m4 = 1'b0;
+			vp_set = s; vp_set_o = s; vp_rs = 2'd0;
 			if (m && mt_op == MT_CPUSH && sc_ld[w]) begin
 				// push (it is invalidated with the push)
 				f_set   <= s;
@@ -2263,7 +2263,7 @@ always_ff @(posedge clk) begin
 				pv_lock  <= 1'b0;
 				pv_for   <= 2'd0;
 			end
-			vp_set = f_set; vp_set_o = f_set; vp_m4 = 1'b0; vp_wm[f_way] = 1'b1;
+			vp_set = f_set; vp_rs = 2'd2; vp_wm[f_way] = 1'b1;
 			vp_lwe = 1'b1; vp_lv = 1'b0; vp_dwe = 1'b1; vp_dv = 1'b0;
 			vi_set = f_set; vi_wm[f_way] = 1'b1;
 			bo.line <= 1'b1; bo.rd <= 1'b1; bo.tt <= TT_NORMAL;
@@ -2280,7 +2280,7 @@ always_ff @(posedge clk) begin
 			// write enables alone come from the fill's outcome, so the
 			// set feeding every stage's invalidation compare does not
 			// wait on the last beat's TCI and error)
-			vp_set = f_set; vp_set_o = f_set;
+			vp_set = f_set; vp_rs = 2'd2;
 			if (!bo_err && !bo_tci) begin
 				dw      <= 1'b1;
 				dw_set  <= f_set;
@@ -2292,7 +2292,7 @@ always_ff @(posedge clk) begin
 				tset_b  <= f_set;
 				tway_b  <= f_way;
 				twd_b   <= f_tag;
-				vp_set = f_set; vp_set_o = f_set; vp_m4 = 1'b0; vp_wm[f_way] = 1'b1;
+				vp_set = f_set; vp_rs = 2'd2; vp_wm[f_way] = 1'b1;
 				vp_lwe = 1'b1; vp_lv = 1'b1; vp_dwe = 1'b1; vp_dv = 1'b0;
 				rrc <= rrc + 2'd1;
 			end
@@ -2304,7 +2304,7 @@ always_ff @(posedge clk) begin
 				dw_way  <= f_way;
 				dw_be   <= 16'hFFFF;
 				dw_src  <= 2'd2;
-				vp_set = f_set; vp_set_o = f_set; vp_m4 = 1'b0; vp_wm[f_way] = 1'b1;
+				vp_set = f_set; vp_rs = 2'd2; vp_wm[f_way] = 1'b1;
 				vp_lwe = 1'b1; vp_lv = 1'b1; vp_dwe = 1'b1; vp_dv = pv_dirty;
 				pv_v <= 1'b0;
 			end
@@ -2363,7 +2363,7 @@ always_ff @(posedge clk) begin
 				e_st     <= E_PUSHV_B;
 			end
 			else e_st <= e_sret;
-			vp_set = f_set; vp_set_o = f_set; vp_m4 = 1'b0; vp_wm[f_way] = 1'b1;
+			vp_set = f_set; vp_rs = 2'd2; vp_wm[f_way] = 1'b1;
 			vp_lwe = 1'b1; vp_lv = 1'b0; vp_dwe = 1'b1; vp_dv = 1'b0;
 			vi_set = f_set; vi_wm[f_way] = 1'b1;
 		end
@@ -2597,7 +2597,7 @@ always_ff @(posedge clk) begin
 			// (the valid/dirty port's set whatever the line's dirty bit:
 			// only the write enables below depend on it, a 60/66 MHz path
 			// otherwise -- the dirty read, then the port's read address)
-			vp_set = tw_da[CSH:4]; vp_set_o = tw_da[CSH:4]; vp_m4 = 1'b0;
+			vp_set = tw_da[CSH:4]; vp_rs = 2'd2;
 			if (!tw_hvq) ;                    // (a snoop had the set: the compare registers now)
 			else begin
 			e_wret <= caller;
@@ -2614,7 +2614,7 @@ always_ff @(posedge clk) begin
 			end
 			else begin
 				if (h) begin
-					vp_set = tw_da[CSH:4]; vp_set_o = tw_da[CSH:4]; vp_m4 = 1'b0; vp_wm[w] = 1'b1;
+					vp_set = tw_da[CSH:4]; vp_rs = 2'd2; vp_wm[w] = 1'b1;
 					vp_lwe = 1'b1; vp_lv = 1'b0; vp_dwe = 1'b1; vp_dv = 1'b0;
 					vi_set = tw_da[CSH:4]; vi_wm[w] = 1'b1;
 				end
@@ -2820,7 +2820,7 @@ always_ff @(posedge clk) begin
 					dw_be   <= sn_wbe;
 					dw_src  <= 2'd0;
 					dw_word <= sn_wword;
-					vp_set = s; vp_set_o = s; vp_m4 = 1'b0; vp_wm[sn_way] = 1'b1; vp_dwe = 1'b1; vp_dv = 1'b1;
+					vp_set = s; vp_set_o = s; vp_rs = 2'd0; vp_wm[sn_way] = 1'b1; vp_dwe = 1'b1; vp_dv = 1'b1;
 				end
 				2'd1: for (int i = 0; i < 16; i++)
 					if (sn_wbe[i]) pv_line[8*i +: 8] <= sn_wword[8*(i % 4) +: 8];
@@ -2834,7 +2834,7 @@ always_ff @(posedge clk) begin
 		endcase
 		// a snooped line leaves the cache (found in a way: invalidated)
 		if (sn_ph == SN_H && sn_inv && sn_src == 2'd0) begin
-			vp_set = sn_pa[CSH:4]; vp_set_o = sn_pa[CSH:4]; vp_m4 = 1'b0; vp_wm[sn_way] = 1'b1;
+			vp_set = sn_pa[CSH:4]; vp_set_o = sn_pa[CSH:4]; vp_rs = 2'd0; vp_wm[sn_way] = 1'b1;
 			vp_lwe = 1'b1; vp_lv = 1'b0; vp_dwe = 1'b1; vp_dv = 1'b0;
 			vi_set = sn_pa[CSH:4]; vi_wm[sn_way] = 1'b1;
 			// (the records' hits on it: at the valid/dirty write port)
@@ -2891,16 +2891,25 @@ always_ff @(posedge clk) begin
 		begin
 			if ((vp_dwe || vp_lwe) && vp_wm != 4'd0) begin
 				logic [7:0] wo, wn;
-				// (the RMW's read at WB's own set from a copy read there, and
-				// every other writer's from the main copy, the choice last:
-				// WB's fast-store decision, choosing the read address of the
+				// (the RMW's read at WB's own set from a copy read there, the
+				// fill's, push's and walk's at f_set and the slow path's at
+				// e_va's from the engine copies read there, and every other
+				// writer's from the main copy, the choice last: WB's
+				// fast-store decision, choosing the read address of the
 				// copy, began the read, the update and every line-state
-				// copy's data at 60 MHz)
-				wo = vp_m4 ? lsw4[m4.x.pa[CSH:4]] : lsw[vp_set_o];
+				// copy's data at 60 MHz, and the engine state's choice of
+				// the main copy's address the same at 60 MHz)
+				case (vp_rs)
+				2'd1:    wo = lsw4[m4.x.pa[CSH:4]];
+				2'd2:    wo = lsf_q;
+				2'd3:    wo = lsv_q;
+				default: wo = lsw[vp_set_o];
+				endcase
 				// synthesis translate_off
-				if (nreset && (vp_set !== (vp_m4 ? m4.x.pa[CSH:4] : vp_set_o) || wo !== lsw[vp_set])) begin
-					$display("FAIL: dmu: the line-state read %h at %h (WB's %b), the write's set %h holds %h",
-					         wo, vp_m4 ? m4.x.pa[CSH:4] : vp_set_o, vp_m4, vp_set, lsw[vp_set]);
+				if (nreset && (vp_set !== (vp_rs == 2'd1 ? m4.x.pa[CSH:4] : vp_rs == 2'd2 ? f_set :
+				                           vp_rs == 2'd3 ? e_va[CSH:4] : vp_set_o) || wo !== lsw[vp_set])) begin
+					$display("FAIL: dmu: the line-state read %h (copy %0d, at %h), the write's set %h holds %h",
+					         wo, vp_rs, vp_set_o, vp_set, lsw[vp_set]);
 					$finish;
 				end
 				// synthesis translate_on
