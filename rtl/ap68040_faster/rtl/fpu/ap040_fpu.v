@@ -381,6 +381,7 @@ reg  [2:0] r_stag;          // source tag retained while that conversion runs
 reg  [6:0] r_op;
 reg        r_sub;           // r_op is FSUB, FSSUB or FDSUB (loaded with it)
 reg        ii_sd;           // F_BIN to F_IINF: the infinities' signs differ
+reg        r_din_uns;       // r_din is an unsupported extended (loaded with it)
 reg [95:0] r_din;
 // the memory operand's significand in the working format, by r_fmt: one
 // bus (and one negator, of the integer left-aligned: the same bits as a
@@ -764,11 +765,16 @@ always @(posedge clk)
 		$display("FAIL: FPU: the right shifter's sticky form differs from the staged one");
 		$finish;
 	end
-always @(posedge clk)
+always @(posedge clk) begin
+	if (nreset && r_din_uns != unsupported_x(r_din[94:80], r_din[63:0])) begin
+		$display("FAIL: FPU: the source's unsupported flag %b for %h", r_din_uns, r_din);
+		$finish;
+	end
 	if (nreset && r_sub != (r_op == 7'h28 || r_op == 7'h68 || r_op == 7'h6C)) begin
 		$display("FAIL: FPU: the subtraction flag %b for r_op %h", r_sub, r_op);
 		$finish;
 	end
+end
 // synthesis translate_on
 // one incrementer for the roundings of the shifted value (sh_v[66:3]):
 // the integer store's at bit 0, a denormal single's or double's store
@@ -1609,7 +1615,7 @@ always @(posedge clk) begin
 		sh_dst <= 0; sh_dtag <= 0;
 		wb_s <= 0; wb_e <= 0; wb_m <= 0; wb_grs <= 0;
 		dout <= 0;
-		r_fmt <= 0; r_dst <= 0; r_op <= 0; r_sub <= 0; ii_sd <= 0; r_din <= 0;
+		r_fmt <= 0; r_dst <= 0; r_op <= 0; r_sub <= 0; ii_sd <= 0; r_din <= 0; r_din_uns <= 0;
 		r_ae7 <= 0;
 		r_unimp <= 0; r_stag <= 0; r_resume <= 0;
 		a_s <= 0; a_e <= 0; a_m <= 0; a_t <= 0;
@@ -1886,6 +1892,7 @@ always @(posedge clk) begin
 				// Preserve opclass and source register/format before execution.
 				sh_cmd <= {op_class, src_fmt, dst_r, opmode};
 				r_din <= din;
+				r_din_uns <= unsupported_x(din[94:80], din[63:0]);
 				r_unimp <= 0;
 				r_resume <= 0;
 				// Retain the destination operand once at dispatch.  Later FPU
@@ -2330,7 +2337,9 @@ always @(posedge clk) begin
 							end
 						end
 						default: begin : cv_x
-							if (unsupported_x(r_din[94:80], r_din[63:0])) begin
+							// (the flag loaded with r_din: the compare chose
+							// the next state at 60 MHz)
+							if (r_din_uns) begin
 								if (r_unimp) begin
 									{a_s, a_e, a_m, a_t} <=
 										unpack_x(r_din[95], r_din[94:80], r_din[63:0]);
