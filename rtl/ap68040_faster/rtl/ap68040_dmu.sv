@@ -512,9 +512,25 @@ always_ff @(posedge clk) begin
 	logic  [63:0] h2;
 	// (each way's two long words picked by the registered address, then
 	// the hit way: the late match selects 64 bits, not the line)
-	l = '0;
-	for (int j = 0; j < 4; j++) if (d1_mj[j]) l = l | pair(dq_rn[j], m1.a[3:2]);
+	// (the way by d1_wl: the ATC's hits pick its two bits, then the
+	// four ways' words by them -- with no hit dqc is not used)
+	l = pair(dq_rn[d1_wl], m1.a[3:2]);
 	dqc <= l;
+	// synthesis translate_off
+	begin
+		logic [63:0] lo;
+		lo = '0;
+		for (int j = 0; j < 4; j++) if (d1_mj[j]) lo = lo | pair(dq_rn[j], m1.a[3:2]);
+		// (one match: the same words; several -- the stolen set's tags,
+		// unused, or a line held twice, whose copies agree -- only where
+		// DC1 takes them)
+		if (nreset && |d1_mj && ((d1_mj & (d1_mj - 4'd1)) == 4'd0 || (adv_dc1 && m1.v)) &&
+		    l !== lo) begin
+			$display("FAIL: dmu: DC1's line words by the encoded way %h, by the matches %h (ways %b)", l, lo, d1_mj);
+			$finish;
+		end
+	end
+	// synthesis translate_on
 	mc_v[0] <= dwq && dwq_src == 2'd0 && dwq_set == m1.a[CSH:4] && d1_mj[dwq_way];
 	mc_v[1] <= dw && dw_src == 2'd0 && dw_set == m1.a[CSH:4] && d1_mj[dw_way];
 	mc_v[2] <= wfm && wfm_set == m1.a[CSH:4] && d1_mj[wfm_way];
@@ -647,6 +663,7 @@ xres_t      x_dc1r;            // xlate's own result for DC1
 always_comb x_dc1r = xlate(m1.a, m1.smode, m1_wr, fc_tt(m1.fc) == TT_ALT, atc_hit, atc_e,
                           tq_a[0], tq_a[1], tq_a[2], tq_a[3], lvd_q);
 logic [3:0] d1_mj;            // the matching way, one-hot (for the line select)
+logic [1:0] d1_wl;            // ... encoded with the ATC's hits last (dqc's select; a miss: any)
 // DC1 and the engine's stolen lookups (E_S_XL2, E_SP_2) compare the tags
 // in parallel with the translation: each way's tag against the untranslated address, or against the
 // page of each ATC way the main port hits (atc_hv, atc_wpa), with the
@@ -721,22 +738,36 @@ always_comb begin
 	// compare, then picked by its hits -- through the per-way matches
 	// (mj) the hit vector's fan-out was the ATC read's 60 MHz path into
 	// m2.x.hit.  The way and line select still take mj.
+	// The way for DC2's copy of the line likewise: each ATC way's matching
+	// cache way encoded (at most one matches), the ATC's hits picking
+	// (d1_wl) -- through mj the hit vector's fan-out began dqc's 64-bit
+	// select at 60 MHz.
 	begin
-		logic [3:0] aw, hv;
+		logic [3:0] aw, hv, mt;
 		logic       tpx;
+		logic [1:0] wi [4];
+		logic [1:0] wt, wl;
 		hv  = DC1_ATC ? atc_hvd : atc_hv;
 		tpx = 1'b0;
-		for (int j = 0; j < 4; j++) if (lvd_q[j] && tq[j] == m1.a[31:CSH+1]) tpx = 1'b1;
+		for (int j = 0; j < 4; j++) begin
+			mt[j] = lvd_q[j] && tq[j] == m1.a[31:CSH+1];
+			if (mt[j]) tpx = 1'b1;
+		end
+		wt = {mt[2] | mt[3], mt[1] | mt[3]};
+		wl = 2'd0;
 		for (int i = 0; i < 4; i++) begin
 			logic [19:0] pa;
+			logic  [3:0] m;
 			pa = DC1_ATC ? atc_wpad[i] : atc_wpa[i];
-			aw[i] = 1'b0;
 			for (int j = 0; j < 4; j++)
-				if (lvd_q[j] && tq[j] == ((CTW'({pa[19:1], tc_p ? m1.a[12] : pa[0]}) << (11 - CSH)) |
-				                          CTW'(m1.a[11:0] >> (CSH + 1))))
-					aw[i] = 1'b1;
+				m[j] = lvd_q[j] && tq[j] == ((CTW'({pa[19:1], tc_p ? m1.a[12] : pa[0]}) << (11 - CSH)) |
+				                             CTW'(m1.a[11:0] >> (CSH + 1)));
+			aw[i] = |m;
+			wi[i] = {m[2] | m[3], m[1] | m[3]};
+			if (hv[i]) wl = wl | wi[i];
 		end
 		d1_hit = transp ? tpx : |(hv & aw);
+		d1_wl  = transp ? wt : wl;
 	end
 	d1_way = mj[3] ? 2'd3 : mj[2] ? 2'd2 : mj[1] ? 2'd1 : 2'd0;
 	d1_mj  = mj;

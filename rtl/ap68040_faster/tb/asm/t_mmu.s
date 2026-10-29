@@ -1454,6 +1454,35 @@ mcz_ok:
 	move.l	($DFFE).l,d0
 	chkl	d0,$11223344,214
 
+	; four lines in one data-cache set (VA[10:4]) and one ATC set
+	; (VA[16:13]): their pages fill four ATC ways and the lines four
+	; cache ways, each then read back as a hit (215-222)
+	movec	cacr,d6
+	move.l	#$80008000,d0
+	movec	d0,cacr
+	cpusha	dc
+	move.l	#$A0A0A001,($06800).l
+	move.l	#$A0A0A002,($26800).l
+	move.l	#$A0A0A003,($46800).l
+	move.l	#$A0A0A004,($66800).l
+	move.l	($06800).l,d0
+	chkl	d0,$A0A0A001,215
+	move.l	($26800).l,d0
+	chkl	d0,$A0A0A002,216
+	move.l	($46800).l,d0
+	chkl	d0,$A0A0A003,217
+	move.l	($66800).l,d0
+	chkl	d0,$A0A0A004,218
+	move.l	($06800).l,d0
+	chkl	d0,$A0A0A001,219
+	move.l	($26800).l,d0
+	chkl	d0,$A0A0A002,220
+	move.l	($46800).l,d0
+	chkl	d0,$A0A0A003,221
+	move.l	($66800).l,d0
+	chkl	d0,$A0A0A004,222
+	movec	d6,cacr
+
 	; translation off first (the code window is a TTR), then the
 	; windows themselves
 	moveq	#0,d0

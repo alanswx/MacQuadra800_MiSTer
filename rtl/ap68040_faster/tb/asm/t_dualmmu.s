@@ -15,6 +15,9 @@
 ;        pair): PFLUSHA before every pass
 ;   4    MOVEA and ADDQ #q,An companions (second-slot address arithmetic)
 ;        walking the remapped page
+;   5    four lines in one data-cache set and their pages in one ATC set
+;        ($06800, $16800, $26800, $36800): four cache ways hit through
+;        four ATC ways, each line read back twice
 
 FAILREG	equ	$F100
 DONEREG	equ	$F102
@@ -123,6 +126,25 @@ start:
 	failt	4
 .n4:	dbra	d4,.l4
 	dbra	d5,.p4
+
+;------------------------------------------------ 5 four ways through four ATC ways
+	move.l	#$D0D0D001,($06800).l
+	move.l	#$D0D0D002,($16800).l
+	move.l	#$D0D0D003,($26800).l
+	move.l	#$D0D0D004,($36800).l
+	moveq	#1,d5
+.p5:	cmp.l	#$D0D0D001,($06800).l
+	bne.s	.f5
+	cmp.l	#$D0D0D002,($16800).l
+	bne.s	.f5
+	cmp.l	#$D0D0D003,($26800).l
+	bne.s	.f5
+	cmp.l	#$D0D0D004,($36800).l
+	bne.s	.f5
+	dbra	d5,.p5
+	bra.s	.k5
+.f5:	failt	5
+.k5:
 
 	move.w	#$600D,(DONEREG).l
 	bra.s	*
