@@ -675,9 +675,28 @@ wire        ag_rte7   = (ag_u.mem != M_NONE) && (ag_u.op == OP_MOV) && (ag_u.con
 // FPU transfers cancelled by run-time state: FMOVEM slots, FSAVE and
 // FRESTORE frame words (dyn; the FPU interface latched the state in EX
 // before these uops' addresses could be formed)
-wire        ag_dyncan = (ag_u.dyn == 3'd1 && !fp_mvslots[ag_u.dynk[2:0]]) ||
-                        (ag_u.dyn == 3'd2 && ag_u.dynk >= fp_svwords) ||
-                        (ag_u.dyn == 3'd3 && ag_u.dynk >= fp_rswords);
+function automatic logic dyncan_of(input uop_t u, input logic [7:0] mv, input logic [4:0] sw,
+                                   input logic [4:0] rw);
+	dyncan_of = (u.dyn == 3'd1 && !mv[u.dynk[2:0]]) || (u.dyn == 3'd2 && u.dynk >= sw) ||
+	            (u.dyn == 3'd3 && u.dynk >= rw);
+endfunction
+// (registered: for the uop entering AG, or again for the one held, from
+// the interface's state of the clock before -- which is set before these
+// uops reach AG (checked): the frame size's decode and compare, through
+// AG's front-file write and its bypass into agx_q, was a 60 MHz path)
+logic       ag_dc_q;
+wire        ag_dyncan = ag_dc_q;
+always_ff @(posedge clk)
+	ag_dc_q <= ag_take ? dyncan_of(ain_u, fp_mvslots, fp_svwords, fp_rswords)
+	                   : dyncan_of(ag_u, fp_mvslots, fp_svwords, fp_rswords);
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && ag_v && ag_dc_q != dyncan_of(ag_u, fp_mvslots, fp_svwords, fp_rswords)) begin
+		$display("FAIL: AG's registered transfer cancel %b, the interface state's %b (pc %h dyn %0d dynk %0d)",
+		         ag_dc_q, !ag_dc_q, ag_u.pc, ag_u.dyn, ag_u.dynk);
+		$finish;
+	end
+// synthesis translate_on
 wire        ag_cancel = (ag_bft && !(bf_nb == 3'd3 || bf_nb == 3'd5)) ||
                         (ag_rte7 && !rte_fmt7) || ag_dyncan;
 // a continued MOVEM transfers from the stacked EA
