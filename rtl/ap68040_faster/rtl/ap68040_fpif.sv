@@ -585,12 +585,13 @@ always_ff @(posedge clk)
 // synthesis translate_on
 
 logic [31:0] res_g;            // the result as the hold logic forms it (checked, then unused)
+logic  [7:0] xvec_g;           // ... and the exception (checked, then unused)
 always_comb begin
 	hold    = 1'b0;
 	res_g   = 32'd0;
 	dkill   = 1'b0;
 	taken   = 1'b0;
-	xvec    = 8'd0;
+	xvec_g    = 8'd0;
 	xfmt    = 4'd0;
 	xnext   = 1'b0;
 	xaddr   = pc;
@@ -615,11 +616,11 @@ always_comb begin
 				else if (fuse && go) begin
 					// dispatched (below): DISP's outcome
 					if (f_unimp) begin
-						xvec = VEC_FLINE; xfmt = 4'd2; xnext = 1'b1;
+						xvec_g = VEC_FLINE; xfmt = 4'd2; xnext = 1'b1;
 						xaddr = pc; xcommit = 1'b1;
 					end
 					else if (f_unsupp) begin
-						xvec = VEC_UNSUP; xfmt = 4'd3; xnext = 1'b1;
+						xvec_g = VEC_UNSUP; xfmt = 4'd3; xnext = 1'b1;
 						xaddr = 32'd0; xcommit = 1'b1;
 					end
 					else if (f_excreq || fx_q) ;   // pending: the instruction completes
@@ -627,10 +628,10 @@ always_comb begin
 				end
 				else if (bg && !f_end) hold = 1'b1;
 				else if (chk_pend) begin
-					xvec = pend_vec;
+					xvec_g = pend_vec;
 				end
 				else if (chk_x) begin
-					xvec = chk_ill ? VEC_ILL : VEC_FLINE;
+					xvec_g = chk_ill ? VEC_ILL : VEC_FLINE;
 					if (chk_un) begin xfmt = 4'd2; xnext = 1'b1; end
 				end
 				else if (fuse) hold = 1'b1;    // dispatching this cycle
@@ -654,11 +655,11 @@ always_comb begin
 					endcase
 				end
 				else if (go && f_unimp) begin
-					xvec = VEC_FLINE; xfmt = 4'd2; xnext = 1'b1;
+					xvec_g = VEC_FLINE; xfmt = 4'd2; xnext = 1'b1;
 					xaddr = eav ? eaa : pc; xcommit = 1'b1;
 				end
 				else if (go && f_unsupp) begin
-					xvec = VEC_UNSUP; xfmt = 4'd3; xnext = 1'b1;
+					xvec_g = VEC_UNSUP; xfmt = 4'd3; xnext = 1'b1;
 					xaddr = eav ? eaa : 32'd0; xcommit = 1'b1;
 				end
 				else if (go && (f_excreq || fx_q)) ;   // pending: the instruction completes
@@ -667,7 +668,7 @@ always_comb begin
 			FC_GET: res_g = (imm[1:0] == 2'd1) ? get_q[63:32] : get_q[31:0];
 			FC_END: begin
 				if (sx_v) begin
-					xvec = sx_vec; xfmt = sx_fmt; xnext = 1'b1; xaddr = sx_addr;
+					xvec_g = sx_vec; xfmt = sx_fmt; xnext = 1'b1; xaddr = sx_addr;
 					xcommit = 1'b1;
 				end
 			end
@@ -692,7 +693,7 @@ always_comb begin
 				pred = cpred_q;
 				c = fp_cond(pred, f_cc);
 				if (pred[4] && f_cc[0] && f_bsun_en) begin
-					xvec = VEC_BSUN;
+					xvec_g = VEC_BSUN;
 				end
 				else if (sub == FC_DBCC) begin
 					res_g = {bv[31:16], bv[15:0] - 16'd1};
@@ -701,7 +702,7 @@ always_comb begin
 				end
 				else if (cbcc_q) taken = c;
 				else if (cftrap_q) begin
-					if (c) begin xvec = VEC_TRAPCC; xfmt = 4'd2; xnext = 1'b1; end
+					if (c) begin xvec_g = VEC_TRAPCC; xfmt = 4'd2; xnext = 1'b1; end
 				end
 				else res_g = {bv[31:8], {8{c}}};      // FScc
 			end
@@ -710,7 +711,7 @@ always_comb begin
 				else if (pend && !s_unimp) begin
 					// frameless fallback: an earlier FSAVE already took the
 					// pending exception's frame
-					xvec = pend_vec;
+					xvec_g = pend_vec;
 				end
 				res_g = ea_pd_q ? -{25'd0, kbytes(sv_now)} : {25'd0, kbytes(sv_now)};
 			end
@@ -727,12 +728,43 @@ always_comb begin
 				res_g = {25'd0, kbytes(rs_kind_of(av))};
 				// an unknown frame is a format error at the FRESTORE (its
 				// test registered with the size: in the second clock)
-				if (rs_w && !rs_okq) xvec = VEC_FMTERR;
+				if (rs_w && !rs_okq) xvec_g = VEC_FMTERR;
 			end
 			default: ;
 		endcase
 	end
 end
+
+// the exception, by the sub-operation's own conditions, without the hold's
+// (ex_v, safe, the pipeline's busy, the waits): EX takes it only as the
+// uop advances, when nothing here holds -- through the hold chain the
+// sub-operation's decode and the FPU's busy reached EX's vector and WB's
+// exception at 60 MHz.  A simulation check holds it to the gated form.
+always_comb begin
+	xvec = 8'd0;
+	case (sub)
+		FC_CHK:
+			if (fuse && go) xvec = f_unimp ? VEC_FLINE : f_unsupp ? VEC_UNSUP : 8'd0;
+			else if (chk_pend) xvec = pend_vec;
+			else if (chk_x) xvec = chk_ill ? VEC_ILL : VEC_FLINE;
+		FC_DISP:
+			if (ext_q[15:13] != 3'b011 && go) xvec = f_unimp ? VEC_FLINE : f_unsupp ? VEC_UNSUP : 8'd0;
+		FC_END: if (sx_v) xvec = sx_vec;
+		FC_COND, FC_DBCC:
+			if (cpred_q[4] && f_cc[0] && f_bsun_en) xvec = VEC_BSUN;
+			else if (sub == FC_COND && !cbcc_q && cftrap_q && fp_cond(cpred_q, f_cc)) xvec = VEC_TRAPCC;
+		FC_SV0: if (pend && !s_unimp) xvec = pend_vec;
+		FC_RS0: if (rs_w && !rs_okq) xvec = VEC_FMTERR;
+		default: ;
+	endcase
+end
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && ex_v && !hold && xvec !== xvec_g) begin
+		$display("FAIL: fpif exception %h, the gated one %h (sub %0d)", xvec, xvec_g, sub);
+		$finish;
+	end
+// synthesis translate_on
 
 // the result, by the sub-operation only: EX takes it when the uop
 // completes, so it need not wait for the hold's conditions (ex_v, safe,
