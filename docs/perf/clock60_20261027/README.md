@@ -112,6 +112,7 @@ CPU-clock setup slack, worst / TNS (ns), by batch:
 | 61e | 362a75e - 6550325 | | | | | | | -0.831 / -7.7 (55: -0.895 / -6.6) |
 | 61f | 794e0be | | | | | | | (seeds 56-63: **58: -0.399 / -0.40**, 57: -0.322 / -1.2, 56: -0.415 / -2.1, 62: -0.768, 60: -1.053, 61: -1.157, 63: -1.381, 59: -2.048) |
 | 61g | 4541732 | | | | | | | (seeds 52 55-58 64-66: **64: -0.191 / -3.6**, 55: -0.620 / -33.1, 52: -0.766, 57: -0.838, 56: -1.158, 58: -1.239, 66: -1.474, 65: -1.646) |
+| 61h | fa619cd | | | | | | | (seeds 55 57 58 64 67-70: **64: -0.364 / -1.1**, 70: -0.706, 57: -0.714, 55: -0.838, 67: -0.881, 68: -0.921, 58: -1.259, 69: -1.599) |
 
 (slack / TNS in ns on the 60 MHz CPU clock.)  60y (HDMI met on six of
 eight seeds) came out behind 60x: its leading families were the line-state
@@ -151,6 +152,22 @@ select.  These were fixed in that order.  The FPSR family is now
 registered after all (f096729): not from the live registers, which are
 written on the clock F_WB begins, but from their next values, through
 which the state machine's 75 writes now go.
+61h (fa619cd, before any of the 61g fixes; HDMI met on six of eight,
+hold met) came out behind 61g: its best, seed 64 at -0.364 ns
+(HDMI +0.026), is one endpoint, the last beat's TCI through the fill's
+line-state set into m3.x.hit (0d6ec61).  The other seeds' leaders were
+D1's queued-word tests against qcnt (seeds 55, 68, 69, from fetch.cnt
+and fetch.qw into rq0's mvbi, mvfx, pred and dexc: f08a99c, 154cba6),
+the stage records' hit invalidation fed by WB's fast-store decision (67,
+de3683c), the data ATC's read into the engine's e_ret (57, 66e637c), the
+integer store's range check after FPCR's rounding decision (55,
+3b9bc8b, with t_fpackr: no test had rounded across a format's range),
+and FPSR through the interface's hold into the ATC's set (58, 69:
+f096729, not in 61h).  Left: the I-cache tag compare into F0's next
+address and the tag RAM's read (68), the line-state engine copy's
+state-selected read into E_SP_2's way (67), AG's second-slot register
+read from the skid select (70: another read port per file), and WB's
+store answer through the stall chain (57).
 61d (ba9575d) has HDMI met on six of eight seeds again (39,651-39,753
 ALMs, 95 %), its best -0.627 (seed 55); 61e is an A/B of HEAD without
 the dual read ports (6550325 reverted, seeds 52 and 55): -0.831 / -0.895
@@ -306,6 +323,12 @@ the exception entry's registers) -- so the next commits went after those:
 | ac23b2c | the bit field extract kind registered with EX's uop | same |
 | c3ab2dc | the memory operand's EA chosen flat from the microword's selectors | same |
 | f096729 | the FPU's enabled exception test registered from FPSR and FPCR's next values (FPU differential bench: five seeds against the committed FPU) | same |
+| 0d6ec61 | the fill's line-state set chosen before its outcome | same |
+| f08a99c | the queued word count as a registered thermometer (qav) for D1's tests | same |
+| 154cba6 | the companion's queued word test from the thermometer | same |
+| de3683c | the stage records' hit invalidation from its own set and ways | same |
+| 66e637c | E_S_XL2 writes the walk's return state whether or not it walks | same |
+| 3b9bc8b | an integer store's range checked on both rounding candidates (t_fpackr) | same |
 
 From 5988c36 on the self-tests also run in the 60 MHz build's own CPU
 configuration -- the Quadra's parameters plus the skid
