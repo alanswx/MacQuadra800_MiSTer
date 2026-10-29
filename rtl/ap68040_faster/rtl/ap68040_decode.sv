@@ -870,6 +870,28 @@ always_ff @(posedge clk)
 // synthesis translate_on
 wire push  = fire && go;
 wire pop   = rq_pop && (rq_c != 2'd0);
+// synthesis translate_off
+// (the record queue as it was written, each slot by push and pop: the
+// valid slots must equal the queue's)
+dinst_t sim_rq [3];
+always_ff @(posedge clk) begin
+	if (nreset && ((rq_c > 2'd0 && sim_rq[0] !== rq0) || (rq_c > 2'd1 && sim_rq[1] !== rq1) ||
+	               (rq_c > 2'd2 && sim_rq[2] !== rq2))) begin
+		$display("FAIL: decode: the record queue (%0d held) differs from its push/pop form", rq_c);
+		$finish;
+	end
+	case ({push, pop})
+		2'b01: begin sim_rq[0] <= sim_rq[1]; sim_rq[1] <= sim_rq[2]; end
+		2'b10: sim_rq[rq_c] <= nrec_q;
+		2'b11: case (rq_c)
+			2'd1:    sim_rq[0] <= nrec_q;
+			2'd2:    begin sim_rq[0] <= sim_rq[1]; sim_rq[1] <= nrec_q; end
+			default: begin sim_rq[0] <= sim_rq[1]; sim_rq[1] <= sim_rq[2]; sim_rq[2] <= nrec_q; end
+		endcase
+		default: ;
+	endcase
+end
+// synthesis translate_on
 
 // loop exit table updates
 wire lp_push = push && (ph == PH_IDLE) && lp_br && (nrec.exc == 8'd0);
@@ -1020,29 +1042,25 @@ always_ff @(posedge clk) begin
 			end
 		end
 
-		// three records (push needs room: no push at three)
+		// three records (push needs room: no push at three).  Each slot
+		// takes its next record by the pop and the count alone -- the
+		// shift, the incoming record where a push would land, or itself:
+		// where no push comes the slot is past the count and unused -- so
+		// push, the end of the decode's long path (the queue's words
+		// through the length into fire), sets only the count; as every
+		// record bit's select it was a 60 MHz path.  A simulation shadow
+		// holds the valid slots to the old form.
 		begin
 			logic [1:0] c_n;
 			c_n = rq_c;
 			case ({push, pop})
-				2'b01: begin rq0 <= rq1; rq1 <= rq2; c_n = rq_c - 2'd1; end
-				2'b10: begin
-					case (rq_c)
-						2'd0:    rq0 <= nrec_q;
-						2'd1:    rq1 <= nrec_q;
-						default: rq2 <= nrec_q;
-					endcase
-					c_n = rq_c + 2'd1;
-				end
-				2'b11: begin
-					case (rq_c)
-						2'd1:    rq0 <= nrec_q;
-						2'd2:    begin rq0 <= rq1; rq1 <= nrec_q; end
-						default: begin rq0 <= rq1; rq1 <= rq2; rq2 <= nrec_q; end
-					endcase
-				end
+				2'b01: c_n = rq_c - 2'd1;
+				2'b10: c_n = rq_c + 2'd1;
 				default: ;
 			endcase
+			rq0 <= pop ? ((rq_c == 2'd1) ? nrec_q : rq1) : ((rq_c == 2'd0) ? nrec_q : rq0);
+			rq1 <= pop ? ((rq_c == 2'd2) ? nrec_q : rq2) : ((rq_c == 2'd1) ? nrec_q : rq1);
+			if (!pop && rq_c == 2'd2) rq2 <= nrec_q;
 			rq_c <= c_n;
 			rq_n <= (c_n == 2'd3) ? 2'd2 : c_n;   // what the sequencer sees
 		end
