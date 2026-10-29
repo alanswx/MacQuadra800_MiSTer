@@ -1814,8 +1814,23 @@ wire        exw_ag  = adv_ex && ex_d_eff;
 // the forwarding enable's 60 MHz path into every younger operand.  (A
 // faulted one, or one with a decode exception, does not wait or
 // broadcast: the exception flushes the younger uops.)
+// (the other uops' side by EX's hold and kill without the FPU's terms,
+// which are off for them -- ex_kc[0] is ex_fp_q, checked -- but which
+// synthesis kept: the interface's decode and kill through it into every
+// younger operand were a 60 MHz path)
+wire ex_hold_i  = (ex_v && ex_is_md && !md_z && !ex_fault && !md_done && !md_fin) ||
+                  (ex_v && ex_slow && !ex_ph) || dbf_hold;
+wire ex_dkill_i = (ex_kc[1] && md_dkd) || (ex_kc[2] && md_ovfl) || ex_kc[4] || (ex_kc[5] && cas2_eq);
 assign exw_fw = ex_v && ex_u.d_v && (((ex_kc & 6'b110111) == 6'd0) ||
-                                     (ex_kc[0] ? (fp_fin_q && !fp_dk_q) : (!ex_hold && !ex_dkill_f)));
+                                     (ex_kc[0] ? (fp_fin_q && !fp_dk_q) : (!ex_hold_i && !ex_dkill_i)));
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && ex_v && (ex_kc[0] != ex_fp_q || (!ex_kc[0] && (ex_hold_i != ex_hold || ex_dkill_i != ex_dkill_f)))) begin
+		$display("FAIL: EX's integer hold/kill %b/%b, the full ones %b/%b (kc0 %b fp %b, pc %h)",
+		         ex_hold_i, ex_dkill_i, ex_hold, ex_dkill_f, ex_kc[0], ex_fp_q, ex_u.pc);
+		$finish;
+	end
+// synthesis translate_on
 // (cleared as the next uop enters EX, and read only while EX holds a uop:
 // the flush, WB's kill and EX's advance in the clear were 60 MHz paths;
 // the suppression follows the interface until the flag is set)
