@@ -766,6 +766,10 @@ always @(posedge clk)
 		$finish;
 	end
 always @(posedge clk) begin
+	if (nreset && sd_den !== (sd_isS ? (sd_sE < -18'sd126) : (sd_sE < -18'sd1022))) begin
+		$display("FAIL: FPU: the store's denormal test %b for the exponent %h", sd_den, eff_e);
+		$finish;
+	end
 	if (nreset && r_din_uns != unsupported_x(r_din[94:80], r_din[63:0])) begin
 		$display("FAIL: FPU: the source's unsupported flag %b for %h", r_din_uns, r_din);
 		$finish;
@@ -843,7 +847,11 @@ reg [95:0] sd_out;
 always @* begin
 	sd_isS = (eff_fmt == 3'd1);
 	sd_sE  = $signed({eff_e[16], eff_e}) - 18'sd16383;
-	sd_den = sd_isS ? (sd_sE < -18'sd126) : (sd_sE < -18'sd1022);
+	// (below the format's least normal exponent: the biased exponent
+	// against each format's constant, not the unbiased one -- the subtract
+	// before the compare began the register store's dout at 60 MHz)
+	sd_den = sd_isS ? ($signed({eff_e[16], eff_e}) < 18'sd16257)
+	                : ($signed({eff_e[16], eff_e}) < 18'sd15361);
 	sd_up  = sd_isS ? round_up(eff_m[40], eff_m[39], (eff_m[38:0] != 0), eff_s) :
 	                  round_up(eff_m[11], eff_m[10], (eff_m[9:0] != 0), eff_s);
 	sd_inx = sd_isS ? (eff_m[39:0] != 0) : (eff_m[10:0] != 0);
