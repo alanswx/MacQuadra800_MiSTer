@@ -1213,6 +1213,14 @@ logic [31:0] bf_rr;             // the shared right rotator's output (below)
 logic  [5:0] rox_nx, rox_nx_q;  // ROXL/ROXR: their count mod (size + 1), the same way
 logic  [6:0] rox_nxl, rox_nxl_q; // ROXL: its funnel amount, the same way (from the registered count)
 wire         ex_pre = (ex_u.op == OP_BF) || (ex_u.op == OP_ROXL) || (ex_u.op == OP_ROXR);
+logic        ex_bfx;            // a bit field extract (cond 1, 3), loaded with ex_u
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && ex_v && ex_bfx != ((ex_u.cond[2:0] == 3'd1) || (ex_u.cond[2:0] == 3'd3))) begin
+		$display("FAIL: EX's extract kind %b, by the condition %0d", ex_bfx, ex_u.cond);
+		$finish;
+	end
+// synthesis translate_on
 wire         ex_bfins = (ex_u.op == OP_BF) && (ex_u.cond[2:0] == 3'd7);
 logic  [4:0] bf_flags;
 logic [31:0] bf_hn, bf_hn_ref;  // the memory form's head bytes (below), and the old form
@@ -1264,7 +1272,10 @@ always_comb begin
 		logic [31:0] ri;
 		logic  [4:0] ra;
 		logic        ext;
-		ext = (t == 3'd1) || (t == 3'd3);
+		// (BFEXTU/BFEXTS's kind registered with the uop, ex_bfx: the
+		// compare of EX's condition field through this select and the
+		// rotator into EX's result was a 60 MHz path into the next uop's A)
+		ext = ex_bfx;
 		ri  = !ex_pb ? ex_av : ext ? rot : nrot_v;
 		ra  = !ex_pb ? bf_w[4:0] : ext ? bf_wn[4:0] : o;
 		bf_rr = 32'({ri, ri} >> ra);
@@ -2595,6 +2606,7 @@ always_ff @(posedge clk) begin
 			             dc2_u.op == OP_DBCC, dc2_u.op == OP_MDRES, dc2_u.op == OP_DIV,
 			             dc2_u.op == OP_FPU};
 			ex_shk   <= shk_of(dc2_u.op);
+			ex_bfx   <= (dc2_u.cond[2:0] == 3'd1) || (dc2_u.cond[2:0] == 3'd3);
 			ex_rvm   <= rvm_of(shk_of(dc2_u.op), dc2_u.sz);
 			ex_sts_q <= sts_of(dc2_u);
 			ex_oc_q  <= oc_of(dc2_u.op, is_slow(dc2_u.op));
