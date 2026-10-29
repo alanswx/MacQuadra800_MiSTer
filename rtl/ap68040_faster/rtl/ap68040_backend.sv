@@ -989,6 +989,7 @@ logic  [6:0] rox_nxl, rox_nxl_q; // ROXL: its funnel amount, the same way (from 
 wire         ex_pre = (ex_u.op == OP_BF) || (ex_u.op == OP_ROXL) || (ex_u.op == OP_ROXR);
 wire         ex_bfins = (ex_u.op == OP_BF) && (ex_u.cond[2:0] == 3'd7);
 logic  [4:0] bf_flags;
+logic [31:0] bf_hn, bf_hn_ref;  // the memory form's head bytes (below), and the old form
 always_comb begin
 	logic [4:0]  o;
 	logic [31:0] top, rot, fld, ins_top, nrot, nrot_v, nreg, zf;
@@ -1066,17 +1067,43 @@ always_comb begin
 	bf_flags = {ccr_f[4], nflag, zflag, 1'b0, 1'b0};
 	// the bytes written back: the head right justified, the tail byte
 	bf_lo_out = (bf_nb == 3'd3) ? nwin[23:16] : nwin[7:0];
+	// (the head: B's bytes operated on with the mask's and the source's
+	// at the same bytes -- they are where the window put B -- so bf_nb
+	// selects registered values beside the operation instead of the
+	// window before it and the head after, a 60 MHz path)
+	begin
+		logic [31:0] hm, hi, hb;
+		case (bf_nb)
+			3'd1:       begin hm = {24'd0, mask40[39:32]}; hi = {24'd0, ins40[39:32]}; hb = {24'd0, ex_bv[7:0]};  end
+			3'd2, 3'd3: begin hm = {16'd0, mask40[39:24]}; hi = {16'd0, ins40[39:24]}; hb = {16'd0, ex_bv[15:0]}; end
+			default:    begin hm = mask40[39:8];           hi = ins40[39:8];           hb = ex_bv;                end
+		endcase
+		case (t)
+			3'd2: bf_hn = hb ^ hm;
+			3'd4: bf_hn = hb & ~hm;
+			3'd6: bf_hn = hb | hm;
+			default: bf_hn = (hb & ~hm) | (hi & hm);
+		endcase
+	end
+	bf_hn_ref = (bf_nb == 3'd1) ? {24'd0, nwin[39:32]} :
+	            (bf_nb == 3'd2 || bf_nb == 3'd3) ? {16'd0, nwin[39:24]} :
+	            nwin[39:8];
 	case (t)
 		3'd1: bf_res = fld;                                            // BFEXTU
 		3'd3: bf_res = fld | (rot[31] ? bf_sx : 32'd0);                  // BFEXTS
 		3'd5: bf_res = bf_off + {26'd0, lz};                           // BFFFO
 		3'd0: bf_res = ex_bv;                                          // BFTST
-		default: bf_res = !ex_u.cond[3] ? nreg :
-		                  (bf_nb == 3'd1) ? {24'd0, nwin[39:32]} :
-		                  (bf_nb == 3'd2 || bf_nb == 3'd3) ? {16'd0, nwin[39:24]} :
-		                  nwin[39:8];
+		default: bf_res = !ex_u.cond[3] ? nreg : bf_hn;
 	endcase
 end
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && ex_v && ex_u.op == OP_BF && ex_u.cond[3] && bf_hn !== bf_hn_ref) begin
+		$display("FAIL: the bit field's head bytes %h, the window's %h (bytes %0d, op %0d)",
+		         bf_hn, bf_hn_ref, bf_nb, ex_u.cond[2:0]);
+		$finish;
+	end
+// synthesis translate_on
 
 
 //--------------------------------------------------------------------------
