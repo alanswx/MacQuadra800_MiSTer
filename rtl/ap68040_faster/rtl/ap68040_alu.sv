@@ -137,7 +137,10 @@ wire        sum_v  = is_sub ? ((l_msb != r_msb) && (sum_n != l_msb))
 //--------------------------------------------------------------------------
 wire  [4:0] bitn     = (sz == SZ_B) ? {2'b00, a[2:0]} : a[4:0];
 wire [31:0] bit_mask = 32'd1 << bitn;
-wire        bit_set  = |(b & bit_mask);
+// (the bit selected by both widths of number, the size choosing last: the
+// size's compare through the mask's shift and a 32-input OR into Z was a
+// 60 MHz path into the condition codes)
+wire        bit_set  = (sz == SZ_B) ? b[a[2:0]] : b[a[4:0]];
 
 //--------------------------------------------------------------------------
 // CHK (b = Dn, a = upper bound), sized W or L, signed
