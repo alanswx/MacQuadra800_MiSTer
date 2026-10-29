@@ -717,6 +717,7 @@ wire [31:0] ag_maddr  = ag_mbase + ag_mix + ag_mdisp;
 // operand read with the EX broadcast of this cycle (see the snoop below)
 logic        exw_v;           // EX writes the front file this cycle
 logic        exw_fw;          // ... as the younger uops' operands see it (no exception decision)
+logic        fp_fin_q, fp_dk_q;   // an FPU uop with a register result: done, its suppression (exw_fw)
 logic  [4:0] exw_reg;
 logic [31:0] exw_val;
 
@@ -1024,7 +1025,8 @@ ap68040_fpif #(.FPU_REVISION(FPU_REVISION), .FPU_PIPE(FPU_PIPE)) fpif (
 // EX holds while the unit runs, until the cycle its result is presented
 // (a divide by zero holds its first cycle too: the zero test of the
 // operand stays off the stall path, and the exception goes a cycle later)
-assign ex_hold = (ex_v && ex_is_md && !md_z && !ex_fault && !md_done && !md_fin) ||
+assign ex_hold = (ex_v && ex_is_fp && !ex_fault && ex_u.exc == 8'd0 && ex_u.d_v && !fp_fin_q) ||
+                 (ex_v && ex_is_md && !md_z && !ex_fault && !md_done && !md_fin) ||
                  (ex_v && ex_slow && !ex_ph) ||
                  (ex_v && ex_is_fp && !ex_fault && ex_u.exc == 8'd0 && fp_hold) || dbf_hold;
 
@@ -1795,7 +1797,32 @@ wire        exw_ag  = adv_ex && ex_d_eff;
 // and its write is not suppressed: from then until it advances its value
 // and its suppression are final (a waiting WB is the only thing between:
 // adv_ex, through WB's store hold, was a 60/66 MHz path).  Checked below.
-assign exw_fw = ex_v && ex_u.d_v && (((ex_kc & 6'b110111) == 6'd0) || (!ex_hold && !ex_dkill_f));
+// An FPU uop that writes an integer register broadcasts from flip-flops:
+// fp_fin_q is set at the end of the first clock the interface does not
+// hold it, with its suppression (fp_dk_q), and EX holds that clock -- the
+// uop leaves a clock later.  The interface already keeps its outcome
+// while EX waits after its hold drops (WB can hold EX then), checked
+// below; the interface's hold and suppression, through EX's hold, were
+// the forwarding enable's 60 MHz path into every younger operand.  (A
+// faulted one, or one with a decode exception, does not wait or
+// broadcast: the exception flushes the younger uops.)
+assign exw_fw = ex_v && ex_u.d_v && (((ex_kc & 6'b110111) == 6'd0) ||
+                                     (ex_kc[0] ? (fp_fin_q && !fp_dk_q) : (!ex_hold && !ex_dkill_f)));
+always_ff @(posedge clk) begin
+	if (!nreset || flush || kill_now || adv_ex || !ex_v) fp_fin_q <= 1'b0;
+	else if (ex_is_fp && ex_u.d_v && !ex_fault && ex_u.exc == 8'd0 && !fp_hold && !fp_fin_q) begin
+		fp_fin_q <= 1'b1;
+		fp_dk_q  <= fp_dkill;
+	end
+end
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && ex_v && fp_fin_q && (fp_hold || fp_dk_q != fp_dkill)) begin
+		$display("FAIL: an FPU uop's outcome changed after its hold dropped: hold %b, suppression %b -> %b (pc %h)",
+		         fp_hold, fp_dk_q, fp_dkill, ex_u.pc);
+		$finish;
+	end
+// synthesis translate_on
 // synthesis translate_off
 logic        sim_eb;            // such a uop broadcast before advancing
 logic [31:0] sim_eb_val;
