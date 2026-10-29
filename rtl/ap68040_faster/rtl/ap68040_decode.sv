@@ -996,7 +996,11 @@ always_ff @(posedge clk) begin
 		// would restore -- which only costs a prediction: EX checks every
 		// return
 		if (rcall) ras[ras_tp + 3'd1] <= nrec_npc;
-		if (push && nrec_q.exc == 8'd0) begin
+		// (an instruction with an exception moves it too: its record's k
+		// is 0, so the exception's redirect restores the stack as before
+		// the instruction, and the records after it are flushed -- the
+		// exception's decode gated the pointers at 60 MHz)
+		if (push) begin
 			if (rcall) begin
 				ras_tp <= ras_tp + 3'd1;
 				if (ras_n != 4'd8) ras_n <= ras_n + 4'd1;
