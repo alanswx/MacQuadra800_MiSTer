@@ -2328,6 +2328,30 @@ function automatic logic [6:0] ras_after(input ras_snap_t r);
 	endcase
 endfunction
 
+// the skid's uop and slot loaded on every clock the skid is empty: they
+// are read only once sk_v is set, and sk_v is set by the clock that loads
+// them (the take and the stall chain behind it were a 60 MHz path into
+// the enable of every bit)
+always_ff @(posedge clk)
+	if (SKID && !sk_v) begin
+		sk_u <= in_u;
+		sk_s <= in_s;
+	end
+// synthesis translate_off
+uop_t sim_sk_u;
+s1_t  sim_sk_s;
+always_ff @(posedge clk) begin
+	if (!flush && !sk_v && SKID && in_v && in_rdy && !ag_take) begin
+		sim_sk_u <= in_u;
+		sim_sk_s <= in_s;
+	end
+	if (nreset && sk_v && (sim_sk_u != sk_u || sim_sk_s != sk_s)) begin
+		$display("FAIL: the skid's uop differs from the one its fill took");
+		$finish;
+	end
+end
+// synthesis translate_on
+
 always_ff @(posedge clk) begin
 	// (AG's uop PC and the continued MOVEM's PC as they will be: their
 	// compare is registered, cm_hit_q)
@@ -2348,7 +2372,7 @@ always_ff @(posedge clk) begin
 
 	if (!nreset) begin
 		ag_v  <= 1'b0; dc1_v <= 1'b0; dc2_v <= 1'b0; ex_v <= 1'b0; wb_v <= 1'b0;
-		ag_s  <= '0; dc1_s <= '0; dc2_s <= '0; ex_s <= '0; wb_s <= '0; sk_s <= '0;
+		ag_s  <= '0; dc1_s <= '0; dc2_s <= '0; ex_s <= '0; wb_s <= '0;
 		rra2_q <= '0;
 		sk_v  <= 1'b0;
 		sk_vr <= 1'b0;
@@ -3057,8 +3081,6 @@ always_ff @(posedge clk) begin
 			else if (SKID && in_v && in_rdy && !ag_take) begin
 				sk_v  <= 1'b1;
 				sk_vr <= 1'b1;
-				sk_u  <= in_u;
-				sk_s  <= in_s;
 			end
 		end
 		if (flush || kill_now) begin sk_v <= 1'b0; sk_vr <= 1'b0; end
