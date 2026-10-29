@@ -172,6 +172,7 @@ typedef struct packed {
 } opsel_t;
 
 uop_t        nu;
+uop_t        nu_pi;          // nu before a pointer load replaces it
 logic        n_ptr;          // nu is a pointer load (memory indirect)
 logic        n_ptr_ea1;
 logic        n_jump;         // pure jump micro-instruction
@@ -632,7 +633,7 @@ always_comb begin
 				nu.upd_v = 1'b1; nu.upd_reg = rw;
 			end
 			AGM_LEA0: begin
-				if (uw.agw != S_NONE) begin nu.upd_v = !n_ptr; nu.upd_reg = rw; end
+				if (uw.agw != S_NONE) begin nu.upd_v = 1'b1; nu.upd_reg = rw; end
 				nu.mem = M_NONE;
 			end
 			AGM_FEA: begin
@@ -652,7 +653,7 @@ always_comb begin
 					                         src.ext1[12:10] == 3'd6) ? 32'd1 : 32'd0);
 					nu.mprog = 1'b1;
 				end
-				nu.upd_v = !n_ptr; nu.upd_reg = rw;
+				nu.upd_v = 1'b1; nu.upd_reg = rw;
 			end
 			AGM_FUPD: begin
 				if (src.ea0.m == EM_AIP || src.ea0.m == EM_APD) begin
@@ -832,6 +833,12 @@ always_comb begin
 		nu.dma  = def_amt;
 	end
 
+	// (the uop before a pointer load replaces it: the companion's pairing
+	// tests read it -- a pointer load is never done, so they apply only
+	// without one -- and the pointer decision, from the ROM's EA choice,
+	// is left to done; the AG modes' updates above need no !n_ptr for the
+	// same reason: the replacement drops them)
+	nu_pi = nu;
 	// a pointer load replaces the uop this cycle
 	if (n_ptr) begin
 		uop_t p;
@@ -1022,7 +1029,15 @@ wire emit = step && !n_jump && !fpmv_skip;
 wire stay = n_ptr || n_mv_pre || (uw.loop && !nu.last);   // same word again
 wire done = emit && !stay && uw.last;                       // instruction ends
 // the companion issues beside the uop that ends the instruction
-wire c_pair = done && cs.v && !trace && s0_ok(nu, nu.first, nu.last) && s1_indep(nu, cs) && (!cs.ld || s0_ld(nu));
+wire c_pair = done && cs.v && !trace && s0_ok(nu_pi, nu_pi.first, nu_pi.last) && s1_indep(nu_pi, cs) &&
+             (!cs.ld || s0_ld(nu_pi));
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && done && nu_pi !== nu) begin
+		$display("FAIL: useq: the uop before the pointer load differs from the uop at done");
+		$finish;
+	end
+// synthesis translate_on
 s1_t ns;                          // the slot beside the uop written
 always_comb begin
 	ns = cs;
@@ -1350,7 +1365,8 @@ always_ff @(posedge clk)
 //               trace)
 // with the instruction's operation word [15:0].
 wire pu_split = done && cs.v && !c_pair;
-wire pu_dep   = pu_split && !trace && s0_ok(nu, nu.first, nu.last) && (!cs.ld || s0_ld(nu)) && !s1_indep(nu, cs);
+wire pu_dep   = pu_split && !trace && s0_ok(nu_pi, nu_pi.first, nu_pi.last) && (!cs.ld || s0_ld(nu_pi)) &&
+                !s1_indep(nu_pi, cs);
 always_ff @(posedge clk)
 	dbg_pu <= {pu_split && !pu_dep, pu_dep, c_pair, done && cs.v, src.opw};
 
