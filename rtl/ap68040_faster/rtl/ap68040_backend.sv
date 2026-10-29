@@ -1808,12 +1808,13 @@ wire        exw_ag  = adv_ex && ex_d_eff;
 // broadcast: the exception flushes the younger uops.)
 assign exw_fw = ex_v && ex_u.d_v && (((ex_kc & 6'b110111) == 6'd0) ||
                                      (ex_kc[0] ? (fp_fin_q && !fp_dk_q) : (!ex_hold && !ex_dkill_f)));
+// (cleared as the next uop enters EX, and read only while EX holds a uop:
+// the flush, WB's kill and EX's advance in the clear were 60 MHz paths;
+// the suppression follows the interface until the flag is set)
 always_ff @(posedge clk) begin
-	if (!nreset || flush || kill_now || adv_ex || !ex_v) fp_fin_q <= 1'b0;
-	else if (ex_is_fp && ex_u.d_v && !ex_fault && ex_u.exc == 8'd0 && !fp_hold && !fp_fin_q) begin
-		fp_fin_q <= 1'b1;
-		fp_dk_q  <= fp_dkill;
-	end
+	if (!nreset || adv_dc2) fp_fin_q <= 1'b0;
+	else if (ex_v && ex_is_fp && ex_u.d_v && !ex_fault && ex_u.exc == 8'd0 && !fp_hold) fp_fin_q <= 1'b1;
+	if (!fp_fin_q) fp_dk_q <= fp_dkill;
 end
 // synthesis translate_off
 always_ff @(posedge clk)
