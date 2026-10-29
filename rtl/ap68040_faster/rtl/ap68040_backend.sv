@@ -633,8 +633,21 @@ always_ff @(posedge clk)
 		$finish;
 	end
 // synthesis translate_on
-assign rra[3] = ag_u.a_reg;
-assign rra[4] = ag_u.b_reg;
+// (ports 3/4 addressed by copies of AG's A and B registers, kept apart:
+// ag_u's fields fan out to every compare of EX's broadcast and the
+// operand selects, and from them into the files' read addresses was the
+// start of a 60 MHz path through the read, the broadcast and DC1's B)
+(* preserve *) logic [4:0] ag_ra_q, ag_rb_q;
+assign rra[3] = ag_ra_q;
+assign rra[4] = ag_rb_q;
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && ag_v && (ag_ra_q != ag_u.a_reg || ag_rb_q != ag_u.b_reg)) begin
+		$display("FAIL: AG's read address copies %0d/%0d, the uop's %0d/%0d",
+		         ag_ra_q, ag_rb_q, ag_u.a_reg, ag_u.b_reg);
+		$finish;
+	end
+// synthesis translate_on
 assign rra[5] = ain_s.a_reg;      // (read as the pair enters AG: ag_a1q)
 always_comb begin
 	for (int i = 0; i < 8; i++) rfa[i] = 5'd0;
@@ -3089,6 +3102,10 @@ always_ff @(posedge clk) begin
 		end
 	end
 	ag_bft_q <= ag_ld ? bft_of(ain_u) : bft_of(ag_u);
+	if (ag_ld) begin
+		ag_ra_q <= ain_u.a_reg;
+		ag_rb_q <= ain_u.b_reg;
+	end
 	cm_hit_q <= cm_rst ? ((ag_ld ? ain_u.pc : ag_u.pc) == 32'd0) :
 	            ag_ld  ? (cm_wr ? (ain_u.pc == wb_next) : (ain_u.pc == cm_pc)) :
 	                     (cm_wr ? (ag_u.pc  == wb_next) : (ag_u.pc  == cm_pc));
