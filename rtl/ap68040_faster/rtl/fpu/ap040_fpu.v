@@ -779,6 +779,10 @@ always @(posedge clk) begin
 		$display("FAIL: FPU: the source's unsupported flag %b for %h", r_din_uns, r_din);
 		$finish;
 	end
+	if (nreset && fst == F_PACKI && shk_p1 != shk_i) begin
+		$display("FAIL: FPU: F_PACKI's increment %h, the shared one's %h", shk_p1, shk_i);
+		$finish;
+	end
 	if (nreset && fst == F_NORM2 && n2z_q != (acc_hi[63:0] == 64'd0 && grs == 3'd0)) begin
 		$display("FAIL: FPU: F_NORM2's registered zero test %b for %h %b", n2z_q, acc_hi, grs);
 		$finish;
@@ -799,6 +803,10 @@ wire [64:0] shk    = {1'b0, sh_v[66:3]};
 wire [64:0] shk_i  = shk + ((fst == F_PACKS) ? ((r_fmt == 3'd1) ? 65'h100_0000_0000 : 65'h800) :
                             (fst == F_UNFL)  ? ((r_pr == 2'd1) ? 65'h100_0000_0000 :
                                                 (r_pr == 2'd2) ? 65'h800 : 65'd1) : 65'd1);
+// (F_PACKI's own increment: through the shared one the state's decode
+// chose the addend, and the sum's range checks into dout were a 60 MHz
+// path)
+wire [64:0] shk_p1 = shk + 65'd1;
 
 // one 64x64 multiplier for both: the state machine multiplies only in
 // F_MULT, which it reaches with the pipeline empty
@@ -3300,7 +3308,7 @@ always @(posedge clk) begin
 					// n-bit signed result holds below 2^(n-1), or exactly
 					// 2^(n-1) when negative), and only the low long word
 					// negated for the store
-					mg = round_up(sh_v[3], sh_v[2], (sh_v[1:0] != 0), pk_neg) ? shk_i : shk;
+					mg = round_up(sh_v[3], sh_v[2], (sh_v[1:0] != 0), pk_neg) ? shk_p1 : shk;
 					lo = pk_neg ? (32'd0 - mg[31:0]) : mg[31:0];
 					hi32 = (mg[64:32] != 0) || (mg[31] && !(pk_neg && mg[30:0] == 0));
 					hi16 = (mg[64:16] != 0) || (mg[15] && !(pk_neg && mg[14:0] == 0));
