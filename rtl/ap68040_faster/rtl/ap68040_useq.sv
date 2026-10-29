@@ -985,19 +985,30 @@ wire   c_emit = cq_v && room_out && !flush && !exc_go && !exc_pend;
 wire step = uw_v && room_out && !flush && !exc_go && !exc_pend && !cq_v;
 
 // FMOVEM slot optimization
+// (from the queue's head, not src: only FMOVEM's slot uops (dyn 1) use
+// these, and no exception routine has one (checked), so src's zeroing in
+// exception mode -- exc_mode at fanout 500, through the slot select into
+// the emit and the uop queue at 60 MHz -- is not needed here)
 logic [7:0] mv_mask_static;
 always_comb begin
 	logic lsb;
-	lsb = src.ext1[13] && (src.ea0.m == EM_APD);
+	lsb = rq0.ext1[13] && (rq0.ea0.m == EM_APD);
 	for (int k = 0; k < 8; k++)
-		mv_mask_static[k] = src.ext1[lsb ? k : (7 - k)];
+		mv_mask_static[k] = rq0.ext1[lsb ? k : (7 - k)];
 end
-wire [7:0] mv_active = (!src.ext1[11]) ? mv_mask_static : fp_mvslots;
+wire [7:0] mv_active = (!rq0.ext1[11]) ? mv_mask_static : fp_mvslots;
 
-wire        is_fpmv      = (uw.dyn == 3'd1) && (!src.ext1[11]);
+wire        is_fpmv      = (uw.dyn == 3'd1) && (!rq0.ext1[11]);
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && uw_v && exc_mode && uw.dyn == 3'd1) begin
+		$display("FAIL: useq: an FMOVEM slot uop in an exception routine (upc %h)", upc);
+		$finish;
+	end
+// synthesis translate_on
 wire  [2:0] fpmv_k       = uw.dynk[2:0];
-wire  [9:0] fpmv_base    = src.ext1[13] ? UA_FPU_MVS : UA_FPU_MVL;
-wire  [9:0] fpmv_exit    = src.ext1[13] ? UA_FPU_MVS_EXIT : UA_FPU_MVL_EXIT;
+wire  [9:0] fpmv_base    = rq0.ext1[13] ? UA_FPU_MVS : UA_FPU_MVL;
+wire  [9:0] fpmv_exit    = rq0.ext1[13] ? UA_FPU_MVS_EXIT : UA_FPU_MVL_EXIT;
 wire        fpmv_slot_on = mv_active[fpmv_k];
 
 logic [7:0] fpmv_rem_mask;
