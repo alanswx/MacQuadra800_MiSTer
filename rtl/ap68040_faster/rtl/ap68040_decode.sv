@@ -806,7 +806,7 @@ end
 wire bt_anyt = |(win_bt & bt_lmt);
 wire bt_endt = (win_bt & bt_lmt) == bt_lbt;
 wire c_cons = DUAL && (ph == PH_IDLE) && pd0.legal && fast &&
-              (pd0.tot <= 4'd6) && (pd0.tot < qcnt) && (pd0.tot != 4'd0) &&
+              (pd0.tot <= 4'd6) && qav[4'(pd0.tot + 4'd1)] && (pd0.tot != 4'd0) &&   // (qav: tot < qcnt)
               win_s1[c_at] && !win_flt[c_at] && !win_bt[c_at] && (!bt_anyt || bt_endt);
 // synthesis translate_off
 always_ff @(posedge clk)
