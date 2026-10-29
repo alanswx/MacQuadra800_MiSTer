@@ -107,6 +107,7 @@ CPU-clock setup slack, worst / TNS (ns), by batch:
 | 60z | 78d4fa1 | -1.245 / -58.1 | -1.488 | -1.179 | **-0.425 / -10.9** | | | -1.531 (53: -1.174, 54: -1.683, 55: -0.992) |
 | 61a | ebc9409 | -0.642 / -14.8 | -1.258 | -1.213 | -1.039 | | | -0.991 (53: -0.729 / -9.6, 54: -0.852, **55: -0.574 / -7.4**) |
 | 61b | 91aaa48 | -1.879 / -82.6 | -0.720 / -5.7 | -1.228 | -1.457 | | | -0.282 / -0.54 (53: -1.505, 54: -1.161, **55: -0.131 / -0.25**) |
+| 61c | 7ea5e47 | -1.182 / -7.9 | -1.713 | -1.320 | -0.849 | | | **-0.378 / -3.4** (53: -2.221, 54: -1.192 / -4.4, 55: -1.292) |
 
 (slack / TNS in ns on the 60 MHz CPU clock.)  60y (HDMI met on six of
 eight seeds) came out behind 60x: its leading families were the line-state
@@ -116,6 +117,14 @@ into a_m (c548747) and EX's ALU result into AG's address (f539800).
 met (+0.119); the batch's others sit at -1.0 to -1.7, led by the stall
 cone from AG's interlock (cc6ebd5, d1ab8be, 81aac5f) and the line-state
 port's address (53f4f5e, not in 60z).
+61c (7ea5e47: the 61a and 61b fixes, the dual read ports) came out
+behind 61b, and its HDMI domain missed on seven of eight seeds (-0.005
+to -0.43, against three in 61b): ALMs 40,091-40,116 of 41,910 (96 %).
+Its leaders were new: EX's FPU-held broadcast into ex_as and the second
+slot's operands (14bca8c, ba9575d), the divide's suppression decode
+(2aaf84b), the engine's lookup way (ee83050), FMOVE.L's rounding
+increment (bd624e9), and single paths of the engine's state into the
+records' hit clears (m3.x.hit) and its line-state decisions (f_set).
 61b (built at 91aaa48, before the 61a fixes) holds the two closest
 fits so far, both with HDMI met: seed 55 at -0.131 ns, TNS -0.25
 (+0.074), and seed 52 at -0.282, TNS -0.54 (+0.220).  Seed 55 failed
@@ -221,6 +230,12 @@ the exception entry's registers) -- so the next commits went after those:
 | 6550325 | with the skid, AG's base and index read at the next head's and the held uop's registers (two read ports more per file) | same |
 | 7ea5e47 | DC2's wait for a RAM write to its set registered a clock ahead | same |
 | 360d5c5 | DC2's copy of the line by a way encoded with the ATC's hits last (t_mmu 215-222, t_dualmmu 5) | same |
+| 5f1c4fc | AG's run-time transfer cancel registered for the uop in AG | same |
+| 2aaf84b | a divide's write suppression for EX's forwarding enable without the op decode | same |
+| 14bca8c | the slow unit's registered A without the word sign extension | same |
+| ee83050 | the engine's lookup hit and way with the ATC's hits last (t_dualmmu 6) | same |
+| ba9575d | an FPU uop with a register result broadcasts from flip-flops | +1 clock per such uop: t_fcmp +5.2 % (+2.2 % at 60 MHz), t_fpu +0.5 % |
+| bd624e9 | F_PACKI's rounding increment from an incrementer of its own | same |
 
 From 5988c36 on the self-tests also run in the 60 MHz build's own CPU
 configuration -- the Quadra's parameters plus the skid
