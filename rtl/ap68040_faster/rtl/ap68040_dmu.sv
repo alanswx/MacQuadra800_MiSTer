@@ -466,6 +466,7 @@ logic  [1:0]  wfm_way;
 logic [15:0]  wfm_be;
 logic [31:0]  wfm_word;
 logic         dwp;            // this cycle's dw was merged a cycle ago (wfm)
+logic         dwc_q;          // dw && !dwp to DC2's set (fast_now's wait), registered
 
 // Each way's write enable is a bit of a one-hot vector built here, not a
 // `== 2'(genvar)` compare in the port list: Vivado 2023.2 synthesis
@@ -858,7 +859,7 @@ wire st_older = (m3.r.v && (m3.r.mem == M_ST || m3.r.mem == M_RMW)) ||
 // read the RAM makes the captured line stale: the engine reads it again
 
 // (a store that left WB is still being written this cycle: dw)
-wire fast_now = m2.r.v && m2.fast && !hzf_q && !(dw && !dwp && dw_set == m2.r.a[CSH:4]);
+wire fast_now = m2.r.v && m2.fast && !hzf_q && !dwc_q;
 // (the operand from DC2's two long words: its bytes start at a[1:0] of the
 // first; a split load's bytes past the line are masked by its user)
 wire [31:0] fast_data = take({dq2, 64'd0}, {2'd0, m2.r.a[1:0]}, nbytes(m2.r.msz));
@@ -1100,7 +1101,7 @@ wire  [31:0] wfs_acc = lalign(st_data, m4.r.msz);
 
 // a fast load behind an older store to its line waits for it (merged into
 // its copy) instead of taking the engine
-wire fast_wait = m2.r.v && m2.fast && (hzf || (dw && !dwp && dw_set == m2.r.a[CSH:4]));
+wire fast_wait = m2.r.v && m2.fast && (hzf || dwc_q);
 // (not while an older store is in EX: it reaches WB, which has the engine
 // first, before DC2's job -- the bus sees a store before a younger load's
 // access, whatever the timing)
@@ -1222,6 +1223,7 @@ always_ff @(posedge clk) begin
 
 	if (!nreset) begin
 		m1 <= '0; m2 <= '0; m3 <= '0; m4 <= '0;
+		dwc_q <= 1'b0;
 		m4_fast_s <= 1'b0; m4_fs_s <= 1'b0; m4_vpost_s <= 1'b0;
 		// (reset leaves the cache alone -- tags, state and data, MC68040UM
 		// 4.3: "reset does not invalidate the cache lines"; the valid and
@@ -1274,8 +1276,12 @@ always_ff @(posedge clk) begin
 		logic [3:0] vp_wm;               // ways written
 		logic       vp_lwe, vp_lv;       // valid: write, value
 		logic       vp_dwe, vp_dv;       // dirty: write, value
+		// (the next dw's set against DC2's next set -- m1's if DC1
+		// advances, m2's own if not -- for dwc_q, below)
+		logic       dwc1, dwc2;
 		vp_set = '0; vp_wm = '0; vp_lwe = 1'b0; vp_lv = 1'b0;
 		vp_dwe = 1'b0; vp_dv = 1'b0;
+		dwc1 = 1'b0; dwc2 = 1'b0;
 
 		//--------------------------------------------------------------
 		// stage records
@@ -1351,6 +1357,7 @@ always_ff @(posedge clk) begin
 		if (wb_fast && !sn_frz) begin
 			dw      <= 1'b1;
 			dw_set  <= m4.x.pa[CSH:4];
+			dwc1 = (m4.x.pa[CSH:4] == m1.a[CSH:4]); dwc2 = (m4.x.pa[CSH:4] == m2.r.a[CSH:4]);
 			dw_way  <= m4.x.way;
 			dw_be   <= wbf_be;
 			dw_src  <= 2'd0;
@@ -1364,6 +1371,7 @@ always_ff @(posedge clk) begin
 		if (wb_fs && !sn_frz) begin
 			dw      <= 1'b1;
 			dw_set  <= m4.x.pa[CSH:4];
+			dwc1 = (m4.x.pa[CSH:4] == m1.a[CSH:4]); dwc2 = (m4.x.pa[CSH:4] == m2.r.a[CSH:4]);
 			dw_way  <= m4.x.way;
 			dw_be   <= bmask(m4.r.a[3:0], wfs_n0);
 			dw_src  <= 2'd0;
@@ -1376,6 +1384,7 @@ always_ff @(posedge clk) begin
 			if (m4.x1.hit) begin
 				dw      <= 1'b1;
 				dw_set  <= m4.x1.pa[CSH:4];
+				dwc1 = (m4.x1.pa[CSH:4] == m1.a[CSH:4]); dwc2 = (m4.x1.pa[CSH:4] == m2.r.a[CSH:4]);
 				dw_way  <= m4.x1.way;
 				dw_be   <= bmask(4'd0, nbytes(m4.r.msz) - wfs_n0);
 				dw_src  <= 2'd0;
@@ -1861,6 +1870,7 @@ always_ff @(posedge clk) begin
 			if (upd) begin
 				dw      <= 1'b1;
 				dw_set  <= e_va[CSH:4];
+				dwc1 = (e_va[CSH:4] == m1.a[CSH:4]); dwc2 = (e_va[CSH:4] == m2.r.a[CSH:4]);
 				dw_way  <= e_x.way;
 				dw_be   <= be;
 				dw_src  <= 2'd0;
@@ -2125,6 +2135,7 @@ always_ff @(posedge clk) begin
 			if (!bo_err && !bo_tci) begin
 				dw      <= 1'b1;
 				dw_set  <= f_set;
+				dwc1 = (f_set == m1.a[CSH:4]); dwc2 = (f_set == m2.r.a[CSH:4]);
 				dw_way  <= f_way;
 				dw_be   <= 16'hFFFF;
 				dw_src  <= 2'd1;
@@ -2140,6 +2151,7 @@ always_ff @(posedge clk) begin
 				// failed or inhibited fill: the dirty victim is restored
 				dw      <= 1'b1;
 				dw_set  <= f_set;
+				dwc1 = (f_set == m1.a[CSH:4]); dwc2 = (f_set == m2.r.a[CSH:4]);
 				dw_way  <= f_way;
 				dw_be   <= 16'hFFFF;
 				dw_src  <= 2'd2;
@@ -2650,6 +2662,7 @@ always_ff @(posedge clk) begin
 				2'd0: begin
 					dw      <= 1'b1;
 					dw_set  <= s;
+					dwc1 = (s == m1.a[CSH:4]); dwc2 = (s == m2.r.a[CSH:4]);
 					dw_way  <= sn_way;
 					dw_be   <= sn_wbe;
 					dw_src  <= 2'd0;
@@ -2735,8 +2748,20 @@ always_ff @(posedge clk) begin
 					if (vp_dwe && vp_set == sc_set) sc_ld[j] <= vp_dv;
 				end
 		end
+		// (fast_now's wait for a RAM write to DC2's set, a clock ahead:
+		// the compare of dw_set with DC2's address began the stall chain
+		// -- into AG's front-file writes and the register reads -- at
+		// 60 MHz.  dwp's next is wfm; DC1's advance selects last.)
+		dwc_q <= (adv_dc1 ? dwc1 : dwc2) && !wfm;
 	end
 end
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && dwc_q != (dw && !dwp && dw_set == m2.r.a[CSH:4])) begin
+		$display("FAIL: dmu: the registered DC2 write wait %b, the live one's %b", dwc_q, dw && !dwp && dw_set == m2.r.a[CSH:4]);
+		$finish;
+	end
+// synthesis translate_on
 
 // synthesis translate_off
 always_ff @(posedge clk)
