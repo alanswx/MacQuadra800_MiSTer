@@ -497,6 +497,10 @@ wire [31:0] dc2_capv = dc2_u.a_sxw ? {{16{dm_ldata_al[15]}}, dm_ldata_al[15:0]} 
 wire [31:0] dc2_capx = (ag_u.idx_l && !dc2_u.a_sxw) ? dm_ldata_al
                                                     : {{16{dm_ldata_al[15]}}, dm_ldata_al[15:0]};
 wire [31:0] dc2_capxs = ag_u.idx_v ? (dc2_capx << ag_u.scale) : 32'd0;
+// ... the same for the uop entering AG
+wire [31:0] dc2_capxi = !ain_u.idx_v ? 32'd0 :
+                        (((ain_u.idx_l && !dc2_u.a_sxw) ? dm_ldata_al
+                                                        : {{16{dm_ldata_al[15]}}, dm_ldata_al[15:0]}) << ain_u.scale);
 
 assign ag_hold = ag_interlock;
 
@@ -589,8 +593,9 @@ function automatic logic [31:0] ixf(input logic [31:0] v, input uop_t u);
 endfunction
 // synthesis translate_off
 always_ff @(posedge clk)
-	if (nreset && dc2_capd && dc2_capxs !== ixf(dc2_capv, ag_u)) begin
-		$display("FAIL: the captured load as AG's index %h, by the two selects %h", dc2_capxs, ixf(dc2_capv, ag_u));
+	if (nreset && dc2_capd && (dc2_capxs !== ixf(dc2_capv, ag_u) || dc2_capxi !== ixf(dc2_capv, ain_u))) begin
+		$display("FAIL: the captured load as AG's index %h %h, by the two selects %h %h",
+		         dc2_capxs, dc2_capxi, ixf(dc2_capv, ag_u), ixf(dc2_capv, ain_u));
 		$finish;
 	end
 // synthesis translate_on
@@ -2880,7 +2885,7 @@ always_ff @(posedge clk) begin
 	// put the stall chain's end deeper into these selects at 60/66 MHz)
 	if (!stall_ag) begin
 		logic [31:0] b, x;
-		logic        cb, cx, eb, ex, x2, xb;
+		logic        cb, cx, eb, ex, x2, xb, kb, kx;
 		logic  [3:0] wb, wx;
 		b = rrd[0];
 		x = 32'd0;                     // (the register read itself: below the block)
@@ -2902,22 +2907,27 @@ always_ff @(posedge clk) begin
 		if (ag1w_ag && ag_s.d_reg == ain_u.base) b = ag1_val;
 		if (ag1w_ag && ag_s.d_reg == ain_u.idx)  begin x = ag1_val; x2 = 1'b0; xb = 1'b1; end
 		// the load entering EX, unless a younger writer is in AG or DC1
-		// (it will be waited for in any case)
-		if (dc2_capd && dc2_u.d_reg == ain_u.base) begin b = dc2_capv; cb = adv_dc2; end
-		if (dc2_capd && dc2_u.d_reg == ain_u.idx)  begin x = dc2_capv; cx = adv_dc2; x2 = 1'b0; xb = 1'b1; end
+		// (it will be waited for in any case).  Its data enters at the
+		// last multiplexer (kb, kx), the index in one select: dc2_capd
+		// waits on the DMU's aligned-load test, and through these selects
+		// and the scale it was a 60 MHz path into agb_q/agx_q
+		kb = dc2_capd && dc2_u.d_reg == ain_u.base;
+		kx = dc2_capd && dc2_u.d_reg == ain_u.idx;
+		if (kb) cb = adv_dc2;
+		if (kx) begin cx = adv_dc2; x2 = 1'b0; xb = 1'b1; end
 		// the youngest writer's early result (not the uop leaving AG:
 		// its result is loaded next cycle)
 		wb = yw(ain_u.base);
 		wx = yw(ain_u.idx);
 		if (!(ag_v && ag_u.d_v && ag_u.d_reg == ain_u.base) &&
     !(ag_v && ag_s.v && ag_s.d_v && ag_s.d_reg == ain_u.base) && wb[2]) begin
-			b = ywv(wb[1:0]); eb = 1'b1; cb = 1'b0;
+			b = ywv(wb[1:0]); eb = 1'b1; cb = 1'b0; kb = 1'b0;
 		end
 		if (!(ag_v && ag_u.d_v && ag_u.d_reg == ain_u.idx) &&
     !(ag_v && ag_s.v && ag_s.d_v && ag_s.d_reg == ain_u.idx) && wx[2]) begin
 			ex = 1'b1; cx = 1'b0;
 		end
-		agb_q <= ain_u.base_v ? b : 32'd0;
+		agb_q <= !ain_u.base_v ? 32'd0 : kb ? dc2_capv : b;
 		// EX writing it this cycle: the register file read is a cycle
 		// early (unless a younger load or early result supplied it)
 		stale_b <= ((exw_ag && exw_reg == ain_u.base) || (exw1_v && exw1_reg == ain_u.base)) &&
@@ -2933,7 +2943,8 @@ always_ff @(posedge clk) begin
 		// (the register read scaled on its own, the bypasses' value on its
 		// own, then the select: the read went through the bypass selects
 		// before the scale, a 60/66 MHz path)
-		agx_q <= !ex ? ixf(x, ain_u) :
+		agx_q <= (kx && !ex) ? dc2_capxi :
+		         !ex ? ixf(x, ain_u) :
 		         (wx[1:0] == 2'd1) ? ixf(dc1_er, ain_u) :
 		         (wx[1:0] == 2'd2) ? ixf(dc2_er, ain_u) : ixf(ex_er, ain_u);
 		// synthesis translate_off

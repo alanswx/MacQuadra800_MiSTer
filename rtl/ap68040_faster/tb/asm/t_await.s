@@ -13,6 +13,10 @@
 ;   7    a loop: A1 from D4, a store through (A1)+, D4 from A1
 ;   8    MOVEA.W (A4),A0 of a negative word handed to AG as a long index
 ;   9    the same of a positive word, as a word index
+;   10-14 a loaded base, then ADDs or MOVEQs, then (4,A1) (not an
+;        update: AG would wait for the load) -- the consumer enters AG
+;        as the load leaves DC2
+;   15-19 the same as a long index, scaled, and 20-24 a MOVEA.W's word
 
 FAILREG	equ	$F100
 DONEREG	equ	$F102
@@ -152,6 +156,114 @@ start:
 	movea.w	(a4),a0
 	move.l	(0,a2,a0.w*4),d0	; A0 = 3: i = 19
 	chkl	d0,19,18
+
+	; 10-24: loads two to six uops ahead of their AG consumer
+	move.l	#BUF+$200,(PTR).l
+	move.l	#3,(PTR+4).l
+	move.w	#$FFFE,(WSRC).l
+	move.l	#$13579BDF,(BUF+$204).l
+	suba.l	a1,a1
+	movea.l	(a3),a1			; 10: a load, one ADD
+	add.l	d5,d6
+	move.l	(4,a1),d2
+	chkl	d2,$13579BDF,10
+	suba.l	a1,a1
+	movea.l	(a3),a1			; 11: two ADDs
+	add.l	d5,d6
+	add.l	d5,d6
+	move.l	(4,a1),d2
+	chkl	d2,$13579BDF,11
+	suba.l	a1,a1
+	movea.l	(a3),a1			; 12: two MOVEQs
+	moveq	#1,d6
+	moveq	#2,d4
+	move.l	(4,a1),d2
+	chkl	d2,$13579BDF,12
+	move.l	#$5A5A0004,d1
+	suba.l	a1,a1
+	movea.l	(a3),a1			; 13: a store, two MOVEQs
+	moveq	#1,d6
+	moveq	#2,d4
+	move.l	d1,(4,a1)
+	move.l	(BUF+$204).l,d2
+	chkl	d2,$5A5A0004,13
+	suba.l	a1,a1
+	movea.l	(a3),a1			; 14: three MOVEQs
+	moveq	#1,d6
+	moveq	#2,d4
+	moveq	#3,d3
+	move.l	(4,a1),d2
+	chkl	d2,$5A5A0004,14
+	suba.l	a0,a0
+	movea.l	(4,a3),a0
+	add.l	d5,d6
+	move.l	(0,a2,a0.l*4),d0
+	chkl	d0,19,15
+	suba.l	a0,a0
+	movea.l	(4,a3),a0
+	add.l	d5,d6
+	add.l	d5,d6
+	move.l	(0,a2,a0.l*4),d0
+	chkl	d0,19,16
+	suba.l	a0,a0
+	movea.l	(4,a3),a0
+	add.l	d5,d6
+	add.l	d5,d6
+	add.l	d5,d6
+	move.l	(0,a2,a0.l*4),d0
+	chkl	d0,19,17
+	suba.l	a0,a0
+	movea.l	(4,a3),a0
+	add.l	d5,d6
+	add.l	d5,d6
+	add.l	d5,d6
+	add.l	d5,d6
+	move.l	(0,a2,a0.l*4),d0
+	chkl	d0,19,18
+	suba.l	a0,a0
+	movea.l	(4,a3),a0
+	add.l	d5,d6
+	add.l	d5,d6
+	add.l	d5,d6
+	add.l	d5,d6
+	add.l	d5,d6
+	move.l	(0,a2,a0.l*4),d0
+	chkl	d0,19,19
+	suba.l	a0,a0
+	movea.w	(a4),a0
+	add.l	d5,d6
+	move.l	(0,a2,a0.w*4),d0
+	chkl	d0,14,20
+	suba.l	a0,a0
+	movea.w	(a4),a0
+	add.l	d5,d6
+	add.l	d5,d6
+	move.l	(0,a2,a0.w*4),d0
+	chkl	d0,14,21
+	suba.l	a0,a0
+	movea.w	(a4),a0
+	add.l	d5,d6
+	add.l	d5,d6
+	add.l	d5,d6
+	move.l	(0,a2,a0.w*4),d0
+	chkl	d0,14,22
+	suba.l	a0,a0
+	movea.w	(a4),a0
+	add.l	d5,d6
+	add.l	d5,d6
+	add.l	d5,d6
+	add.l	d5,d6
+	move.l	(0,a2,a0.w*4),d0
+	chkl	d0,14,23
+	suba.l	a0,a0
+	movea.w	(a4),a0
+	add.l	d5,d6
+	add.l	d5,d6
+	add.l	d5,d6
+	add.l	d5,d6
+	add.l	d5,d6
+	move.l	(0,a2,a0.w*4),d0
+	chkl	d0,14,24
 
 	move.w	#$600D,(DONEREG).l
 	bra.s	*
