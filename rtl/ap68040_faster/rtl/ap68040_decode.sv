@@ -871,6 +871,29 @@ always_ff @(posedge clk)
 wire push  = fire && go;
 wire pop   = rq_pop && (rq_c != 2'd0);
 // synthesis translate_off
+// (the redirect's target and the BTB fields as the cases wrote them)
+logic [31:0] sim_drpc;
+logic  [1:0] sim_bkind;
+logic [30:0] sim_btgt;
+always_ff @(posedge clk) begin
+	if (nreset && d_redir_v && d_redir_pc !== sim_drpc) begin
+		$display("FAIL: decode: the redirect target %h, the case's %h", d_redir_pc, sim_drpc);
+		$finish;
+	end
+	if (nreset && btb_we && btb_wv && (btb_wkind !== sim_bkind || btb_wtgt !== sim_btgt)) begin
+		$display("FAIL: decode: the BTB write's kind/target %0d %h, the case's %0d %h",
+		         btb_wkind, btb_wtgt, sim_bkind, sim_btgt);
+		$finish;
+	end
+	if (fire && push && ph == PH_IDLE && bt_end) begin
+		if (!(nrec.pred && teq)) begin
+			sim_drpc <= nrec.pred ? ntarget : nrec_npc; sim_bkind <= btb_kind; sim_btgt <= ntarget[31:1];
+		end
+	end
+	else if (fire && push && nrec_q.pred && ph == PH_IDLE) begin
+		sim_drpc <= ntarget; sim_bkind <= btb_kind; sim_btgt <= ntarget[31:1];
+	end
+end
 // (the record queue as it was written, each slot by push and pop: the
 // valid slots must equal the queue's)
 dinst_t sim_rq [3];
@@ -1001,6 +1024,16 @@ always_ff @(posedge clk) begin
 		d_redir_v  <= 1'b0;
 		hold_redir <= d_redir_v;
 		btb_we     <= 1'b0;
+		// the redirect's target and the BTB entry's kind and target on
+		// every clock, read only with the d_redir_v / btb_we pulse they go
+		// with (only the redirects below write these BTB fields; the
+		// flagged-word write invalidates the entry): the decision, at the
+		// end of the decode's path, was the enable of every bit, a 60 MHz
+		// path.  The redirect at a fetched branch's end takes the record's
+		// own way, any other the predicted target.  Checked below.
+		d_redir_pc <= bt_end ? (nrec.pred ? ntarget : nrec_npc) : ntarget;
+		btb_wkind  <= btb_kind;
+		btb_wtgt   <= ntarget[31:1];
 
 		if (bt_restart && fire) begin
 			// a flagged word inside an instruction: drop the entry (the
@@ -1085,28 +1118,22 @@ always_ff @(posedge clk) begin
 				// the fetch already took this branch: fine if D1 agrees
 				if (!(nrec.pred && teq)) begin
 					d_redir_v  <= 1'b1;
-					d_redir_pc <= nrec.pred ? ntarget : nrec_npc;
 					// (a loop exit keeps the entry: the next pass takes it)
 					btb_we     <= !lp_ovr;
 					btb_wv     <= nrec.pred && btb_ok;
 					btb_wi     <= lastpc[BTB_AW+1:2];
 					btb_wtag   <= lastpc[31:BTB_AW+2];
 					btb_wslot  <= lastpc[1];
-					btb_wkind  <= btb_kind;
-					btb_wtgt   <= ntarget[31:1];
 				end
 			end
 			else if (push && nrec_q.pred && ph == PH_IDLE) begin
 				d_redir_v  <= 1'b1;
-				d_redir_pc <= ntarget;
 				// next time the fetch takes it
 				btb_we     <= btb_ok;
 				btb_wv     <= 1'b1;
 				btb_wi     <= lastpc[BTB_AW+1:2];
 				btb_wtag   <= lastpc[31:BTB_AW+2];
 				btb_wslot  <= lastpc[1];
-				btb_wkind  <= btb_kind;
-				btb_wtgt   <= ntarget[31:1];
 			end
 		end
 		if (flush) begin
