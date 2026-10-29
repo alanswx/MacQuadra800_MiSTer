@@ -2000,7 +2000,10 @@ always_comb
 	          ({32{ex_oc_q[5]}} & ((ex_av & ex_szm) | (ex_bv & ~ex_szm))) |
 	          ({32{ex_oc_q[6]}} & (ex_u.cond[0] ? {24'd0, bf_lonew} : {{3{ex_av[31]}}, ex_av[31:3]})) |
 	          ({32{ex_oc_q[7]}} & ((ex_bv & ex_szm) | (ex_latch & ~ex_szm))) |
-	          ({32{ex_oc_q[8]}} & (alu_cc ? ex_bv : alu_res));
+	          // (DBcc: the high word is B's either way -- only the counter
+	          // word waits on the condition, which ran from the CCR's
+	          // forward through every bit's value into DC1's operand)
+	          ({32{ex_oc_q[8]}} & {ex_bv[31:16], alu_cc ? ex_bv[15:0] : alu_res[15:0]});
 always_comb begin
 	exw_oth_ref = ex_bv;
 	if (ex_slow) exw_oth_ref = xs_q.res;
