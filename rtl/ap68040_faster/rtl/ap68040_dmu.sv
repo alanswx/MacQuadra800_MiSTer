@@ -715,10 +715,38 @@ always_comb begin
 		// entry's page, picks (the entry select was on the path from the ATC
 		// read to DC2's fast flags at 60/66 MHz)
 		mj = eng_mj(transp, m1.a, lvd_q, tq);
-	d1_hit = |mj;
+	// the hit with the ATC's hit vector last: whether any valid way's
+	// tag matches each ATC way's page (aw), formed beside the ATC's own
+	// compare, then picked by its hits -- through the per-way matches
+	// (mj) the hit vector's fan-out was the ATC read's 60 MHz path into
+	// m2.x.hit.  The way and line select still take mj.
+	begin
+		logic [3:0] aw, hv;
+		logic       tpx;
+		hv  = DC1_ATC ? atc_hvd : atc_hv;
+		tpx = 1'b0;
+		for (int j = 0; j < 4; j++) if (lvd_q[j] && tq[j] == m1.a[31:CSH+1]) tpx = 1'b1;
+		for (int i = 0; i < 4; i++) begin
+			logic [19:0] pa;
+			pa = DC1_ATC ? atc_wpad[i] : atc_wpa[i];
+			aw[i] = 1'b0;
+			for (int j = 0; j < 4; j++)
+				if (lvd_q[j] && tq[j] == ((CTW'({pa[19:1], tc_p ? m1.a[12] : pa[0]}) << (11 - CSH)) |
+				                          CTW'(m1.a[11:0] >> (CSH + 1))))
+					aw[i] = 1'b1;
+		end
+		d1_hit = transp ? tpx : |(hv & aw);
+	end
 	d1_way = mj[3] ? 2'd3 : mj[2] ? 2'd2 : mj[1] ? 2'd1 : 2'd0;
 	d1_mj  = mj;
 end
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && d1_hit !== |d1_mj) begin
+		$display("FAIL: dmu: DC1's hit by the ATC's hits last %b, the ways' %b", d1_hit, |d1_mj);
+		$finish;
+	end
+// synthesis translate_on
 
 // synthesis translate_off
 // (the engine's state for the bench's profile: a parameterized module's
