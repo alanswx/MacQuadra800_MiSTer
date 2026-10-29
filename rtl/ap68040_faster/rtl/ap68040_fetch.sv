@@ -231,6 +231,9 @@ always @(posedge clk) begin
 end
 // synthesis translate_on
 assign qpc   = qpc_r;
+// (the queue PC's increments from the registers, for its carry select)
+(* keep *) wire [27:0] qhi_p1 = qpc_r[31:4] + 28'd1;
+(* keep *) wire [30:0] tq0_p1 = tq[0] + 31'd1;
 assign q_odd = odd;
 assign pd0   = qp0;
 // the head's predecode as it will be next cycle (qp0's load)
@@ -882,7 +885,24 @@ always_ff @(posedge clk) begin
 			// (a decode that ran past the flag is refetched at WB: the PC
 			// of what follows it does not matter)
 			// (D1 may take one word of the target with the branch: a companion)
-qpc_r <= cfl ? {tq[0], 1'b0} + {30'd0, consume_t, 1'b0} : qpc_r + {28'd0, consume, 1'b0};
+			// (carry select: D1's consume and companion flag, late, add into
+			// the low bits only, the increments of the rest formed from the
+			// registers -- a full adder after consume was a 60 MHz path)
+			begin
+				logic  [3:0] lo;
+				logic [31:0] nq;
+				lo = {1'b0, qpc_r[3:1]} + {1'b0, consume};
+				nq = cfl ? {consume_t ? tq0_p1 : tq[0], 1'b0} :
+				           {lo[3] ? qhi_p1 : qpc_r[31:4], lo[2:0], qpc_r[0]};
+				qpc_r <= nq;
+				// synthesis translate_off
+				if (nreset && nq !== (cfl ? {tq[0], 1'b0} + {30'd0, consume_t, 1'b0} :
+				                            qpc_r + {28'd0, consume, 1'b0})) begin
+					$display("FAIL: fetch: the queue PC's carry select %h", nq);
+					$finish;
+				end
+				// synthesis translate_on
+			end
 			for (int i = 0; i < 4; i++) tqn[i] = tq[i];
 			n = tq_n;
 			if (cfl && n != 3'd0) begin
