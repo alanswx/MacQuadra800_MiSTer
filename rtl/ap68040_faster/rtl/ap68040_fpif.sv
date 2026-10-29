@@ -685,7 +685,10 @@ always_comb begin
 			end
 			FC_MVR: begin
 				res_g = mv_rev ? f_fmrd[31:0] : f_fmrd[95:64];
-				if (cur_on && !mvr_wait) hold = 1'b1;
+				// (cur_on is mv_slots[dynk] here: the slot's select by the
+				// sub-operation, in front of the list's, put it a level
+				// deeper into EX's hold and the stall chain at 60 MHz)
+				if (mv_slots[dynk] && !mvr_wait) hold = 1'b1;
 			end
 			FC_COND, FC_DBCC: begin
 				logic [5:0] pred;
