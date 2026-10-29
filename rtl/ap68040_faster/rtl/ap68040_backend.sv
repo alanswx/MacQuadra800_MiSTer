@@ -906,8 +906,7 @@ logic       ex_amem, ex_bmem;
 wire [31:0] ex_av0 = ex_amem ? ex_ld : ex_a;
 wire [31:0] ex_av  = ex_u.a_sxw ? {{16{ex_av0[15]}}, ex_av0[15:0]} : ex_av0;
 wire [31:0] ex_bv  = ex_bmem ? ex_ld : ex_b;
-// ... A and B for the slow unit, their selects (and A's sign extension)
-// made as the uop enters EX (ex_a, ex_b and ex_ld load nowhere else):
+// ... A and B for the slow unit, their selects made as the uop enters EX (ex_a, ex_b and ex_ld load nowhere else):
 // ex_bmem's select and fan-out began the barrel shifter's path into xs_q,
 // ex_av's the CHK2 compare's into its exception, at 60 MHz
 logic [31:0] ex_as, ex_bs;
@@ -918,7 +917,7 @@ always_ff @(posedge clk)
 		$finish;
 	end
 always_ff @(posedge clk)
-	if (nreset && ex_v && (ex_as !== ex_av || ex_bs !== ex_bv)) begin
+	if (nreset && ex_v && ((ex_slow && ex_as !== ex_av) || ex_bs !== ex_bv)) begin
 		$display("FAIL: EX's registered slow A, B %h %h, the selected ones %h %h (pc %h)",
 		         ex_as, ex_bs, ex_av, ex_bv, ex_u.pc);
 		$finish;
@@ -2420,7 +2419,10 @@ always_ff @(posedge clk) begin
 				logic [31:0] v;
 				v = (dc2_u.a_src == OS_MEM) ? dm_ldata :
 				    (dc2_u.a_src == OS_REG) ? bcast(exw_fw, dc2_u.a_reg, dc2_a) : dc2_a;
-				ex_as <= dc2_u.a_sxw ? {{16{v[15]}}, v[15:0]} : v;
+				// (no word sign extension: no slow op takes A as an address
+				// register's word -- checked -- and the extension after the
+				// broadcast put EX's FPU hold a level deeper into ex_as)
+				ex_as <= v;
 			end
 			ex_bs    <= (dc2_u.b_src == OS_MEM) ? dm_ldata :
 			            (dc2_u.b_src == OS_REG) ? bcast(exw_fw, dc2_u.b_reg, dc2_b) : dc2_b;
