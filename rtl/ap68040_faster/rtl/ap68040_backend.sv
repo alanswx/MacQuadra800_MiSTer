@@ -423,17 +423,57 @@ logic [31:0] exq1_val;
 // an update in every copy loop, keeps the direct bypass.
 logic        ag2_x;
 logic [31:0] ag2_v;
+// The writes' interlock (pend_w for AG's updates and the second slot's
+// address-register form) in two parts: the older writers in DC1 and DC2
+// registered a clock ahead (pw_q) -- a writer there now was in AG, DC1 or
+// DC2 a clock ago, and in a clock moves at most a stage, so it is still
+// waited for -- and EX's, which can leave, at once.  The compares of AG's
+// registers against six stages' destinations, ORed, began the stall cone
+// at 60 MHz (into the register files' read addresses and the front file's
+// writes).  A simulation check holds each term to pend_w.
+function automatic logic ex_w(input logic [4:0] r);
+	ex_w = (ex_v && ex_u.d_v && ex_u.d_reg == r) ||
+	       (ex_v && ex_s.v && ex_s.d_v && ex_s.d_reg == r);
+endfunction
+// the writers that will be in DC1 and DC2 after a clock: AG's (when it
+// moves on, as it does when AG takes the next) and DC1's and DC2's
+function automatic logic pend_ag(input logic [4:0] r);
+	pend_ag = (ag_v && ag_u.d_v && ag_u.d_reg == r) ||
+	          (ag_v && ag_s.v && ag_s.d_v && ag_s.d_reg == r) || pend_dc(r);
+endfunction
+logic [2:0] pw_q;                // AG's upd, upd2 and second-slot writes' DC1/DC2 waits
+wire  [2:0] pw_new = {DUAL && ain_s.v && ain_s.agop && (pend_ag(ain_s.a_reg) || pend_ag(ain_s.d_reg)),
+                      ain_u.upd2_v && pend_ag(ain_u.upd2_reg),
+                      ain_u.upd_v  && pend_ag(ain_u.upd_reg)};
+wire  [2:0] pw_hold = {ag_s.v && ag_s.agop && (pend_dc(ag_s.a_reg) || pend_dc(ag_s.d_reg)),
+                       ag_u.upd2_v && pend_dc(ag_u.upd2_reg),
+                       ag_u.upd_v  && pend_dc(ag_u.upd_reg)};
+always_ff @(posedge clk)
+	pw_q <= !nreset ? 3'd0 : (ag_take && ain_v && !flush) ? pw_new : pw_hold;
+wire  [2:0] pw_t = {pw_q[2] || (ag_s.v && ag_s.agop && (ex_w(ag_s.a_reg) || ex_w(ag_s.d_reg))),
+                    pw_q[1] || (ag_u.upd2_v && ex_w(ag_u.upd2_reg)),
+                    pw_q[0] || (ag_u.upd_v  && ex_w(ag_u.upd_reg))};
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && ag_v && pw_t != {ag_s.v && ag_s.agop && (pend_w(ag_s.a_reg) || pend_w(ag_s.d_reg)),
+	                               ag_u.upd2_v && pend_w(ag_u.upd2_reg),
+	                               ag_u.upd_v  && pend_w(ag_u.upd_reg)}) begin
+		$display("FAIL: AG's write interlock %b by the registered waits %b, by the stages %b%b%b", pw_t, pw_q,
+		         ag_s.v && ag_s.agop && (pend_w(ag_s.a_reg) || pend_w(ag_s.d_reg)),
+		         ag_u.upd2_v && pend_w(ag_u.upd2_reg), ag_u.upd_v && pend_w(ag_u.upd_reg));
+		$finish;
+	end
+// synthesis translate_on
 wire ag_interlock = ag_v && (
 	(ag_u.idx_v && ag2_x) ||
 	(ag_u.base_v && (yw_b[2] ? !erb : (pend_dc(ag_u.base) || (ex_wr_b && !cap_b) || ex1_wr_b || stale_b))) ||
 	(ag_u.idx_v  && (yw_x[2] ? !erx : (pend_dc(ag_u.idx)  || (ex_wr_x && !cap_x) || ex1_wr_x || stale_x))) ||
 	// a register AG writes waits for every older writer (else the EX write
 	// of the captured load could land after this one)
-	(ag_u.upd_v  && pend_w(ag_u.upd_reg)) ||
-	(ag_u.upd2_v && pend_w(ag_u.upd2_reg)) ||
+	pw_t[0] || pw_t[1] ||
 	// the second slot's address-register form: its source final, and no
 	// older writer of its destination
-	(ag_s.v && ag_s.agop && (pend_w(ag_s.a_reg) || pend_w(ag_s.d_reg))) ||
+	pw_t[2] ||
 	// AG's second update and a second slot's AG write share their
 	// front-file port with a second slot's EX write (the older one first)
 	((ag_u.upd2_v || (ag_s.v && ag_s.agop)) && ex_v && ex_s.v && ex_s.d_v));
