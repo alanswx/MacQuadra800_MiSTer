@@ -1580,6 +1580,12 @@ always_ff @(posedge clk) begin
 				x.pa = e_va;
 				x.cm = 2'b10;
 			end
+			// (registered whatever the decision below: a search or a retry
+			// looks the part up here again, and a new job loads it from
+			// DC2's record, before anything reads it -- the walk test, from
+			// the ATC's hit and the entry's protection, was the enable of
+			// every e_x bit, a 60 MHz path)
+			e_x <= x;
 			if (x.walk && e_kill) begin
 				// the uop was discarded: no search for it
 				steal  <= 1'b0;
@@ -1602,10 +1608,7 @@ always_ff @(posedge clk) begin
 				e_ret <= E_S_XL;            // look up again after the walk
 				e_st  <= E_TW_START;
 			end
-			else begin
-				e_x  <= x;
-				e_st <= E_S_ACT;
-			end
+			else e_st <= E_S_ACT;
 		end
 		E_S_ACT: if (e_kill) begin
 			// the uop was discarded (no bus operation is in flight here)
