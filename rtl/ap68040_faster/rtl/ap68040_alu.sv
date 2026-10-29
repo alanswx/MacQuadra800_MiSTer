@@ -21,6 +21,7 @@ module ap68040_alu
 	import ap68040_pkg::*;
 (
 	input  logic  [6:0] op,
+	input  logic [RC_N-1:0] rc,     // alu_rc(op): the result's class
 	input  logic  [1:0] sz,
 	input  logic  [3:0] cond,
 	input  logic [31:0] a,
@@ -28,6 +29,7 @@ module ap68040_alu
 	input  logic [31:0] ea,
 	input  logic  [4:0] flags_in,   // X N Z V C
 	output logic [31:0] res,
+	output logic [31:0] res_ref,    // the result from op (simulation's check)
 	output logic  [4:0] flags_out,
 	output logic        cc_true,    // cond evaluated on flags_in
 	output logic        trap        // CHK / CHK2 / TRAPcc exception
@@ -168,7 +170,7 @@ always_comb begin
 	r         = b;
 	flags_out = flags_in;
 	trap      = 1'b0;
-	res       = b;
+	res_ref   = b;
 
 	case (op)
 		OP_MOV: begin
@@ -280,8 +282,27 @@ always_comb begin
 
 		default: r = b;
 	endcase
-	res = r;
+	res_ref = r;
 end
+
+// the result: each class's value under its flag (the op's case selected
+// it five levels deep, on EX's forward into AG's address at 60 MHz)
+wire [31:0] rc_mx = ({32{rc[RC_SUM]}} & sum[31:0]) | ({32{rc[RC_MOV]}} & am) |
+                    ({32{rc[RC_AND]}} & (bm & am)) | ({32{rc[RC_OR]}} & (bm | am)) |
+                    ({32{rc[RC_EOR]}} & (bm ^ am)) | ({32{rc[RC_NOT]}} & ~bm);
+wire [31:0] rc_ext = (sz == SZ_W) ? {b[31:16], {8{b[7]}}, b[7:0]} : {{16{b[15]}}, b[15:0]};
+assign res = ({32{rc[RC_MRG]}}  & merge(rc_mx, b, szmask)) |
+             ({32{rc[RC_EXT]}}  & rc_ext) |
+             ({32{rc[RC_EXTB]}} & {{24{b[7]}}, b[7:0]}) |
+             ({32{rc[RC_SWAP]}} & {b[15:0], b[31:16]}) |
+             ({32{rc[RC_TAS]}}  & {b[31:8], 1'b1, b[6:0]}) |
+             ({32{rc[RC_BCHG]}} & (b ^ bit_mask)) |
+             ({32{rc[RC_BCLR]}} & (b & ~bit_mask)) |
+             ({32{rc[RC_BSET]}} & (b | bit_mask)) |
+             ({32{rc[RC_SCC]}}  & {b[31:8], {8{cc_true}}}) |
+             ({32{rc[RC_EA]}}   & ea) |
+             ({32{rc[RC_DBCC]}} & {b[31:16], b[15:0] - 16'd1}) |
+             ({32{rc[RC_B]}}    & b);
 
 endmodule
 

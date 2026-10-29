@@ -765,13 +765,24 @@ logic [31:0] alu_res;
 logic  [4:0] alu_flags;
 logic        alu_cc, alu_trap;
 
+logic [RC_N-1:0] ex_rc_q;      // alu_rc(ex_u.op), registered with the uop
+logic [31:0] alu_res_ref;
+
 ap68040_alu alu (
-	.op(ex_u.op), .sz(ex_u.sz), .cond(ex_u.cond),
+	.op(ex_u.op), .rc(ex_rc_q), .sz(ex_u.sz), .cond(ex_u.cond),
 	.a(ex_av), .b(ex_bv), .ea(ex_ea),
 	.flags_in(ccr_f),
-	.res(alu_res), .flags_out(alu_flags),
+	.res(alu_res), .res_ref(alu_res_ref), .flags_out(alu_flags),
 	.cc_true(alu_cc), .trap(alu_trap)
 );
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && ex_v && (ex_rc_q !== alu_rc(ex_u.op) || alu_res !== alu_res_ref)) begin
+		$display("FAIL: EX's ALU result %h by class %h, by the op %h (op %0d)",
+		         alu_res, ex_rc_q, alu_res_ref, ex_u.op);
+		$finish;
+	end
+// synthesis translate_on
 
 // multiply / divide
 logic        md_done, md_ovf;
@@ -1413,9 +1424,9 @@ logic [31:0] cas_res;
 logic  [4:0] cas_flags;
 logic        cas_cc, cas_tr;
 ap68040_alu cas_alu (
-	.op(OP_CMP), .sz(ex_u.sz), .cond(4'd0),
+	.op(OP_CMP), .rc(alu_rc(OP_CMP)), .sz(ex_u.sz), .cond(4'd0),
 	.a(cas_dc_m), .b(ex_bv), .ea(32'd0), .flags_in(ccr_f),
-	.res(cas_res), .flags_out(cas_flags), .cc_true(cas_cc), .trap(cas_tr)
+	.res(cas_res), .res_ref(), .flags_out(cas_flags), .cc_true(cas_cc), .trap(cas_tr)
 );
 wire cas_eq = cas_flags[2];
 
@@ -1424,9 +1435,9 @@ logic [31:0] cmp_res;
 logic  [4:0] cmp_flags;
 logic        cmp_cc, cmp_tr;
 ap68040_alu cmp_alu (
-	.op(OP_CMP), .sz(ex_u.sz), .cond(4'd0),
+	.op(OP_CMP), .rc(alu_rc(OP_CMP)), .sz(ex_u.sz), .cond(4'd0),
 	.a(ex_av), .b(ex_bv), .ea(32'd0), .flags_in(ccr_f),
-	.res(cmp_res), .flags_out(cmp_flags), .cc_true(cmp_cc), .trap(cmp_tr)
+	.res(cmp_res), .res_ref(), .flags_out(cmp_flags), .cc_true(cmp_cc), .trap(cmp_tr)
 );
 logic        cas2_eq;           // CAS2: both pairs equal so far
 logic        rte_fmt1;          // RTE: the frame is a throwaway ($1)
@@ -2132,6 +2143,7 @@ always_ff @(posedge clk) begin
 			ex_md_q  <= (dc2_u.op == OP_MUL) || (dc2_u.op == OP_DIV);
 			ex_fp_q  <= (dc2_u.op == OP_FPU);
 			ex_dbcc_q <= (dc2_u.op == OP_DBCC);
+			ex_rc_q   <= alu_rc(dc2_u.op);
 			ex_slow_q <= is_slow(dc2_u.op);
 			ex_slr_q  <= is_slow(dc2_u.op) && (dc2_u.op != OP_CHK2B) && (dc2_u.op != OP_SPR) &&
 			             (dc2_u.op != OP_MISC) && (dc2_u.op != OP_IACKV) && (dc2_u.op != OP_RTEF) &&

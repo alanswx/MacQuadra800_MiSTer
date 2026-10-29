@@ -201,6 +201,42 @@ localparam logic [6:0]
 	OP_RTE   = 7'd61,  // RTE: SR = A, jump to B (throwaway frame: this RTE)
 	OP_IACKV = 7'd62;  // interrupt vector from the IACK data
 
+// ap68040_alu's result classes: its result is an AND-OR of each class's
+// value (rc, from alu_rc), so where the op is late the caller registers
+// the classes with the uop.  RC_MRG merges the sized value of RC_SUM,
+// RC_MOV and the logic ops (none of them: CLR) into B's upper bits.
+localparam int RC_N = 18;
+localparam int RC_MRG = 0, RC_SUM = 1, RC_MOV = 2, RC_AND = 3, RC_OR = 4, RC_EOR = 5,
+               RC_NOT = 6, RC_EXT = 7, RC_EXTB = 8, RC_SWAP = 9, RC_TAS = 10,
+               RC_BCHG = 11, RC_BCLR = 12, RC_BSET = 13, RC_SCC = 14, RC_EA = 15,
+               RC_DBCC = 16, RC_B = 17;
+function automatic logic [RC_N-1:0] alu_rc(input logic [6:0] op);
+	logic [RC_N-1:0] r;
+	r = '0;
+	case (op)
+		OP_MOV:  begin r[RC_MRG] = 1'b1; r[RC_MOV] = 1'b1; end
+		OP_ADD, OP_SUB, OP_ADDX, OP_SUBX, OP_NEGX, OP_NEG:
+		         begin r[RC_MRG] = 1'b1; r[RC_SUM] = 1'b1; end
+		OP_AND:  begin r[RC_MRG] = 1'b1; r[RC_AND] = 1'b1; end
+		OP_OR:   begin r[RC_MRG] = 1'b1; r[RC_OR]  = 1'b1; end
+		OP_EOR:  begin r[RC_MRG] = 1'b1; r[RC_EOR] = 1'b1; end
+		OP_NOT:  begin r[RC_MRG] = 1'b1; r[RC_NOT] = 1'b1; end
+		OP_CLR:  r[RC_MRG]  = 1'b1;
+		OP_EXT:  r[RC_EXT]  = 1'b1;
+		OP_EXTB: r[RC_EXTB] = 1'b1;
+		OP_SWAP: r[RC_SWAP] = 1'b1;
+		OP_TAS:  r[RC_TAS]  = 1'b1;
+		OP_BCHG: r[RC_BCHG] = 1'b1;
+		OP_BCLR: r[RC_BCLR] = 1'b1;
+		OP_BSET: r[RC_BSET] = 1'b1;
+		OP_SCC:  r[RC_SCC]  = 1'b1;
+		OP_EA:   r[RC_EA]   = 1'b1;
+		OP_DBCC: r[RC_DBCC] = 1'b1;
+		default: r[RC_B]    = 1'b1;
+	endcase
+	alu_rc = r;
+endfunction
+
 // D1's return stack pointer as an instruction found it, and what the
 // instruction did to it: a WB redirect puts it back (after the
 // instruction, or before it for a refetch), so wrong-path calls and
