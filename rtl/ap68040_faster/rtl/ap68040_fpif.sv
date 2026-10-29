@@ -291,6 +291,8 @@ logic [31:0] lst_dq;
 logic        lst_w;
 logic  [6:0] rs_dq;            // FRESTORE: the frame size, registered from its header
 logic        rs_w;             // ... the second clock of FC_RS0 (rs_dq good)
+logic [31:0] svw_q;            // FSAVE's frame word, registered: FC_SVW takes a clock more
+logic        svw_w;            // ... its second clock (svw_q good)
 logic        rs_okq;           // ... and its header a known frame
 logic [31:0] lst_q;            // ... FMOVEM's LIST result for a static list: its
                                // bytes, negated for -(An)
@@ -712,9 +714,12 @@ always_comb begin
 				end
 				res_g = ea_pd_q ? -{25'd0, kbytes(sv_now)} : {25'd0, kbytes(sv_now)};
 			end
-			FC_SVW: res_g = (sv_kind == 2'd3) ? busy_word(imm[6:2]) :
-			              (sv_kind == 2'd2) ? unimp_word(imm[6:2]) :
-			              (sv_kind == 2'd1) ? IDLE_HDR : 32'd0;
+			FC_SVW: begin
+				res_g = (sv_kind == 2'd3) ? busy_word(imm[6:2]) :
+				        (sv_kind == 2'd2) ? unimp_word(imm[6:2]) :
+				        (sv_kind == 2'd1) ? IDLE_HDR : 32'd0;
+				if (!svw_w) hold = 1'b1;
+			end
 			FC_RS0: begin
 				// (the frame's size is registered from its header, rs_dq:
 				// the first clock waits for it)
@@ -757,9 +762,7 @@ always_comb begin
 		FC_DBCC: res = {bv[31:16], bv[15:0] - 16'd1};
 		FC_COND: res = {bv[31:8], {8{fp_cond(cpred_q, f_cc)}}};   // FScc
 		FC_SV0:  res = ea_pd_q ? -{25'd0, kbytes(sv_now)} : {25'd0, kbytes(sv_now)};
-		FC_SVW:  res = (sv_kind == 2'd3) ? busy_word(imm[6:2]) :
-		               (sv_kind == 2'd2) ? unimp_word(imm[6:2]) :
-		               (sv_kind == 2'd1) ? IDLE_HDR : 32'd0;
+		FC_SVW:  res = svw_q;
 		FC_RS0:  res = {25'd0, rs_dq};
 		default: ;
 	endcase
@@ -774,6 +777,13 @@ always_ff @(posedge clk) begin
 	rs_dq  <= kbytes(rs_kind_of(av));
 	rs_okq <= rs_ok;
 	rs_w   <= nreset && ex_v && sub == FC_RS0 && !adv;
+	// FSAVE's frame word (the frame's kind and EX's word number, held
+	// while EX waits): the select over the busy frame's state was on the
+	// result's path into the forwarding at 60 MHz
+	svw_q  <= (sv_kind == 2'd3) ? busy_word(imm[6:2]) :
+	          (sv_kind == 2'd2) ? unimp_word(imm[6:2]) :
+	          (sv_kind == 2'd1) ? IDLE_HDR : 32'd0;
+	svw_w  <= nreset && ex_v && sub == FC_SVW && !adv;
 end
 // synthesis translate_off
 always_ff @(posedge clk)
@@ -783,6 +793,7 @@ always_ff @(posedge clk)
 	end
 always_ff @(posedge clk)
 	if (nreset && ex_v && res_g != res && res_g != 32'd0 && !(sub == FC_LIST && ext_q[11] && !lst_w) &&
+	    !(sub == FC_SVW && !svw_w) &&
 	    !(sub == FC_RS0 && !rs_w)) begin
 		$display("FAIL: fpif result %h, the gated one %h (sub %0d)", res, res_g, sub);
 		$finish;
