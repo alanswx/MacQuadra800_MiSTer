@@ -2261,6 +2261,11 @@ always_ff @(posedge clk) begin
 			e_st    <= E_BUS;
 		end
 		E_FILL_INS: begin
+			// (the set chosen whether or not the line is written: the
+			// write enables alone come from the fill's outcome, so the
+			// set feeding every stage's invalidation compare does not
+			// wait on the last beat's TCI and error)
+			vp_set = f_set; vp_set_o = f_set;
 			if (!bo_err && !bo_tci) begin
 				dw      <= 1'b1;
 				dw_set  <= f_set;
