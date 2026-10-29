@@ -111,6 +111,7 @@ CPU-clock setup slack, worst / TNS (ns), by batch:
 | 61d | ba9575d | -1.464 / -21.6 | -0.773 / -6.3 | -1.275 | -1.340 | | | -0.996 (53: -1.390, 54: -1.142, **55: -0.627 / -17.6**) |
 | 61e | 362a75e - 6550325 | | | | | | | -0.831 / -7.7 (55: -0.895 / -6.6) |
 | 61f | 794e0be | | | | | | | (seeds 56-63: **58: -0.399 / -0.40**, 57: -0.322 / -1.2, 56: -0.415 / -2.1, 62: -0.768, 60: -1.053, 61: -1.157, 63: -1.381, 59: -2.048) |
+| 61g | 4541732 | | | | | | | (seeds 52 55-58 64-66: **64: -0.191 / -3.6**, 55: -0.620 / -33.1, 52: -0.766, 57: -0.838, 56: -1.158, 58: -1.239, 66: -1.474, 65: -1.646) |
 
 (slack / TNS in ns on the 60 MHz CPU clock.)  60y (HDMI met on six of
 eight seeds) came out behind 60x: its leading families were the line-state
@@ -134,6 +135,19 @@ batches.  The FPU's FPSR/FPCR enabled-exception OR through the
 interface's hold into AG (seed 62, 249 endpoints) stays: the FPSR's
 exception byte is written on the clock the result reaches F_WB, so a
 registered OR would be a clock late (probed in simulation).
+61g (4541732: the fixes for 61f's three best seeds) came out behind
+61f on the same seeds (56: -1.158, 57: -0.838, 58: -1.239) and missed
+HDMI on five of eight; its best, seed 64 at -0.191 ns (HDMI -0.270),
+leads with EX's memory flag into DC1's A and RSTO's busy flag through
+WB's hold and the stall chain into the skid's load enable (f8df34e).
+Seed 55's leaders were the queue head's extension word through D1's
+length into the consume count (3eb1101, 374 endpoints), the bit test's
+size compare into Z (c0beff0), AG's register-file read into DC1's B
+(5fd21f7), the bit field extract kind (ac23b2c) and the microcode ROM
+through the memory EA select into the index read address (c3ab2dc);
+seed 52's the slow path's fault mask into the queued records' return
+stack kind (38c780c) and the FPU's FPSR into the register file's bank
+select.  These were fixed in that order.
 61d (ba9575d) has HDMI met on six of eight seeds again (39,651-39,753
 ALMs, 95 %), its best -0.627 (seed 55); 61e is an A/B of HEAD without
 the dual read ports (6550325 reverted, seeds 52 and 55): -0.831 / -0.895
@@ -281,6 +295,13 @@ the exception entry's registers) -- so the next commits went after those:
 | 05a2a47 | F_PACKS's rounding stickies straight from the shift register | same |
 | a282987 | FC_DISP's store result forms registered with the command words | same |
 | 9b99d83 | FMOVEM's slot logic from the queue head, without exception mode's zeroing | same |
+| f8df34e | the skid's uop loaded on every clock the skid is empty | same |
+| 3eb1101 | each queued word's length as an extension word, formed as it enters (24 flip-flops) | same |
+| 38c780c | a faulted record's return stack kind zeroed by the sequencer from dexc | same |
+| c0beff0 | the bit test's Z from a bit select of each width, the size last (t_btst) | same |
+| 5fd21f7 | AG's register-file read ports 3/4 addressed by their own copies | same |
+| ac23b2c | the bit field extract kind registered with EX's uop | same |
+| c3ab2dc | the memory operand's EA chosen flat from the microword's selectors | same |
 
 From 5988c36 on the self-tests also run in the 60 MHz build's own CPU
 configuration -- the Quadra's parameters plus the skid
