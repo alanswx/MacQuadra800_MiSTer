@@ -147,7 +147,10 @@ size compare into Z (c0beff0), AG's register-file read into DC1's B
 through the memory EA select into the index read address (c3ab2dc);
 seed 52's the slow path's fault mask into the queued records' return
 stack kind (38c780c) and the FPU's FPSR into the register file's bank
-select.  These were fixed in that order.
+select.  These were fixed in that order.  The FPSR family is now
+registered after all (f096729): not from the live registers, which are
+written on the clock F_WB begins, but from their next values, through
+which the state machine's 75 writes now go.
 61d (ba9575d) has HDMI met on six of eight seeds again (39,651-39,753
 ALMs, 95 %), its best -0.627 (seed 55); 61e is an A/B of HEAD without
 the dual read ports (6550325 reverted, seeds 52 and 55): -0.831 / -0.895
@@ -302,6 +305,7 @@ the exception entry's registers) -- so the next commits went after those:
 | 5fd21f7 | AG's register-file read ports 3/4 addressed by their own copies | same |
 | ac23b2c | the bit field extract kind registered with EX's uop | same |
 | c3ab2dc | the memory operand's EA chosen flat from the microword's selectors | same |
+| f096729 | the FPU's enabled exception test registered from FPSR and FPCR's next values (FPU differential bench: five seeds against the committed FPU) | same |
 
 From 5988c36 on the self-tests also run in the 60 MHz build's own CPU
 configuration -- the Quadra's parameters plus the skid
