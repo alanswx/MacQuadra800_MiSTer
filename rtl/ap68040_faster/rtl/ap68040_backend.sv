@@ -830,10 +830,20 @@ wire         ex_is_fp = ex_fp_q;
 wire dc2_disp = adv_dc2 && (dc2_u.op == OP_FPU) && (dc2_u.cond == 4'd1) &&
                 (dc2_u.pc == ex_u.pc) && (dc2_u.exc == 8'd0);
 
+// (CHK's size-field flags, registered with the uop: the size compare
+// began the unit's hold into EX's stall at 60 MHz)
+logic ex_fuse_q, ex_eal_q;
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && ex_v && (ex_fuse_q != (ex_u.sz == SZ_W) || ex_eal_q != (ex_u.sz == SZ_B))) begin
+		$display("FAIL: EX's FPU flags %b%b for the size %0d", ex_fuse_q, ex_eal_q, ex_u.sz);
+		$finish;
+	end
+// synthesis translate_on
 ap68040_fpif #(.FPU_REVISION(FPU_REVISION), .FPU_PIPE(FPU_PIPE)) fpif (
 	.clk(clk), .nreset(nreset),
 	.ex_v(ex_v && ex_is_fp && !ex_fault && ex_u.exc == 8'd0), .sub(ex_u.cond),
-	.fuse(ex_u.sz == SZ_W), .eal(ex_u.sz == SZ_B),
+	.fuse(ex_fuse_q), .eal(ex_eal_q),
 	.imm(ex_u.imm[7:0]), .immb(ex_u.imm_b[7:0]),
 	.av(ex_av), .bv(ex_bv), .aw(ex_a[15:0]), .bw(ex_b[15:0]),
 	.dw_a(dc2_a[15:0]), .dw_b(dc2_b[15:0]), .dw_ld(!stall_ex), .latch(ex_latch), .ea(ex_ea), .pc(ex_u.pc),
@@ -2173,6 +2183,8 @@ always_ff @(posedge clk) begin
 			ex_fp_q  <= (dc2_u.op == OP_FPU);
 			ex_dbcc_q <= (dc2_u.op == OP_DBCC);
 			ex_rc_q   <= alu_rc(dc2_u.op);
+			ex_fuse_q <= (dc2_u.sz == SZ_W);
+			ex_eal_q  <= (dc2_u.sz == SZ_B);
 			ex_slow_q <= is_slow(dc2_u.op);
 			ex_slr_q  <= is_slow(dc2_u.op) && (dc2_u.op != OP_CHK2B) && (dc2_u.op != OP_SPR) &&
 			             (dc2_u.op != OP_MISC) && (dc2_u.op != OP_IACKV) && (dc2_u.op != OP_RTEF) &&
