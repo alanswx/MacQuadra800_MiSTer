@@ -2167,8 +2167,26 @@ end
 
 
 // WB holds: store not accepted yet; RESET until RSTO is done
-wire wb_reset    = (wb_u.op == OP_MISC) && (wb_u.cond == 4'd1);
-wire wb_mt       = (wb_u.op == OP_MISC) && (wb_u.cond >= 4'd3) && (wb_u.cond <= 4'd5);
+// (both registered with the uop at EX -> WB, checked: the maintenance
+// decode, through WB's hold and commit into the back file's write select,
+// was a 60 MHz path)
+function automatic logic rst_of(input uop_t u);
+	rst_of = (u.op == OP_MISC) && (u.cond == 4'd1);
+endfunction
+function automatic logic mt_of(input uop_t u);
+	mt_of = (u.op == OP_MISC) && (u.cond >= 4'd3) && (u.cond <= 4'd5);
+endfunction
+logic wb_rst_q, wb_mt_q;
+wire wb_reset    = wb_rst_q;
+wire wb_mt       = wb_mt_q;
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && wb_v && (wb_rst_q != rst_of(wb_u) || wb_mt_q != mt_of(wb_u))) begin
+		$display("FAIL: WB's registered RESET/maintenance flags %b/%b, the uop's %b/%b (pc %h)",
+		         wb_rst_q, wb_mt_q, rst_of(wb_u), mt_of(wb_u), wb_u.pc);
+		$finish;
+	end
+// synthesis translate_on
 logic mt_seen;                // the DMU finished this WB uop's maintenance
 assign wb_hold = wb_v && (halted || (!wb_is_exc &&
                  ((wb_st && !dm_st_rdy) || (wb_st && dm_st_fault) ||
@@ -2572,6 +2590,8 @@ always_ff @(posedge clk) begin
 		//------------------------------------------------------------------
 		if (adv_ex) begin
 			wb_u        <= ex_u;
+			wb_rst_q    <= rst_of(ex_u);
+			wb_mt_q     <= mt_of(ex_u);
 			wb_npc      <= ex_npc;
 			wb_s        <= ex_s;
 			wb1_flt     <= ex1_flt;
