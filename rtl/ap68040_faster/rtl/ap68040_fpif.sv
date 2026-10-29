@@ -986,8 +986,11 @@ always_ff @(posedge clk) begin
 				go      <= 1'b1;
 				f_req   <= 1'b1;
 				f_iawe  <= 1'b1;
-				f_din   <= din_of(fmt, av, bv, latch);
-				f_dnice <= nice_mem(din_of(fmt, av, bv, latch), fmt);
+				// (the format from CHK's own extension word, ext's value
+				// in this arm: through ext's select, EX's subcommand decode
+				// began the operand and its class at 60 MHz)
+				f_din   <= din_of(aw[12:10], av, bv, latch);
+				f_dnice <= nice_mem(din_of(aw[12:10], av, bv, latch), aw[12:10]);
 				fresh   <= 1'b1;
 			end
 			else if (fuse && go) begin
@@ -1036,8 +1039,9 @@ always_ff @(posedge clk) begin
 					go      <= 1'b1;
 					f_req   <= 1'b1;
 					f_iawe  <= 1'b1;
-					f_din   <= din_of(fmt, av, bv, latch);
-					f_dnice <= nice_mem(din_of(fmt, av, bv, latch), fmt);
+					// (the latched word's format, ext's value here: as at CHK)
+					f_din   <= din_of(ext_q[12:10], av, bv, latch);
+					f_dnice <= nice_mem(din_of(ext_q[12:10], av, bv, latch), ext_q[12:10]);
 				end
 				else if (ocl == 3'b011) begin
 					if (f_unimp || f_unsupp || f_done) begin
