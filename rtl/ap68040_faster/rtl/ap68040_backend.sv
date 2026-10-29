@@ -817,10 +817,21 @@ logic       ex_amem, ex_bmem;
 wire [31:0] ex_av0 = ex_amem ? ex_ld : ex_a;
 wire [31:0] ex_av  = ex_u.a_sxw ? {{16{ex_av0[15]}}, ex_av0[15:0]} : ex_av0;
 wire [31:0] ex_bv  = ex_bmem ? ex_ld : ex_b;
+// ... A and B for the slow unit, their selects (and A's sign extension)
+// made as the uop enters EX (ex_a, ex_b and ex_ld load nowhere else):
+// ex_bmem's select and fan-out began the barrel shifter's path into xs_q,
+// ex_av's the CHK2 compare's into its exception, at 60 MHz
+logic [31:0] ex_as, ex_bs;
 // synthesis translate_off
 always_ff @(posedge clk)
 	if (nreset && ex_v && (ex_amem != (ex_u.a_src == OS_MEM) || ex_bmem != (ex_u.b_src == OS_MEM))) begin
 		$display("FAIL: EX's operand sources %b%b, the uop's %0d %0d", ex_amem, ex_bmem, ex_u.a_src, ex_u.b_src);
+		$finish;
+	end
+always_ff @(posedge clk)
+	if (nreset && ex_v && (ex_as !== ex_av || ex_bs !== ex_bv)) begin
+		$display("FAIL: EX's registered slow A, B %h %h, the selected ones %h %h (pc %h)",
+		         ex_as, ex_bs, ex_av, ex_bv, ex_u.pc);
 		$finish;
 	end
 // synthesis translate_on
@@ -1275,7 +1286,7 @@ logic [31:0] sl_res;
 logic  [4:0] sl_flags;
 logic        sl_sim_c, sl_sim_asr;
 ap68040_alu_slow alu_s (
-	.op(ex_u.op), .shk(ex_shk), .sz(ex_u.sz), .a(ex_av), .b(ex_bv), .cnt(ex_a[5:0]), .flags_in(ccr_f),
+	.op(ex_u.op), .shk(ex_shk), .sz(ex_u.sz), .a(ex_as), .b(ex_bs), .cnt(ex_a[5:0]), .flags_in(ccr_f),
 	.nx_q(rox_nx_q), .nx(rox_nx), .nxl_q(rox_nxl_q), .nxl(rox_nxl),
 	.res(sl_res), .flags_out(sl_flags), .sim_c(sl_sim_c), .sim_asr_eq(sl_sim_asr)
 );
@@ -1387,7 +1398,7 @@ end
 
 // slow operations (first EX cycle)
 always_comb begin
-	xs.res    = ex_bv;          // (the shifter's result: last, below)
+	xs.res    = ex_bs;          // (the shifter's result: last, below)
 	xs.flags  = ex_shift ? {sl_flags[4], 2'b00, sl_flags[1:0]} : sl_flags;
 	xs.dkill  = 1'b0;
 	xs.taken  = 1'b0;
@@ -1403,15 +1414,15 @@ always_comb begin
 			logic signed [31:0] lo, up, rg;
 			logic z, c;
 			case (ex_u.sz)
-				SZ_B: begin lo = {{24{ex_latch[7]}}, ex_latch[7:0]}; up = {{24{ex_av[7]}}, ex_av[7:0]};
-				            rg = ex_u.cond[1] ? {{24{ex_bv[7]}}, ex_bv[7:0]} : ex_bv; end
-				SZ_W: begin lo = {{16{ex_latch[15]}}, ex_latch[15:0]}; up = {{16{ex_av[15]}}, ex_av[15:0]};
-				            rg = ex_u.cond[1] ? {{16{ex_bv[15]}}, ex_bv[15:0]} : ex_bv; end
-				default: begin lo = ex_latch; up = ex_av; rg = ex_bv; end
+				SZ_B: begin lo = {{24{ex_latch[7]}}, ex_latch[7:0]}; up = {{24{ex_as[7]}}, ex_as[7:0]};
+				            rg = ex_u.cond[1] ? {{24{ex_bs[7]}}, ex_bs[7:0]} : ex_bs; end
+				SZ_W: begin lo = {{16{ex_latch[15]}}, ex_latch[15:0]}; up = {{16{ex_as[15]}}, ex_as[15:0]};
+				            rg = ex_u.cond[1] ? {{16{ex_bs[15]}}, ex_bs[15:0]} : ex_bs; end
+				default: begin lo = ex_latch; up = ex_as; rg = ex_bs; end
 			endcase
 			z = (up == rg) || (lo == rg);
 			c = !z && ((lo <= up) ? ((rg < lo) || (rg > up)) : ((rg > up) && (rg < lo)));
-			xs.res   = ex_bv;
+			xs.res   = ex_bs;
 			xs.dkill = 1'b1;
 			xs.flags = {ccr_f[4], ccr_f[3], z, ccr_f[1], c};
 			if (ex_u.cond[0] && c) xs.xvec = 8'd6;
@@ -1420,10 +1431,10 @@ always_comb begin
 			logic [15:0] cur, n;
 			cur = {sr_r[15:5], ccr_f};
 			case (ex_u.cond[1:0])
-				2'd0:    n = cur & ex_av[15:0];
-				2'd1:    n = cur | ex_av[15:0];
-				2'd2:    n = cur ^ ex_av[15:0];
-				default: n = ex_av[15:0];
+				2'd0:    n = cur & ex_as[15:0];
+				2'd1:    n = cur | ex_as[15:0];
+				2'd2:    n = cur ^ ex_as[15:0];
+				default: n = ex_as[15:0];
 			endcase
 			xs.sr_new = n & SR_MASK;
 			xs.sr_we  = 1'b1;
@@ -1433,15 +1444,15 @@ always_comb begin
 			logic [31:0] v, m;
 			v = spr_read(ex_u.imm[7:0]);
 			m = (ex_u.sz == SZ_B) ? 32'h0000_00FF : (ex_u.sz == SZ_W) ? 32'h0000_FFFF : 32'hFFFF_FFFF;
-			xs.res = (v & m) | (ex_bv & ~m);
+			xs.res = (v & m) | (ex_bs & ~m);
 			xs.flags = ccr_f;
 		end
 		OP_MISC: begin
 			xs.flags = ccr_f;
-			xs.res   = ex_av;              // maintenance: the address
+			xs.res   = ex_as;              // maintenance: the address
 			if (ex_u.cond == 4'd2) begin
 				// STOP #imm: SR = imm, then wait for an interrupt
-				xs.sr_new = ex_av[15:0] & SR_MASK;
+				xs.sr_new = ex_as[15:0] & SR_MASK;
 				xs.sr_we  = 1'b1;
 				xs.flags  = xs.sr_new[4:0];
 			end
@@ -1454,7 +1465,7 @@ always_comb begin
 			logic [7:0] v;
 			xs.flags = ccr_f;
 			if (!ex_u.cond[0]) begin
-				v = ex_av[9] ? 8'd24 : ex_av[8] ? (8'd24 + {5'd0, irq_lvl_r}) : ex_av[7:0];
+				v = ex_as[9] ? 8'd24 : ex_as[8] ? (8'd24 + {5'd0, irq_lvl_r}) : ex_as[7:0];
 				xs.res = {22'd0, v, 2'b00};                 // format $0 word
 			end
 			else begin
@@ -1472,10 +1483,10 @@ always_comb begin
 				// FRESTORE header (FPU in reset state): only a NULL frame
 				// (version byte $00) is compatible, anything else is a
 				// format error at the FRESTORE
-				xs.res = ex_av;
-				if (ex_av[31:24] != 8'd0) xs.xvec = 8'd14;
+				xs.res = ex_as;
+				if (ex_as[31:24] != 8'd0) xs.xvec = 8'd14;
 			end
-			else case (ex_av[15:12])
+			else case (ex_as[15:12])
 				4'h0, 4'h1: xs.res = 32'd8;
 				4'h2, 4'h3: xs.res = 32'd12;
 				4'h7:       xs.res = 32'd60;
@@ -1483,11 +1494,11 @@ always_comb begin
 			endcase
 		end
 		OP_RTE: begin
-			xs.sr_new = ex_av[15:0] & SR_MASK;
+			xs.sr_new = ex_as[15:0] & SR_MASK;
 			xs.sr_we  = 1'b1;
 			xs.flags  = xs.sr_new[4:0];
 			xs.taken  = 1'b1;
-			xs.target = rte_fmt1 ? ex_u.pc : ex_bv;
+			xs.target = rte_fmt1 ? ex_u.pc : ex_bs;
 		end
 		OP_BF: begin
 			xs.res   = bf_res;
@@ -2288,6 +2299,14 @@ always_ff @(posedge clk) begin
 			ex_b1    <= dc2_s.b_v ? bcast(exw_fw, dc2_s.b_reg, dc2_b1) : dc2_b1;
 			ex_ea    <= dc2_ea;
 			ex_ld    <= dm_ldata;
+			begin
+				logic [31:0] v;
+				v = (dc2_u.a_src == OS_MEM) ? dm_ldata :
+				    (dc2_u.a_src == OS_REG) ? bcast(exw_fw, dc2_u.a_reg, dc2_a) : dc2_a;
+				ex_as <= dc2_u.a_sxw ? {{16{v[15]}}, v[15:0]} : v;
+			end
+			ex_bs    <= (dc2_u.b_src == OS_MEM) ? dm_ldata :
+			            (dc2_u.b_src == OS_REG) ? bcast(exw_fw, dc2_u.b_reg, dc2_b) : dc2_b;
 			ex_upd   <= dc2_upd;
 			ex_upd2  <= dc2_upd2;
 			ex_fault <= (dc2_u.mem != M_NONE) && dm_fault;
