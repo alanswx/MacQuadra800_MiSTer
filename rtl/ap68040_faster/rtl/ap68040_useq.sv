@@ -220,6 +220,31 @@ logic        same_c;             // the EA's base is the deferred register (per 
 logic        dbg_same, dbg_samev; // (simulation: the merge's base test, the old form)
 eab_t        dbg_bx, dbg_bxo;    // (simulation: the EA's base/index candidate, the case's)
 logic        dbg_bxv;
+// the memory operand's EA (EA1 or EA0), flat from the microword's
+// selectors and the two EAs' modes: through the operand decode's mem and
+// ea1 fields it was four levels from the microcode ROM, ahead of the
+// uop's base and index selects and the next head's read addresses (a
+// 60 MHz path into the back end's rra1_q).  Checked against that form.
+function automatic logic ea_mem(input ea_t e);
+	ea_mem = (e.m != EM_DN) && (e.m != EM_AN) && (e.m != EM_IMM);
+endfunction
+(* keep *) wire mf_m0 = ea_mem(src.ea0);
+(* keep *) wire mf_m1 = ea_mem(src.ea1);
+(* keep *) wire mf_a0 = (uw.a == S_EA0), mf_a1 = (uw.a == S_EA1);
+(* keep *) wire mf_b0 = (uw.b == S_EA0), mf_b1 = (uw.b == S_EA1);
+(* keep *) wire mf_d1 = (uw.d == S_EA1);
+(* keep *) wire mf_g0 = (uw.ag == AGM_EA0) || (uw.ag == AGM_LEA0) || (uw.ag == AGM_FEA);
+(* keep *) wire mf_g1 = (uw.ag == AGM_EA1);
+wire me_ea1_f = !mf_g0 && (mf_g1 || (mf_a1 && mf_m1) ||
+                (!(mf_a0 && mf_m0) && ((mf_b1 && mf_m1) || (!(mf_b0 && mf_m0) && mf_d1 && mf_m1))));
+logic me_ea1_ref;
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && uw_v && me_ea1_f != me_ea1_ref) begin
+		$display("FAIL: useq: the memory EA %b, by the operand decode %b", me_ea1_f, me_ea1_ref);
+		$finish;
+	end
+// synthesis translate_on
 always_comb begin
 	opsel_t oa, ob, od;
 	ea_t    me;              // the uop's memory EA
@@ -423,9 +448,11 @@ always_comb begin
 	//----------------------------------------------------------------------
 	me_v   = oa.mem || ob.mem || od.mem;
 	me_ea1 = oa.mem ? oa.ea1 : ob.mem ? ob.ea1 : od.ea1;
+	if (uw.ag == AGM_EA0 || uw.ag == AGM_LEA0 || uw.ag == AGM_FEA) me_ea1 = 1'b0;
+	if (uw.ag == AGM_EA1) me_ea1 = 1'b1;
+	me_ea1_ref = me_ea1;
+	me_ea1 = me_ea1_f;
 	me     = me_ea1 ? src.ea1 : src.ea0;
-	if (uw.ag == AGM_EA0 || uw.ag == AGM_LEA0 || uw.ag == AGM_FEA) begin me = src.ea0; me_ea1 = 1'b0; end
-	if (uw.ag == AGM_EA1) begin me = src.ea1; me_ea1 = 1'b1; end
 	me_sp  = (me.r == 3'd7);
 	amt    = size_bytes(msz, me_sp && (me.m == EM_AIP || me.m == EM_APD));
 
