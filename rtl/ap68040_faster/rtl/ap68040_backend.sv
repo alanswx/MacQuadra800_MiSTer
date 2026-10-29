@@ -670,7 +670,14 @@ wire [31:0] ag_updv = ag_u.pinc ? ag_pinc : ag_ea;
 wire [31:0] ag_u2v  = rrd[2] + {{24{ag_u.upd2_amt[7]}}, ag_u.upd2_amt};
 // bit field memory transfers sized by the field (see ucode.py _bf_mem_load)
 wire        ag_bfh    = (ag_u.mem != M_NONE) && (ag_u.op == OP_MOV) && (ag_u.cond == 4'hE);
-wire        ag_bft    = (ag_u.mem != M_NONE) && (ag_u.op == OP_MOV) && (ag_u.cond == 4'hD);
+// (the tail's flag registered with the uop, and bf_nb's 3 with bf_nb: the
+// pair selects the displacement into the address adder, and the decode and
+// the compare in front of it were a 60 MHz path to DC1's lookup)
+function automatic logic bft_of(input uop_t u);
+	bft_of = (u.mem != M_NONE) && (u.op == OP_MOV) && (u.cond == 4'hD);
+endfunction
+logic       ag_bft_q;
+wire        ag_bft    = ag_bft_q;
 wire        ag_rte7   = (ag_u.mem != M_NONE) && (ag_u.op == OP_MOV) && (ag_u.cond == 4'hB);
 // FPU transfers cancelled by run-time state: FMOVEM slots, FSAVE and
 // FRESTORE frame words (dyn; the FPU interface latched the state in EX
@@ -711,7 +718,7 @@ wire  [1:0] ag_msz    = ag_bfh ? ((bf_nb == 3'd1) ? SZ_B : (bf_nb <= 3'd3) ? SZ_
 wire [31:0] ag_mbase  = ag_cm ? cm_ea : ag_base;
 wire [31:0] ag_mix    = ag_cm ? 32'd0 : ag_ix;
 wire [31:0] ag_mdisp  = ag_cm ? ag_u.target :
-                        (ag_bft && bf_nb == 3'd3) ? ag_u.disp - 32'd2 : ag_u.disp;
+                        (ag_bft && bf_nb3) ? ag_u.disp - 32'd2 : ag_u.disp;
 wire [31:0] ag_maddr  = ag_mbase + ag_mix + ag_mdisp;
 
 // operand read with the EX broadcast of this cycle (see the snoop below)
@@ -1138,6 +1145,7 @@ logic  [5:0] bf_w;
 logic  [5:0] bf_wn;
 logic [31:0] bf_top, bf_sx;
 logic  [2:0] bf_nb;             // memory form: bytes holding the field (1..5)
+logic        bf_nb3;            // ... is 3 (registered with it, for AG)
 
 // MOVEM continuation (MC68040UM 8.4.6.5, SSW CM)
 logic        rte_fmt7;          // the RTE's frame is format $7
@@ -2709,6 +2717,7 @@ always_ff @(posedge clk) begin
 				bf_top <= ~(32'hFFFF_FFFF >> w);      // (a shift by 32 gives 0)
 				bf_sx  <= 32'hFFFF_FFFF << w;
 				bf_nb  <= e[5:3];
+				bf_nb3 <= e[5:3] == 3'd3;
 			end
 			if (ex_u.op == OP_BF) bf_lonew <= bf_lo_out;
 		end
@@ -2985,6 +2994,7 @@ always_ff @(posedge clk) begin
 			ag_v <= 1'b0; dc1_v <= 1'b0; dc2_v <= 1'b0; ex_v <= 1'b0; wb_v <= 1'b0;
 		end
 	end
+	ag_bft_q <= ag_ld ? bft_of(ain_u) : bft_of(ag_u);
 	cm_hit_q <= cm_rst ? ((ag_ld ? ain_u.pc : ag_u.pc) == 32'd0) :
 	            ag_ld  ? (cm_wr ? (ain_u.pc == wb_next) : (ain_u.pc == cm_pc)) :
 	                     (cm_wr ? (ag_u.pc  == wb_next) : (ag_u.pc  == cm_pc));
@@ -2999,6 +3009,12 @@ always_ff @(posedge clk)
 
 assign dm_st_v    = wb_v && wb_stv;
 // synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && (ag_bft_q != bft_of(ag_u) || bf_nb3 != (bf_nb == 3'd3))) begin
+		$display("FAIL: AG's registered bit field tail flag %b / nb3 %b, the uop's %b / %b",
+		         ag_bft_q, bf_nb3, bft_of(ag_u), bf_nb == 3'd3);
+		$finish;
+	end
 always_ff @(posedge clk)
 	if (nreset && wb_v && (wb_stv != (wb_st && wb_exc == 8'd0) || wb_ok != (wb_exc == 8'd0))) begin
 		$display("FAIL: wb_stv %b, the store %b with exception %0d (pc %h)", wb_stv, wb_st, wb_exc, wb_u.pc);
