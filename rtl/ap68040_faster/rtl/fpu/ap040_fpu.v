@@ -613,6 +613,20 @@ wire        st_norm = fr_src_m[63] && (fr_src_e != 15'h7FFF);
 wire signed [17:0] st_sE = $signed({3'd0, fr_src_e}) - 18'sd16383;
 
 // IEEE round-up decision from {lsb, G, R|S} and sign
+// F_PACKI's range check of a rounded magnitude: an n-bit signed result
+// holds below 2^(n-1), or exactly 2^(n-1) when negative
+function pk_ovf;
+	input [64:0] mg;
+	input        neg;
+	input  [1:0] isz;
+	reg hi32, hi16, hi8;
+	begin
+		hi32 = (mg[64:32] != 0) || (mg[31] && !(neg && mg[30:0] == 0));
+		hi16 = (mg[64:16] != 0) || (mg[15] && !(neg && mg[14:0] == 0));
+		hi8  = (mg[64:8]  != 0) || (mg[7]  && !(neg && mg[6:0]  == 0));
+		pk_ovf = (isz == 2'd2) ? hi32 : (isz == 2'd1) ? hi16 : hi8;
+	end
+endfunction
 function round_up;
 	input       lsb, g, rs;
 	input       sign;
@@ -819,6 +833,10 @@ wire [64:0] shk_i  = shk + ((fst == F_PACKS) ? ((r_fmt == 3'd1) ? 65'h100_0000_0
 // chose the addend, and the sum's range checks into dout were a 60 MHz
 // path)
 wire [64:0] shk_p1 = shk + 65'd1;
+// (F_PACKI's range check of each rounding candidate, kept apart: the
+// rounding decision chooses between them)
+(* keep *) wire pk_ovf0 = pk_ovf(shk, pk_neg, pk_isz);
+(* keep *) wire pk_ovf1 = pk_ovf(shk_p1, pk_neg, pk_isz);
 
 // one 64x64 multiplier for both: the state machine multiplies only in
 // F_MULT, which it reaches with the pipeline empty
@@ -3314,7 +3332,7 @@ always @(posedge clk) begin
 				// round and range check the integer store
 				reg  [64:0] mg;
 				reg  [31:0] lo;
-				reg         ovf, hi32, hi16, hi8;
+				reg         ovf, up;
 				if (sh_cnt == 7'd127) begin
 					// infinity / far out of range: OPERR, saturating to the
 					// SIGN-DEPENDENT extreme (roundAndPackInt32/16/8)
@@ -3325,16 +3343,21 @@ always @(posedge clk) begin
 					                            (pk_neg ? {8'h80, 24'd0} : {8'h7F, 24'd0}), 64'd0};
 				end
 				else begin
-					// the rounded magnitude; its range checked as it is (an
-					// n-bit signed result holds below 2^(n-1), or exactly
-					// 2^(n-1) when negative), and only the low long word
-					// negated for the store
-					mg = round_up(sh_v[3], sh_v[2], (sh_v[1:0] != 0), pk_neg) ? shk_p1 : shk;
-					lo = pk_neg ? (32'd0 - mg[31:0]) : mg[31:0];
-					hi32 = (mg[64:32] != 0) || (mg[31] && !(pk_neg && mg[30:0] == 0));
-					hi16 = (mg[64:16] != 0) || (mg[15] && !(pk_neg && mg[14:0] == 0));
-					hi8  = (mg[64:8]  != 0) || (mg[7]  && !(pk_neg && mg[6:0]  == 0));
-					ovf = (pk_isz == 2'd2) ? hi32 : (pk_isz == 2'd1) ? hi16 : hi8;
+					// the rounded magnitude; its range checked as it is (pk_ovf),
+					// and only the low long word negated for the store.  Both
+					// candidates are range checked and the rounding decision
+					// (FPCR's mode) chooses last: checked after the choice it
+					// was a 60 MHz path from FPCR into dout
+					up  = round_up(sh_v[3], sh_v[2], (sh_v[1:0] != 0), pk_neg);
+					mg  = up ? shk_p1 : shk;
+					lo  = pk_neg ? (32'd0 - mg[31:0]) : mg[31:0];
+					ovf = up ? pk_ovf1 : pk_ovf0;
+					// synthesis translate_off
+					if (nreset && ovf != pk_ovf(mg, pk_neg, pk_isz)) begin
+						$display("FAIL: fpu: F_PACKI's range check %b, the rounded magnitude's %b", ovf, pk_ovf(mg, pk_neg, pk_isz));
+						$finish;
+					end
+					// synthesis translate_on
 					if (ovf) begin
 						fpsr_n[13] = 1;                   // OPERR
 						fpsr_n[7] = 1;
