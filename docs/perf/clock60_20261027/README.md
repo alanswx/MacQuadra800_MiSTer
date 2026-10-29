@@ -272,6 +272,15 @@ the exception entry's registers) -- so the next commits went after those:
 | ac7264e | AG's bit field tail flag and bf_nb's 3 from flip-flops | same |
 | ae30b01 | the forwarding enable's integer side without the FPU's hold and kill | same |
 | 4541732 | WB's RESET and maintenance flags registered with the uop | same |
+| ca7442b | DC2's store merges by byte picks registered from DC1's address | same |
+| 7a33740 | the BTB write's index, tag and slot loaded every clock | same |
+| 169b9e3 | the shift funnel's input by a form registered with the uop | same |
+| 15a1ef9 | the second slot's A, held and taken, formed apart with the stall last | same |
+| aacccd6 | the known-target JSR by the operation word and the EA kind (t_jsrk) | same |
+| 521bc8f | the line-state update's read at WB's set from a copy of its own (one MLAB copy more) | same |
+| 05a2a47 | F_PACKS's rounding stickies straight from the shift register | same |
+| a282987 | FC_DISP's store result forms registered with the command words | same |
+| 9b99d83 | FMOVEM's slot logic from the queue head, without exception mode's zeroing | same |
 
 From 5988c36 on the self-tests also run in the 60 MHz build's own CPU
 configuration -- the Quadra's parameters plus the skid
