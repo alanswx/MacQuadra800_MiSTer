@@ -18,6 +18,8 @@
 ;   5    four lines in one data-cache set and their pages in one ATC set
 ;        ($06800, $16800, $26800, $36800): four cache ways hit through
 ;        four ATC ways, each line read back twice
+;   6    a long across two such lines in each page: the second part's
+;        lookup by the engine through that page's ATC way
 
 FAILREG	equ	$F100
 DONEREG	equ	$F102
@@ -145,6 +147,35 @@ start:
 	bra.s	.k5
 .f5:	failt	5
 .k5:
+	; a long across the two lines of each page: its second part is the
+	; engine's lookup (E_SP_2) through that page's ATC way
+	move.l	#$11223345,($0680C).l
+	move.l	#$55667788,($06810).l
+	move.l	#$11223346,($1680C).l
+	move.l	#$55667789,($16810).l
+	move.l	#$11223347,($2680C).l
+	move.l	#$5566778A,($26810).l
+	move.l	#$11223348,($3680C).l
+	move.l	#$5566778B,($36810).l
+	move.l	($0680C).l,d0
+	move.l	($06810).l,d0
+	move.l	($1680C).l,d0
+	move.l	($16810).l,d0
+	move.l	($2680C).l,d0
+	move.l	($26810).l,d0
+	move.l	($3680C).l,d0
+	move.l	($36810).l,d0
+	cmp.l	#$33455566,($0680E).l
+	bne.s	.f6
+	cmp.l	#$33465566,($1680E).l
+	bne.s	.f6
+	cmp.l	#$33475566,($2680E).l
+	bne.s	.f6
+	cmp.l	#$33485566,($3680E).l
+	bne.s	.f6
+	bra.s	.k6
+.f6:	failt	6
+.k6:
 
 	move.w	#$600D,(DONEREG).l
 	bra.s	*

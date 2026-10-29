@@ -688,6 +688,37 @@ function automatic logic [3:0] eng_mj(input logic tp, input logic [31:0] la, inp
 	end
 	eng_mj = m;
 endfunction
+// ... the hit and the way as {hit, way}, the ATC's hits last: each ATC way's
+// matches encoded (by the same priority) beside the ATC's compare, then
+// picked by its hits -- through the per-way matches the hit vector began
+// the engine's e_x.way at 60 MHz (an ATC hits in one way at most)
+function automatic logic [2:0] eng_hw(input logic tp, input logic [31:0] la, input logic [3:0] lv,
+                                      input logic [CTW-1:0] tq [4]);
+	logic [3:0] mt;
+	logic [2:0] r;
+	for (int j = 0; j < 4; j++) mt[j] = lv[j] && tq[j] == la[31:CSH+1];
+	if (tp) r = {|mt, mt[3] ? 2'd3 : mt[2] ? 2'd2 : mt[1] ? 2'd1 : 2'd0};
+	else begin
+		r = 3'd0;
+		for (int i = 0; i < 4; i++) begin
+			logic [3:0] m;
+			for (int j = 0; j < 4; j++)
+				m[j] = lv[j] && tq[j] == ((CTW'({atc_wpa[i][19:1], tc_p ? la[12] : atc_wpa[i][0]}) << (11 - CSH)) |
+				                          CTW'(la[11:0] >> (CSH + 1)));
+			if (atc_hv[i]) r = r | {|m, m[3] ? 2'd3 : m[2] ? 2'd2 : m[1] ? 2'd1 : 2'd0};
+		end
+	end
+	eng_hw = r;
+endfunction
+function automatic xres_t eng_hit2(input xres_t x, input logic [2:0] hw);
+	xres_t r;
+	r = x;
+	if (x.ok && !x.flt) begin
+		r.hit = hw[2];
+		r.way = hw[1:0];
+	end
+	eng_hit2 = r;
+endfunction
 // the hit from it, for a translation xlate made without tags
 function automatic xres_t eng_hit(input xres_t x, input logic [3:0] m);
 	xres_t r;
@@ -1565,7 +1596,14 @@ always_ff @(posedge clk) begin
 			x  = xlate({m2.r.a[31:4] + 28'd1, 4'd0}, m2.r.smode, (m2.r.mem != M_LD),
 			           fc_tt(m2.r.fc) == TT_ALT, atc_hit, atc_e,
 			           tq_a[0], tq_a[1], tq_a[2], tq_a[3], 4'd0);
-			x  = eng_hit(x, eng_mj(e_tp, {m2.r.a[31:4] + 28'd1, 4'd0}, lve_q, tq_r));
+			x  = eng_hit2(x, eng_hw(e_tp, {m2.r.a[31:4] + 28'd1, 4'd0}, lve_q, tq_r));
+			// synthesis translate_off
+			if (eng_hit2(x, eng_hw(e_tp, {m2.r.a[31:4] + 28'd1, 4'd0}, lve_q, tq_r)) !==
+			    eng_hit(x, eng_mj(e_tp, {m2.r.a[31:4] + 28'd1, 4'd0}, lve_q, tq_r))) begin
+				$display("FAIL: dmu: E_SP_2's hit and way by the ATC's hits last differ from the matches'");
+				$finish;
+			end
+			// synthesis translate_on
 			// synthesis translate_off
 			begin
 				xres_t xr;
@@ -1602,7 +1640,13 @@ always_ff @(posedge clk) begin
 			// entry for a failed one)
 			x = xlate(e_va, m2.r.smode, (m2.r.mem != M_LD), fc_tt(m2.r.fc) == TT_ALT,
 			          atc_hit, atc_e, tq_a[0], tq_a[1], tq_a[2], tq_a[3], 4'd0);
-			x = eng_hit(x, eng_mj(e_tp, e_va, lvv_q, tq_r));
+			x = eng_hit2(x, eng_hw(e_tp, e_va, lvv_q, tq_r));
+			// synthesis translate_off
+			if (eng_hit2(x, eng_hw(e_tp, e_va, lvv_q, tq_r)) !== eng_hit(x, eng_mj(e_tp, e_va, lvv_q, tq_r))) begin
+				$display("FAIL: dmu: E_S_XL2's hit and way by the ATC's hits last differ from the matches'");
+				$finish;
+			end
+			// synthesis translate_on
 			// synthesis translate_off
 			begin
 				xres_t xr;
