@@ -633,6 +633,13 @@ always_ff @(posedge clk)
 		$finish;
 	end
 // synthesis translate_on
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && f1_go && st != S_RUN) begin
+		$display("FAIL: fetch: F1 runs beside the miss engine (state %0d)", st);
+		$finish;
+	end
+// synthesis translate_on
 // the first fetch at a target the BTB sent F0 to: its words for the entry
 wire tw_fill = BTIC && pf_v && f1_deliver && f1_pc[31:1] == pf_t && !btb_hit && !tw_clr && !tw_sw &&
                !cof_w(x_chunk[15:0]) && !(!f1_pc[1] && cof_w(x_chunk[31:16]));
@@ -650,6 +657,20 @@ wire       tj_go    = tj_v && ({1'b0, cnt} + inflight0 <= 6'(QN - 2));
 // a snooped invalidation goes first (the snooper has priority, 4.5)
 wire       f0_go    = (st == S_RUN) && !odd && !stop && !redir_any &&
                       !iatc_flush_page && !inv_busy && !sn_inv && room;
+// F0's next address when F1 hits: a predicted taken branch's target (a
+// return's from the stack; with the entry's words, the long word after
+// them), else F0's own (its next long word when it issues) -- formed
+// without the tag compare, which picks it or the missed address last: as
+// the delivery's condition the compare ran through every select of fpc,
+// a 60 MHz path from the I-cache's tags
+logic [31:0] fpc_h;
+always_comb begin
+	fpc_h = f0_go ? ({fpc[31:2], 2'b00} + 32'd4) : fpc;
+	if (f1_bt && !(f1_bkind == 2'd2 && fras_n == 4'd0))
+		// (tu: never a return, so its t is the entry's target)
+		fpc_h = (tw_hit && f1_bkind != 2'd2) ? {tw_ti, 2'b00}
+		                                     : {((f1_bkind == 2'd2) ? fras[fras_tp] : f1_btgt), 1'b0};
+end
 
 assign c_raddr = inv_busy ? inv_i[CSB-1:0] : fpc[CSH:4];
 
@@ -897,8 +918,7 @@ qpc_r <= cfl ? {tq[0], 1'b0} + {30'd0, consume_t, 1'b0} : qpc_r + {28'd0, consum
 				f2_t <= t;
 				f1_v <= 1'b0;
 				f1_btok <= 1'b0;
-				// (tu: never a return, so t is the entry's target)
-				fpc  <= tu ? {tw_ti, 2'b00} : {t, 1'b0};
+				// (F0's next address: fpc_h, below the block)
 				fnew <= 1'b0;
 				tj_v  <= tu && !(one && t[0]);
 				tj_n2 <= !t[0] && !one;
@@ -924,7 +944,6 @@ qpc_r <= cfl ? {tq[0], 1'b0} + {30'd0, consume_t, 1'b0} : qpc_r + {28'd0, consum
 		end
 		else if (f1_go) begin
 			f1_v   <= 1'b0;
-			fpc    <= f1_pc;
 			fnew   <= f1_dem;
 			m_la   <= f1_pc;
 			m_pa   <= x_pa;
@@ -960,6 +979,11 @@ qpc_r <= cfl ? {tq[0], 1'b0} + {30'd0, consume_t, 1'b0} : qpc_r + {28'd0, consum
 				b_req_r <= 1'b1;
 			end
 		end
+
+		// F0's next address with F1 there: the hit's (fpc_h) or the
+		// missed one, by the tag compare last (the miss engine's loads
+		// below never meet F1, and a redirect has none)
+		if (f1_go) fpc <= x_hit ? fpc_h : f1_pc;
 
 		//------------------------------------------------------------------
 		// miss engine
