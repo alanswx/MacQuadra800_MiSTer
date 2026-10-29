@@ -104,11 +104,16 @@ CPU-clock setup slack, worst / TNS (ns), by batch:
 | 60w | ffe40c3 | -1.159 | -0.919 | -1.504 | **-0.844 / -16.4** | | | -1.593 |
 | 60x | 21dfcdd | -0.742 / -6.7 | -0.769 | -1.163 | -1.069 | | | **-0.636 / -8.5** (53: -0.712, 54: -1.736, 55: -1.380) |
 | 60y | 77a6df6 | -0.991 / -24.3 | -1.918 | -1.435 | -1.284 | | | -0.989 / -24.9 (53: -1.835, **54: -0.910 / -12.8**, 55: -1.942) |
+| 60z | 78d4fa1 | -1.245 / -58.1 | -1.488 | -1.179 | **-0.425 / -10.9** | | | -1.531 (53: -1.174, 54: -1.683, 55: -0.992) |
 
 (slack / TNS in ns on the 60 MHz CPU clock.)  60y (HDMI met on six of
 eight seeds) came out behind 60x: its leading families were the line-state
 port's read address chosen by the tag compare (53f4f5e), FADD's sign test
 into a_m (c548747) and EX's ALU result into AG's address (f539800).
+60z's seed 49 is the best single fit yet, -0.425 ns with the HDMI domain
+met (+0.119); the batch's others sit at -1.0 to -1.7, led by the stall
+cone from AG's interlock (cc6ebd5, d1ab8be, 81aac5f) and the line-state
+port's address (53f4f5e, not in 60z).
 60x is the best batch so
 far: five of eight seeds within -0.8 ns, and its best seed (52) has the
 HDMI domain met (+0.211; 60u s52 +0.274, 60w s49 +0.406).
@@ -166,6 +171,15 @@ the exception entry's registers) -- so the next commits went after those:
 | a217510 | the FPU's result enters EX's written value next to last | same |
 | b3e011a | a memory bit field's written head from B and the masks' bytes | same |
 | 120103a | the FPU interface's fuse and EAL flags registered with EX's uop | same |
+| 81aac5f | AG's registered read addresses select on AG's take last | same |
+| cb75289 | an extended source's unsupported test registered with r_din | same |
+| 6e8560b | the single/double store's denormal test on the biased exponent | same |
+| 42e7468 | the store's overflow test selected by the rounding's carry (t_fpu 684-687) | same |
+| 4fbb198 | CRR's write kill from the latched word's control-register slots | same |
+| d1ab8be | front-file port 1's address and data for AG's second slot without AG's advance | same |
+| 148834a | the companion's pairing tests from the uop before a pointer load replaces it | same |
+| cc6ebd5 | AG's write interlock with its DC1/DC2 waits registered a clock ahead (t_await) | same |
+| ebc9409 | a load handed to AG's index in one select of the aligned word (t_await 8, 9) | same |
 
 From 5988c36 on the self-tests also run in the 60 MHz build's own CPU
 configuration -- the Quadra's parameters plus the skid
