@@ -65,6 +65,7 @@ module ap68040_backend
 
 	// architectural state the front end needs
 	output logic [15:0] sr,
+	output logic  [4:0] sp_sel,         // the stack register SR selects (written with it)
 	output logic [31:0] vbr,
 	output logic [31:0] cacr,
 	output logic  [2:0] sfc,
@@ -291,6 +292,19 @@ logic  [2:0] xw_ph;           // exception entry: back-file writes of T5-T13
 logic        xw_pend;         // ... xw_ph != 0, a flip-flop of its own (exc_pend)
 
 assign sr   = {sr_r[15:5], ccr_b};
+// (sp_sel: a flip-flop written beside sr_r, so the sequencer's choice of
+// A7 does not start from S and M through their fan-out -- that began the
+// uop's base register into the register file's read address at 60 MHz)
+function automatic logic [4:0] sp_of(input logic [15:0] s);
+	sp_of = !s[13] ? R_USP : s[12] ? R_MSP : R_ISP;
+endfunction
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && sp_sel != sp_of(sr_r)) begin
+		$display("FAIL: sp_sel %0d, the SR's %0d", sp_sel, sp_of(sr_r));
+		$finish;
+	end
+// synthesis translate_on
 assign dtt0 = dtt0_r;
 assign dtt1 = dtt1_r;
 assign itt0 = itt0_r;
@@ -2129,6 +2143,7 @@ always_ff @(posedge clk) begin
 		ccr_f   <= 5'd0;
 		ccr_b   <= 5'd0;
 		sr_r    <= 16'h2700;
+		sp_sel  <= sp_of(16'h2700);
 		vbr_r   <= 32'd0;
 		cacr_r  <= 32'd0;
 		sfc_r   <= 3'd0;
@@ -2585,6 +2600,7 @@ always_ff @(posedge clk) begin
 			end
 			if (wb_sr_we) begin
 				sr_r  <= {wb_sr_new[15:5], 5'd0};
+				sp_sel <= sp_of(wb_sr_new);
 				ccr_b <= wb_sr_new[4:0];
 			end
 			if (wb_is_stop && !stop_traced) begin
@@ -2681,6 +2697,7 @@ always_ff @(posedge clk) begin
 			// (read by the routine's accesses, after the sequence)
 			exc_l7   <= take_irq && !(adv_wb && wb_is_exc) && (irq_lvl == 3'd7);
 			sr_r     <= {x_nsr[15:5], 5'd0};
+			sp_sel   <= sp_of(x_nsr);
 			ccr_b    <= x_osr[4:0];
 			ccr_f    <= x_osr[4:0];
 			stopped  <= 1'b0;

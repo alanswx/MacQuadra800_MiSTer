@@ -34,6 +34,7 @@ module ap68040_useq
 
 	input  logic        smode,
 	input  logic        master,     // M bit
+	input  logic  [4:0] sp_sel,     // the stack register S and M select (a flip-flop)
 	input  logic        trace,      // T1 or T0: every instruction alone
 	input  logic  [7:0] fp_mvslots,
 
@@ -94,7 +95,14 @@ wire         room_out = (uq_n != 2'd2);
 //--------------------------------------------------------------------------
 // register naming
 //--------------------------------------------------------------------------
-wire [4:0] sp_reg = !smode ? R_USP : (master ? R_MSP : R_ISP);
+wire [4:0] sp_reg = sp_sel;
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && sp_sel != (!smode ? R_USP : (master ? R_MSP : R_ISP))) begin
+		$display("FAIL: useq: sp_sel %0d against S %b M %b", sp_sel, smode, master);
+		$finish;
+	end
+// synthesis translate_on
 
 function automatic logic [4:0] areg(input logic [2:0] n, input logic [4:0] spr);
 	areg = (n == 3'd7) ? spr : (R_A0 + {2'b00, n});

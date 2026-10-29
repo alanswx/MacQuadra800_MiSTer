@@ -244,6 +244,7 @@ logic [31:0] redir_pc;
 logic        exc_go, exc_pend;
 logic  [3:0] exc_kind;
 logic  [4:0] exc_ssp;
+logic  [4:0] sp_sel;
 logic        ucond_v, ucond;
 logic [15:0] sr;
 logic [31:0] vbr, cacr;
@@ -291,7 +292,7 @@ ap68040_backend #(.FPU_REVISION(FPU_REVISION), .FPU_PIPE(FPU_PIPE), .EARLY_RES(E
 	.ras_rv(ras_rv), .ras_rtp(ras_rtp), .ras_rn(ras_rn),
 	.exc_go(exc_go), .exc_pend(exc_pend), .exc_kind(exc_kind), .exc_ssp(exc_ssp),
 	.ucond_v(ucond_v), .ucond(ucond),
-	.sr(sr), .vbr(vbr), .cacr(cacr), .sfc(sfc), .dfc(dfc),
+	.sr(sr), .sp_sel(sp_sel), .vbr(vbr), .cacr(cacr), .sfc(sfc), .dfc(dfc),
 	.dm_req(dm_req), .dm_va(dm_va), .dm_mem(dm_mem), .dm_msz(dm_msz),
 	.dm_fc(dm_fc), .dm_lock(dm_lock), .dm_locke(dm_locke), .dm_super(dm_super), .dm_noalloc(dm_noalloc), .dm_pastc(dm_pastc), .dm_ack(dm_ack), .dm_older(dm_older), .dm_s1(dm_s1),
 	.bht_we(bht_we), .bht_wa(bht_wa), .bht_dis(bht_dis),
@@ -441,7 +442,7 @@ logic [7:0] fp_mvslots;
 ap68040_useq #(.DUAL(DUAL)) useq (
 	.clk(clk), .nreset(nreset), .flush(fe_flush), .fp_mvslots(fp_mvslots),
 	.rq_n(rq_n), .rq0(rq0), .rq1(rq1), .rq_pop(rq_pop), .rq_pop_e(rq_pop_e),
-	.smode(sr[13]), .master(sr[12]), .trace(sr[15] || sr[14]),
+	.smode(sr[13]), .master(sr[12]), .sp_sel(sp_sel), .trace(sr[15] || sr[14]),
 	.exc_go(exc_go), .exc_pend(exc_pend), .exc_kind(exc_kind), .exc_ssp(exc_ssp),
 	.uq_n(uq_n), .uq0(uq0), .uq0s(uq0s), .uq_pop(uo_rdy && uq_n != 2'd0), .uq_pop_a(uo_rdy_a && uq_n != 2'd0),
 	.uq0_nb(uq0_nb), .uq0_nx(uq0_nx), .dbg_pu(dbg_pu)
