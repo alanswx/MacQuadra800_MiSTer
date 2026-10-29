@@ -273,8 +273,13 @@ logic  [1:0] fwe_ag;           // fwe[0..1] without the advance (AG holds an upd
 logic  [4:0] fwa [3], bwa [3];
 logic [31:0] fwd [3], bwd [3];
 localparam int NRP = DUAL ? 6 : 5;
+// (with the skid, two more read ports: AG's base and index at the held
+// uop's registers beside ports 0 and 1 at the next head's -- see rsel_q)
+localparam int NRF = NRP + (SKID ? 2 : 0);
+localparam int PH0 = NRF - 2, PH1 = NRF - 1;
 logic  [4:0] rra [6];
-logic [31:0] frd [6], brd [6], rrd [6];
+logic  [4:0] rfa [8];
+logic [31:0] frd [8], brd [8], rrd [6];
 logic  [4:0] ccr_f, ccr_b;
 
 // special registers (architectural, written at WB)
@@ -533,8 +538,8 @@ assign ag_hold = ag_interlock;
 // upd2 register's, which the uop beside it does not use; the front file's
 // port 1 also takes the second slot's EX write, the back file has a third
 // port for its WB write)
-ap68040_rf #(.NR(NRP)) rff (.clk(clk), .we(fwe), .wa(fwa), .wd(fwd), .ra(rra[0:NRP-1]), .rd(frd[0:NRP-1]));
-ap68040_rf #(.NR(NRP), .NW(DUAL ? 3 : 2)) rfb (.clk(clk), .we(bwe), .wa(bwa), .wd(bwd), .ra(rra[0:NRP-1]), .rd(brd[0:NRP-1]));
+ap68040_rf #(.NR(NRF)) rff (.clk(clk), .we(fwe), .wa(fwa), .wd(fwd), .ra(rfa[0:NRF-1]), .rd(frd[0:NRF-1]));
+ap68040_rf #(.NR(NRF), .NW(DUAL ? 3 : 2)) rfb (.clk(clk), .we(bwe), .wa(bwa), .wd(bwd), .ra(rfa[0:NRF-1]), .rd(brd[0:NRF-1]));
 // AG's base and index are read as the uop enters AG (ports 0/1 address
 // the incoming uop) and kept in registers, so AG's address adders, and the
 // data cache's set index after them, start from flip-flops
@@ -544,6 +549,14 @@ ap68040_rf #(.NR(NRP), .NW(DUAL ? 3 : 2)) rfb (.clk(clk), .we(bwe), .wa(bwa), .w
 // read into agx_q/agb_q, a 60/66 MHz path.  The skid's next uop, when it
 // holds one, is the one entering AG now.)
 logic [4:0] rra0_q, rra1_q;
+// (the read addresses without the take: ports 0/1 read the next head's
+// registers (in_nb, in_nx) every clock and, with the skid, PH0/PH1 the
+// held uop's -- the skid's or the head's -- and rsel_q, the take's
+// complement registered, picks the data.  The take, the end of the stall
+// chain from WB's store answer, was the select of every bank's registered
+// read address, a 60 MHz path; now it ends at one flip-flop.)
+logic [4:0] rrh0_q, rrh1_q;
+logic       rsel_q;
 // (whether the skid holds a uop next clock, without the flush and the
 // kill: after either, the flush holds AG for a clock, so an address formed
 // in the kill's clock is never used -- kill_now, from WB, was a 60/66 MHz
@@ -554,9 +567,26 @@ wire sk_vn = sk_v ? !ag_take : (SKID && in_v && in_rdy_a && !ag_take);
 // the take, from the stall cone, ended two selects from the read address)
 wire sk_vh = sk_v || (SKID && in_v && in_rdy_a);
 always_ff @(posedge clk) begin
-	rra0_q <= ag_take ? in_nb : sk_vh ? (sk_vr ? sk_u.base : in_u.base) : in_nb;
-	rra1_q <= ag_take ? in_nx : sk_vh ? (sk_vr ? sk_u.idx  : in_u.idx)  : in_nx;
+	rra0_q <= in_nb;
+	rra1_q <= in_nx;
+	rrh0_q <= sk_vr ? sk_u.base : in_u.base;
+	rrh1_q <= sk_vr ? sk_u.idx  : in_u.idx;
+	rsel_q <= SKID && !ag_take && sk_vh;
 end
+// synthesis translate_off
+logic [4:0] sim_rra0, sim_rra1;   // the single registered addresses, as they were
+logic       sim_rra_v;
+always_ff @(posedge clk) begin
+	sim_rra_v <= nreset;
+	sim_rra0 <= ag_take ? in_nb : sk_vh ? (sk_vr ? sk_u.base : in_u.base) : in_nb;
+	sim_rra1 <= ag_take ? in_nx : sk_vh ? (sk_vr ? sk_u.idx  : in_u.idx)  : in_nx;
+	if (nreset && sim_rra_v && ((rsel_q ? rrh0_q : rra0_q) != sim_rra0 || (rsel_q ? rrh1_q : rra1_q) != sim_rra1)) begin
+		$display("FAIL: AG's read addresses by the registered take %0d/%0d, the selected ones %0d/%0d",
+		         rsel_q ? rrh0_q : rra0_q, rsel_q ? rrh1_q : rra1_q, sim_rra0, sim_rra1);
+		$finish;
+	end
+end
+// synthesis translate_on
 // synthesis translate_off
 always_ff @(posedge clk)
 	if (nreset && sk_vn != (!ag_take && sk_vh)) begin
@@ -571,9 +601,10 @@ logic sim_rra_ok;
 always_ff @(posedge clk) begin
 	sim_rra_ok <= nreset;
 	if (nreset && sim_rra_ok && !flush && !stall_ag && ain_v && !stopped &&
-	    ((ain_u.base_v && rra0_q != ain_u.base) || (ain_u.idx_v && rra1_q != ain_u.idx))) begin
+	    ((ain_u.base_v && (rsel_q ? rrh0_q : rra0_q) != ain_u.base) ||
+	     (ain_u.idx_v && (rsel_q ? rrh1_q : rra1_q) != ain_u.idx))) begin
 		$display("FAIL: AG's registered read addresses %0d/%0d, the incoming uop's %0d/%0d",
-		         rra0_q, rra1_q, ain_u.base, ain_u.idx);
+		         rsel_q ? rrh0_q : rra0_q, rsel_q ? rrh1_q : rra1_q, ain_u.base, ain_u.idx);
 		$finish;
 	end
 end
@@ -606,8 +637,17 @@ assign rra[3] = ag_u.a_reg;
 assign rra[4] = ag_u.b_reg;
 assign rra[5] = ain_s.a_reg;      // (read as the pair enters AG: ag_a1q)
 always_comb begin
+	for (int i = 0; i < 8; i++) rfa[i] = 5'd0;
+	for (int i = 0; i < NRP; i++) rfa[i] = rra[i];
+	if (SKID) begin rfa[PH0] = rrh0_q; rfa[PH1] = rrh1_q; end
 	for (int i = 0; i < NRP; i++) rrd[i] = fv[rra[i]] ? frd[i] : brd[i];
-	if (!DUAL) begin frd[5] = '0; brd[5] = '0; rrd[5] = '0; end
+	// (ports 0/1: the next head's read, or the held uop's by the
+	// registered take)
+	if (SKID && rsel_q) begin
+		rrd[0] = fv[rrh0_q] ? frd[PH0] : brd[PH0];
+		rrd[1] = fv[rrh1_q] ? frd[PH1] : brd[PH1];
+	end
+	if (!DUAL) rrd[5] = '0;
 end
 
 logic [31:0] agb_q, agx_q;     // the base, and the index sign-extended and scaled
