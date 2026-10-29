@@ -95,6 +95,7 @@ module ap68040_fetch
 	output logic  [7:0] win_fatc,     // ... an ATC (MMU) fault, else bus error
 	output logic  [7:0] win_bt,       // ... ends a branch the BTB took
 	output logic  [7:0] win_s1,       // ... is a second-slot operation word (s1_dec)
+	output logic  [2:0] win_xl0,      // win[0]'s length read as a full-format extension word
 	output logic [31:0] bt_tgt,       // the target of the first such word
 	output pd_t         pd0,          // predecode of win[0]
 	output logic [ATTR_W-1:0] attr0,  // its decoder attributes (D1's pla_t, before the legal gate)
@@ -182,6 +183,28 @@ pd_t           qps [QN];       // (simulation: the shifting model, checked)
 logic [QN-1:0] qf, qd, qa;     // faulted, demand fetch, ATC fault
 logic [QN-1:0] qb;             // ends a branch the BTB took
 logic [QN-1:0] qs;             // a second-slot operation word, taken as one
+// each word's length as an indexed-mode extension word: 1, plus the base
+// and outer displacements of a full format (D1's EA phases read the
+// head's; formed from the word as it enters, it is off the path from the
+// queue head through D1's consume into the queue and the ring)
+logic  [2:0]   qx [QN];
+function automatic logic [2:0] xlen(input logic [15:0] w);
+	logic [2:0] n;
+	n = 3'd1;
+	if (w[8]) begin
+		case (w[5:4])
+			2'd2: n = n + 3'd1;
+			2'd3: n = n + 3'd2;
+			default: ;
+		endcase
+		case (w[1:0])
+			2'd2: n = n + 3'd1;
+			2'd3: n = n + 3'd2;
+			default: ;
+		endcase
+	end
+	xlen = n;
+endfunction
 logic [30:0]   tq [4];         // their targets, in queue order
 logic  [2:0]   tq_n;
 logic  [4:0]   cnt;
@@ -228,6 +251,7 @@ always_comb begin
 	end
 end
 assign bt_tgt = {tq[0], 1'b0};
+assign win_xl0 = qx[0];
 
 // F2: the words of a chunk, their table words read (ap68040_pdrom, the
 // words a cycle after their addresses); F3: predecoded from the table
@@ -751,7 +775,7 @@ always_ff @(posedge clk) begin
 		sn_ihit <= 1'b0;
 		ic_inv_done <= 1'b0;
 		sn_inv_done <= 1'b0;
-		for (int i = 0; i < QN; i++) qw[i] <= '0;
+		for (int i = 0; i < QN; i++) begin qw[i] <= '0; qx[i] <= 3'd1; end
 		qh  <= '0;
 		qp0 <= '0;
 		a4_v <= '0;
@@ -778,6 +802,7 @@ always_ff @(posedge clk) begin
 				qps[i] <= qps[src[4:0]];
 				// synthesis translate_on
 				qw[i] <= qw[src[4:0]];
+				qx[i] <= qx[src[4:0]];
 				qf[i] <= qf[src[4:0]];
 				qd[i] <= qd[src[4:0]];
 				qa[i] <= qa[src[4:0]];
@@ -789,6 +814,7 @@ always_ff @(posedge clk) begin
 				qps[i] <= f3_p[k[0]];
 				// synthesis translate_on
 				qw[i] <= f3_w[k[0]];
+				qx[i] <= xlen(f3_w[k[0]]);
 				qf[i] <= f3_f;
 				qd[i] <= f3_d;
 				qa[i] <= f3_a;

@@ -43,6 +43,7 @@ module ap68040_decode
 	input  logic  [7:0] win_fatc,     // ... an ATC (MMU) fault
 	input  logic  [7:0] win_bt,       // the word ends a branch the fetch BTB took
 	input  logic  [7:0] win_s1,       // the word is a second-slot operation word
+	input  logic  [2:0] win_xl0,      // win[0]'s length as a full-format extension (ea_len's AX/PCX)
 	input  logic [31:0] bt_tgt,       // its target (the first flagged word's)
 	input  pd_t         pd0,
 	input  logic [ATTR_W-1:0] attr0,  // pd0's decoder attributes (the fetch unit's attribute ROM)
@@ -374,6 +375,14 @@ wire  [31:0] bt_d2 = bt_tgt - qpc - 32'd2;
 // select ran from the queue's words into the companion's valid and the
 // BTB write at 60/66 MHz)
 wire teq_d8  = ({{24{win[0][7]}}, win[0][7:0]} == bt_d2);
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && qcnt != 4'd0 && win_xl0 != ea_len(EM_AX, win[0], 3'd0)) begin
+		$display("FAIL: decode: the head's extension length %0d, by the word %0d (%h)",
+		         win_xl0, ea_len(EM_AX, win[0], 3'd0), win[0]);
+		$finish;
+	end
+// synthesis translate_on
 wire teq_d16 = (sx16(win[1]) == bt_d2);
 wire teq_d32 = ({win[1], win[2]} == bt_d2);
 wire teq_fdb = (sx16(win[2]) == bt_d2 - 32'd2);
@@ -498,7 +507,10 @@ always_comb begin
 		logic [2:0] l, il;
 		i  = (ph == PH_EA0) ? part_pd.i0 : part_pd.i1;
 		il = (ph == PH_EA0) ? part_imml : 3'd0;
-		l  = ea_len(i, win[0], il);
+		// (AX/PCX: the extension's length from the fetch, formed as the word
+		// entered the queue: the word's bits through ea_len were on the path
+		// into consume)
+		l  = (i == EM_AX || i == EM_PCX) ? win_xl0 : ea_len(i, 16'd0, il);
 		nrec = part;
 		if ({1'b0, l} <= qcnt || q_flt) begin
 			use_n = ({1'b0, l} <= qcnt) ? {1'b0, l} : qcnt;   // (q_flt: what is queued)
