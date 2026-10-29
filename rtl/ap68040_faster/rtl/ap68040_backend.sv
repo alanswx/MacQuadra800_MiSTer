@@ -944,6 +944,19 @@ logic       ex_amem, ex_bmem;
 wire [31:0] ex_av0 = ex_amem ? ex_ld : ex_a;
 wire [31:0] ex_av  = ex_u.a_sxw ? {{16{ex_av0[15]}}, ex_av0[15:0]} : ex_av0;
 wire [31:0] ex_bv  = ex_bmem ? ex_ld : ex_b;
+// DBcc's counter test on both of B's sources, the source last: through
+// ex_bv the select's fan-out and the compare began the taken decision,
+// the mispredict and the front end's flush at 60 MHz
+(* keep *) wire ex_bnz_l = (ex_ld[15:0] != 16'd0);
+(* keep *) wire ex_bnz_r = (ex_b[15:0] != 16'd0);
+wire        ex_bnz = ex_bmem ? ex_bnz_l : ex_bnz_r;
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && ex_v && ex_bnz !== (ex_bv[15:0] != 16'd0)) begin
+		$display("FAIL: be: DBcc's counter test by source %b, the operand's %b", ex_bnz, ex_bv[15:0] != 16'd0);
+		$finish;
+	end
+// synthesis translate_on
 // ... A and B for the slow unit, their selects made as the uop enters EX (ex_a, ex_b and ex_ld load nowhere else):
 // ex_bmem's select and fan-out began the barrel shifter's path into xs_q,
 // ex_av's the CHK2 compare's into its exception, at 60 MHz
@@ -1542,7 +1555,7 @@ always_comb begin
 		OP_DBCC: begin
 			// (the counter before the decrement: Dn.W - 1 == -1 exactly when
 			// Dn.W is 0 -- the adder stays off the branch decision)
-			xf.taken = !alu_cc && (ex_bv[15:0] != 16'd0);
+			xf.taken = !alu_cc && ex_bnz;
 			xf.dkill = alu_cc;
 		end
 		OP_TRAPCC: if (alu_trap) xf.xvec = 8'd7;
