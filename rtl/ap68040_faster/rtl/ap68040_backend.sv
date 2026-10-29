@@ -1327,7 +1327,11 @@ always_comb begin
 			xf.res   = md_res;
 			xf.flags = md_flags;
 			xf.dkill = md_dkill;
-			if (ex_div0) begin
+			// (from md_z, registered: EX holds a divide by zero's first
+			// clock, and nothing reads the record of a held EX -- the
+			// operand's zero test ran into EX's exception, the early
+			// redirect and the CCR at 60 MHz)
+			if (md_z) begin
 				xf.xvec  = 8'd5;
 				xf.flags = {ccr_f[4:1], 1'b0};
 			end
@@ -2294,6 +2298,12 @@ always_ff @(posedge clk) begin
 		else if (adv_ex) ew_same <= 1'b1;
 		if (ex_md_start) md_go <= 1'b1;
 		if (ex_v && ex_div0) md_z <= 1'b1;
+		// synthesis translate_off
+		if (adv_ex && ex_u.op == OP_DIV && !ex_fault && md_z != ex_div0) begin
+			$display("FAIL: a divide leaves EX with md_z %b, its divisor zero %b", md_z, ex_div0);
+			$finish;
+		end
+		// synthesis translate_on
 		if (ex_v && ex_pre && !ex_pb) begin
 			ex_pb    <= 1'b1;
 			bf_ins_q <= bf_rr & bf_top;    // (ex_av << bf_wn)
