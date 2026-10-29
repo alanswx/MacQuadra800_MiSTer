@@ -1145,6 +1145,15 @@ always_comb begin
 	end
 end
 
+// (the result for EX's other written value, whose class says MUL or DIV
+// already: the op compare there, and SZ_W's, began EX's forwarding into
+// DC1's operands at 60 MHz.  The multiply's result is md_lo whatever its
+// size; ex_fuse_q is ex_u.sz == SZ_W)
+logic        ex_mul_q;
+wire  [31:0] md_resx = ex_mul_q ? md_lo :
+                       ex_fuse_q ? (md_ovf16 ? ex_bv : {md_hi[15:0], md_lo[15:0]}) :
+                                   (md_ovf ? ex_bv : md_lo);
+
 // (a divide's suppression for the kill terms below, ex_kc[1]: md_dkill's
 // divide branch without the op decode -- ex_fuse_q is ex_u.sz == SZ_W --
 // which put ex_u.op on the way into EX's forwarding enable at 60 MHz)
@@ -1961,9 +1970,17 @@ function automatic logic [8:0] oc_of(input logic [6:0] o, input logic slow);
 	endcase
 endfunction
 logic [8:0] ex_oc_q;
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && ex_v && ex_oc_q[1] && (ex_mul_q != (ex_u.op == OP_MUL) || md_resx != md_res)) begin
+		$display("FAIL: EX's multiply/divide result %h by the registered kind %b, the op's %h",
+		         md_resx, ex_mul_q, md_res);
+		$finish;
+	end
+// synthesis translate_on
 always_comb
 	exw_oth = ({32{ex_oc_q[0]}} & xs_q.res) |
-	          ({32{ex_oc_q[1]}} & md_res) |
+	          ({32{ex_oc_q[1]}} & md_resx) |
 	          ({32{ex_oc_q[2]}} & (ex_u.cond[0] ? md_lol : md_rem)) |
 	          ({32{ex_oc_q[3]}} & ex_av) |
 	          ({32{ex_oc_q[4]}} & ex_bv) |
@@ -2586,6 +2603,7 @@ always_ff @(posedge clk) begin
 			ex_amem  <= (dc2_u.a_src == OS_MEM);
 			ex_bmem  <= (dc2_u.b_src == OS_MEM);
 			ex_md_q  <= (dc2_u.op == OP_MUL) || (dc2_u.op == OP_DIV);
+			ex_mul_q <= (dc2_u.op == OP_MUL);
 			ex_fp_q  <= (dc2_u.op == OP_FPU);
 			ex_dbcc_q <= (dc2_u.op == OP_DBCC);
 			ex_rc_q   <= alu_rc(dc2_u.op);
