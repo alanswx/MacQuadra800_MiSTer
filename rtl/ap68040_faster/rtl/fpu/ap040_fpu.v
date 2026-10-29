@@ -451,6 +451,7 @@ reg         cap_unimp, cap_t, cap_e1, cap_pk;
 // shifts by it -- the count and the shift in one cycle, with the select
 // before and the result multiplexer after, did not close at 60 MHz
 reg   [6:0] nlz_q;
+reg         n2z_q;           // F_NORM2's difference is zero (registered in F_NLZ)
 reg   [4:0] nz_ret;
 reg signed [17:0] e_w;        // working exponent (wrap safe)
 // FCMP's exponent and mantissa compares (in F_WB) from registers loaded
@@ -776,6 +777,10 @@ always @(posedge clk) begin
 	end
 	if (nreset && r_din_uns != unsupported_x(r_din[94:80], r_din[63:0])) begin
 		$display("FAIL: FPU: the source's unsupported flag %b for %h", r_din_uns, r_din);
+		$finish;
+	end
+	if (nreset && fst == F_NORM2 && n2z_q != (acc_hi[63:0] == 64'd0 && grs == 3'd0)) begin
+		$display("FAIL: FPU: F_NORM2's registered zero test %b for %h %b", n2z_q, acc_hi, grs);
 		$finish;
 	end
 	if (nreset && r_sub != (r_op == 7'h28 || r_op == 7'h68 || r_op == 7'h6C)) begin
@@ -1627,7 +1632,7 @@ always @(posedge clk) begin
 		fstate_busy <= 0; fstate_wbt <= 0; fstate_fpiar_c <= 0;
 		sh_cmd <= 0; sh_src <= 0; sh_stag <= 0;
 		cap_cmd <= 0; cap_unimp <= 0; cap_t <= 0; cap_e1 <= 0; cap_pk <= 0;
-		nlz_q <= 0; nz_ret <= F_NORM;
+		nlz_q <= 0; n2z_q <= 0; nz_ret <= F_NORM;
 		sh_dst <= 0; sh_dtag <= 0;
 		wb_s <= 0; wb_e <= 0; wb_m <= 0; wb_grs <= 0;
 		dout <= 0;
@@ -2409,6 +2414,9 @@ always @(posedge clk) begin
 				// (nsel) stays as the entering state set it
 				nlz_q <= norm_lz;
 				nsel  <= nsel;
+				// (F_NORM2's zero test, from the same acc_hi and grs: the
+				// 64-bit OR chose every a_m load there, a 60 MHz path)
+				n2z_q <= (acc_hi[63:0] == 64'd0 && grs == 3'd0);
 				begin fst <= nz_ret; wb_r <= (nz_ret == F_WB); acc_r <= acc_of(nz_ret); end
 			end
 
@@ -2870,7 +2878,7 @@ always @(posedge clk) begin
 			end
 
 			F_NORM2: begin
-				if (acc_hi[63:0] == 64'd0 && grs == 3'd0) begin
+				if (n2z_q) begin
 					a_t <= T_ZERO;
 					begin fst <= F_WB; wb_r <= (F_WB == F_WB); acc_r <= 1'b0; end
 				end
@@ -3447,7 +3455,7 @@ always @(posedge clk) begin
 		// of the case's many sources it came after the shifter through all
 		// of a_m's selects, a 60/66 MHz path
 		if ((fst == F_NORM && a_t == T_NUM) ||
-		    (fst == F_NORM2 && !(acc_hi[63:0] == 64'd0 && grs == 3'd0) && nlz_q != 7'd64))
+		    (fst == F_NORM2 && !n2z_q && nlz_q != 7'd64))
 			a_m <= norm_shifted[66:3];
 	end
 end

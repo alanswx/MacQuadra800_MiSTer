@@ -1739,6 +1739,36 @@ audit_battery:
 	chkl	d0,$00000000,687
 	fmove.l	d5,fpcr
 
+;---------------- a subtraction that cancels to its guard bit (F_NORM2)
+; 1 - (1 - 2^-64): the subtrahend aligns by one, the difference is all in
+; the guard bit: exactly 2^-64.  (1 + 2^-63) - (1 - 2^-64) = 3 x 2^-64
+	move.l	#$3FFE0000,($3700).l	; 1 - 2^-64
+	move.l	#$FFFFFFFF,($3704).l
+	move.l	#$FFFFFFFF,($3708).l
+	move.l	#$3FFF0000,($3720).l	; 1
+	move.l	#$80000000,($3724).l
+	move.l	#$00000000,($3728).l
+	fmovem.x	($3700).l,fp0
+	fmovem.x	($3720).l,fp1
+	fsub.x	fp0,fp1
+	fmovem.x	fp1,($3710).l
+	move.l	($3710).l,d0
+	chkl	d0,$3FBF0000,688
+	move.l	($3714).l,d0
+	chkl	d0,$80000000,689
+	move.l	($3718).l,d0
+	chkl	d0,$00000000,690
+	move.l	#$00000001,($3728).l	; 1 + 2^-63
+	fmovem.x	($3720).l,fp1
+	fsub.x	fp0,fp1
+	fmovem.x	fp1,($3710).l
+	move.l	($3710).l,d0
+	chkl	d0,$3FC00000,691
+	move.l	($3714).l,d0
+	chkl	d0,$C0000000,692
+	move.l	($3718).l,d0
+	chkl	d0,$00000000,693
+
 ;------------------------------------------ FCMP condition code corners
 ; equal NONZERO finite values compare as +0 regardless of sign
 ; (floatx80_cmp packs (0,0,0)), so -5 vs -5 gives Z with N clear;
