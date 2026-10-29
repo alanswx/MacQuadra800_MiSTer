@@ -404,6 +404,9 @@ always_comb begin
 	nu.pc     = src.pc;
 	nu.ilen   = src.ilen;
 	nu.ras    = src.ras;
+	// (a record the decoder faulted does not move the return stack: its
+	// kind zeroed here, from the record's registered dexc)
+	if (src.dexc) nu.ras.k = 2'd0;
 	nu.exr     = exc_mode;
 	nu.first  = src_first;
 	nu.last   = uw.last;

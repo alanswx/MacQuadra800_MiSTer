@@ -822,6 +822,15 @@ wire c_ok = c_cons && (nrec.exc == 8'd0) && (bt_end ? (nrec.pred && teq) : !nrec
 // the record as it enters the FIFO: refetched at WB if a flag was inside
 // the instruction (now, or in an earlier part)
 dinst_t nrec_q;
+// synthesis translate_off
+logic [1:0] ras_k_ref;
+always_ff @(posedge clk)
+	if (nreset && push && (nrec_q.dexc ? 2'd0 : nrec_q.ras.k) != ras_k_ref) begin
+		$display("FAIL: decode: the record's return stack kind %0d (dexc %b), by the exception %0d",
+		         nrec_q.ras.k, nrec_q.dexc, ras_k_ref);
+		$finish;
+	end
+// synthesis translate_on
 always_comb begin
 	nrec_q = nrec;
 	nrec_q.c_v   = c_ok;
@@ -832,8 +841,10 @@ always_comb begin
 	nrec_q.ras.v  = 1'b1;
 	nrec_q.ras.tp = ras_tp;
 	nrec_q.ras.n  = ras_n;
-	nrec_q.ras.k  = (nrec.exc != 8'd0) ? 2'd0 :
-	                rcall ? 2'd1 :
+	// (a faulted record's kind is zeroed by the sequencer, from dexc: the
+	// exception code, after the slow path's fault mask, was a 60 MHz path
+	// into the queue's records here)
+	nrec_q.ras.k  = rcall ? 2'd1 :
 	                (rret && ras_n != 4'd0) ? 2'd2 : 2'd0;
 	if (go && (bt_restart || part_bt)) begin
 		// (the routine is UA_DEC_EXC: the sequencer substitutes it, by dexc,
@@ -844,6 +855,10 @@ always_comb begin
 		nrec_q.ras.k = 2'd0;
 	end
 	nrec_q.dexc = (nrec_q.exc != 8'd0);
+	// synthesis translate_off
+	ras_k_ref = (nrec.exc != 8'd0 || (go && (bt_restart || part_bt))) ? 2'd0 :
+	            rcall ? 2'd1 : (rret && ras_n != 4'd0) ? 2'd2 : 2'd0;
+	// synthesis translate_on
 	// (MOVEM's list against the EA's registers, for the sequencer: as a
 	// bit select of the queued record it began the selects of its
 	// replacement uops at 60/66 MHz)
