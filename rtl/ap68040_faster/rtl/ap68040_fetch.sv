@@ -100,6 +100,7 @@ module ap68040_fetch
 	output pd_t         pd0,          // predecode of win[0]
 	output logic [ATTR_W-1:0] attr0,  // its decoder attributes (D1's pla_t, before the legal gate)
 	output logic  [3:0] qcnt,         // words available in win (0..8)
+	output logic [15:0] qav,          // ... as a thermometer: qav[k] = (qcnt >= k), registered
 	output logic [31:0] qpc,
 	input  logic  [2:0] consume,
 	input  logic        consume_t,    // ... and a word past the BTB-taken branch's end
@@ -212,6 +213,23 @@ logic [31:0]   qpc_r;
 logic          odd;
 
 assign qcnt  = (cnt > 5'd8) ? 4'd8 : cnt[3:0];
+// qcnt as a thermometer, registered with cnt: D1's "the words are queued"
+// tests (a length against qcnt) are a bit select.  It is formed from
+// cnt + f3_n's thermometer shifted down by consume, so D1's consume reaches
+// it through the same depth as the queue words' shift.
+logic [15:0] qav_r;
+assign qav = qav_r;
+function automatic [15:0] qtherm(input logic [4:0] n);
+	for (int k = 0; k < 16; k++) qtherm[k] = (n >= 5'(k)) && (k <= 8);
+endfunction
+// synthesis translate_off
+always @(posedge clk) begin
+	if (nreset && qav_r != qtherm({1'b0, qcnt})) begin
+		$display("FAIL: fetch: the queued word thermometer %h, qcnt %0d", qav_r, qcnt);
+		$finish;
+	end
+end
+// synthesis translate_on
 assign qpc   = qpc_r;
 assign q_odd = odd;
 assign pd0   = qp0;
@@ -739,6 +757,7 @@ always_ff @(posedge clk) begin
 	iw_set = '0; iw_m = '0; iw_v = 1'b0;
 	if (!nreset) begin
 		cnt   <= '0;
+		qav_r <= 16'd1;
 		qf    <= '0; qd <= '0; qa <= '0;
 		qpc_r <= '0;
 		odd   <= 1'b0;
@@ -823,6 +842,14 @@ always_ff @(posedge clk) begin
 			end
 		end
 		cnt   <= keep + {3'b000, f3_n};
+		begin
+			// (cnt + f3_n >= k + consume, for each k; QN = 8 keeps it within 8)
+			logic [5:0]  ca;
+			logic [22:0] ct;
+			ca = {1'b0, cnt} + {4'd0, f3_n};
+			for (int j = 0; j < 23; j++) ct[j] = (ca >= 6'(j));
+			qav_r <= 16'(ct >> consume) & 16'h01FF;
+		end
 		// the predecode ring: appended at head + count (wherever D1's
 		// consume puts the head), the head moved by consume
 		begin
@@ -1173,6 +1200,7 @@ qpc_r <= cfl ? {tq[0], 1'b0} + {30'd0, consume_t, 1'b0} : qpc_r + {28'd0, consum
 		//------------------------------------------------------------------
 		if (redir_any) begin
 			cnt   <= '0;
+			qav_r <= 16'd1;
 			f2_n  <= '0;
 			f3_n  <= '0;
 			f2_b  <= '0;

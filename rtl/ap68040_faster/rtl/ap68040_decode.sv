@@ -48,6 +48,7 @@ module ap68040_decode
 	input  pd_t         pd0,
 	input  logic [ATTR_W-1:0] attr0,  // pd0's decoder attributes (the fetch unit's attribute ROM)
 	input  logic  [3:0] qcnt,
+	input  logic [15:0] qav,          // ... as a registered thermometer: qav[k] = (qcnt >= k)
 	input  logic [31:0] qpc,
 	input  logic        q_odd,
 	input  logic        smode,
@@ -512,8 +513,8 @@ always_comb begin
 		// into consume)
 		l  = (i == EM_AX || i == EM_PCX) ? win_xl0 : ea_len(i, 16'd0, il);
 		nrec = part;
-		if ({1'b0, l} <= qcnt || q_flt) begin
-			use_n = ({1'b0, l} <= qcnt) ? {1'b0, l} : qcnt;   // (q_flt: what is queued)
+		if (qav[l] || q_flt) begin
+			use_n = qav[l] ? {1'b0, l} : qcnt;   // (q_flt: what is queued)
 			flt   = |(win_flt & ((8'd1 << l) - 8'd1));
 			begin
 				// (one instance for both phases: the same words and base)
@@ -584,9 +585,9 @@ always_comb begin
 			           (opw[15:12] == 4'hF) ? 8'd11 : 8'd4;
 		end
 		else if (fast) begin
-			if (pd0.tot <= qcnt || q_flt) begin
+			if (qav[pd0.tot] || q_flt) begin
 				go    = 1'b1;
-				use_n = (pd0.tot <= qcnt) ? pd0.tot : qcnt;
+				use_n = qav[pd0.tot] ? pd0.tot : qcnt;
 				flt   = |(win_flt & ((9'd1 << pd0.tot) - 9'd1));
 				nrec.ea0 = mk_ea(pd0.i0, opw[2:0], {1'b0, fb},
 				                 (pd0.sz == SZ_L) ? 3'd2 : 3'd1,
@@ -599,14 +600,14 @@ always_comb begin
 				                 win[fp1], win[3'(fp1 + 1)], 16'd0, 16'd0, 16'd0);
 			end
 		end
-		else if ({1'b0, pd0.b} <= qcnt || q_flt) begin
+		else if (qav[pd0.b] || q_flt) begin
 			// slow path, first phase: operation word, fixed words, immediate;
 			// the EAs without extension words are complete already
 			nrec.ea0 = mk_ea(pd0.i0, opw[2:0], 4'd0, 3'd0, 32'd0,
 			                 16'd0, 16'd0, 16'd0, 16'd0, 16'd0);
 			nrec.ea1 = mk_ea(pd0.i1, opw[11:9], 4'd0, 3'd0, 32'd0,
 			                 16'd0, 16'd0, 16'd0, 16'd0, 16'd0);
-			use_n = ({1'b0, pd0.b} <= qcnt) ? {1'b0, pd0.b} : qcnt;
+			use_n = qav[pd0.b] ? {1'b0, pd0.b} : qcnt;
 			flt   = |(win_flt & ((8'd1 << pd0.b) - 8'd1));
 			if (flt) begin
 				go = 1'b1;                   // stop at the faulted part
