@@ -1713,6 +1713,32 @@ audit_battery:
 	move.l	($3714).l,d0
 	chkl	d0,$80000000,683
 
+;---------------- a store whose rounding carries out at the largest exponent
+; 1.111...b x 2^127 to single and x 2^1023 to double round up to the next
+; power of two: an overflow, +infinity under round-to-nearest
+	fmove.l	fpcr,d5
+	fmove.l	#0,fpcr
+	move.l	#$407E0000,($3700).l	; 2^127 x 1.111...
+	move.l	#$FFFFFFFF,($3704).l
+	move.l	#$FFFFFFFF,($3708).l
+	fmovem.x	($3700).l,fp0
+	fmove.l	#0,fpsr
+	fmove.s	fp0,($3730).l
+	fmove.l	fpsr,d0
+	and.l	#$00001000,d0
+	chkl	d0,$00001000,684	; OVFL
+	move.l	($3730).l,d0
+	chkl	d0,$7F800000,685	; +inf
+	move.l	#$43FE0000,($3700).l	; 2^1023 x 1.111...
+	fmovem.x	($3700).l,fp0
+	fmove.l	#0,fpsr
+	fmove.d	fp0,($3730).l
+	move.l	($3730).l,d0
+	chkl	d0,$7FF00000,686	; +inf
+	move.l	($3734).l,d0
+	chkl	d0,$00000000,687
+	fmove.l	d5,fpcr
+
 ;------------------------------------------ FCMP condition code corners
 ; equal NONZERO finite values compare as +0 regardless of sign
 ; (floatx80_cmp packs (0,0,0)), so -5 vs -5 gives Z with N clear;

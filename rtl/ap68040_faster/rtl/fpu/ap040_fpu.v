@@ -766,6 +766,10 @@ always @(posedge clk)
 		$finish;
 	end
 always @(posedge clk) begin
+	if (nreset && sd_ov !== (sd_eun > (sd_isS ? 18'd16510 : 18'd17406))) begin
+		$display("FAIL: FPU: the store's overflow test %b for the exponent %h", sd_ov, sd_eun);
+		$finish;
+	end
 	if (nreset && sd_den !== (sd_isS ? (sd_sE < -18'sd126) : (sd_sE < -18'sd1022))) begin
 		$display("FAIL: FPU: the store's denormal test %b for the exponent %h", sd_den, eff_e);
 		$finish;
@@ -859,7 +863,11 @@ always @* begin
 	// minimum of the next exponent)
 	sd_m   = sd_up ? rd_mi[63:0] : (eff_m & rd_mask);
 	sd_eun = {1'b0, eff_e} + {17'd0, sd_up && rd_mi[64]};
-	sd_ov  = sd_eun > (sd_isS ? 18'd16510 : 18'd17406);
+	// (the rounding's carry selects between the exponent's compares with
+	// the format's limit -- through sd_eun's add the sticky ran into a_e
+	// at 60 MHz: e + 1 > lim is e >= lim)
+	sd_ov  = (sd_up && rd_mi[64]) ? (eff_e >= (sd_isS ? 17'd16510 : 17'd17406))
+	                              : (eff_e >  (sd_isS ? 17'd16510 : 17'd17406));
 	sd_enc = sd_eun[16:0] - (sd_isS ? 17'd16256 : 17'd15360);
 	sd_tomax = (rnd_mode == 2'b01) || (rnd_mode == 2'b10 && !eff_s) || (rnd_mode == 2'b11 && eff_s);
 	// F_PACKS: the denormal's rounding at the format's last bit
