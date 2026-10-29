@@ -850,6 +850,7 @@ always_ff @(posedge clk)
 
 // multiply / divide
 logic        md_done, md_ovf;
+logic        md_ovf16;        // a divide's quotient does not fit 16 bits (or md_ovf)
 logic [31:0] md_hi, md_lo;
 logic [31:0] md_hiin;         // OP_MDHI latch (64-bit dividend high)
 logic [31:0] md_rem;          // remainder / product high, for OP_MDRES
@@ -886,7 +887,8 @@ ap68040_muldiv #(.DSTEPS(DIV_STEPS)) md (
 	.clk(clk), .nreset(nreset), .kill(kill_now),
 	.start(ex_md_start), .is_div(ex_u.op == OP_DIV), .sign_op(md_sign),
 	.op_a(md_a), .op_hi(md_bhi), .op_lo(md_blo),
-	.busy(md_busy), .done(md_done), .res_hi(md_hi), .res_lo(md_lo), .ovf(md_ovf)
+	.busy(md_busy), .done(md_done), .res_hi(md_hi), .res_lo(md_lo), .ovf(md_ovf),
+	.ovf16(md_ovf16)
 );
 
 // FPU: OP_FPU uops act once no older uop is in flight (WB empty)
@@ -981,10 +983,9 @@ always_comb begin
 		// divide
 		if (ex_u.sz == SZ_W) begin
 			// quotient must fit 16 bits
-			logic ovf16;
-			ovf16 = md_ovf ||
-			        (md_sign ? (md_lo[31:15] != {17{md_lo[15]}}) : (md_lo[31:16] != 16'd0));
-			if (ovf16) begin
+			// (registered by the unit with the quotient: the test of md_lo
+			// was on the way to EX's forwarding enable at 60 MHz)
+			if (md_ovf16) begin
 				md_dkill = 1'b1;
 				md_flags = {ccr_f[4], ccr_f[3], ccr_f[2], 1'b1, 1'b0};
 			end
@@ -2307,6 +2308,11 @@ always_ff @(posedge clk) begin
 		// synthesis translate_off
 		if (adv_ex && ex_u.op == OP_DIV && !ex_fault && md_z != ex_div0) begin
 			$display("FAIL: a divide leaves EX with md_z %b, its divisor zero %b", md_z, ex_div0);
+			$finish;
+		end
+		if (adv_ex && ex_u.op == OP_DIV && ex_u.sz == SZ_W && !ex_fault && !md_z &&
+		    md_ovf16 != (md_ovf || (md_sign ? (md_lo[31:15] != {17{md_lo[15]}}) : (md_lo[31:16] != 16'd0)))) begin
+			$display("FAIL: a DIVx.W leaves EX with md_ovf16 %b, its quotient %h (ovf %b)", md_ovf16, md_lo, md_ovf);
 			$finish;
 		end
 		// synthesis translate_on

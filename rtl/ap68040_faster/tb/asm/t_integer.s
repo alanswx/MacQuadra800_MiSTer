@@ -200,6 +200,53 @@ start:
 	divu.w	#1,d0
 	chkccr	$02,44		; overflow: V set
 	chkl	d0,$00100000,45	; register unchanged
+	; DIVx.W's 16-bit quotient bounds (192-207)
+	move.l	#-32768,d0
+	divs.w	#1,d0
+	chkl	d0,$00008000,192	; -32768 fits
+	move.l	#-32769,d0
+	move.w	#0,ccr
+	divs.w	#1,d0
+	chkccr	$02,193
+	chkl	d0,$FFFF7FFF,194
+	move.l	#32767,d0
+	divs.w	#1,d0
+	chkl	d0,$00007FFF,195
+	move.l	#32768,d0
+	move.w	#0,ccr
+	divs.w	#1,d0
+	chkccr	$02,196
+	chkl	d0,$00008000,197
+	move.l	#65536,d0
+	divs.w	#-2,d0
+	chkl	d0,$00008000,198	; -32768 from a negative divisor
+	move.l	#65538,d0
+	move.w	#0,ccr
+	divs.w	#-2,d0
+	chkccr	$02,199
+	chkl	d0,$00010002,200
+	move.l	#-65536,d0
+	move.w	#0,ccr
+	divs.w	#-2,d0
+	chkccr	$02,201		; +32768: overflow
+	move.l	#-65534,d0
+	divs.w	#-2,d0
+	chkl	d0,$00007FFF,202
+	move.l	#-1,d0
+	divs.w	#2,d0
+	chkl	d0,$FFFF0000,203	; quotient 0, remainder -1
+	move.l	#65535,d0
+	divu.w	#1,d0
+	chkl	d0,$0000FFFF,204
+	move.l	#65536,d0
+	move.w	#0,ccr
+	divu.w	#1,d0
+	chkccr	$02,205
+	chkl	d0,$00010000,206
+	move.l	#$FFFF0000,d0
+	move.w	#0,ccr
+	divu.w	#$FFFF,d0
+	chkccr	$02,207		; $10001: overflow
 
 ;----------------------------------------------------------------- long mul/div
 	move.l	#$12345678,d0

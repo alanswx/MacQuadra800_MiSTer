@@ -29,13 +29,15 @@ module ap68040_muldiv #(
 	output reg        done,        // one cycle pulse
 	output reg [31:0] res_hi,      // product high / remainder
 	output reg [31:0] res_lo,      // product low / quotient
-	output reg        ovf
+	output reg        ovf,
+	output reg        ovf16        // div: ovf, or the quotient does not fit 16 bits
 );
 
 reg        running;
 reg        div_r;
 reg        neg_q;                 // negate quotient / product
 reg        neg_r;                 // negate remainder
+reg        sign_r;                // a signed operation
 reg  [6:0] count;
 reg [31:0] den;                   // divisor / multiplier (absolute)
 reg [31:0] mcand;                 // multiplicand (absolute)
@@ -86,6 +88,8 @@ always @(posedge clk) begin
 		res_hi  <= 0;
 		res_lo  <= 0;
 		ovf     <= 0;
+		ovf16   <= 0;
+		sign_r  <= 0;
 	end
 	else begin
 		done <= 0;
@@ -94,6 +98,8 @@ always @(posedge clk) begin
 			div_r   <= is_div;
 			running <= 1;
 			ovf     <= 0;
+			ovf16   <= 0;
+			sign_r  <= sign_op;
 			if (is_div) begin
 				den   <= abs_a;
 				acc   <= {33'd0, abs_d};
@@ -130,6 +136,11 @@ always @(posedge clk) begin
 					ovf    <= (|q_raw[63:32]) |
 					          (sign_op & (neg_q ? (q_raw[31:0] > 32'h8000_0000)
 					                            : q_raw[31]));
+					// (DIVx.W's 16-bit test, from the magnitude against
+					// constants: the test of the negated quotient was on
+					// the way to EX's forwarding enable at 60 MHz)
+					ovf16  <= (|q_raw[63:16]) ||
+					          (sign_r && q_raw[15] && (!neg_q || (|q_raw[14:0])));
 				end
 				else begin
 					res_lo <= neg_q ? (32'd0 - q_raw[31:0]) : q_raw[31:0];
