@@ -516,7 +516,25 @@ endgenerate
 // registered beside it -- their bytes, data, and whether they hit it -- and
 // laid over it in DC2, off the hit path: without a match the line is not
 // used)
+// (each merge's eight byte enables for DC2's two long words, picked by
+// DC1's address as they are registered -- DC2's address is DC1's of the
+// clock before whenever dqc is used, dq_new: by DC2's address the pick sat
+// in front of the merge, the load's alignment and AG's index capture at
+// 60 MHz; checked against that form)
+function automatic logic [7:0] bsel(input logic [15:0] be, input logic [1:0] k);
+	for (int b = 0; b < 8; b++) begin
+		logic [3:0] lb;
+		lb = 4'(4 * k + b);
+		bsel[b] = be[4'd15 - lb];
+	end
+endfunction
+function automatic logic [63:0] mrg2s(input logic [63:0] p, input logic [7:0] bs, input logic [31:0] w);
+	for (int b = 0; b < 8; b++)
+		if (bs[b]) p[63 - 8*b -: 8] = w[31 - 8*(b % 4) -: 8];
+	mrg2s = p;
+endfunction
 logic [15:0] mc_be [3];
+logic  [7:0] mc_bs [3];
 logic [31:0] mc_w  [3];
 logic  [2:0] mc_v;
 always_ff @(posedge clk) begin
@@ -549,6 +567,9 @@ always_ff @(posedge clk) begin
 	mc_be[0] <= dwq_be; mc_w[0] <= dwq_word;
 	mc_be[1] <= dw_be;  mc_w[1] <= dw_word;
 	mc_be[2] <= wfm_be; mc_w[2] <= wfm_word;
+	mc_bs[0] <= bsel(dwq_be, m1.a[3:2]);
+	mc_bs[1] <= bsel(dw_be, m1.a[3:2]);
+	mc_bs[2] <= bsel(wfm_be, m1.a[3:2]);
 	h2 = dq2;
 	if (dw && dw_src == 2'd0 && dw_set == m2.r.a[CSH:4] && dw_way == m2.x.way)
 		h2 = mrg2(h2, m2.r.a[3:2], dw_be, dw_word);
@@ -562,8 +583,20 @@ end
 logic [63:0] dqc_m2;
 always_comb begin
 	dqc_m2 = dqc;
-	for (int k = 0; k < 3; k++) if (mc_v[k]) dqc_m2 = mrg2(dqc_m2, m2.r.a[3:2], mc_be[k], mc_w[k]);
+	for (int k = 0; k < 3; k++) if (mc_v[k]) dqc_m2 = mrg2s(dqc_m2, mc_bs[k], mc_w[k]);
 end
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && dq_new && m2.r.v) begin
+		logic [63:0] r;
+		r = dqc;
+		for (int k = 0; k < 3; k++) if (mc_v[k]) r = mrg2(r, m2.r.a[3:2], mc_be[k], mc_w[k]);
+		if (r !== dqc_m2) begin
+			$display("FAIL: dmu: DC2's merged words by the registered byte picks %h, by DC2's address %h", dqc_m2, r);
+			$finish;
+		end
+	end
+// synthesis translate_on
 assign dq2 = dq_new ? dqc_m2 : dqh2;
 
 //--------------------------------------------------------------------------
