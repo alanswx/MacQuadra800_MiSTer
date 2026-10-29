@@ -1617,7 +1617,9 @@ always_comb begin
 		default:          exw_oth = ex_bv;
 	endcase
 end
-assign exw_val = ex_alu_q ? alu_res : exw_oth;
+// (the FPU's result next to last, by ex_fp_q: through the case it began
+// the forward into AG from FPSR's read at 60 MHz; an FPU op is never slow)
+assign exw_val = ex_alu_q ? alu_res : ex_fp_q ? fp_res : exw_oth;
 // synthesis translate_off
 always_ff @(posedge clk)
 	if (nreset && ex_v && !(ex_u.op == OP_DBCC && alu_cc) &&
