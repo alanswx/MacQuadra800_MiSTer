@@ -1383,6 +1383,11 @@ always_ff @(posedge clk) begin
 		logic [CSB-1:0] vp_set;
 		logic [CSB-1:0] vp_set_o;   // ... without WB's fast stores at m4.x (the lsw read below)
 		logic           vp_m4;      // ... vp_set is WB's m4.x set
+		// the invalidations alone (vp_lwe with !vp_lv), for the stage
+		// records' hit compares: WB's fast stores write only the dirty
+		// bits, so their decision stays off those compares
+		logic [CSB-1:0] vi_set;
+		logic     [3:0] vi_wm;
 		logic [3:0] vp_wm;               // ways written
 		logic       vp_lwe, vp_lv;       // valid: write, value
 		logic       vp_dwe, vp_dv;       // dirty: write, value
@@ -1390,6 +1395,7 @@ always_ff @(posedge clk) begin
 		// advances, m2's own if not -- for dwc_q, below)
 		logic       dwc1, dwc2;
 		vp_set = '0; vp_set_o = '0; vp_m4 = 1'b0; vp_wm = '0; vp_lwe = 1'b0; vp_lv = 1'b0;
+		vi_set = '0; vi_wm = '0;
 		vp_dwe = 1'b0; vp_dv = 1'b0;
 		dwc1 = 1'b0; dwc2 = 1'b0;
 
@@ -1811,6 +1817,7 @@ always_ff @(posedge clk) begin
 				if (e_x.hit && dc_en) begin
 					vp_set = e_va[CSH:4]; vp_set_o = e_va[CSH:4]; vp_m4 = 1'b0; vp_wm[e_x.way] = 1'b1;
 					vp_lwe = 1'b1; vp_lv = 1'b0; vp_dwe = 1'b1; vp_dv = 1'b0;
+					vi_set = e_va[CSH:4]; vi_wm[e_x.way] = 1'b1;
 					e_x.hit <= 1'b0;
 				end
 				e_st <= E_S_NEXT;
@@ -2108,6 +2115,7 @@ always_ff @(posedge clk) begin
 			// every line invalid, a set a cycle (CINVA; and after reset)
 			vp_set = clr_i; vp_set_o = clr_i; vp_m4 = 1'b0; vp_wm = 4'hF;
 			vp_lwe = 1'b1; vp_lv = 1'b0;
+			vi_set = clr_i; vi_wm = 4'hF;
 			clr_i <= clr_i + 1'd1;
 			if (&clr_i) begin
 				clr_rst <= 1'b0;
@@ -2188,6 +2196,7 @@ always_ff @(posedge clk) begin
 				if (m) begin
 					vp_wm[w] = 1'b1;
 					vp_lwe = 1'b1; vp_lv = 1'b0; vp_dwe = 1'b1; vp_dv = 1'b0;
+					vi_set = s; vi_wm[w] = 1'b1;
 				end
 				if ((mt_scope == 2'd1 && w == 2'd3) || &ms_i) e_st <= E_M_IC;
 				else begin
@@ -2251,6 +2260,7 @@ always_ff @(posedge clk) begin
 			end
 			vp_set = f_set; vp_set_o = f_set; vp_m4 = 1'b0; vp_wm[f_way] = 1'b1;
 			vp_lwe = 1'b1; vp_lv = 1'b0; vp_dwe = 1'b1; vp_dv = 1'b0;
+			vi_set = f_set; vi_wm[f_way] = 1'b1;
 			bo.line <= 1'b1; bo.rd <= 1'b1; bo.tt <= TT_NORMAL;
 			bo.tm <= m2.r.smode ? TM_SDATA : TM_UDATA;
 			bo.upa <= e_x.upa; bo.ci <= 1'b0; bo.lock <= 1'b0; bo.locke <= 1'b0;
@@ -2350,6 +2360,7 @@ always_ff @(posedge clk) begin
 			else e_st <= e_sret;
 			vp_set = f_set; vp_set_o = f_set; vp_m4 = 1'b0; vp_wm[f_way] = 1'b1;
 			vp_lwe = 1'b1; vp_lv = 1'b0; vp_dwe = 1'b1; vp_dv = 1'b0;
+			vi_set = f_set; vi_wm[f_way] = 1'b1;
 		end
 		E_PUSHV_B: begin
 			// (LOCK on a push inside a locked sequence, 4.6.2)
@@ -2600,6 +2611,7 @@ always_ff @(posedge clk) begin
 				if (h) begin
 					vp_set = tw_da[CSH:4]; vp_set_o = tw_da[CSH:4]; vp_m4 = 1'b0; vp_wm[w] = 1'b1;
 					vp_lwe = 1'b1; vp_lv = 1'b0; vp_dwe = 1'b1; vp_dv = 1'b0;
+					vi_set = tw_da[CSH:4]; vi_wm[w] = 1'b1;
 				end
 				bo.line <= 1'b0; bo.tt <= TT_NORMAL;
 				bo.tm   <= tw_i ? TM_TBL_CODE : TM_TBL_DATA;
@@ -2819,6 +2831,7 @@ always_ff @(posedge clk) begin
 		if (sn_ph == SN_H && sn_inv && sn_src == 2'd0) begin
 			vp_set = sn_pa[CSH:4]; vp_set_o = sn_pa[CSH:4]; vp_m4 = 1'b0; vp_wm[sn_way] = 1'b1;
 			vp_lwe = 1'b1; vp_lv = 1'b0; vp_dwe = 1'b1; vp_dv = 1'b0;
+			vi_set = sn_pa[CSH:4]; vi_wm[sn_way] = 1'b1;
 			// (the records' hits on it: at the valid/dirty write port)
 		end
 
@@ -2833,30 +2846,37 @@ always_ff @(posedge clk) begin
 		// set, whatever the way: its way and translation come late, and its
 		// set is the untranslated page offset; a lost hit sends the access
 		// to the engine, which looks the line up again)
-		if (vp_lwe && !vp_lv && (|vp_wm) && adv_dc1 && m1.a[CSH:4] == vp_set) m2.x.hit <= 1'b0;
-		if (vp_lwe && !vp_lv) begin
-			for (int j = 0; j < 4; j++) if (vp_wm[j]) begin
+		// synthesis translate_off
+		if (nreset && ((vp_lwe && !vp_lv) ? (vi_wm != vp_wm || (vp_wm != 4'd0 && vi_set != vp_set)) : (vi_wm != 4'd0))) begin
+			$display("FAIL: dmu: the invalidation %h/%h, the valid port's %b/%b %h/%h",
+			         vi_set, vi_wm, vp_lwe, vp_lv, vp_set, vp_wm);
+			$finish;
+		end
+		// synthesis translate_on
+		if ((|vi_wm) && adv_dc1 && m1.a[CSH:4] == vi_set) m2.x.hit <= 1'b0;
+		begin
+			for (int j = 0; j < 4; j++) if (vi_wm[j]) begin
 				if (!adv_dc1) begin
-					if (m2.x.hit && m2.x.pa[CSH:4] == vp_set && m2.x.way == 2'(j)) m2.x.hit <= 1'b0;
-					if (m2.x1.hit && m2.x1.pa[CSH:4] == vp_set && m2.x1.way == 2'(j)) m2.x1.hit <= 1'b0;
+					if (m2.x.hit && m2.x.pa[CSH:4] == vi_set && m2.x.way == 2'(j)) m2.x.hit <= 1'b0;
+					if (m2.x1.hit && m2.x1.pa[CSH:4] == vi_set && m2.x1.way == 2'(j)) m2.x1.hit <= 1'b0;
 				end
 				if (adv_dc2) begin
-					if (m2.x.hit && m2.x.pa[CSH:4] == vp_set && m2.x.way == 2'(j)) m3.x.hit <= 1'b0;
-					if (m2.x1.hit && m2.x1.pa[CSH:4] == vp_set && m2.x1.way == 2'(j)) m3.x1.hit <= 1'b0;
+					if (m2.x.hit && m2.x.pa[CSH:4] == vi_set && m2.x.way == 2'(j)) m3.x.hit <= 1'b0;
+					if (m2.x1.hit && m2.x1.pa[CSH:4] == vi_set && m2.x1.way == 2'(j)) m3.x1.hit <= 1'b0;
 				end
 				else begin
-					if (m3.x.hit && m3.x.pa[CSH:4] == vp_set && m3.x.way == 2'(j)) m3.x.hit <= 1'b0;
-					if (m3.x1.hit && m3.x1.pa[CSH:4] == vp_set && m3.x1.way == 2'(j)) m3.x1.hit <= 1'b0;
+					if (m3.x.hit && m3.x.pa[CSH:4] == vi_set && m3.x.way == 2'(j)) m3.x.hit <= 1'b0;
+					if (m3.x1.hit && m3.x1.pa[CSH:4] == vi_set && m3.x1.way == 2'(j)) m3.x1.hit <= 1'b0;
 				end
 				if (adv_ex) begin
-					if (m3.x.hit && m3.x.pa[CSH:4] == vp_set && m3.x.way == 2'(j)) m4.x.hit <= 1'b0;
-					if (m3.x1.hit && m3.x1.pa[CSH:4] == vp_set && m3.x1.way == 2'(j)) m4.x1.hit <= 1'b0;
+					if (m3.x.hit && m3.x.pa[CSH:4] == vi_set && m3.x.way == 2'(j)) m4.x.hit <= 1'b0;
+					if (m3.x1.hit && m3.x1.pa[CSH:4] == vi_set && m3.x1.way == 2'(j)) m4.x1.hit <= 1'b0;
 				end
 				else begin
-					if (m4.x.hit && m4.x.pa[CSH:4] == vp_set && m4.x.way == 2'(j)) m4.x.hit <= 1'b0;
-					if (m4.x1.hit && m4.x1.pa[CSH:4] == vp_set && m4.x1.way == 2'(j)) m4.x1.hit <= 1'b0;
+					if (m4.x.hit && m4.x.pa[CSH:4] == vi_set && m4.x.way == 2'(j)) m4.x.hit <= 1'b0;
+					if (m4.x1.hit && m4.x1.pa[CSH:4] == vi_set && m4.x1.way == 2'(j)) m4.x1.hit <= 1'b0;
 				end
-				if (e_x.hit && e_x.pa[CSH:4] == vp_set && e_x.way == 2'(j)) e_x.hit <= 1'b0;
+				if (e_x.hit && e_x.pa[CSH:4] == vi_set && e_x.way == 2'(j)) e_x.hit <= 1'b0;
 			end
 		end
 
