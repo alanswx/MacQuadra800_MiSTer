@@ -369,6 +369,18 @@ logic [CSB-1:0] st_set;               // engine data/tag set
 typedef enum logic [2:0] { SN_IDLE, SN_A, SN_B, SN_H, SN_R } snph_t;
 snph_t       sn_ph;
 wire         sn_frz  = (sn_ph != SN_IDLE);
+// ... a copy of its own for WB's store answer: sn_ph's idle state, with
+// its fan-out (249), began the stall chain from the answer at 60 MHz
+(* preserve *) logic sn_frz_wb;
+always_ff @(posedge clk)
+	sn_frz_wb <= nreset && ((sn_ph == SN_IDLE) ? sn_req : (sn_ph != SN_R));
+// synthesis translate_off
+always_ff @(posedge clk)
+	if (nreset && sn_frz_wb != sn_frz) begin
+		$display("FAIL: dmu: the store answer's snoop freeze %b, the snooper's %b", sn_frz_wb, sn_frz);
+		$finish;
+	end
+// synthesis translate_on
 assign       b_drop  = bo_cancel && bo_ingnt && (e_st == E_BUS_W);
 wire         sn_rset = (sn_ph == SN_A) || (sn_ph == SN_B);   // B: the line stays readable in H
 logic  [1:0] sn_src;               // found in: 0 a cache way, 1 push buffer, 2 queued push
@@ -1122,7 +1134,7 @@ wire wb_fast = wb_st && m4_fast_s && m4.x.hit && dc_en &&
                (e_st == E_IDLE) && !e_wst_done;
 wire  [31:0] wbf_word = lanes32(lalign(st_data, m4.r.msz), m4.r.a[1:0]);
 wire  [15:0] wbf_be   = bmask(m4.r.a[3:0], nbytes(m4.r.msz));
-assign wfm      = wb_fast && !sn_frz;
+assign wfm      = wb_fast && !sn_frz_wb;
 assign wfm_set  = m4.x.pa[CSH:4];
 assign wfm_way  = m4.x.way;
 assign wfm_be   = wbf_be;
@@ -1184,7 +1196,7 @@ always_ff @(posedge clk)
 // store ready: the fast store answers in its own WB cycle (the engine's
 // stores through the registered pulse)
 logic st_rdy_r, st_fault_r;
-assign st_rdy   = st_rdy_r || ((wb_fast || wb_vram_post) && !sn_frz) || (wfs_p1 && m4.x1.hit && !sn_frz);
+assign st_rdy   = st_rdy_r || ((wb_fast || wb_vram_post) && !sn_frz_wb) || (wfs_p1 && m4.x1.hit && !sn_frz_wb);
 assign st_fault = st_rdy_r && st_fault_r;
 
 // a failed line fill: the long words of the line the access needs (this
