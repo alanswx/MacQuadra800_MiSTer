@@ -875,11 +875,24 @@ wire pop   = rq_pop && (rq_c != 2'd0);
 logic [31:0] sim_drpc;
 logic  [1:0] sim_bkind;
 logic [30:0] sim_btgt;
+logic [BTB_AW+BTB_TW:0] sim_bwa;
 always_ff @(posedge clk) begin
 	if (nreset && d_redir_v && d_redir_pc !== sim_drpc) begin
 		$display("FAIL: decode: the redirect target %h, the case's %h", d_redir_pc, sim_drpc);
 		$finish;
 	end
+	if (nreset && btb_we && {btb_wi, btb_wtag, btb_wslot} !== sim_bwa) begin
+		$display("FAIL: decode: the BTB write's index/tag/slot %h %h %b, the case's %h",
+		         btb_wi, btb_wtag, btb_wslot, sim_bwa);
+		$finish;
+	end
+	if (fire && bt_restart) begin
+		logic [31:0] fa;
+		fa = qpc + {28'd0, bt_j, 1'b0};
+		sim_bwa <= {fa[BTB_AW+1:2], fa[31:BTB_AW+2], fa[1]};
+	end
+	if (fire && push && ph == PH_IDLE && (bt_end ? !(nrec.pred && teq) : nrec_q.pred))
+		sim_bwa <= {lastpc[BTB_AW+1:2], lastpc[31:BTB_AW+2], lastpc[1]};
 	if (nreset && btb_we && btb_wv && (btb_wkind !== sim_bkind || btb_wtgt !== sim_btgt)) begin
 		$display("FAIL: decode: the BTB write's kind/target %0d %h, the case's %0d %h",
 		         btb_wkind, btb_wtgt, sim_bkind, sim_btgt);
@@ -1034,17 +1047,23 @@ always_ff @(posedge clk) begin
 		d_redir_pc <= bt_end ? (nrec.pred ? ntarget : nrec_npc) : ntarget;
 		btb_wkind  <= btb_kind;
 		btb_wtgt   <= ntarget[31:1];
+		// (the entry's index, tag and slot the same way: a flagged word
+		// drops the entry at its own address, the redirects write the
+		// instruction's -- the three are exclusive, the drop's record
+		// carries no prediction)
+		begin
+			logic [31:0] fa;
+			fa = qpc + {28'd0, bt_j, 1'b0};
+			btb_wi     <= bt_restart ? fa[BTB_AW+1:2]  : lastpc[BTB_AW+1:2];
+			btb_wtag   <= bt_restart ? fa[31:BTB_AW+2] : lastpc[31:BTB_AW+2];
+			btb_wslot  <= bt_restart ? fa[1]           : lastpc[1];
+		end
 
 		if (bt_restart && fire) begin
 			// a flagged word inside an instruction: drop the entry (the
 			// record is refetched at WB)
-			logic [31:0] fa;
-			fa = qpc + {28'd0, bt_j, 1'b0};
 			btb_we     <= 1'b1;
 			btb_wv     <= 1'b0;
-			btb_wi     <= fa[BTB_AW+1:2];
-			btb_wtag   <= fa[31:BTB_AW+2];
-			btb_wslot  <= fa[1];
 		end
 		// the flag of an earlier part stays with the instruction
 		if (fire) part_bt <= go_part && (part_bt || bt_restart);
@@ -1121,9 +1140,6 @@ always_ff @(posedge clk) begin
 					// (a loop exit keeps the entry: the next pass takes it)
 					btb_we     <= !lp_ovr;
 					btb_wv     <= nrec.pred && btb_ok;
-					btb_wi     <= lastpc[BTB_AW+1:2];
-					btb_wtag   <= lastpc[31:BTB_AW+2];
-					btb_wslot  <= lastpc[1];
 				end
 			end
 			else if (push && nrec_q.pred && ph == PH_IDLE) begin
@@ -1131,9 +1147,6 @@ always_ff @(posedge clk) begin
 				// next time the fetch takes it
 				btb_we     <= btb_ok;
 				btb_wv     <= 1'b1;
-				btb_wi     <= lastpc[BTB_AW+1:2];
-				btb_wtag   <= lastpc[31:BTB_AW+2];
-				btb_wslot  <= lastpc[1];
 			end
 		end
 		if (flush) begin
