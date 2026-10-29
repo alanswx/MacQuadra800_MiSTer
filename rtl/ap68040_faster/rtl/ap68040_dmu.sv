@@ -1474,6 +1474,12 @@ always_ff @(posedge clk) begin
 		tw_hwq <= tw_hw_w;
 		tw_hvq <= tw_busy && !sn_frz && (f_set == tw_da[CSH:4]);
 		if (tw_busy) f_set <= tw_da[CSH:4];   // (lv_ra: the walk's set)
+		// synthesis translate_off
+		if (e_st == E_TW_UPD && !tw_busy) begin
+			$display("FAIL: dmu: E_TW_UPD outside the walk's f_set load");
+			$finish;
+		end
+		// synthesis translate_on
 
 		//--------------------------------------------------------------
 		// engine (frozen while the snooper has the cache)
@@ -2528,7 +2534,9 @@ always_ff @(posedge clk) begin
 			e_wret <= caller;
 			if (h && ldf_q[w]) begin
 				// a dirty copy: pushed (E_PUSHV invalidates it), then back here
-				f_set   <= tw_da[CSH:4];
+				// (f_set is the walk's set already, loaded every walk clock
+				// above: loaded here too, the dirty test chose it, a 60 MHz
+				// path from the f_set copy)
 				f_way   <= w;
 				pv_lock <= lk;
 				pv_for  <= 2'd3;
