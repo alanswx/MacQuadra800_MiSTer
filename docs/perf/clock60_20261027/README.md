@@ -110,6 +110,7 @@ CPU-clock setup slack, worst / TNS (ns), by batch:
 | 61c | 7ea5e47 | -1.182 / -7.9 | -1.713 | -1.320 | -0.849 | | | **-0.378 / -3.4** (53: -2.221, 54: -1.192 / -4.4, 55: -1.292) |
 | 61d | ba9575d | -1.464 / -21.6 | -0.773 / -6.3 | -1.275 | -1.340 | | | -0.996 (53: -1.390, 54: -1.142, **55: -0.627 / -17.6**) |
 | 61e | 362a75e - 6550325 | | | | | | | -0.831 / -7.7 (55: -0.895 / -6.6) |
+| 61f | 794e0be | | | | | | | (seeds 56-63: **58: -0.399 / -0.40**, 57: -0.322 / -1.2, 56: -0.415 / -2.1, 62: -0.768, 60: -1.053, 61: -1.157, 63: -1.381, 59: -2.048) |
 
 (slack / TNS in ns on the 60 MHz CPU clock.)  60y (HDMI met on six of
 eight seeds) came out behind 60x: its leading families were the line-state
@@ -119,6 +120,20 @@ into a_m (c548747) and EX's ALU result into AG's address (f539800).
 met (+0.119); the batch's others sit at -1.0 to -1.7, led by the stall
 cone from AG's interlock (cc6ebd5, d1ab8be, 81aac5f) and the line-state
 port's address (53f4f5e, not in 60z).
+61f (794e0be, eight new seeds) has three fits within half a nanosecond,
+HDMI met on all three: seed 58 at -0.399 ns on a single endpoint family
+(+0.111), seed 57 at -0.322 (+0.283) and seed 56 at -0.415 (+0.476);
+HDMI missed on seeds 59 and 62.  Seed 58's one family was the bit field
+tail's displacement select into AG's address adder and DC1's stale test
+(ac7264e), seed 57's the FPU interface's decode and kill through EX's
+hold into the integer forwarding enable (ae30b01), seed 56's WB's
+maintenance decode through its hold and commit into the back file's
+write select (4541732).  Seed 58 also missed hold on the general[0]
+clock by -0.319 ns (one endpoint), the first hold miss in these
+batches.  The FPU's FPSR/FPCR enabled-exception OR through the
+interface's hold into AG (seed 62, 249 endpoints) stays: the FPSR's
+exception byte is written on the clock the result reaches F_WB, so a
+registered OR would be a clock late (probed in simulation).
 61d (ba9575d) has HDMI met on six of eight seeds again (39,651-39,753
 ALMs, 95 %), its best -0.627 (seed 55); 61e is an A/B of HEAD without
 the dual read ports (6550325 reverted, seeds 52 and 55): -0.831 / -0.895
@@ -251,6 +266,12 @@ the exception entry's registers) -- so the next commits went after those:
 | 0c5ad66 | the walk's dirty-descriptor push without a second f_set load (t_twdirty) | same |
 | d70202f | EX's other written value by classes registered with the uop | same |
 | 794e0be | D1's redirect target and the BTB entry's kind and target loaded every clock | same |
+| f2415d4 | the FPU broadcast's flags cleared by EX's next uop, not by the kill and the advance | same |
+| 44ba7e2 | the redirect address loaded every clock, the redirects' own loads taking precedence | same |
+| ad54a8f | WB's store answer from a snoop-freeze flip-flop of its own | same |
+| ac7264e | AG's bit field tail flag and bf_nb's 3 from flip-flops | same |
+| ae30b01 | the forwarding enable's integer side without the FPU's hold and kill | same |
+| 4541732 | WB's RESET and maintenance flags registered with the uop | same |
 
 From 5988c36 on the self-tests also run in the 60 MHz build's own CPU
 configuration -- the Quadra's parameters plus the skid
