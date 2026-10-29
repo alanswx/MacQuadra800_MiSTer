@@ -1830,8 +1830,12 @@ always_comb begin
 	// the port's address and data are selected without EX's advance, the
 	// stall chain into the front file's write decode at 60/66 MHz; the
 	// enable alone has it)
+	// (AG's second-slot write likewise by its condition without AG's
+	// advance, which only enables it: without the advance the port writes
+	// nothing either way -- AG's stall chose the port's address, with its
+	// fan-out into the live-value table's write decode, at 60 MHz)
 	if (exw1_fw) begin fwe[1] = exw1_v; fwa[1] = exw1_reg; fwd[1] = exw1_val; end
-	else if (ag1w) begin fwe[1] = 1'b1; fwa[1] = ag_s.d_reg; fwd[1] = ag1_val; end
+	else if (ag1w_ag) begin fwe[1] = adv_ag; fwa[1] = ag_s.d_reg; fwd[1] = ag1_val; end
 	fwe[2] = exw_v;                 fwa[2] = exw_reg;       fwd[2] = exw_val;
 	wcom  = wb_commit;
 	wpost = adv_wb && wb_is_exc && (wb_post_trap || wb_xcommit);
