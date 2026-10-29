@@ -103,8 +103,13 @@ CPU-clock setup slack, worst / TNS (ns), by batch:
 | 60v | 78f5a58 | **-0.907 / -20.8** | -1.274 | -1.457 | -1.519 | | | -1.045 / -12.8 (53: -1.077) |
 | 60w | ffe40c3 | -1.159 | -0.919 | -1.504 | **-0.844 / -16.4** | | | -1.593 |
 | 60x | 21dfcdd | -0.742 / -6.7 | -0.769 | -1.163 | -1.069 | | | **-0.636 / -8.5** (53: -0.712, 54: -1.736, 55: -1.380) |
+| 60y | 77a6df6 | -0.991 / -24.3 | -1.918 | -1.435 | -1.284 | | | -0.989 / -24.9 (53: -1.835, **54: -0.910 / -12.8**, 55: -1.942) |
 
-(slack / TNS in ns on the 60 MHz CPU clock.)  60x is the best batch so
+(slack / TNS in ns on the 60 MHz CPU clock.)  60y (HDMI met on six of
+eight seeds) came out behind 60x: its leading families were the line-state
+port's read address chosen by the tag compare (53f4f5e), FADD's sign test
+into a_m (c548747) and EX's ALU result into AG's address (f539800).
+60x is the best batch so
 far: five of eight seeds within -0.8 ns, and its best seed (52) has the
 HDMI domain met (+0.211; 60u s52 +0.274, 60w s49 +0.406).
 
@@ -151,6 +156,16 @@ the exception entry's registers) -- so the next commits went after those:
 | 4416d8d | an EA's AG base and index from the record, selected by the memory EA last | same |
 | 3df4e9f | FSUB's sign fold from a flag loaded with r_op | same |
 | 327e4b8 | the fetch ring head's next value as a three-bit add | same |
+| 941a2d4 | x_go and kill_now selected by WB's advance last | same |
+| 6b8d34e | the upd2 merge's base test per EA; MOVEM's index-is-base off areg | same |
+| 78d4fa1 | line-state copies (MLABs) at f_set and e_va's set for the engine's decisions | same |
+| 53f4f5e | the valid/dirty port's set in the CINV scan and the write hit whatever the compare | same |
+| c548747 | an add of two infinities decides on their signs from a register (F_IINF; t_fpu 675-683) | inf +/- inf +1 clock |
+| f539800 | the ALU's result as an AND-OR of classes registered with EX's uop | same |
+| 0b145bd | the return stack moves on a call or return whatever its exception | same |
+| a217510 | the FPU's result enters EX's written value next to last | same |
+| b3e011a | a memory bit field's written head from B and the masks' bytes | same |
+| 120103a | the FPU interface's fuse and EAL flags registered with EX's uop | same |
 
 From 5988c36 on the self-tests also run in the 60 MHz build's own CPU
 configuration -- the Quadra's parameters plus the skid
