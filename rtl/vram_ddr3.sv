@@ -171,11 +171,14 @@ end
 
 //----------------------------------------------------------------------------
 // CPU Write FIFO (16 entries deep, 64-bit wide)
-// The data is eight byte-wide LUT RAMs (MLABs) with one write port and an
-// asynchronous read at the read pointer: in flip-flops, with two 16-way
-// 64-bit read muxes, it was about half of this module's 1,900 ALMs.  The
-// addresses and byte enables stay in flip-flops (every slot is compared
-// on a read, and a combine ORs the enables).
+// The data is eight byte-wide arrays with one write port and one read, at
+// the read pointer (the old code had a second 16-way 64-bit read for the
+// combine's merge).  They are held in logic: asked for as MLABs, Quartus
+// built them as M10Ks with a retimed read address and bypass registers,
+// and that build (b48a3f4 seed 41) drew horizontal lines on the box and
+// lost 14 % on graphics.  The addresses and byte enables stay in
+// flip-flops too (every slot is compared on a read, a combine ORs the
+// enables).
 //----------------------------------------------------------------------------
 localparam FIFO_DEPTH = 16;
 reg  [16:0] fifo_addr [0:FIFO_DEPTH-1];
@@ -218,7 +221,7 @@ wire [63:0] fifo_rdata;
 genvar fb;
 generate
 	for (fb = 0; fb < 8; fb = fb + 1) begin : g_fifo_din
-		(* ramstyle = "MLAB" *) reg [7:0] din [0:FIFO_DEPTH-1];
+		(* ramstyle = "logic" *) reg [7:0] din [0:FIFO_DEPTH-1];
 		always @(posedge clk_sys)
 			if (!reset && fifo_we && fifo_wbe[fb]) din[fifo_waddr] <= cpu_w64_din[8*fb +: 8];
 		assign fifo_rdata[8*fb +: 8] = din[fifo_rptr];
