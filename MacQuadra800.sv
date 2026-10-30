@@ -397,7 +397,7 @@ pll pll
 	                                       // real Quadra 800 rate, and the exact
 	                                       // base every time-anchored divider
 	                                       // assumes (RTC SEC_DIV, the 60.15 Hz
-	                                       // tick, VIA E_PER, ASC SAMPLE_DIV)
+	                                       // tick, VIA E_STEP, ASC SAMPLE_DIV)
 	.locked(pll_locked)
 );
 
@@ -643,10 +643,13 @@ localparam RAM_ADDR_BITS = 27;             // address ceiling: 128 MB
 // and 60 Hz tick, ADB delays, SCC, ASC sample rate, CD audio cadence, RTC
 // second, debug UART): 33 MHz, or 30 MHz when the PLL is built for 60/30/90
 // (CLK_60_30_90 together with CPU_AP68040_2X), 27.5 MHz when CLK_55_27_82 is
-// added to those two for the 55/27.5/82.5 PLL, 25 MHz with CLK_50_25_75
-// (50/25/75).  RAM_HZ is clk_ram, for the SDRAM refresh interval;
-// rtl/sdram.sv's count was written for 100 MHz.
-`ifdef CLK_50_25_75
+// added to those two for the 55/27.5/82.5 PLL, 27 MHz with CLK_54_27_81
+// (54/27/81), 25 MHz with CLK_50_25_75 (50/25/75).  RAM_HZ is clk_ram, for
+// the SDRAM refresh interval; rtl/sdram.sv's count was written for 100 MHz.
+`ifdef CLK_54_27_81
+localparam SYS_HZ = 27_000_000;
+localparam RAM_HZ = 81_000_000;
+`elsif CLK_50_25_75
 localparam SYS_HZ = 25_000_000;
 localparam RAM_HZ = 75_000_000;
 `elsif CLK_55_27_82
