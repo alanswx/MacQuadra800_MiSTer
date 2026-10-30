@@ -218,15 +218,15 @@ wire  [3:0] fifo_waddr = can_combine ? last_wptr : fifo_wptr;
 wire  [7:0] fifo_wbe   = can_combine ? cpu_w64_be : 8'hFF;
 wire [63:0] fifo_rdata;
 
-genvar fb;
-generate
-	for (fb = 0; fb < 8; fb = fb + 1) begin : g_fifo_din
-		(* ramstyle = "logic" *) reg [7:0] din [0:FIFO_DEPTH-1];
-		always @(posedge clk_sys)
-			if (!reset && fifo_we && fifo_wbe[fb]) din[fifo_waddr] <= cpu_w64_din[8*fb +: 8];
-		assign fifo_rdata[8*fb +: 8] = din[fifo_rptr];
-	end
-endgenerate
+// (declared here, not in a generate loop: Quartus drops a ramstyle on an
+// array inside one, and b48a3f4's and 45c3a8b's netlists were identical)
+(* ramstyle = "logic" *) reg [63:0] fifo_din [0:FIFO_DEPTH-1];
+integer fb;
+always @(posedge clk_sys)
+	if (!reset && fifo_we)
+		for (fb = 0; fb < 8; fb = fb + 1)
+			if (fifo_wbe[fb]) fifo_din[fifo_waddr][8*fb +: 8] <= cpu_w64_din[8*fb +: 8];
+assign fifo_rdata = fifo_din[fifo_rptr];
 
 // Driven directly to DDR3 interface for maximum throughput without pipeline bubbles
 assign vram_ddr_din = fifo_rdata;
