@@ -159,6 +159,12 @@ clock by a hair, fmax 54.7-54.9 MHz: seeds 72 / 55 / 41 / 70 at -0.024
 HDMI met, 38,676-38,780 ALMs (92-93 %).  At 50 MHz (CLK_50_25_75) the
 CPU clock passes with room (seed 72 +1.991, seed 41 +1.485) and the HDMI
 domain misses (-0.197, -0.456), 37,991-38,020 ALMs (91 %).
+At 54 MHz (ccbf914: CLK_54_27_81, and the VIA E clock from a fractional
+divider, since no whole-cycle period is near 783.36 kHz at 27 MHz) all
+four seeds meet every clock, hold included: CPU +0.601 / +0.535 / +0.093
+/ +0.010 ns (seeds 55 / 70 / 41 / 72), HDMI +0.380 / +0.387 / +0.085 /
++0.127, 38,282-38,370 ALMs (91-92 %).  Seed 55's rbf is md5 7256651e,
+stamp 261030.
 
 60y (HDMI met on six of
 eight seeds) came out behind 60x: its leading families were the line-state
