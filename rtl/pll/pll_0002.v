@@ -31,14 +31,38 @@ module  pll_0002(
 `else
 		.number_of_clocks(2),
 `endif
+`ifdef CLK_50_25_75
+		.output_clock_frequency0("25.000000 MHz"),
+`elsif CLK_55_27_82
+		.output_clock_frequency0("27.500000 MHz"),
+`elsif CLK_60_30_90
+		.output_clock_frequency0("30.000000 MHz"),
+`else
 		.output_clock_frequency0("33.000000 MHz"),
+`endif
 		.phase_shift0("0 ps"),
 		.duty_cycle0(50),
+`ifdef CLK_50_25_75
+		.output_clock_frequency1("75.000000 MHz"),
+`elsif CLK_55_27_82
+		.output_clock_frequency1("82.500000 MHz"),
+`elsif CLK_60_30_90
+		.output_clock_frequency1("90.000000 MHz"),
+`else
 		.output_clock_frequency1("99.000000 MHz"),
+`endif
 		.phase_shift1("0 ps"),
 		.duty_cycle1(50),
 `ifdef CPU_AP68040_2X
+`ifdef CLK_50_25_75
+		.output_clock_frequency2("50.000000 MHz"),
+`elsif CLK_55_27_82
+		.output_clock_frequency2("55.000000 MHz"),
+`elsif CLK_60_30_90
+		.output_clock_frequency2("60.000000 MHz"),
+`else
 		.output_clock_frequency2("66.000000 MHz"),
+`endif
 `else
 		.output_clock_frequency2("0 MHz"),
 `endif

@@ -723,7 +723,12 @@ set_global_assignment -name VERILOG_MACRO "CACHE_SMALL=1"
 set_global_assignment -name VERILOG_MACRO "CPU_AP68040=1"
 # Dual issue baseline: CPU/machine 33 MHz, SDRAM 99 MHz.
 # Define CPU_AP68040_2X for the separate 66/33/99 MHz comparison.
-#set_global_assignment -name VERILOG_MACRO "CPU_AP68040_2X=1"
+set_global_assignment -name VERILOG_MACRO "CPU_AP68040_2X=1"
+# 2026-10-29 release33-clk55: the 20261027 release core with a 2:1 CPU clock.
+# CLK_60_30_90 selects the 2:1 PLL family; one of the two below picks the rate.
+set_global_assignment -name VERILOG_MACRO "CLK_60_30_90=1"
+#set_global_assignment -name VERILOG_MACRO "CLK_55_27_82=1"
+#set_global_assignment -name VERILOG_MACRO "CLK_50_25_75=1"
 
 #use only 1MB per frame for scaler to free ~21MB DDR3 RAM
 #set_global_assignment -name VERILOG_MACRO "MISTER_SMALL_VBUF=1"

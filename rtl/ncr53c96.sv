@@ -68,7 +68,8 @@ module ncr53c96
 	// layer synthesizes away, and cd_audio is not instantiated.  For CPU work
 	// that needs the ALMs back; set it from the qsf (CDROM_OFF macro in
 	// MacQuadra800.sv).
-	parameter CDROM = 1
+	parameter CDROM = 1,
+	parameter CLK_HZ = 32'd33_000_000   // clk rate, for the CD audio 44.1 kHz cadence
 )
 (
 	input         clk,
@@ -1846,7 +1847,7 @@ endtask
 // the CD-ROM target's TOC / audio engine
 //----------------------------------------------------------------------------
 generate if (CDROM != 0) begin : g_cd_audio
-cd_audio #(.CLK_HZ(32'd33_000_000)) cd_audio_i (
+cd_audio #(.CLK_HZ(CLK_HZ)) cd_audio_i (
 	.clk(clk), .rst(!nreset), .bus_rst(ca_bus_rst),
 	.mounted(tgt_mounted[2]), .img_mounted(ca_mount_d[1]),
 	.fwd_stb(ca_fwd_stb),

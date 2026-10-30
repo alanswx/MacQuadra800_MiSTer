@@ -25,6 +25,7 @@
 module quadra800
 #(
 	parameter RAM_ADDR_BITS = 27,             // address space ceiling: 128 MB
+	parameter SYS_HZ        = 33_000_000,     // clk rate, for the I/O time bases (rtl/iosb.sv)
 	parameter CDROM         = 1,              // 0 = no CD-ROM target (rtl/ncr53c96.sv)
 	parameter SONIC         = 1,              // 0 = no built-in Ethernet (rtl/sonic_mbx.sv)
 	// 1 = every SONIC DMA write beat pulses the CPU's D-cache snoop (the 68040's bus-snoop
@@ -413,7 +414,7 @@ wire        iosb_fault;   // ack released a timed-out PDMA beat -> bus error
 
 wire dafb_vbl;
 
-iosb #(.CDROM(CDROM)) iosb (
+iosb #(.CDROM(CDROM), .SYS_HZ(SYS_HZ)) iosb (
 	.clk(clk),
 	.nreset(nreset),
 	.ce(ce),

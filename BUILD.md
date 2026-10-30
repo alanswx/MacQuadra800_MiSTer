@@ -75,7 +75,7 @@ BUILD STATUS  (MacQuadra800, 38m12s)
   (`ALLOW_TIMING_VIOLATION=1 bash scripts/deploy_screenshot.sh`) and let the
   gate judge it, but note which domain missed. The critical domain is
   the 33.000 MHz `clk_sys` out of `emu|pll` — the exact real-Quadra rate that every
-  time-anchored divider (RTC `SEC_DIV`, the 60.15 Hz tick, VIA `E_HALF`, ASC
+  time-anchored divider (RTC `SEC_DIV`, the 60.15 Hz tick, VIA `E_PER`, ASC
   `SAMPLE_DIV`) assumes.
 - **Artifact** must be present. The script's exit code is nonzero on any failure.
 - The full Quartus log is written to `output_files/build_<timestamp>.log`.
