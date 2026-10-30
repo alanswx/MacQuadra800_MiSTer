@@ -804,6 +804,8 @@ always_ff @(posedge clk) begin
 	end
 	else begin
 		logic [4:0] keep;
+		logic [5:0]  qca;
+		logic [22:0] qct;
 		c_we        <= 1'b0;
 		ic_inv_done <= 1'b0;
 		sn_inv_done <= 1'b0;
@@ -814,12 +816,33 @@ always_ff @(posedge clk) begin
 		// queue: shift out what D1 consumed, append F3; F2 -> F3
 		//------------------------------------------------------------------
 		keep = cnt - {2'b00, consume};
+		// (cnt + f3_n >= j, for each j; QN = 8 keeps it within 8)
+		qca = {1'b0, cnt} + {4'd0, f3_n};
+		for (int j = 0; j < 23; j++) qct[j] = (qca >= 6'(j));
 		for (int i = 0; i < QN; i++) begin
 			logic [5:0] src;
 			logic [4:0] k;
+			logic [3:0] j1;
+			logic       kp, ka, k0;
 			src = 6'(i) + {3'b000, consume};
 			k   = 5'(i) - keep;
-			if (5'(i) < keep) begin
+			// (slot i keeps a queued word when cnt >= i + consume + 1, and
+			// takes F3's when cnt + f3_n does: the registered thermometer
+			// and the early one picked by consume, the parity of i - keep
+			// for F3's word -- keep's subtraction and its compares, after
+			// D1's consume, chose every queue word at 60 MHz)
+			j1 = 4'(i) + {1'b0, consume} + 4'd1;
+			kp = qav_r[j1];
+			ka = qct[j1];
+			k0 = 1'(i) ^ cnt[0] ^ consume[0];
+			// synthesis translate_off
+			if (nreset && (kp !== (5'(i) < keep) || (!kp && (ka !== (k < {3'b000, f3_n}) || k0 !== k[0])))) begin
+				$display("FAIL: fetch: slot %0d's keep/append by the thermometers %b/%b/%b, by keep %b/%b/%b",
+				         i, kp, ka, k0, 5'(i) < keep, k < {3'b000, f3_n}, k[0]);
+				$finish;
+			end
+			// synthesis translate_on
+			if (kp) begin
 				// synthesis translate_off
 				qps[i] <= qps[src[4:0]];
 				// synthesis translate_on
@@ -831,28 +854,22 @@ always_ff @(posedge clk) begin
 				qb[i] <= qb[src[4:0]];
 				qs[i] <= qs[src[4:0]];
 			end
-			else if (k < {3'b000, f3_n}) begin
+			else if (ka) begin
 				// synthesis translate_off
-				qps[i] <= f3_p[k[0]];
+				qps[i] <= f3_p[k0];
 				// synthesis translate_on
-				qw[i] <= f3_w[k[0]];
-				qx[i] <= xlen(f3_w[k[0]]);
+				qw[i] <= f3_w[k0];
+				qx[i] <= xlen(f3_w[k0]);
 				qf[i] <= f3_f;
 				qd[i] <= f3_d;
 				qa[i] <= f3_a;
-				qb[i] <= f3_b[k[0]];
-				qs[i] <= f3_s[k[0]];
+				qb[i] <= f3_b[k0];
+				qs[i] <= f3_s[k0];
 			end
 		end
 		cnt   <= keep + {3'b000, f3_n};
-		begin
-			// (cnt + f3_n >= k + consume, for each k; QN = 8 keeps it within 8)
-			logic [5:0]  ca;
-			logic [22:0] ct;
-			ca = {1'b0, cnt} + {4'd0, f3_n};
-			for (int j = 0; j < 23; j++) ct[j] = (ca >= 6'(j));
-			qav_r <= 16'(ct >> consume) & 16'h01FF;
-		end
+		// (cnt + f3_n >= k + consume, for each k: qct, above)
+		qav_r <= 16'(qct >> consume) & 16'h01FF;
 		// the predecode ring: appended at head + count (wherever D1's
 		// consume puts the head), the head moved by consume
 		begin
