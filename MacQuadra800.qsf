@@ -565,7 +565,13 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # 2026-10-27 + 0766b3f (EX stall flags registered): seed41 37659ALMs/332M10K HDMI+.094 CPU+.749/+1.049
 # clk_vid+3.292 ALL MET; 8.1 / A/UX 32MB / CD audio gate PASS. Released as releases/MacQuadra800_20261027.rbf
 # (md5 d6abd49e). docs/perf/release33_20261027/.  SEED 41 kept.
-set_global_assignment -name SEED 41
+# 2026-10-29/30 release33-clk55: the same core at a 2:1 CPU clock (b294170, ccbf914).
+#   55/27.5: seeds 41/55/70/72 CPU -0.071/-0.041/-0.108/-0.024 (fmax 54.7-54.9), 38,676-38,780 ALMs.
+#   50/25: seeds 41/72 CPU +1.485/+1.991, HDMI -0.456/-0.197, ~38,000 ALMs.
+#   54/27/81: seeds 41/55/70/72 ALL MET, CPU +0.093/+0.601/+0.535/+0.010, HDMI +0.085/+0.380/+0.387/+0.127,
+#   38,282-38,370 ALMs (92 %).  Seed 55 rbf md5 7256651e (releases/candidates/), stamp 261030; mister192
+#   Speedometer Mix 3.231, PR 2.129 (Disk 1.952, one run), CPU 2.987, Gfx 1.306.  SEED 55 kept, 54 MHz on.
+set_global_assignment -name SEED 55
 # 2026-09-24: NEVER grew the full BRF fit by398 ALMs; retain the better ALWAYS setting.
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
 #
@@ -729,7 +735,7 @@ set_global_assignment -name VERILOG_MACRO "CPU_AP68040_2X=1"
 set_global_assignment -name VERILOG_MACRO "CLK_60_30_90=1"
 #set_global_assignment -name VERILOG_MACRO "CLK_55_27_82=1"
 #set_global_assignment -name VERILOG_MACRO "CLK_50_25_75=1"
-#set_global_assignment -name VERILOG_MACRO "CLK_54_27_81=1"
+set_global_assignment -name VERILOG_MACRO "CLK_54_27_81=1"
 
 #use only 1MB per frame for scaler to free ~21MB DDR3 RAM
 #set_global_assignment -name VERILOG_MACRO "MISTER_SMALL_VBUF=1"
