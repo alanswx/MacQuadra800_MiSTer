@@ -15,8 +15,14 @@
 module iosb
 #(
 	parameter CDROM     = 1,        // 0 = no CD-ROM target (see rtl/ncr53c96.sv)
-	parameter E_HALF    = 21,       // clk per E phase: 33 MHz/21 ~ 783.4 kHz VIA timers
-	parameter TICK_HALF = 274314,   // clk per CA1 half-period: 60.15 Hz tick
+	parameter SYS_HZ    = 33_000_000, // clk rate; every time base below derives from it
+	// E phase edges per second, 783.36 kHz VIA timers: a fractional divider
+	// adds this every clock and takes an edge each time it passes SYS_HZ,
+	// exact at any clock rate (no whole-cycle period is near it at 27 MHz:
+	// 34 is 1.4 % fast, 35 1.5 % slow); edges jitter by one clock.
+	parameter E_STEP    = 1_566_720,
+	// clk per CA1 half-period, 60.15 Hz tick: 274314 at 33 MHz, 249377 at 30 MHz
+	parameter TICK_HALF = (SYS_HZ * 10 + 601) / 1203,
 	// Escape hatch for a wedged pseudo-DMA beat (A_SDMA).  ce is tied high at
 	// 33 MHz, so 2^18 ~ 7.9 ms: orders of magnitude longer than a legitimate
 	// DRQ latency (a byte arrives in microseconds), and ~8x SHORTER than the
@@ -113,9 +119,9 @@ module iosb
 //----------------------------------------------------------------------------
 // E-clock enables and the 60.15 Hz tick
 //----------------------------------------------------------------------------
-reg [$clog2(E_HALF)-1:0] ediv;
+reg [$clog2(SYS_HZ)-1:0] ediv;
 reg        ephase;
-wire       e_pulse   = (ediv == E_HALF-1);
+wire       e_pulse   = (ediv >= SYS_HZ - E_STEP);
 wire       e_rising  = e_pulse && !ephase;
 wire       e_falling = e_pulse &&  ephase;
 
@@ -147,7 +153,7 @@ always @(posedge clk) begin
 		if (tick_60hz && !tick_60hz_d)
 			tick_count <= onesec ? 6'd0 : tick_count + 1'b1;
 
-		ediv <= e_pulse ? '0 : ediv + 1'b1;
+		ediv <= e_pulse ? ediv + E_STEP - SYS_HZ : ediv + E_STEP;
 		if (e_pulse) ephase <= ~ephase;
 		if (tickdiv == TICK_HALF-1) begin
 			tickdiv <= 0;
@@ -175,7 +181,7 @@ wire rtc_din   = via1_pbt[0] ? via1_pbo[0] : 1'b1;
 wire rtc_dout, rtc_doe;
 wire rtc_line  = rtc_doe ? rtc_dout : 1'b1;
 
-rtc3430042 rtc (
+rtc3430042 #(.SEC_DIV(SYS_HZ)) rtc (
 	.clk(clk),
 	.nreset(nreset),
 	.timestamp(timestamp),
@@ -297,8 +303,8 @@ reg via1_sr_out_ack;
 reg via1_kbd_to_mac_fresh;
 reg [7:0] kbd_to_mac;
 
-localparam SHIFT_DELAY = 22'd100000;    // ~3 ms at 33 MHz
-localparam IDLE_DELAY  = 22'd363000;    // ~11 ms autopoll heartbeat
+localparam [21:0] SHIFT_DELAY = SYS_HZ / 330;          // ~3 ms (100000 at 33 MHz)
+localparam [21:0] IDLE_DELAY  = SYS_HZ / 1000 * 11;    // ~11 ms autopoll heartbeat (363000 at 33 MHz)
 
 always @(posedge clk) begin
 	if (!nreset) begin
@@ -557,7 +563,7 @@ always @(posedge clk) if (ce) iosb_dbg_cyc <= iosb_dbg_cyc + 64'd1;
 
 wire [7:0] scsi_dbg_op, scsi_dbg_st;          // tracer taps (see SCSI_TRACE below)
 wire       scsi_dbg_op_stb, scsi_dbg_op_cd, scsi_dbg_st_stb;
-ncr53c96 #(.CDROM(CDROM)) scsi (
+ncr53c96 #(.CDROM(CDROM), .CLK_HZ(SYS_HZ)) scsi (
 	.clk(clk),
 	.nreset(nreset),
 	.ce(ce),
@@ -636,7 +642,7 @@ wire scc_txd_int;
 
 `ifdef SCSI_TRACE
 
-localparam integer DBG_BAUD_DIV = 33_000_000 / 115200;   // 286
+localparam integer DBG_BAUD_DIV = SYS_HZ / 115200;   // 286 at 33 MHz
 localparam integer DBG_BUDGET   = 4000;
 // Dedup EPOCH, in heartbeats (~1 s each).  First sightings used to be scoped to
 // the whole session, which quietly destroyed the one measurement that mattered:
@@ -982,7 +988,7 @@ assign scc_txd_a = scc_txd_int;
 wire        asc_stb = ce && (astate == A_IDLE) && sel && !ack && sel_asc;
 wire [31:0] asc_rdata;
 
-easc easc (
+easc #(.SAMPLE_DIV((SYS_HZ + 11_128) / 22_257)) easc (
 	.clk(clk),
 	.nreset(nreset),
 	.ce(ce),
@@ -1045,7 +1051,7 @@ end
 
 reg scc_cs;
 
-scc #(.SYS_CLK_HZ(33_000_000)) scc_inst
+scc #(.SYS_CLK_HZ(SYS_HZ)) scc_inst
 (
 	.clk       (clk),
 	.cep       (scc_cep),

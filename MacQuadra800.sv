@@ -386,7 +386,7 @@ pll pll
 	                                       // real Quadra 800 rate, and the exact
 	                                       // base every time-anchored divider
 	                                       // assumes (RTC SEC_DIV, the 60.15 Hz
-	                                       // tick, VIA E_HALF, ASC SAMPLE_DIV)
+	                                       // tick, VIA E_STEP, ASC SAMPLE_DIV)
 	.locked(pll_locked)
 );
 
@@ -623,6 +623,33 @@ wire [255:0] m_debug_status;
 wire [127:0] m_debug_status2;
 
 localparam RAM_ADDR_BITS = 27;             // address ceiling: 128 MB
+// Machine clock rate, for every time base divided from clk_sys (VIA E clock
+// and 60 Hz tick, ADB delays, SCC, ASC sample rate, CD audio cadence, RTC
+// second, debug UART): 33 MHz, or 30 MHz when the PLL is built for 60/30/90
+// (CLK_60_30_90 together with CPU_AP68040_2X), 27.5 MHz when CLK_55_27_82 is
+// added to those two for the 55/27.5/82.5 PLL, 27 MHz with CLK_54_27_81
+// (54/27/81), 26 MHz with CLK_52_26_78 (52/26/78), 25 MHz with CLK_50_25_75
+// (50/25/75).  RAM_HZ is clk_ram, for the SDRAM refresh interval;
+// rtl/sdram.sv's count was written for 100 MHz.
+`ifdef CLK_52_26_78
+localparam SYS_HZ = 26_000_000;
+localparam RAM_HZ = 78_000_000;
+`elsif CLK_54_27_81
+localparam SYS_HZ = 27_000_000;
+localparam RAM_HZ = 81_000_000;
+`elsif CLK_50_25_75
+localparam SYS_HZ = 25_000_000;
+localparam RAM_HZ = 75_000_000;
+`elsif CLK_55_27_82
+localparam SYS_HZ = 27_500_000;
+localparam RAM_HZ = 82_500_000;
+`elsif CLK_60_30_90
+localparam SYS_HZ = 30_000_000;
+localparam RAM_HZ = 90_000_000;
+`else
+localparam SYS_HZ = 33_000_000;
+localparam RAM_HZ = 100_000_000;
+`endif
 
 // Installed RAM from the OSD (0=32MB, 1=64MB, 2=128MB — powers of two only;
 // see the ram_limit comment in rtl/quadra800.sv for why 48MB needs the djMEMC
@@ -705,7 +732,7 @@ wire [63:0] eth_mem_wdata;
 reg         eth_mem_accept = 1'b0;
 wire        eth_mem_rvalid;
 
-quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS), .CDROM(CDROM_EN), .SONIC(SONIC_EN)) machine (
+quadra800 #(.RAM_ADDR_BITS(RAM_ADDR_BITS), .CDROM(CDROM_EN), .SONIC(SONIC_EN), .SYS_HZ(SYS_HZ)) machine (
 	.clk(clk_sys),
 `ifdef CPU_AP68040_2X
 	.clk_cpu(clk_cpu),
@@ -1006,7 +1033,7 @@ reg  [31:0] vram_qa;
 assign mem_ack   = mem_ack_r | sdr_ack | vram_ack;
 assign mem_rdata = sdr_ack ? sdr_rdata : mem_is_vram ? vram_qa : mem_rdata_r;
 
-sdram_beat32 sdr
+sdram_beat32 #(.RAM_HZ(RAM_HZ)) sdr
 (
 	.init      (~pll_locked),
 	.clk_sys   (clk_sys),
