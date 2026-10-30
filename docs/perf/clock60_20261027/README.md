@@ -113,8 +113,39 @@ CPU-clock setup slack, worst / TNS (ns), by batch:
 | 61f | 794e0be | | | | | | | (seeds 56-63: **58: -0.399 / -0.40**, 57: -0.322 / -1.2, 56: -0.415 / -2.1, 62: -0.768, 60: -1.053, 61: -1.157, 63: -1.381, 59: -2.048) |
 | 61g | 4541732 | | | | | | | (seeds 52 55-58 64-66: **64: -0.191 / -3.6**, 55: -0.620 / -33.1, 52: -0.766, 57: -0.838, 56: -1.158, 58: -1.239, 66: -1.474, 65: -1.646) |
 | 61h | fa619cd | | | | | | | (seeds 55 57 58 64 67-70: **64: -0.364 / -1.1**, 70: -0.706, 57: -0.714, 55: -0.838, 67: -0.881, 68: -0.921, 58: -1.259, 69: -1.599) |
+| 61i | 152a14e | | | | | | | (seeds 52 55 57 64 68 70-72: **70: -0.431**, 71: -0.762, 72: -0.960, 68: -1.074, 57: -1.234, 52: -1.318, 64: -1.342, 55: -1.465) |
+| 61j | 21f790b | | | | | | | (seeds 55 57 64 70-72, d = register duplication on: **70: +0.101 / 0** (HDMI -0.020), d70: the same fit, 71: -0.066 / -0.38, d68: -0.683, 57: -0.861, 64: -0.913, 55: -0.964, 72: -1.210) |
 
-(slack / TNS in ns on the 60 MHz CPU clock.)  60y (HDMI met on six of
+(slack / TNS in ns on the 60 MHz CPU clock.)  61j's seed 70 is the
+first fit to meet the 60 MHz CPU clock: +0.101 ns, hold met on every
+clock, every domain met but the HDMI one (-0.020 ns, one of the
+video-output registers that CLAUDE.md says to try on hardware at once);
+40,078 ALMs (96 %), rbf md5 ddf02d23, build stamp 261029.  Its
+duplication twin d70 came out identical to the picosecond, so
+`PHYSICAL_SYNTHESIS_REGISTER_DUPLICATION ON` alone changed nothing in
+this flow.  Seed 71 missed by -0.066 on three endpoints.  The
+commits 61j had (after 61i's 152a14e): 0d6ec61, f08a99c, 154cba6,
+de3683c, 66e637c, 3b9bc8b, cdb0575 (E_SP_2's second-line valid bits
+registered), 5cd3944 (EX's other written value takes the multiply/divide
+result by a registered kind), 21f790b (the queue PC's advance as a carry
+select).  61i's families, fixed after 61j was launched and not in it:
+ddaee8e (the valid/dirty RMW's old word by a registered source select),
+5164fc7 (DBcc's counter test on both B sources), 24d5a9e (fpif's operand
+format per arm), 49104c1 (DBcc's high word), a38afe6 (E_S_ACT's set
+loaded unconditionally), d896baf (STOP registered with the uop), 45cf558
+(F_NORM's zero test from F_NLZ's count; sim check only, the zero branch
+is not reached by the tests), f69342b (port 5's read address selected by
+the skid's copy -- its subject says "registered", but nothing is
+registered), ae18a48 (the queue's keep/append tests from the
+thermometers), ea6f8ce (F1's hit as fpc's last write), dc4c5d1 (DC2's
+line copy: pair first, way last).  Left: the stall chain from WB's
+hold through hold_dc1 into the ATC's read address (68), and the FPU
+interface's exception-address chain into wb_exc_addr (68, mostly
+routing).
+
+7ec4b59 adds `CLK_55_27_82` (with `CPU_AP68040_2X` and `CLK_60_30_90`):
+the same core at 55 / 27.5 / 82.5 MHz, 1.5 ns more period, for when 60
+does not close; batch 55a fits it at seeds 55, 57, 70 and 72.  60y (HDMI met on six of
 eight seeds) came out behind 60x: its leading families were the line-state
 port's read address chosen by the tag compare (53f4f5e), FADD's sign test
 into a_m (c548747) and EX's ALU result into AG's address (f539800).
