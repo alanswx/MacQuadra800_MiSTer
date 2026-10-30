@@ -171,12 +171,19 @@ end
 
 //----------------------------------------------------------------------------
 // CPU Write FIFO (16 entries deep, 64-bit wide)
-// Sized for minimal ALM footprint while buffering full CPU burst capacity
+// The data is eight byte-wide LUT RAMs (MLABs) with one write port and an
+// asynchronous read at the read pointer: in flip-flops, with two 16-way
+// 64-bit read muxes, it was about half of this module's 1,900 ALMs.  The
+// addresses and byte enables stay in flip-flops (every slot is compared
+// on a read, and a combine ORs the enables).
 //----------------------------------------------------------------------------
 localparam FIFO_DEPTH = 16;
 reg  [16:0] fifo_addr [0:FIFO_DEPTH-1];
-reg  [63:0] fifo_din  [0:FIFO_DEPTH-1];
 reg   [7:0] fifo_be   [0:FIFO_DEPTH-1];
+// fifo_seq[i]: slot i's address is one past the slot before it, as written.
+// Only read for slots behind the read pointer, whose predecessor is still
+// queued, so it is current wherever the burst scanner looks.
+reg [FIFO_DEPTH-1:0] fifo_seq = {FIFO_DEPTH{1'b0}};
 reg   [4:0] fifo_count = 5'd0;
 reg   [3:0] fifo_wptr  = 4'd0;
 reg   [3:0] fifo_rptr  = 4'd0;
@@ -198,38 +205,42 @@ wire can_combine = cpu_vram_write &&
                    !((state == S_CPU_WRITE) && (fifo_rptr == last_wptr));
 wire is_new_entry = cpu_vram_write && !can_combine && (fifo_count < FIFO_DEPTH);
 
-wire [63:0] merged_din = {
-	cpu_w64_be[7] ? cpu_w64_din[63:56] : fifo_din[last_wptr][63:56],
-	cpu_w64_be[6] ? cpu_w64_din[55:48] : fifo_din[last_wptr][55:48],
-	cpu_w64_be[5] ? cpu_w64_din[47:40] : fifo_din[last_wptr][47:40],
-	cpu_w64_be[4] ? cpu_w64_din[39:32] : fifo_din[last_wptr][39:32],
-	cpu_w64_be[3] ? cpu_w64_din[31:24] : fifo_din[last_wptr][31:24],
-	cpu_w64_be[2] ? cpu_w64_din[23:16] : fifo_din[last_wptr][23:16],
-	cpu_w64_be[1] ? cpu_w64_din[15:8]  : fifo_din[last_wptr][15:8],
-	cpu_w64_be[0] ? cpu_w64_din[7:0]   : fifo_din[last_wptr][7:0]
-};
-wire [7:0] merged_be = fifo_be[last_wptr] | cpu_w64_be;
+// One write port: a combine writes its bytes into the last slot, a new
+// entry all eight bytes of the next.  The DDR3 takes the head slot's data
+// combinationally on the clocks it acks; a combine never targets the slot
+// being drained (can_combine), so the head needs no merge bypass -- the old
+// one only ever applied on clocks the DDR3 was not sampling.
+wire        fifo_we    = can_combine || is_new_entry;
+wire  [3:0] fifo_waddr = can_combine ? last_wptr : fifo_wptr;
+wire  [7:0] fifo_wbe   = can_combine ? cpu_w64_be : 8'hFF;
+wire [63:0] fifo_rdata;
+
+genvar fb;
+generate
+	for (fb = 0; fb < 8; fb = fb + 1) begin : g_fifo_din
+		(* ramstyle = "MLAB" *) reg [7:0] din [0:FIFO_DEPTH-1];
+		always @(posedge clk_sys)
+			if (!reset && fifo_we && fifo_wbe[fb]) din[fifo_waddr] <= cpu_w64_din[8*fb +: 8];
+		assign fifo_rdata[8*fb +: 8] = din[fifo_rptr];
+	end
+endgenerate
 
 // Driven directly to DDR3 interface for maximum throughput without pipeline bubbles
-assign vram_ddr_din = (can_combine && (fifo_rptr == last_wptr)) ? merged_din : fifo_din[fifo_rptr];
-assign vram_ddr_be  = (can_combine && (fifo_rptr == last_wptr)) ? merged_be  : fifo_be[fifo_rptr];
+assign vram_ddr_din = fifo_rdata;
+assign vram_ddr_be  = fifo_be[fifo_rptr];
 
-// Burst scanner: detect contiguous sequential addresses in FIFO (up to 8 beats)
-wire [3:0] rptr_p1 = fifo_rptr + 4'd1;
-wire [3:0] rptr_p2 = fifo_rptr + 4'd2;
-wire [3:0] rptr_p3 = fifo_rptr + 4'd3;
-wire [3:0] rptr_p4 = fifo_rptr + 4'd4;
-wire [3:0] rptr_p5 = fifo_rptr + 4'd5;
-wire [3:0] rptr_p6 = fifo_rptr + 4'd6;
-wire [3:0] rptr_p7 = fifo_rptr + 4'd7;
+// Burst scanner: detect contiguous sequential addresses in FIFO (up to 8
+// beats) from the slots' fifo_seq bits, rotated to start at the head
+wire [2*FIFO_DEPTH-1:0] seq_dbl = {fifo_seq, fifo_seq};
+wire [FIFO_DEPTH-1:0]   seq_rot = seq_dbl[fifo_rptr +: FIFO_DEPTH];
 
-wire contig_1 = (fifo_count >= 5'd2) && (fifo_addr[rptr_p1] == (fifo_addr[fifo_rptr] + 17'd1));
-wire contig_2 = contig_1 && (fifo_count >= 5'd3) && (fifo_addr[rptr_p2] == (fifo_addr[fifo_rptr] + 17'd2));
-wire contig_3 = contig_2 && (fifo_count >= 5'd4) && (fifo_addr[rptr_p3] == (fifo_addr[fifo_rptr] + 17'd3));
-wire contig_4 = contig_3 && (fifo_count >= 5'd5) && (fifo_addr[rptr_p4] == (fifo_addr[fifo_rptr] + 17'd4));
-wire contig_5 = contig_4 && (fifo_count >= 5'd6) && (fifo_addr[rptr_p5] == (fifo_addr[fifo_rptr] + 17'd5));
-wire contig_6 = contig_5 && (fifo_count >= 5'd7) && (fifo_addr[rptr_p6] == (fifo_addr[fifo_rptr] + 17'd6));
-wire contig_7 = contig_6 && (fifo_count >= 5'd8) && (fifo_addr[rptr_p7] == (fifo_addr[fifo_rptr] + 17'd7));
+wire contig_1 = (fifo_count >= 5'd2) && seq_rot[1];
+wire contig_2 = contig_1 && (fifo_count >= 5'd3) && seq_rot[2];
+wire contig_3 = contig_2 && (fifo_count >= 5'd4) && seq_rot[3];
+wire contig_4 = contig_3 && (fifo_count >= 5'd5) && seq_rot[4];
+wire contig_5 = contig_4 && (fifo_count >= 5'd6) && seq_rot[5];
+wire contig_6 = contig_5 && (fifo_count >= 5'd7) && seq_rot[6];
+wire contig_7 = contig_6 && (fifo_count >= 5'd8) && seq_rot[7];
 
 wire [3:0] burst_beats = contig_7 ? 4'd8 :
                          contig_6 ? 4'd7 :
@@ -260,19 +271,11 @@ always @(posedge clk_sys) begin
 
 		if (can_combine) begin
 			fifo_be[last_wptr] <= fifo_be[last_wptr] | cpu_w64_be;
-			if (cpu_w64_be[0]) fifo_din[last_wptr][7:0]   <= cpu_w64_din[7:0];
-			if (cpu_w64_be[1]) fifo_din[last_wptr][15:8]  <= cpu_w64_din[15:8];
-			if (cpu_w64_be[2]) fifo_din[last_wptr][23:16] <= cpu_w64_din[23:16];
-			if (cpu_w64_be[3]) fifo_din[last_wptr][31:24] <= cpu_w64_din[31:24];
-			if (cpu_w64_be[4]) fifo_din[last_wptr][39:32] <= cpu_w64_din[39:32];
-			if (cpu_w64_be[5]) fifo_din[last_wptr][47:40] <= cpu_w64_din[47:40];
-			if (cpu_w64_be[6]) fifo_din[last_wptr][55:48] <= cpu_w64_din[55:48];
-			if (cpu_w64_be[7]) fifo_din[last_wptr][63:56] <= cpu_w64_din[63:56];
 		end
 		else if (cpu_vram_write && (fifo_count < FIFO_DEPTH)) begin
 			fifo_addr[fifo_wptr] <= cpu_w64_addr;
-			fifo_din[fifo_wptr]  <= cpu_w64_din;
 			fifo_be[fifo_wptr]   <= cpu_w64_be;
+			fifo_seq[fifo_wptr]  <= (cpu_w64_addr == fifo_addr[last_wptr] + 17'd1);
 			fifo_wptr            <= fifo_wptr + 1'b1;
 		end
 
