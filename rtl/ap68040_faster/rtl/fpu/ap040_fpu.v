@@ -1460,6 +1460,11 @@ end
 
 // synthesis translate_off
 always @(posedge clk)
+	if (ce && fst == F_NORM && a_t == T_NUM && (nlz_q == 7'd64) != (a_m == 64'd0)) begin
+		$display("FAIL: F_NORM's registered count %0d, the significand %h", nlz_q, a_m);
+		$finish;
+	end
+always @(posedge clk)
 	if (ce && fst == F_NORM && a_t == T_NUM && a_m == 64'd0 && norm_shifted[66:3] != 64'd0) begin
 		$display("FAIL: F_NORM of a zero significand gave %h", norm_shifted[66:3]);
 		$finish;
@@ -2522,8 +2527,10 @@ always @(posedge clk) begin
 					// a zero significand normalizes to zero: a_m takes the
 					// shifter's output either way, the zero test only
 					// decides the class and exponent (a timing path); the
-					// output enters a_m after the case (below)
-					if (a_m == 64'd0) begin
+					// output enters a_m after the case (below).  The zero
+					// test is F_NLZ's count of a_m, 64 for none (the 64-bit
+					// compare chose a_e's load at 60 MHz; checked below)
+					if (nlz_q == 7'd64) begin
 						a_t <= T_ZERO; a_e <= 0;
 					end
 					else a_e <= a_e - {10'd0, nlz_q};
