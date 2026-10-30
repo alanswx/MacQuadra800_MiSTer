@@ -145,7 +145,13 @@ routing).
 
 7ec4b59 adds `CLK_55_27_82` (with `CPU_AP68040_2X` and `CLK_60_30_90`):
 the same core at 55 / 27.5 / 82.5 MHz, 1.5 ns more period, for when 60
-does not close; batch 55a fits it at seeds 55, 57, 70 and 72.  60y (HDMI met on six of
+does not close.  Batch 55a (7ec4b59, all the fixes above) meets every
+clock on all four seeds, hold included: CPU +1.103 / +0.950 / +0.752 /
++0.568 ns (seeds 72 / 57 / 55 / 70, fmax 58.6-56.8 MHz), HDMI +0.239 /
++0.078 / +0.207 / +0.436, 40,392-40,504 ALMs (96-97 %).  Seed 72's rbf
+is md5 91cf7646, stamp 261029.
+
+60y (HDMI met on six of
 eight seeds) came out behind 60x: its leading families were the line-state
 port's read address chosen by the tag compare (53f4f5e), FADD's sign test
 into a_m (c548747) and EX's ALU result into AG's address (f539800).
