@@ -572,6 +572,11 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # seed41 36499ALMs CPU+1.072 HDMI+.508 hold+.203 ALL MET (rbf 2a480467, to mister192);
 # seed55 36477 CPU+.345 HDMI+.437 met; seed72 36484 CPU+.605 HDMI+.382 met;
 # seed70 36579 CPU-.026 HDMI-.210 MISS.
+# b48a3f4 on mister192: horizontal lines and PR Graphics 1.122 (step 1, b06c1b6 seed 55: no lines, 1.272).
+# The FIFO arrays had gone to M10K: ramstyle inside a generate loop is ignored (45c3a8b's rbf = b48a3f4's).
+# f594bb5 (FIFO data one module-level array in logic): 329M10K; seed41 36808ALMs CPU+.864 HDMI+.589
+# hold+.177 (rbf 2c611cb5, to mister192); seed55 36811 CPU+.963 HDMI+.296; seed72 36826 CPU+.724
+# HDMI+.337. ALL MET on all three.
 set_global_assignment -name SEED 41
 # 2026-09-24: NEVER grew the full BRF fit by398 ALMs; retain the better ALWAYS setting.
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS

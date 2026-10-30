@@ -46,3 +46,23 @@ more: 36,500 ALMs, 1,240 above the checkpoint with the DDR3 VRAM, four
 monitors, the store buffer and the ROM cache in.  Seed 41's rbf (md5
 2a480467, stamp 261030) is on mister192 as
 `_Development/MacQuadra800_ddr3lean54mhz_s41_261030.rbf`.
+
+## The FIFO in logic (f594bb5)
+
+b48a3f4 drew horizontal lines on mister192 and lost 14 % on graphics; the
+step-1 build did neither.  Its FIFO arrays were M10Ks, not MLABs: Quartus
+drops a `ramstyle` on an array declared inside a generate loop, so 45c3a8b
+("logic") came out bit-identical to b48a3f4 (rbf md5 2a480467 both) and its
+fits repeated b48a3f4's numbers exactly.  f594bb5 declares the data as one
+16 x 64-bit array at module scope; synthesis shows no FIFO RAM and about
+950 more registers.
+
+| build | seed | ALMs | M10K | CPU | HDMI | CPU hold |
+|---|---|---:|---:|---:|---:|---:|
+| f594bb5 | 41 | 36,808 (88 %) | 329 | +0.864 | +0.589 | +0.177 |
+| f594bb5 | 55 | 36,811 (88 %) | 329 | +0.963 | +0.296 | +0.154 |
+| f594bb5 | 72 | 36,826 (88 %) | 329 | +0.724 | +0.337 | +0.127 |
+
+About 460 ALMs under step 1 (one read mux and the burst scanner's
+adders, not the flip-flops).  Seed 41's rbf (md5 2c611cb5) is on mister192
+as `_Development/MacQuadra800_ddr3lean2_54mhz_s41_261030.rbf`.
