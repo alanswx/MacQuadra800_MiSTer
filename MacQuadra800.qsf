@@ -727,6 +727,9 @@ set_global_assignment -name VERILOG_MACRO "CPU_AP68040_2X=1"
 # 60/30/90 MHz (RESUME-20261024 Phase 1): PLL 30/90/60 and SYS_HZ = 30 MHz for every
 # clk_sys time base; 66/33/99 is CPU_AP68040_2X without CLK_60_30_90.
 set_global_assignment -name VERILOG_MACRO "CLK_60_30_90=1"
+# 55/27.5/82.5 MHz: the same core and PLL taps a step slower (on top of the two
+# macros above), for when 60 MHz does not close timing.
+#set_global_assignment -name VERILOG_MACRO "CLK_55_27_82=1"
 
 #use only 1MB per frame for scaler to free ~21MB DDR3 RAM
 #set_global_assignment -name VERILOG_MACRO "MISTER_SMALL_VBUF=1"

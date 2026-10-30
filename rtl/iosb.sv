@@ -16,8 +16,10 @@ module iosb
 #(
 	parameter CDROM     = 1,        // 0 = no CD-ROM target (see rtl/ncr53c96.sv)
 	parameter SYS_HZ    = 33_000_000, // clk rate; every time base below derives from it
-	// clk per E phase, 783.36 kHz VIA timers: 21 at 33 MHz, 19 at 30 MHz
-	parameter E_HALF    = (SYS_HZ + 783_360) / 1_566_720,
+	// clk per E period, 783.36 kHz VIA timers: 42 at 33 MHz, 38 at 30 MHz,
+	// 35 at 27.5 MHz.  The two phases split it, the high one a cycle shorter
+	// when it is odd: rounding each half instead ran 27.5 MHz 2.5 % slow.
+	parameter E_PER     = (SYS_HZ + 391_680) / 783_360,
 	// clk per CA1 half-period, 60.15 Hz tick: 274314 at 33 MHz, 249377 at 30 MHz
 	parameter TICK_HALF = (SYS_HZ * 10 + 601) / 1203,
 	// Escape hatch for a wedged pseudo-DMA beat (A_SDMA).  ce is tied high at
@@ -116,9 +118,11 @@ module iosb
 //----------------------------------------------------------------------------
 // E-clock enables and the 60.15 Hz tick
 //----------------------------------------------------------------------------
-reg [$clog2(E_HALF)-1:0] ediv;
+localparam E_LO = E_PER - E_PER / 2;
+localparam E_HI = E_PER / 2;
+reg [$clog2(E_LO)-1:0] ediv;
 reg        ephase;
-wire       e_pulse   = (ediv == E_HALF-1);
+wire       e_pulse   = (ediv == (ephase ? E_HI-1 : E_LO-1));
 wire       e_rising  = e_pulse && !ephase;
 wire       e_falling = e_pulse &&  ephase;
 
