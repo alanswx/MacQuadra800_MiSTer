@@ -166,6 +166,18 @@ four seeds meet every clock, hold included: CPU +0.601 / +0.535 / +0.093
 +0.127, 38,282-38,370 ALMs (91-92 %).  Seed 55's rbf is md5 7256651e,
 stamp 261030.
 
+The dual-issue memory checkpoint (6bfd9c0, tag
+pipelined-040-dual-memory-20261023: before the DDR3 VRAM, the ROM
+cache, the store buffer's posted VRAM stores, the 16 KB caches and the
+FPU store speedups) with the same clock plumbing, branch
+dual-memory-clk54 (eeeb7cb, which also adds CLK_52_26_78).  At 54 MHz
+three of four seeds meet every clock: CPU +0.948 / +0.665 / +0.458 ns
+(seeds 70 / 72 / 41, HDMI +0.404 / +0.357 / +0.531); seed 55 misses
+the CPU clock by -0.140.  35,219-35,320 ALMs (84 %), about 3,050 fewer
+than the release core at 54.  At 52 MHz both seeds pass: CPU +1.468 /
++1.218 (seeds 55 / 72).  Seed 70's 54 MHz rbf is md5 f62d743b, stamp
+261030.
+
 60y (HDMI met on six of
 eight seeds) came out behind 60x: its leading families were the line-state
 port's read address chosen by the tag compare (53f4f5e), FADD's sign test
