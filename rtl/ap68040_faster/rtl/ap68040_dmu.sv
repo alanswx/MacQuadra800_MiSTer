@@ -546,7 +546,14 @@ always_ff @(posedge clk) begin
 	// the hit way: the late match selects 64 bits, not the line)
 	// (the way by d1_wl: the ATC's hits pick its two bits, then the
 	// four ways' words by them -- with no hit dqc is not used)
-	l = pair(dq_rn[d1_wl], m1.a[3:2]);
+	// (each way's pair first, by the early address, the late way select
+	// last over 64 bits: after it the pair's select doubled its fan-out
+	// and added a level from the tag compare into dqc at 60 MHz)
+	begin
+		logic [63:0] pw [4];
+		for (int j = 0; j < 4; j++) pw[j] = pair(dq_rn[j], m1.a[3:2]);
+		l = pw[d1_wl];
+	end
 	dqc <= l;
 	// synthesis translate_off
 	begin
