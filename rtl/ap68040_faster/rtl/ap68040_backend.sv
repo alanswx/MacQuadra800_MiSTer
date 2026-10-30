@@ -648,7 +648,10 @@ always_ff @(posedge clk)
 		$finish;
 	end
 // synthesis translate_on
-assign rra[5] = ain_s.a_reg;      // (read as the pair enters AG: ag_a1q)
+// (read as the pair enters AG: ag_a1q; the second slot's select by the
+// skid's read-address copy, sk_vr: through ain_s, sk_v's fan-out to the
+// whole uop began the read, the broadcast and ag_a1q at 60 MHz)
+assign rra[5] = sk_vr ? sk_s.a_reg : in_s.a_reg;
 always_comb begin
 	for (int i = 0; i < 8; i++) rfa[i] = 5'd0;
 	for (int i = 0; i < NRP; i++) rfa[i] = rra[i];
