@@ -804,8 +804,14 @@ always_ff @(posedge clk) begin
 	end
 	else begin
 		logic [4:0] keep;
+		// synthesis translate_off
+		logic sim_fpc_m;
+		// synthesis translate_on
 		logic [5:0]  qca;
 		logic [22:0] qct;
+		// synthesis translate_off
+		sim_fpc_m = 1'b0;
+		// synthesis translate_on
 		c_we        <= 1'b0;
 		ic_inv_done <= 1'b0;
 		sn_inv_done <= 1'b0;
@@ -1070,10 +1076,13 @@ always_ff @(posedge clk) begin
 			end
 		end
 
-		// F0's next address with F1 there: the hit's (fpc_h) or the
-		// missed one, by the tag compare last (the miss engine's loads
-		// below never meet F1, and a redirect has none)
-		if (f1_go) fpc <= x_hit ? fpc_h : f1_pc;
+		// F0's next address with F1 there: the missed one here, the hit's
+		// (fpc_h) after the redirect below, so the tag compare is fpc's
+		// last select (the miss engine's loads never meet F1, checked,
+		// and a redirect has none: f1_go): behind the later writers'
+		// priority it ran from the tag read into the BTB valid copy's
+		// read address at 60 MHz
+		if (f1_go) fpc <= f1_pc;
 
 		//------------------------------------------------------------------
 		// miss engine
@@ -1141,6 +1150,9 @@ always_ff @(posedge clk) begin
 						m_pa  <= {m_pa[31:2], 2'b00} + 32'd4;
 						m_dem <= 1'b0;
 						fpc   <= nla;
+						// synthesis translate_off
+						sim_fpc_m = 1'b1;
+						// synthesis translate_on
 						fnew  <= 1'b0;
 					end
 				end
@@ -1171,6 +1183,9 @@ always_ff @(posedge clk) begin
 					m_pa  <= {m_pa[31:2], 2'b00} + 32'd4;
 					m_dem <= 1'b0;
 					fpc   <= nla;
+					// synthesis translate_off
+					sim_fpc_m = 1'b1;
+					// synthesis translate_on
 					fnew  <= 1'b0;
 					st    <= S_RUN;
 				end
@@ -1206,6 +1221,9 @@ always_ff @(posedge clk) begin
 					m_pa  <= {m_pa[31:2], 2'b00} + 32'd4;
 					m_dem <= 1'b0;
 					fpc   <= nla;
+					// synthesis translate_off
+					sim_fpc_m = 1'b1;
+					// synthesis translate_on
 					fnew  <= 1'b0;
 					// the page ends (or the cache mode changed): translate again
 					if (nla[11:0] == 12'd0 || (!m_ci && ic_en)) st <= S_RUN;
@@ -1262,6 +1280,13 @@ always_ff @(posedge clk) begin
 			end
 			if (st == S_HALT) st <= S_RUN;
 		end
+		if (f1_go && x_hit) fpc <= fpc_h;
+		// synthesis translate_off
+		if (sim_fpc_m && f1_go && x_hit) begin
+			$display("FAIL: fetch: the miss engine loaded fpc beside F1's hit");
+			$finish;
+		end
+		// synthesis translate_on
 
 		//------------------------------------------------------------------
 		// CINV/CPUSH of the instruction cache
