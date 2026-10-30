@@ -565,6 +565,13 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # 2026-10-27 + 0766b3f (EX stall flags registered): seed41 37659ALMs/332M10K HDMI+.094 CPU+.749/+1.049
 # clk_vid+3.292 ALL MET; 8.1 / A/UX 32MB / CD audio gate PASS. Released as releases/MacQuadra800_20261027.rbf
 # (md5 d6abd49e). docs/perf/release33_20261027/.  SEED 41 kept.
+# 2026-10-30 branch dual-memory-ddr3-lean, 54/27/81 MHz (CLK_54_27_81, set by fit.sh MHZ=54):
+# b06c1b6 (release minus the FP store work and the 16 KB caches): seed55 37268ALMs/328M10K
+# CPU+.948 HDMI+.441 hold+.116; seed70 37256ALMs CPU+.169 HDMI+.637 hold+.172. ALL MET.
+# b48a3f4 (+ vram_ddr3 FIFO data in RAM, burst scan from per-slot bits): 337M10K;
+# seed41 36499ALMs CPU+1.072 HDMI+.508 hold+.203 ALL MET (rbf 2a480467, to mister192);
+# seed55 36477 CPU+.345 HDMI+.437 met; seed72 36484 CPU+.605 HDMI+.382 met;
+# seed70 36579 CPU-.026 HDMI-.210 MISS.
 set_global_assignment -name SEED 41
 # 2026-09-24: NEVER grew the full BRF fit by398 ALMs; retain the better ALWAYS setting.
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
