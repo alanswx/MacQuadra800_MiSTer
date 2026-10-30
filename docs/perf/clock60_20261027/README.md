@@ -151,6 +151,15 @@ clock on all four seeds, hold included: CPU +1.103 / +0.950 / +0.752 /
 +0.078 / +0.207 / +0.436, 40,392-40,504 ALMs (96-97 %).  Seed 72's rbf
 is md5 91cf7646, stamp 261029.
 
+The shipped 20261027 core (ff42944, 37,659 ALMs at 33 MHz) at the same
+2:1 clocks, branch release33-clk55 (b294170: the clock plumbing only,
+the release's CPU, skid off).  At 55 MHz all four seeds miss the CPU
+clock by a hair, fmax 54.7-54.9 MHz: seeds 72 / 55 / 41 / 70 at -0.024
+/ -0.041 / -0.071 / -0.108 ns (seed 55 also misses CPU hold by -0.059),
+HDMI met, 38,676-38,780 ALMs (92-93 %).  At 50 MHz (CLK_50_25_75) the
+CPU clock passes with room (seed 72 +1.991, seed 41 +1.485) and the HDMI
+domain misses (-0.197, -0.456), 37,991-38,020 ALMs (91 %).
+
 60y (HDMI met on six of
 eight seeds) came out behind 60x: its leading families were the line-state
 port's read address chosen by the tag compare (53f4f5e), FADD's sign test
