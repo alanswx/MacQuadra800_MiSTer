@@ -577,6 +577,10 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # f594bb5 (FIFO data one module-level array in logic): 329M10K; seed41 36808ALMs CPU+.864 HDMI+.589
 # hold+.177 (rbf 2c611cb5, to mister192); seed55 36811 CPU+.963 HDMI+.296; seed72 36826 CPU+.724
 # HDMI+.337. ALL MET on all three.
+# The lines were not the FIFO: f594bb5 seed 55 clean, b06c1b6 seed 70 lined.  A line DMA burst
+# issued on the dma_take clock used the old line's dma_cur_addr (fixed in 3b1761d, tb_vram_scan).
+# 3b1761d @54: seed41 36934 CPU-.113 HDMI+.146; seed55 36854 CPU-.302 HDMI-.324; seed70 36879
+# CPU+.548 HDMI+.509 hold+.253 ALL MET (rbf f8371f40, to mister192 as Q800_C_fix_seed70).
 set_global_assignment -name SEED 41
 # 2026-09-24: NEVER grew the full BRF fit by398 ALMs; retain the better ALWAYS setting.
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
