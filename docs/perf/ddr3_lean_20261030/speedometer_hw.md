@@ -5,28 +5,28 @@ per build on Mac OS 8.1; screenshots under `scratch/hw/<build>/speedometer.png`.
 One run each, so Dhrystones and Int. Matrix carry this core's run-to-run
 spread (about 20 %); the others repeat within about 1 %.
 
-| | current core, 55 MHz | release core, 50 MHz | release core, 54 MHz | dual-memory, 54 MHz | lean DDR3, 54 MHz | step 1 (old vram_ddr3), 54 MHz | step 2, FIFO in logic, 54 MHz | DMA-take fix, 54 MHz |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| build | 7ec4b59 seed 72 (55a) | b294170 seed 72 (r50) | ccbf914 seed 55 (r54) | eeeb7cb seed 70 (m54) | b48a3f4 seed 41 (l2) | b06c1b6 seed 55 (l1) | f594bb5 seed 55 (l4) | 3b1761d seed 70 (l5) |
-| rbf md5 | 91cf7646 | 79f3db26 | 7256651e | f62d743b | 2a480467 | 6c603e11 | 902ba8db | f8371f40 |
-| ALMs | 40,398 (96 %) | 37,991 (91 %) | 38,370 (92 %) | 35,258 (84 %) | 36,499 (87 %) | 37,268 (89 %) | 36,811 (88 %) | 36,879 (88 %) |
-| CPU / bus clock | 55 / 27.5 MHz | 50 / 25 MHz | 54 / 27 MHz | 54 / 27 MHz | 54 / 27 MHz | 54 / 27 MHz | 54 / 27 MHz | 54 / 27 MHz |
-| timing | all met (CPU +1.103) | CPU +1.991, HDMI -0.197 | all met (CPU +0.601) | all met (CPU +0.948) | all met (CPU +1.072) | all met (CPU +0.948) | all met (CPU +0.963) | all met (CPU +0.548) |
-| **PR** | **2.285** | **2.123** | **2.129** | **2.321** | **2.070** | **2.211** | **2.168** | **2.044** |
-| PR CPU | 3.043 | 2.770 | 2.987 | 2.978 | 2.972 | 2.968 | 2.977 | 2.972 |
-| PR Graphics | 1.317 | 1.227 | 1.306 | 1.397 | 1.122 | 1.272 | 1.248 | 1.126 |
-| PR Disk | 2.670 | 2.558 | 1.952 | 2.582 | 2.608 | 2.589 | 2.439 | 2.384 |
-| PR Math | 28.000 | 25.962 | 27.979 | 22.439 | 22.378 | 22.439 | 22.421 | 22.381 |
-| Mix average (Quadra 605 = 1) | 3.271 | 2.994 | 3.231 | 3.037 | 3.014 | 3.030 | 3.028 | 3.015 |
-| KWhetstones/s | 2,537.1 | 2,361.1 | 2,551.8 | 2,096.6 | 2,074.3 | 2,079.9 | 2,078.6 | 2,075.6 |
-| Dhrystones/s | 41,179 | 37,561 | 40,503 | 40,509 | 40,397 | 40,436 | 40,470 | 40,403 |
-| Towers / Quick / Bubble (s) | 0.207 / 0.249 / 0.294 | 0.229 / 0.276 / 0.322 | 0.212 / 0.255 / 0.299 | 0.212 / 0.265 / 0.299 | 0.213 / 0.267 / 0.300 | 0.212 / 0.265 / 0.299 | 0.212 / 0.266 / 0.300 | 0.212 / 0.267 / 0.300 |
-| Queens / Puzzle / Permutations (s) | 0.194 / 0.435 / 0.324 | 0.214 / 0.476 / 0.360 | 0.198 / 0.441 / 0.334 | 0.198 / 0.445 / 0.334 | 0.199 / 0.447 / 0.334 | 0.198 / 0.445 / 0.334 | 0.199 / 0.445 / 0.334 | 0.199 / 0.447 / 0.334 |
-| Int. Matrix / Sieve (s) | 0.260 / 0.463 | 0.285 / 0.504 | 0.264 / 0.467 | 0.271 / 0.497 | 0.273 / 0.511 | 0.271 / 0.499 | 0.272 / 0.499 | 0.273 / 0.511 |
-| Color mono / 2 / 4 / 8 / 16 bit (s) | 5.482 / 6.410 / 7.406 / 9.419 / 12.556 | 6.020 / 7.029 / 8.145 / 10.360 / 13.753 | 5.777 / 6.711 / 7.786 / 9.930 / 13.238 | 5.634 / 6.483 / 7.555 / 9.773 / n/a (no 16-bit) | 6.351 / 7.310 / 8.396 / 10.603 / 14.753 | 5.604 / 6.578 / 7.616 / 9.617 / 12.954 | 5.780 / 6.798 / 7.871 / 10.045 / 13.459 | 6.302 / 7.280 / 8.332 / 10.513 / 14.680 |
-| FPU KWhetstones/s | 7,025.8 | 6,725.4 | 7,250.7 | 5,814.9 | 5,814.3 | 5,825.7 | 5,800.3 | 5,812.0 |
-| FPU Matrix Mult / FFT (s) | 0.445 / 0.224 | 0.477 / 0.241 | 0.441 / 0.223 | 0.510 / 0.246 | 0.514 / 0.247 | 0.510 / 0.246 | 0.511 / 0.246 | 0.514 / 0.247 |
-| FPU average (Quadra 650 = 1) | 1.407 | 1.323 | 1.427 | 1.222 | 1.218 | 1.224 | 1.221 | 1.218 |
+| | current core, 55 MHz | release core, 50 MHz | release core, 54 MHz | dual-memory, 54 MHz | lean DDR3, 54 MHz | step 1 (old vram_ddr3), 54 MHz | step 2, FIFO in logic, 54 MHz | DMA-take fix, 54 MHz | diag counters, 54 MHz |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| build | 7ec4b59 seed 72 (55a) | b294170 seed 72 (r50) | ccbf914 seed 55 (r54) | eeeb7cb seed 70 (m54) | b48a3f4 seed 41 (l2) | b06c1b6 seed 55 (l1) | f594bb5 seed 55 (l4) | 3b1761d seed 70 (l5) | e99494d seed 55 (dg) |
+| rbf md5 | 91cf7646 | 79f3db26 | 7256651e | f62d743b | 2a480467 | 6c603e11 | 902ba8db | f8371f40 | 92cc2053 |
+| ALMs | 40,398 (96 %) | 37,991 (91 %) | 38,370 (92 %) | 35,258 (84 %) | 36,499 (87 %) | 37,268 (89 %) | 36,811 (88 %) | 36,879 (88 %) | 37,863 (90 %) |
+| CPU / bus clock | 55 / 27.5 MHz | 50 / 25 MHz | 54 / 27 MHz | 54 / 27 MHz | 54 / 27 MHz | 54 / 27 MHz | 54 / 27 MHz | 54 / 27 MHz | 54 / 27 MHz |
+| timing | all met (CPU +1.103) | CPU +1.991, HDMI -0.197 | all met (CPU +0.601) | all met (CPU +0.948) | all met (CPU +1.072) | all met (CPU +0.948) | all met (CPU +0.963) | all met (CPU +0.548) | CPU +0.484, HDMI -0.026 |
+| **PR** | **2.285** | **2.123** | **2.129** | **2.321** | **2.070** | **2.211** | **2.168** | **2.044** | **2.180** |
+| PR CPU | 3.043 | 2.770 | 2.987 | 2.978 | 2.972 | 2.968 | 2.977 | 2.972 | 2.977 |
+| PR Graphics | 1.317 | 1.227 | 1.306 | 1.397 | 1.122 | 1.272 | 1.248 | 1.126 | 1.238 |
+| PR Disk | 2.670 | 2.558 | 1.952 | 2.582 | 2.608 | 2.589 | 2.439 | 2.384 | 2.582 |
+| PR Math | 28.000 | 25.962 | 27.979 | 22.439 | 22.378 | 22.439 | 22.421 | 22.381 | 22.426 |
+| Mix average (Quadra 605 = 1) | 3.271 | 2.994 | 3.231 | 3.037 | 3.014 | 3.030 | 3.028 | 3.015 | 3.028 |
+| KWhetstones/s | 2,537.1 | 2,361.1 | 2,551.8 | 2,096.6 | 2,074.3 | 2,079.9 | 2,078.6 | 2,075.6 | 2,079.6 |
+| Dhrystones/s | 41,179 | 37,561 | 40,503 | 40,509 | 40,397 | 40,436 | 40,470 | 40,403 | 40,488 |
+| Towers / Quick / Bubble (s) | 0.207 / 0.249 / 0.294 | 0.229 / 0.276 / 0.322 | 0.212 / 0.255 / 0.299 | 0.212 / 0.265 / 0.299 | 0.213 / 0.267 / 0.300 | 0.212 / 0.265 / 0.299 | 0.212 / 0.266 / 0.300 | 0.212 / 0.267 / 0.300 | 0.212 / 0.266 / 0.300 |
+| Queens / Puzzle / Permutations (s) | 0.194 / 0.435 / 0.324 | 0.214 / 0.476 / 0.360 | 0.198 / 0.441 / 0.334 | 0.198 / 0.445 / 0.334 | 0.199 / 0.447 / 0.334 | 0.198 / 0.445 / 0.334 | 0.199 / 0.445 / 0.334 | 0.199 / 0.447 / 0.334 | 0.199 / 0.446 / 0.334 |
+| Int. Matrix / Sieve (s) | 0.260 / 0.463 | 0.285 / 0.504 | 0.264 / 0.467 | 0.271 / 0.497 | 0.273 / 0.511 | 0.271 / 0.499 | 0.272 / 0.499 | 0.273 / 0.511 | 0.272 / 0.499 |
+| Color mono / 2 / 4 / 8 / 16 bit (s) | 5.482 / 6.410 / 7.406 / 9.419 / 12.556 | 6.020 / 7.029 / 8.145 / 10.360 / 13.753 | 5.777 / 6.711 / 7.786 / 9.930 / 13.238 | 5.634 / 6.483 / 7.555 / 9.773 / n/a (no 16-bit) | 6.351 / 7.310 / 8.396 / 10.603 / 14.753 | 5.604 / 6.578 / 7.616 / 9.617 / 12.954 | 5.780 / 6.798 / 7.871 / 10.045 / 13.459 | 6.302 / 7.280 / 8.332 / 10.513 / 14.680 | 5.606 / 6.565 / 7.584 / 9.734 / 12.956 |
+| FPU KWhetstones/s | 7,025.8 | 6,725.4 | 7,250.7 | 5,814.9 | 5,814.3 | 5,825.7 | 5,800.3 | 5,812.0 | 5,823.9 |
+| FPU Matrix Mult / FFT (s) | 0.445 / 0.224 | 0.477 / 0.241 | 0.441 / 0.223 | 0.510 / 0.246 | 0.514 / 0.247 | 0.510 / 0.246 | 0.511 / 0.246 | 0.514 / 0.247 | 0.511 / 0.246 |
+| FPU average (Quadra 650 = 1) | 1.407 | 1.323 | 1.427 | 1.222 | 1.218 | 1.224 | 1.221 | 1.218 | 1.222 |
 
 The two cores are within a few percent per clock: 55/50 = 1.10, and the
 current core scores 1.08-1.11x the release core's on PR CPU, Mix and the
@@ -150,3 +150,34 @@ and without the DMA-take fix, so the graphics speed follows the placement.
 | f594bb5 step 2 | 1.248 (all windows), 1.269 | | lines |
 | 3b1761d DMA-take fix | | 1.126 (all windows), 1.173 | |
 | b48a3f4 step 2, FIFO in M10K | | | 1.122 (all windows) |
+| e99494d diag counters | 1.238 (all windows) | | |
+
+**Diagnostic counter build at seed 55** (e99494d with `DIAG_COUNTERS=1`,
+3b1761d's RTL plus about 980 ALMs of counters; screenshot
+`speedometer_diag54_s55.png`).  PR Graphics 1.238 with all windows open,
+level with the other seed-55 builds (1.248, 1.272) and not the seed-70
+fix's 1.126, so this placement is a fast one.  Integer and FPU rows match.
+
+Its counters (`scratch/hw/diag_read.py` on the HPS, one-second windows)
+on the idle desktop after the run:
+
+| counter | per second |
+|---|---:|
+| clk_sys cycles | 27,000,000 |
+| clk_vid cycles | 25,175,000 |
+| scan-line requests | 28,769 (480 lines x 59.94 Hz) |
+| line DMA bursts (32 beats) | 230,151 (8.0 per line) |
+| VRAM read beats | 7,364,823 |
+| VRAM read in flight (clk_sys cycles) | 8.8 M (33 %) |
+| DDRAM_BUSY cycles | 0 |
+| RAM accesses / wait cycles | 1.03 M / 5.40 M |
+| ROM accesses / wait cycles | 235 k / 471 k |
+| no CPU request | 19.86 M (74 %) |
+
+Both clocks are exact, so the video PLL is where it should be on this
+load.  The line DMA fetches 8 bursts (2,048 bytes) a line, so it follows
+the stride, not the depth: about 27 % of the DDR3 port's clocks go to
+scanout alone.  A fixed tax like that hits mono as hard as 16-bit, which
+the earlier argument against a scanout cause overlooked; but it should be
+the same on every seed, so the slow loads still need their own counters.
+
