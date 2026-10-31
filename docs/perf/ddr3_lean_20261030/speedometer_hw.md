@@ -136,3 +136,17 @@ slow graphics follow the placement: seeds 41 and 70 slow on three RTL
 versions, seed 55 fast on two.  A seed cannot change what the logic
 does, so a path the timing analysis does not cover must be behaving
 differently, as the lines did not (they were the DMA-take race).
+
+And the decider, step 1 (b06c1b6, the release vram_ddr3) at seed 70
+(`pr_ddr3step1_54_s70.png`, a line visible at the left): PR Graphics
+1.169 (CPU 2.971, Disk 2.402, Math 21.918, PR 2.088), against 1.272 for
+the same RTL at seed 55.  Seed 70 is slow on two RTL versions and seed 55
+fast on two, and tb_vram_scan moves the same data clock for clock with
+and without the DMA-take fix, so the graphics speed follows the placement.
+
+| PR Graphics, Performance Test alone | seed 55 | seed 70 | seed 41 |
+|---|---:|---:|---:|
+| b06c1b6 step 1 | 1.272 (all windows) | 1.169 | |
+| f594bb5 step 2 | 1.248 (all windows), 1.269 | | lines |
+| 3b1761d DMA-take fix | | 1.126 (all windows), 1.173 | |
+| b48a3f4 step 2, FIFO in M10K | | | 1.122 (all windows) |
