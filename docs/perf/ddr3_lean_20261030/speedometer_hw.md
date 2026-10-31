@@ -120,3 +120,10 @@ others.  So the slow graphics did not come with the lines.  It follows
 the load (seeds 41 and 70 slow, seed 55 fast, across three different
 RTL versions), and one run per build cannot yet say whether it follows
 the seed or the power-up.
+
+A second Performance Test on the same load of 3b1761d seed 70, alone on
+the desktop (`pr_dmafix54_s70_rerun.png`): PR Graphics 1.173 (CPU 2.974,
+Disk 2.545, Math 21.959, PR 2.112), 4 % above the first run's 1.126 with
+the other Speedometer windows open.  So the Graphics row moves several
+percent with the window layout on one load, and the seed-55 / seed-70 gap
+(1.25-1.27 against 1.13-1.17) is about twice that.
