@@ -581,6 +581,9 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # issued on the dma_take clock used the old line's dma_cur_addr (fixed in 3b1761d, tb_vram_scan).
 # 3b1761d @54: seed41 36934 CPU-.113 HDMI+.146; seed55 36854 CPU-.302 HDMI-.324; seed70 36879
 # CPU+.548 HDMI+.509 hold+.253 ALL MET (rbf f8371f40, to mister192 as Q800_C_fix_seed70).
+# e99494d DIAG_COUNTERS=1 @54 (diagnostic only, ~980 ALMs): seed41 37831 CPU+.137 HDMI-.495
+# (f6b1bff6); seed55 37863 CPU+.484 HDMI-.026 (92cc2053); seed70 37901 CPU+.370 HDMI-.031
+# (290bc368); to mister192 as Q800_diag_s41/55/70.
 set_global_assignment -name SEED 41
 # 2026-09-24: NEVER grew the full BRF fit by398 ALMs; retain the better ALWAYS setting.
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
