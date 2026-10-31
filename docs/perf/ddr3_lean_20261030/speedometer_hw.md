@@ -127,3 +127,12 @@ Disk 2.545, Math 21.959, PR 2.112), 4 % above the first run's 1.126 with
 the other Speedometer windows open.  So the Graphics row moves several
 percent with the window layout on one load, and the seed-55 / seed-70 gap
 (1.25-1.27 against 1.13-1.17) is about twice that.
+
+The same test on f594bb5 seed 55, same window layout
+(`pr_ddr3lean2_54_s55_rerun.png`): PR Graphics 1.269 (CPU 2.971, Disk
+2.323, Math 21.959, PR 2.166), against the seed-70 fix's 1.173.  An 8 %
+gap like for like, and the seed-55 builds' 1.248-1.272 hold up, so the
+slow graphics follow the placement: seeds 41 and 70 slow on three RTL
+versions, seed 55 fast on two.  A seed cannot change what the logic
+does, so a path the timing analysis does not cover must be behaving
+differently, as the lines did not (they were the DMA-take race).
