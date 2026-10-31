@@ -533,8 +533,13 @@ always @(posedge clk_sys) begin
 		// DDR3 bus state machine
 		case (state)
 		S_IDLE: begin
-			// 0. A line prefetch that has waited 128 clocks goes first
-			if (dma_late && (dma_state == DMA_BURST_REQ)) begin
+			// 0. A line prefetch that has waited 128 clocks goes first.
+			// Neither DMA branch issues on a dma_take clock: dma_cur_addr
+			// still holds where the old line's fetch stopped, and the burst
+			// would land that data in slots 0-31 of the new line (the first
+			// fifth of a 16-bit row from the wrong place, on random lines,
+			// whenever a line was still fetching when the next was asked for)
+			if (dma_late && (dma_state == DMA_BURST_REQ) && !dma_take) begin
 				vram_ddr_req      <= 1'b1;
 				vram_ddr_we       <= 1'b0;
 				vram_ddr_addr     <= DDR_VRAM_BASE + {12'd0, dma_cur_addr};
@@ -567,7 +572,7 @@ always @(posedge clk_sys) begin
 				state             <= S_CPU_WRITE;
 			end
 			// 3. Line DMA burst read (32-beat bursts)
-			else if (dma_state == DMA_BURST_REQ) begin
+			else if ((dma_state == DMA_BURST_REQ) && !dma_take) begin
 				vram_ddr_req      <= 1'b1;
 				vram_ddr_we       <= 1'b0;
 				vram_ddr_addr     <= DDR_VRAM_BASE + {12'd0, dma_cur_addr};
