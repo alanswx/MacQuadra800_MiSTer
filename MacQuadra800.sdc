@@ -35,3 +35,8 @@ set_false_path -to [get_keepers {*vidrst_meta* *vbl_meta* *mon_meta*}]
 # 255 clk_sys clocks after the window edge, long after they settled.
 set_false_path -to [get_keepers {*diag_swin_meta* *diag_vwin_meta*}]
 set_false_path -from [get_keepers {*diag_vhold*}]
+
+# The pixel-clock check (pix_reconfig): clk_vid/8 into CLK_50M, and its
+# retry count, a level that changes a few times at boot, into the diag dump.
+set_false_path -to [get_keepers {*pixmon_meta*}]
+set_false_path -from [get_keepers {*pix_retries*}]

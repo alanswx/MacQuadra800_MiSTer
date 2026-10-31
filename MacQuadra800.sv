@@ -341,15 +341,55 @@ localparam [31:0] PIX_C0_STATIC = 32'h00000505;            // = rtl/pll_video.v
 // 2026-08-08).  pix_quiet holds the video reset from retarget-pending
 // until ~84 ms after the FSM has consumed it, so a monitor change presents
 // as a clean blank-and-return.
+//
+// The retarget is also CHECKED, and repeated until the clock is right: on
+// some placements (seeds 41 and 70 at 54 MHz, 2026-10-31) the boot-time
+// write was taken and the PLL stayed at the static 70.49 MHz, so a 13"
+// screen was scanned out 2.8x too often and the line DMA took ~70 % of the
+// DDR3 port instead of ~27 % -- 8-10 % off PR Graphics, nothing else wrong.
+// pixmon counts clk_vid/8 edges over 65,536 CLK_50M clocks (1.31 ms) once
+// the FSM and the settle window are idle, and a count off the divider's
+// nominal by more than 1/16 re-runs the write sequence (at most 15 times).
+reg [3:0] pixmon_div = 4'd0;
+always @(posedge clk_vid) pixmon_div <= pixmon_div + 4'd1;
+
 reg pix_quiet = 1'b0;
+reg [3:0] pix_retries = 4'd0;          // retargets the check had to repeat
 always @(posedge CLK_50M) begin : pix_reconfig
 	reg [21:0] settle = 22'd0;
 	reg [31:0] c0_cur = PIX_C0_STATIC;   // the divider the PLL powers up with
-	reg [31:0] c0_s1, c0_s2;
+	reg [31:0] c0_s1 = PIX_C0_STATIC, c0_s2 = PIX_C0_STATIC; // not 0: a
+	                                     // zero pair would retarget C0 to 0
 	reg [2:0]  state = 0;
+	reg        pixmon_meta, pixmon_s1, pixmon_s2;
+	reg [15:0] pixmon_win = 16'd0;
+	reg [13:0] pixmon_cnt = 14'd0;
+	reg [13:0] pix_lo, pix_hi;
+	reg        pix_redo;
 	c0_s1 <= pix_c0;                     // settle across clk_sys -> CLK_50M
 	c0_s2 <= c0_s1;
-	if (c0_s2 == c0_s1 && c0_s2 != c0_cur) begin
+	pixmon_meta <= pixmon_div[3];
+	pixmon_s1   <= pixmon_meta;
+	pixmon_s2   <= pixmon_s1;
+	case (c0_cur[7:0])                   // clk_vid/8 edges in 1.31 ms, +-1/16
+		8'h16:   begin pix_lo <= 14'd2406;  pix_hi <= 14'd2727;  end // 15.664 MHz
+		8'h06:   begin pix_lo <= 14'd8329;  pix_hi <= 14'd9439;  end // 54.223
+		8'h05:   begin pix_lo <= 14'd10828; pix_hi <= 14'd12271; end // 70.490
+		default: begin pix_lo <= 14'd3867;  pix_hi <= 14'd4382;  end // 25.175
+	endcase
+	pix_redo <= 1'b0;
+	if (state != 0 || settle != 0 || !pll_video_locked) begin
+		pixmon_win <= 16'd0;
+		pixmon_cnt <= 14'd0;
+	end else begin
+		pixmon_win <= pixmon_win + 16'd1;
+		if (pixmon_s1 != pixmon_s2 && pixmon_cnt != 14'h3FFF) pixmon_cnt <= pixmon_cnt + 14'd1;
+		if (pixmon_win == 16'hFFFF) begin
+			pixmon_cnt <= 14'd0;
+			if ((pixmon_cnt < pix_lo || pixmon_cnt > pix_hi) && pix_retries != 4'hF) pix_redo <= 1'b1;
+		end
+	end
+	if ((c0_s2 == c0_s1 && c0_s2 != c0_cur) || pix_redo) begin
 		settle    <= 22'h3FFFFF;
 		pix_quiet <= 1'b1;
 	end else if (settle != 0) begin
@@ -357,6 +397,7 @@ always @(posedge CLK_50M) begin : pix_reconfig
 	end else begin
 		pix_quiet <= 1'b0;
 	end
+	if (pix_redo) pix_retries <= pix_retries + 4'd1;
 	if (!pixcfg_waitrequest) begin
 		pixcfg_write <= 0;
 		if (pll_video_locked) begin
@@ -366,6 +407,7 @@ always @(posedge CLK_50M) begin : pix_reconfig
 						c0_cur <= c0_s2;
 						state  <= 1;
 					end
+					else if (pix_redo) state <= 1;
 				1: begin pixcfg_address <= 0; pixcfg_data <= 0;      pixcfg_write <= 1; end // polled mode
 				3: begin pixcfg_address <= 5; pixcfg_data <= c0_cur; pixcfg_write <= 1; end // C0 counter
 				5: begin pixcfg_address <= 2; pixcfg_data <= 0;      pixcfg_write <= 1; end // start
@@ -1224,9 +1266,10 @@ assign     vram_ddr_rvalid = ddr_wait_vram && DDRAM_DOUT_READY;
 // timed by CLK_50M, written once a window as twelve 64-bit words to DDR3
 // byte 0x2810_0000 (just past the 1 MB VRAM), where the HPS reads them
 // through /dev/mem.  Word 0 is written last and carries D1A6 and a window
-// sequence number, so a reader that sees a new sequence sees a whole window.
+// sequence number, so a reader that sees a new sequence sees a whole window;
+// the 6 of D1A6 is the pixel-clock retarget's retry count (pix_retries).
 // Counter n is word n/2, low half for even n:
-//   0 D1A6:seq          1 clk_sys cycles      2 clk_vid cycles   3 scan lines
+//   0 D1Ax:seq          1 clk_sys cycles      2 clk_vid cycles   3 scan lines
 //   4 RAM accesses      5 RAM wait cycles     6 VRAM reads       7 VRAM read wait
 //   8 VRAM hs writes    9 VRAM hs write wait 10 VRAM posted wr  11 wq full cycles
 //  12 ROM accesses     13 ROM wait cycles    14 no-request cyc  15 DDRAM_BUSY cycles
@@ -1271,7 +1314,12 @@ reg   [3:0] diag_idx = 4'd0;              // 1..12 while dumping, 12 = word 0
 reg         diag_req = 1'b0;
 reg         diag_accept = 1'b0;
 wire  [3:0] diag_addr = (diag_idx == 4'd12) ? 4'd0 : diag_idx;
-wire [63:0] diag_word = (diag_addr == 4'd0) ? {diag_snap[1], 16'hD1A6, diag_seq}
+`ifdef VIDEO_512_OFF
+wire  [3:0] diag_pix_retries = 4'd0;
+`else
+wire  [3:0] diag_pix_retries = pix_retries;
+`endif
+wire [63:0] diag_word = (diag_addr == 4'd0) ? {diag_snap[1], 12'hD1A, diag_pix_retries, diag_seq}
                       : (diag_addr == 4'd1) ? {diag_vhold_line, diag_vhold_cyc}
                       : {diag_snap[{diag_addr, 1'b1}], diag_snap[{diag_addr, 1'b0}]};
 
