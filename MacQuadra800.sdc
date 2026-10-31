@@ -29,3 +29,9 @@ set_clock_groups -asynchronous -group [get_clocks {emu|pllv|*|divclk}]
 # Belt and braces: the synchronizer heads (redundant with the group above).
 set_false_path -to [get_keepers {*fb_base_meta* *stride_meta* *mode_meta*}]
 set_false_path -to [get_keepers {*vidrst_meta* *vbl_meta* *mon_meta*}]
+
+# DIAG_COUNTERS builds only (no keepers match otherwise): the CLK_50M window
+# toggle into clk_sys / clk_vid, and the clk_vid counts, which the dump reads
+# 255 clk_sys clocks after the window edge, long after they settled.
+set_false_path -to [get_keepers {*diag_swin_meta* *diag_vwin_meta*}]
+set_false_path -from [get_keepers {*diag_vhold*}]

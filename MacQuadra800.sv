@@ -1219,9 +1219,126 @@ wire       vram_wr_ack = ddr_wait_vram_wr && !DDRAM_BUSY;
 assign     vram_ddr_ack = vram_wr_ack || vram_rd_ack;
 assign     vram_ddr_rvalid = ddr_wait_vram && DDRAM_DOUT_READY;
 
+`ifdef DIAG_COUNTERS
+// Diagnostic build only: memory-traffic counters over one-second windows
+// timed by CLK_50M, written once a window as twelve 64-bit words to DDR3
+// byte 0x2810_0000 (just past the 1 MB VRAM), where the HPS reads them
+// through /dev/mem.  Word 0 is written last and carries D1A6 and a window
+// sequence number, so a reader that sees a new sequence sees a whole window.
+// Counter n is word n/2, low half for even n:
+//   0 D1A6:seq          1 clk_sys cycles      2 clk_vid cycles   3 scan lines
+//   4 RAM accesses      5 RAM wait cycles     6 VRAM reads       7 VRAM read wait
+//   8 VRAM hs writes    9 VRAM hs write wait 10 VRAM posted wr  11 wq full cycles
+//  12 ROM accesses     13 ROM wait cycles    14 no-request cyc  15 DDRAM_BUSY cycles
+//  16 DMA bursts       17 VRAM fill bursts   18 VRAM wr beats   19 VRAM rd beats
+//  20 VRAM req pending 21 DMA req pending    22 VRAM rd in flight 23 fill req pending
+localparam [28:0] DDR_DIAG_BASE = 29'h0502_0000;   // byte 0x2810_0000 >> 3
+
+reg  [25:0] diag_div = 26'd0;
+reg         diag_win_t = 1'b0;
+always @(posedge CLK_50M) begin
+	diag_div <= (diag_div == 26'd49_999_999) ? 26'd0 : diag_div + 26'd1;
+	if (diag_div == 26'd49_999_999) diag_win_t <= ~diag_win_t;
+end
+
+// clk_vid: cycles and line requests per window, held for the next window
+reg         diag_vwin_meta, diag_vwin_s1, diag_vwin_s2;
+reg  [31:0] diag_vcyc = 32'd0, diag_vline = 32'd0;
+reg  [31:0] diag_vhold_cyc = 32'd0, diag_vhold_line = 32'd0;
+always @(posedge clk_vid) begin
+	diag_vwin_meta <= diag_win_t;
+	diag_vwin_s1   <= diag_vwin_meta;
+	diag_vwin_s2   <= diag_vwin_s1;
+	if (diag_vwin_s1 != diag_vwin_s2) begin
+		diag_vhold_cyc  <= diag_vcyc;
+		diag_vhold_line <= diag_vline;
+		diag_vcyc       <= 32'd1;
+		diag_vline      <= {31'd0, vid_line_req};
+	end
+	else begin
+		diag_vcyc  <= diag_vcyc + 32'd1;
+		diag_vline <= diag_vline + {31'd0, vid_line_req};
+	end
+end
+
+// clk_sys
+reg         diag_swin_meta, diag_swin_s1, diag_swin_s2;
+reg  [31:0] diag_cnt  [0:23];
+reg  [31:0] diag_snap [0:23];
+reg  [15:0] diag_seq = 16'd0;
+reg   [7:0] diag_delay = 8'd0;
+reg   [3:0] diag_idx = 4'd0;              // 1..12 while dumping, 12 = word 0
+reg         diag_req = 1'b0;
+reg         diag_accept = 1'b0;
+wire  [3:0] diag_addr = (diag_idx == 4'd12) ? 4'd0 : diag_idx;
+wire [63:0] diag_word = (diag_addr == 4'd0) ? {diag_snap[1], 16'hD1A6, diag_seq}
+                      : (diag_addr == 4'd1) ? {diag_vhold_line, diag_vhold_cyc}
+                      : {diag_snap[{diag_addr, 1'b1}], diag_snap[{diag_addr, 1'b0}]};
+
+wire [23:0] diag_ev;
+assign diag_ev[0]  = 1'b0;
+assign diag_ev[1]  = 1'b1;
+assign diag_ev[2]  = 1'b0;
+assign diag_ev[3]  = 1'b0;
+assign diag_ev[4]  = mem_req && mem_is_ram && mem_ack;
+assign diag_ev[5]  = mem_req && mem_is_ram && !mem_ack;
+assign diag_ev[6]  = mem_req && mem_is_vram && !mem_write && mem_ack;
+assign diag_ev[7]  = mem_req && mem_is_vram && !mem_write && !mem_ack;
+assign diag_ev[8]  = mem_req && mem_is_vram && mem_write && mem_ack;
+assign diag_ev[9]  = mem_req && mem_is_vram && mem_write && !mem_ack;
+assign diag_ev[10] = mem_vram_wp;
+assign diag_ev[11] = !vram_wq_room;
+assign diag_ev[12] = mem_req && mem_is_rom && mem_ack;
+assign diag_ev[13] = mem_req && mem_is_rom && !mem_ack;
+assign diag_ev[14] = !mem_req;
+assign diag_ev[15] = DDRAM_BUSY;
+assign diag_ev[16] = vram_rd_ack && (vram_ddr_burstcnt == 8'd32);
+assign diag_ev[17] = vram_rd_ack && (vram_ddr_burstcnt == 8'd4);
+assign diag_ev[18] = vram_wr_ack;
+assign diag_ev[19] = vram_ddr_rvalid;
+assign diag_ev[20] = vram_ddr_req && !vram_ddr_ack;
+assign diag_ev[21] = vram_ddr_req && !vram_ddr_we && (vram_ddr_burstcnt == 8'd32) && !vram_ddr_accept;
+assign diag_ev[22] = ddr_wait_vram;
+assign diag_ev[23] = vram_ddr_req && !vram_ddr_we && (vram_ddr_burstcnt == 8'd4) && !vram_ddr_accept;
+
+integer diag_i;
+initial for (diag_i = 0; diag_i < 24; diag_i = diag_i + 1) begin diag_cnt[diag_i] = 32'd0; diag_snap[diag_i] = 32'd0; end
+
+always @(posedge clk_sys) begin
+	diag_swin_meta <= diag_win_t;
+	diag_swin_s1   <= diag_swin_meta;
+	diag_swin_s2   <= diag_swin_s1;
+	if (diag_swin_s1 != diag_swin_s2) begin
+		for (diag_i = 0; diag_i < 24; diag_i = diag_i + 1) begin
+			diag_snap[diag_i] <= diag_cnt[diag_i];
+			diag_cnt[diag_i]  <= {31'd0, diag_ev[diag_i]};
+		end
+		diag_seq   <= diag_seq + 16'd1;
+		diag_delay <= 8'd255;              // let the clk_vid hold settle
+		diag_idx   <= 4'd0;
+		diag_req   <= 1'b0;
+	end
+	else begin
+		for (diag_i = 0; diag_i < 24; diag_i = diag_i + 1)
+			diag_cnt[diag_i] <= diag_cnt[diag_i] + {31'd0, diag_ev[diag_i]};
+		if (diag_delay != 8'd0) begin
+			diag_delay <= diag_delay - 8'd1;
+			if (diag_delay == 8'd1) begin diag_idx <= 4'd1; diag_req <= 1'b1; end
+		end
+		else if (diag_accept) begin
+			if (diag_idx == 4'd12) diag_req <= 1'b0;
+			else diag_idx <= diag_idx + 4'd1;
+		end
+	end
+end
+`endif
+
 always @(posedge clk_sys) begin
 	mem_ack_r <= 0;
 	eth_mem_accept <= 0;
+`ifdef DIAG_COUNTERS
+	diag_accept <= 0;
+`endif
 	vram_rd_ack <= 0;
 	rom_cache_fill_we <= 0;
 
@@ -1369,6 +1486,17 @@ always @(posedge clk_sys) begin
 			ddr_wait_eth   <= !eth_mem_we;
 			eth_mem_accept <= 1;
 		end
+`ifdef DIAG_COUNTERS
+		// The diagnostic counters' once-a-second dump, behind everything
+		else if (diag_req && !diag_accept) begin
+			ddram_addr     <= DDR_DIAG_BASE | {25'd0, diag_addr};
+			ddram_din      <= diag_word;
+			ddram_be       <= 8'hFF;
+			ddram_burstcnt <= 8'd1;
+			ddram_we       <= 1;
+			diag_accept    <= 1;
+		end
+`endif
 		// RAM beats are sdram_beat32's; nothing here gates them, so a RAM
 		// access never waits on the DDR3 side of this block.
 	end
