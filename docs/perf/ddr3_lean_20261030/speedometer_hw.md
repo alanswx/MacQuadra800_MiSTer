@@ -150,7 +150,7 @@ and without the DMA-take fix, so the graphics speed follows the placement.
 | f594bb5 step 2 | 1.248 (all windows), 1.269 | | lines |
 | 3b1761d DMA-take fix | | 1.126 (all windows), 1.173 | |
 | b48a3f4 step 2, FIFO in M10K | | | 1.122 (all windows) |
-| e99494d diag counters | 1.238 (all windows) | | |
+| e99494d diag counters | 1.238 (all windows) | 1.173 | |
 
 **Diagnostic counter build at seed 55** (e99494d with `DIAG_COUNTERS=1`,
 3b1761d's RTL plus about 980 ALMs of counters; screenshot
@@ -180,4 +180,35 @@ the stride, not the depth: about 27 % of the DDR3 port's clocks go to
 scanout alone.  A fixed tax like that hits mono as hard as 16-bit, which
 the earlier argument against a scanout cause overlooked; but it should be
 the same on every seed, so the slow loads still need their own counters.
+
+**The cause: the seed-70 load runs the pixel clock at 70.49 MHz.**  The
+same diagnostic RTL at seed 70 (`Q800_diag_s70.rbf`, md5 290bc368;
+screenshot `pr_diag54_s70.png`, counters for the whole Performance Test
+in `diag_counters_s70_pr.txt`) scored PR Graphics 1.173, slow like the
+other seed-70 loads, and its counters say why:
+
+| per second | seed 55 (fast), idle | seed 70 (slow), idle | seed 70, PR test average |
+|---|---:|---:|---:|
+| clk_sys cycles | 27,000,000 | 27,000,000 | 27,000,000 |
+| clk_vid cycles | **25,175,000** | **70,490,000** | 70,490,000 |
+| scan-line requests | 28,769 | 80,553 | 80,559 |
+| line DMA bursts | 230,151 | 597,952 | 579,667 |
+| VRAM read beats | 7.36 M | 19.14 M | 18.61 M |
+| VRAM read in flight (of 27 M clocks) | 8.8 M | 23.4 M | 22.7 M |
+
+pllv powers up at its static 70.49 MHz (the 21" divider, so that STA
+covers every monitor) and is retargeted to 25.175 MHz at boot for the
+13" screen.  On this load the retarget did not take: the 640x480 frame
+was scanned out 168 times a second, the line DMA took ~70 % of the DDR3
+port's clocks instead of ~27 %, and every VRAM drawing access queued
+behind it.  The HDMI scaler hides the rate, so the screen looked right.
+That explains every observation: the same 8-10 % loss at every colour
+depth (the DMA load follows the stride, not the depth), integer and FPU
+untouched, consistent per bitstream, and independent of the RTL under
+test.  Why the write does not take on some placements is still open (the
+framework's trimmed pll_cfg_hdmi core, the DPRIO path to the PLL);
+e960c5d makes it not matter: pix_reconfig measures clk_vid against
+CLK_50M after each retarget and repeats the write until the rate is
+right (bench `verilator/tb_pix_retarget.sv`), with the retry count in the
+diag dump.
 
