@@ -584,6 +584,10 @@ set_global_assignment -name ALM_REGISTER_PACKING_EFFORT MEDIUM
 # e99494d DIAG_COUNTERS=1 @54 (diagnostic only, ~980 ALMs): seed41 37831 CPU+.137 HDMI-.495
 # (f6b1bff6); seed55 37863 CPU+.484 HDMI-.026 (92cc2053); seed70 37901 CPU+.370 HDMI-.031
 # (290bc368); to mister192 as Q800_diag_s41/55/70.
+# e960c5d (pixel-clock retarget check) @54: DIAG seed41 37718 all met CPU+.944 HDMI+.106
+# (6963acdc, Q800_diag2_s41); DIAG seed70 37689 CPU-.284; plain seed55 36991 all met
+# CPU+.339 HDMI+.244 (40235aa8, Q800_pixfix_s55); plain seed70 36996 all met CPU+.495
+# HDMI+.579 hold+.159 (a2792d8c, Q800_pixfix_s70).
 set_global_assignment -name SEED 41
 # 2026-09-24: NEVER grew the full BRF fit by398 ALMs; retain the better ALWAYS setting.
 set_global_assignment -name FITTER_AGGRESSIVE_ROUTABILITY_OPTIMIZATION ALWAYS
