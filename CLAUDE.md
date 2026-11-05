@@ -1,8 +1,13 @@
 # MacQuadra800_MiSTer — working notes for Claude
 
-Start with [RESUME-20261024-dual-memory-and-fpu.md](RESUME-20261024-dual-memory-and-fpu.md)
-for the current dual-issue memory branch, completed FPU trial, saved checkpoints,
-open 66 MHz timing work and restored hardware state.
+Start with [RESUME-20261105-ddr3-lean-and-pixclock.md](RESUME-20261105-ddr3-lean-and-pixclock.md)
+for the current branch (`dual-memory-ddr3-lean`: the DDR3 video back at 88 %
+at 54 MHz), the two video bugs found there that the 20261027 release also
+has (the line-DMA take race and the pixel-clock retarget that silently
+fails on some placements), the hardware runs still owed and the state of
+mister192.  Before it, [RESUME-20261024-dual-memory-and-fpu.md](RESUME-20261024-dual-memory-and-fpu.md)
+has the dual-issue memory branch, completed FPU trial, saved checkpoints
+and open 66 MHz timing work.
 
 For earlier release history, read [RESUME-20261002-release-and-scaler.md](RESUME-20261002-release-and-scaler.md):
 the state after the 20261002 release (three fixes, one known scaler fault),

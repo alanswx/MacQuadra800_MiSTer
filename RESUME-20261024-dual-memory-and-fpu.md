@@ -2,6 +2,8 @@
 
 ## Resume here
 
+*Superseded for current work by `RESUME-20261105-ddr3-lean-and-pixclock.md`.*
+
 The working checkout is `pipelined-040-dual-memory`. Its last hardware-
 qualified checkpoint is `6bfd9c0103f569c6cd951036d1c832eeb2f81f67`, tagged
 `pipelined-040-dual-memory-20261023`. This handoff advances documentation

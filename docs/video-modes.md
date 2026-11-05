@@ -40,6 +40,15 @@ reason.  The dividers are the integer taps of the one 704.9 MHz VCO in
   reset, before the ROM runs (the 12" option has booted that way since it
   shipped).  A `VIDEO_512_OFF` build (no reconfig block) keeps /28 as the
   static tap and is fixed at 13".
+- **The retarget can silently fail** (2026-10-31, branch
+  `dual-memory-ddr3-lean`): on some placements the write sequence was
+  taken and the PLL stayed at 70.49 MHz, so a 13" screen was scanned 168
+  times a second -- a normal picture through the scaler, but the line DMA
+  took ~70 % of the DDR3 port and PR Graphics lost 8-10 %.  Since
+  `e960c5d`, `pix_reconfig` measures clk_vid against CLK_50M after each
+  retarget and repeats the write until the rate is within 1/16 of nominal
+  (at most 15 times; `verilator/tb_pix_retarget.sv`).  The 20261027
+  release does not have the check.
 - `rtl/vram_ddr3.sv`: nothing to change.  The ping-pong scanline cache holds
   4096 bytes per line (1024 x 32-bit words), enough for 1152 px at 8 bpp, 832
   or 1024 px at 16 bpp and 640 px at 32 bpp; the line DMA fetches

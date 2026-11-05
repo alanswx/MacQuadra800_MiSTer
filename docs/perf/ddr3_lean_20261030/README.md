@@ -66,3 +66,27 @@ fits repeated b48a3f4's numbers exactly.  f594bb5 declares the data as one
 About 460 ALMs under step 1 (one read mux and the burst scanner's
 adders, not the flip-flops).  Seed 41's rbf (md5 2c611cb5) is on mister192
 as `_Development/MacQuadra800_ddr3lean2_54mhz_s41_261030.rbf`.
+
+## The DMA-take fix, the counters and the pixel-clock check (2026-10-31)
+
+f594bb5 at seed 41 and b06c1b6 (step 1) at seed 70 still drew lines: the
+DMA-take race in vram_ddr3 (fixed in 3b1761d, `verilator/tb_vram_scan.sv`).
+The seed-dependent graphics loss was the pixel clock left at 70.49 MHz
+(found with the `DIAG_COUNTERS` build e99494d, fixed in e960c5d); see
+`speedometer_hw.md` and `RESUME-20261105-ddr3-lean-and-pixclock.md`.
+
+| build | seed | ALMs | CPU | HDMI | CPU hold | rbf |
+|---|---|---:|---:|---:|---:|---|
+| 3b1761d | 41 | 36,934 (88 %) | -0.113 | +0.146 | +0.168 | fe9a2987 |
+| 3b1761d | 55 | 36,854 (88 %) | -0.302 | -0.324 | +0.131 | 5db8c914 |
+| 3b1761d | 70 | 36,879 (88 %) | +0.548 | +0.509 | +0.253 | f8371f40 |
+| e99494d diag | 41 | 37,831 (90 %) | +0.137 | -0.495 | +0.240 | f6b1bff6 |
+| e99494d diag | 55 | 37,863 (90 %) | +0.484 | -0.026 | +0.133 | 92cc2053 |
+| e99494d diag | 70 | 37,901 (90 %) | +0.370 | -0.031 | +0.136 | 290bc368 |
+| e960c5d diag | 41 | 37,718 (90 %) | +0.944 | +0.106 | +0.121 | 6963acdc |
+| e960c5d diag | 70 | 37,689 (90 %) | -0.284 | +0.538 | +0.118 | a112b8b6 |
+| e960c5d | 55 | 36,991 (88 %) | +0.339 | +0.244 | +0.129 | 40235aa8 |
+| e960c5d | 70 | 36,996 (88 %) | +0.495 | +0.579 | +0.159 | a2792d8c |
+
+The counters cost about 950 ALMs; the pixel-clock check about 110.
+
